@@ -3,6 +3,9 @@
 > 실시간 위치 기반 의료·돌봄 인력 매칭 앱
 > 요양병원·중소병원 야간 간호사 시프트부터 시작해 의료/돌봄 전문직 전반으로 확장한다.
 
+> **브랜드 (2026-06-10 결정):** `Atman`은 프로젝트 코드네임. 외부 브랜드는 **법인 케셰르 / Kesher** (히브리어 "매듭·연결") + **서비스명 잇닿 / Itdat** (한국어 "잇닿다(이어져 맞닿다)" 어간).
+> 도메인: `itdat.co.kr` (등록 예정)
+
 ---
 
 ## 1. 무엇을 만드는가
@@ -90,7 +93,7 @@
 
 - ✅ 카카오 소셜 로그인 (워커 / 고용주 공통)
 - ✅ 워커 프로필 + 자격증 사진 업로드 (수기 검수)
-- ✅ 선호 지역 등록 (최대 3개, 카카오맵 SDK)
+- ✅ 선호 지역 등록 (**최대 2개, 당근앱식**, 카카오맵 SDK)
 - ✅ 고용주: 시프트 게시 (위치, 시간, 시급, 필요 자격)
 - ✅ PostGIS 반경 매칭 (Edge Function)
 - ✅ Expo Push 즉시 알림
@@ -135,7 +138,8 @@ users          (auth.users 연결, 공통 프로필)
   ├─ workers          (워커 전용: 자격증, 선호도)
   └─ employers        (고용주 전용: 시설 정보)
 
-worker_preferences  (워커별: 선호 지역 3개, 시급 하한, 가능 시간대)
+worker_preferences  (워커별: 선호 지역 2개, 시급 하한, 고용형태, 근무시간 범위)
+worker_preferred_areas  (당근식 지역 핀: name, center geography, radius_m, is_active)
 
 shifts              (시프트: 위치, 시간, 시급, 필요 자격)
   └─ shift_applications  (신청 ↔ 수락)
@@ -167,6 +171,100 @@ WHERE
   AND :shift_hourly_wage >= COALESCE(wp.min_hourly_wage, 0)
   AND wp.notification_enabled = true;
 ```
+
+### 매칭 알고리즘 — 양방향 OR (2026-06-10 결정)
+
+워커는 두 경로 중 하나라도 만족하면 시프트 푸시를 받는다.
+
+**방향 A. 시설 → 반경 내 워커 (옵트인, Phase 1 후반)**
+
+```
+시설이 시프트 등록
+   → facilities.notification_radius_m (기본 5km) 안에
+     현재 위치(workers.location)가 있는 워커 추출
+   → 워커가 "현재 위치 기반 알림" 명시 동의 시에만 작동
+   → 배터리·프라이버시 보호: foreground GPS만 사용 (background 추적 X)
+```
+
+**방향 B. 워커 선호 지역 → 시프트 (MVP 기본 경로)**
+
+```
+워커가 미리 등록한 worker_preferred_areas 2개 (당근앱식)
+   → 시프트 위치가 워커 선호 지역 반경(기본 2km) 안에 있으면 푸시
+   → 정적 데이터 (GPS 실시간 추적 불필요)
+   → 출시 직후 기본 활성화
+```
+
+→ **둘은 OR 조건으로 결합.** 한 쿼리에 통합 가능.
+
+```sql
+WHERE
+  ST_DWithin(w.location, :shift_location, :facility_radius)    -- A
+  OR
+  ST_DWithin(:shift_location, wpa.center, wpa.radius_m)         -- B
+```
+
+### 추가 필터 (워커 측 선호도)
+
+매칭 SQL의 1차 필터로 적용 — 알림 폭주 사전 방지.
+
+| 필터 | 컬럼 | 비고 |
+|---|---|---|
+| 최소 시급 | `worker_preferences.min_hourly_rate` | 기존 |
+| 선호 고용형태 | `worker_preferences.preferred_employment_types TEXT[]` | `['day', 'night', 'weekend', 'short', 'long']` |
+| 근무시간 범위 | `min_shift_hours`, `max_shift_hours` | 신규 |
+
+### 운영 디자인 — 3가지 이슈 사전 결정
+
+| 이슈 | MVP 대응 | Phase 2 검토 |
+|---|---|---|
+| **알림 폭주** | 매칭 결과 `LIMIT 100` + 거리순 정렬 (가까운 워커 우선) | 매칭 점수(거리+시급 적합도+평점) 상위 30명 단계 발송 |
+| **프라이버시·배터리** | 방향 B(선호지역)만 출시 기본. 방향 A는 명시 동의 + foreground GPS만 | 백그라운드 위치 옵트인 (장점 안내 + 거부 자유 보장) |
+| **공정성 (선착순 vs 적합도)** | 거리순 발송 — 가까운 워커가 자연스럽게 우선 | 단계 발송: 1차(상위 30명) → 5분 미응답 → 2차(다음 30명). IntelyCare 모델 차용 |
+
+### 스키마 보강 (Phase 1 후반)
+
+```sql
+-- 시설 알림 반경 설정
+ALTER TABLE facilities
+  ADD COLUMN notification_radius_m INTEGER DEFAULT 5000;
+
+-- 워커 선호 지역 정규화 테이블 (당근식)
+CREATE TABLE worker_preferred_areas (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  worker_id UUID REFERENCES workers(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,                       -- "강남역", "역삼동"
+  center geography(POINT, 4326) NOT NULL,
+  radius_m INTEGER DEFAULT 2000,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_wpa_active ON worker_preferred_areas
+  USING GIST (center) WHERE is_active;
+
+-- is_active 최대 2개 제약 트리거
+CREATE FUNCTION enforce_max_2_areas() RETURNS TRIGGER AS $$
+BEGIN
+  IF (SELECT COUNT(*) FROM worker_preferred_areas
+      WHERE worker_id = NEW.worker_id AND is_active) >= 2 THEN
+    RAISE EXCEPTION '선호 지역은 최대 2개까지 등록 가능합니다';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_max_2_areas BEFORE INSERT ON worker_preferred_areas
+  FOR EACH ROW WHEN (NEW.is_active) EXECUTE FUNCTION enforce_max_2_areas();
+
+-- 워커 필터 보강
+ALTER TABLE worker_preferences
+  ADD COLUMN preferred_employment_types TEXT[],
+  ADD COLUMN min_shift_hours INTEGER,
+  ADD COLUMN max_shift_hours INTEGER;
+```
+
+성능 영향: 기존 PostGIS PoC ~28ms(10K warm) → 양방향 OR + 필터 추가 시 ~50-80ms 예상. 임계치 100ms 이내 유지.
 
 ---
 
@@ -549,3 +647,4 @@ pnpm add react-native-qrcode-svg
 
 - 2026-06-02 — 초안 (긱워커 매칭 일반)
 - 2026-06-02 — 1차 정리 (요양병원 간호사 시프트 피벗, 즉시 정산 모델, 한국 규제 정리, Unit Economics)
+- 2026-06-10 — 브랜드 결정 (법인 케셰르 / 서비스 잇닿) + 매칭 알고리즘 양방향 OR 명세 (방향 A 시설 반경 옵트인 + 방향 B 워커 선호지역 2개 당근식) + 알림 폭주·프라이버시·공정성 운영 디자인 + worker_preferred_areas 스키마 보강
