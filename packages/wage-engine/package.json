@@ -1,0 +1,11 @@
+{
+  "name": "@itdat/wage-engine",
+  "version": "0.1.0",
+  "description": "한국 근로기준법 법정수당 계산 엔진 (순수 함수·룰 버전드)",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "node --experimental-strip-types src/index.test.ts"
+  },
+  "license": "UNLICENSED"
+}
