@@ -1,0 +1,24 @@
+{
+  "name": "@itdat/admin-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "잇닿 사장님 관리자 대시보드 (40대+ 소상공인 심플 UI)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "20.14.0",
+    "@types/react": "18.3.3",
+    "autoprefixer": "10.4.19",
+    "postcss": "8.4.40",
+    "tailwindcss": "3.4.7",
+    "typescript": "5.5.4"
+  }
+}

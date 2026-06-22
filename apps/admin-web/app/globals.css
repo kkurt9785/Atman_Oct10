@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 기본 = 모던(16px). rem 기반이라 root만 키우면 글씨·아이콘 전체가 함께 커짐 */
+:root { font-size: 16px; }
+html.big-text { font-size: 20px; }   /* 토스식 큰글씨 모드 (×1.25) */
+
+html, body { background: #F2F4F6; color: #191F28; }
+body {
+  font-family: 'Apple SD Gothic Neo', 'Pretendard', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
