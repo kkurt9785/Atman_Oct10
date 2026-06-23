@@ -47,6 +47,23 @@
 
 ---
 
+### 1.4 멤버십·크레딧 — 지속형 retention (오늘의집式 커스텀)
+
+일회성이 아니라 **"매 주기 써야 이득"** 으로 커스텀해 이탈 방지.
+
+| 장치 | 작동 | 효과 |
+|---|---|---|
+| 가입 즉시 회비 100% 크레딧 페이백 | `signup_payback` (실부담 0) | 가입장벽 0 |
+| **주기별 조건부 재페이백** | 그 주기 사용액 ≥ 기준 → 회비 크레딧 재환급 (`cycle_payback`) | **계속 써야 회비 0원** |
+| 크레딧 유효기간 소멸 | `expires_at` 지나면 잔액 자동 제외 | 손실회피 → 재방문 |
+| 등급/연속이용 | `membership_tiers`(적립률·기준), `consecutive_cycles` | 끊기 아깝게 |
+| 크레딧 = fee에만 사용 | `credit_ledger` spend | 적립↔사용 flywheel |
+
+구현: `supabase/migrations/20260623000000_membership_credits.sql`
+- `membership_tiers`(데이터로 회비·적립률·페이백기준 튜닝) · `memberships`(주기·연속이용) · `credit_ledger`(원장)
+- 함수: `start_membership` / `close_membership_cycle`(주기마감 재페이백+롤오버) / `org_credit_balance`
+- 멤버십 = bundle(통합) entitlement 동시 부여 → §1.1 통합유도와 결합. (검증: 가입 9,900 페이백 → 주기 사용 시 재페이백 동작 확인)
+
 ## 2. 데이터 모델
 
 ### 2.1 코어 일반화 (확장성 토대) — "헬스케어 전용 → 범용"
