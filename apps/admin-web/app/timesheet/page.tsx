@@ -1,7 +1,10 @@
 import { Card, SectionTitle, StatusBadge } from '@/components/ui';
-import { STAFF, hours } from '@/lib/mock';
+import { getStaff } from '@/lib/db/staff';
+import { hours } from '@/lib/mock';
 
-export default function TimesheetPage() {
+export default async function TimesheetPage() {
+  const staff = await getStaff();
+
   return (
     <main className="px-4">
       <h1 className="text-display font-extrabold text-ink mt-3 mb-3 px-1">근태</h1>
@@ -13,7 +16,7 @@ export default function TimesheetPage() {
 
       <SectionTitle>오늘 출퇴근</SectionTitle>
       <Card className="divide-y divide-line p-0">
-        {STAFF.map((s) => (
+        {staff.map((s) => (
           <div key={s.id} className="flex items-center justify-between px-5 py-4">
             <div>
               <p className="text-body font-bold text-ink">{s.name}</p>
