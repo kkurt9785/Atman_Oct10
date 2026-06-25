@@ -1,0 +1,14 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { background-color: #F2F4F6; }
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+  * { -webkit-tap-highlight-color: transparent; }
+}
+
+@layer utilities {
+  .letter-tight { letter-spacing: -0.5px; }
+}
