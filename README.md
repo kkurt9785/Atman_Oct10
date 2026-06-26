@@ -799,6 +799,79 @@ LTV 합산: 시프트 마진 (20만) + 스토어 마진 (10년 60만+) = **70만
 
 ---
 
+## 21. 개발 현황 (2026-06-26)
+
+### 모노레포 구조
+
+```
+atman/
+├── apps/
+│   ├── admin-web/        # 시설 관리자 웹 (Next.js 14, port 3002)
+│   └── worker-web/       # 워커 온보딩·앱 (Next.js 14, port 3003)
+├── packages/
+│   └── wage-engine/      # 법정수당 계산 엔진 (RULESET_2026, 최저시급 10,320원)
+└── supabase/
+    └── migrations/       # 로컬 DB 마이그레이션 5개 적용 완료
+```
+
+### 완료된 작업
+
+**Supabase 마이그레이션 (5개, 모두 로컬 적용)**
+
+| 파일 | 내용 |
+|---|---|
+| `20260603000000_initial_schema.sql` | 초기 스키마 |
+| `20260622120000_gig_hr_expansion.sql` | facilities 일반화, 과금, RLS |
+| `20260622130000_hr_payroll.sql` | 임금계산·명세서·급여대장 |
+| `20260623000000_membership_credits.sql` | 멤버십·크레딧 시스템 |
+| `20260626000000_profiles_role.sql` | profiles 테이블 (role: worker\|admin), 회원가입 auto-insert 트리거 |
+| `20260626100000_worker_location_prefs.sql` | 워커 알림 지역 설정 (최대 2개, JSONB) |
+
+**apps/admin-web** (port 3002)
+- Supabase 실데이터 연결 완료 (service_role key, server-side only)
+- 대시보드, 급여, 멤버십·크레딧 5탭 구성
+- `lib/db/{shop,staff,payroll,membership}.ts` — 실데이터/목업 fallback 구조
+
+**apps/worker-web** (port 3003)
+- 워커 온보딩 10단계 wizard (Toss 디자인 시스템)
+  - Splash → 약관·생년월일 → 역할선택 → 지역설정 → 면허업로드 → 신분증 → 계좌 → OTP → 심사대기 → 승인
+- 지역 설정: 현재 위치(자동) + 추가 지역 1곳 선택, 각각 반경 슬라이더
+- OTP 인증 완료 후 `worker_location_prefs` Supabase 저장 연결
+- Toss 디자인 토큰: Primary `#3182F6`, BG `#F2F4F6`, Pretendard
+
+**packages/wage-engine**
+- 법정수당 계산 엔진, 19개 테스트 통과
+- 최저시급 10,320원 (RULESET_2026) 적용
+
+### 로컬 개발 환경
+
+```bash
+# Supabase 로컬 (Docker)
+cd atman && npx supabase start
+# Studio: http://127.0.0.1:54323
+# API:    http://127.0.0.1:54321
+
+# admin-web
+cd apps/admin-web && npm run dev   # http://localhost:3002
+
+# worker-web
+cd apps/worker-web && npm run dev  # http://localhost:3003/onboarding
+```
+
+### 다음 단계
+
+1. **카카오 OAuth** — `itdot.co.kr` 도메인 심사 완료 후 Kakao Developers 앱 생성 + Supabase 연결
+2. **시프트 등록 폼** (admin) + **시프트 목록·지원** (worker) — 실 유저 검증 최소 기능
+3. **배포** — worker-web=`itdot.co.kr`, admin-web=`admin.itdot.co.kr`
+4. **실 유저 검증** — 지인 간호사 5명 온보딩, 요양원 1곳 시프트 등록
+
+### 도메인
+
+- 외부 서비스명: **잇닿 / itdot**
+- 도메인: `itdot.co.kr` (2026-06-25 등록, 심사 중)
+
+---
+
 ## 라이선스
 
 미정. MVP 검증 단계.
@@ -811,3 +884,4 @@ LTV 합산: 시프트 마진 (20만) + 스토어 마진 (10년 60만+) = **70만
 - 2026-06-02 — 1차 정리 (요양병원 간호사 시프트 피벗, 즉시 정산 모델, 한국 규제 정리, Unit Economics)
 - 2026-06-10 — 브랜드 결정 (법인 케셰르 / 서비스 잇닿) + 매칭 알고리즘 양방향 OR 명세 (방향 A 시설 반경 옵트인 + 방향 B 워커 선호지역 2개 당근식) + 알림 폭주·프라이버시·공정성 운영 디자인 + worker_preferred_areas 스키마 보강
 - 2026-06-12 — 시드 전략 §20 신설: 수원 4개 구 베타 (영통→권선→장안→팔달), 보상 구조 (가입 커피 / 첫 매칭 3만 / 추천 양쪽 1만), 적립금 +2% 보너스·12개월 만료·결제 50% 한도, 차등 수수료 (응급 15% / 일반 12% / 정기 10%, 베타 50% 할인), 간호용품 스토어 드롭시핑 모델 채택, Unit Economics (LTV/CAC 35배), 유입 채널 Top 5 (노무사 제휴·단톡방·요양병원협회·콘텐츠·휴직 풀), MVP/Phase 2 부가가치 lock-in 단계 분리
+- 2026-06-26 — 개발 현황 §21 신설: 모노레포 구조, 마이그레이션 6개, admin-web Supabase 연결, worker-web 10단계 온보딩 wizard, worker_location_prefs 저장 연결, wage-engine 19테스트, 도메인 itdot.co.kr 등록

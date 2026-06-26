@@ -2,49 +2,162 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 
-export function ActivityArea({ onNext }: { onNext: () => void }) {
-  const [radius, setRadius] = useState(5);
+type Area = { label: string; radius: number };
+
+const PinIcon = ({ color = '#3182F6' }: { color?: string }) => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+    <path d="M8 1.5C5.515 1.5 3.5 3.515 3.5 6c0 3.75 4.5 9 4.5 9s4.5-5.25 4.5-9c0-2.485-2.015-4.5-4.5-4.5zm0 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" fill={color}/>
+  </svg>
+);
+
+const RadiusSlider = ({ value, onChange }: { value: number; onChange: (v: number) => void }) => (
+  <div>
+    <div className="flex items-center justify-between mb-2">
+      <span className="text-[14px] font-medium text-sub">알림 반경</span>
+      <span className="text-[13px] font-bold text-primary bg-primary-light px-3 py-1 rounded-full">
+        반경 {value}km
+      </span>
+    </div>
+    <input type="range" min={1} max={20} value={value}
+      onChange={(e) => onChange(Number(e.target.value))}
+      className="w-full h-1.5 rounded-full accent-primary cursor-pointer" />
+    <div className="flex justify-between mt-1">
+      <span className="text-[11px] text-tertiary">1km</span>
+      <span className="text-[11px] text-tertiary">20km</span>
+    </div>
+  </div>
+);
+
+const SUGGESTIONS = ['서울 강남구', '서울 송파구', '서울 마포구', '서울 종로구', '경기 성남시', '경기 수원시'];
+
+export type AreaPref = { label: string; radius_km: number };
+
+export function ActivityArea({ onNext }: { onNext: (areas: AreaPref[]) => void }) {
+  const [primary] = useState<Area>({ label: '강남구 역삼동', radius: 5 });
+  const [primaryRadius, setPrimaryRadius] = useState(5);
+  const [second, setSecond] = useState<Area | null>(null);
+  const [secondRadius, setSecondRadius] = useState(5);
+  const [showSearch, setShowSearch] = useState(false);
+  const [query, setQuery] = useState('');
+
+  const filtered = SUGGESTIONS.filter((s) => !query || s.includes(query));
+
+  function selectSecond(label: string) {
+    setSecond({ label, radius: secondRadius });
+    setShowSearch(false);
+    setQuery('');
+  }
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
       <p className="text-[13px] font-medium text-tertiary mb-2">단계 2 / 정보 입력</p>
-      <h1 className="text-[28px] font-bold text-ink letter-tight mb-6">어디서 일하실래요?</h1>
+      <h1 className="text-[28px] font-bold text-ink letter-tight mb-1">
+        시프트 알림 받을<br />지역을 설정해요
+      </h1>
+      <p className="text-[15px] text-sub mb-6">
+        해당 지역에 시프트가 열리면 바로 알려드려요
+      </p>
 
-      {/* Map placeholder */}
-      <div className="w-full rounded-card overflow-hidden bg-[#E8EDF2] flex-shrink-0 mb-5 flex flex-col items-center justify-center gap-2" style={{ height: '56vw', maxHeight: 240 }}>
-        <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-          <path d="M18 3C12.477 3 8 7.477 8 13c0 8.25 10 20 10 20s10-11.75 10-20c0-5.523-4.477-10-10-10zm0 13.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" fill="#8B95A1"/>
+      {/* 지도 placeholder */}
+      <div className="w-full rounded-card overflow-hidden bg-[#E8EDF2] flex-shrink-0 mb-5 flex flex-col items-center justify-center gap-2"
+        style={{ height: '40vw', maxHeight: 180 }}>
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10zm0 13a3 3 0 110-6 3 3 0 010 6z" fill="#8B95A1"/>
         </svg>
-        <span className="text-[13px] text-tertiary">카카오맵</span>
+        <span className="text-[12px] text-tertiary">카카오맵</span>
       </div>
 
-      {/* Current location */}
-      <div className="flex items-center gap-2 mb-6">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="3" fill="#3182F6"/>
-          <circle cx="8" cy="8" r="7" stroke="#3182F6" strokeWidth="1.5" fill="none"/>
-        </svg>
-        <span className="text-[15px] text-ink font-medium">현재 위치: 강남구 역삼동</span>
-      </div>
-
-      {/* Radius slider */}
-      <div className="mb-8">
+      {/* 1번 지역 — 현재 위치 (자동, 고정) */}
+      <div className="bg-white rounded-card shadow-card p-4 mb-3 border-2 border-primary">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[15px] font-medium text-ink">활동 반경</span>
-          <span className="text-[13px] font-semibold text-primary bg-primary-light px-3 py-1 rounded-full">반경 {radius}km</span>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[12px] font-bold">1</div>
+            <span className="text-[15px] font-bold text-ink">현재 위치</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-bg px-2.5 py-1 rounded-full">
+            <PinIcon />
+            <span className="text-[13px] font-medium text-sub">{primary.label}</span>
+          </div>
         </div>
-        <input
-          type="range" min={1} max={20} value={radius}
-          onChange={(e) => setRadius(Number(e.target.value))}
-          className="w-full h-1.5 rounded-full accent-primary cursor-pointer"
-        />
-        <div className="flex justify-between mt-1.5">
-          <span className="text-[12px] text-tertiary">1km</span>
-          <span className="text-[12px] text-tertiary">20km</span>
-        </div>
+        <RadiusSlider value={primaryRadius} onChange={setPrimaryRadius} />
       </div>
 
-      <Button onClick={onNext}>다음 단계</Button>
+      {/* 2번 지역 */}
+      {second ? (
+        <div className="bg-white rounded-card shadow-card p-4 mb-3 border border-line">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-sub flex items-center justify-center text-white text-[12px] font-bold">2</div>
+              <span className="text-[15px] font-bold text-ink">추가 지역</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-bg px-2.5 py-1 rounded-full">
+                <PinIcon color="#4E5968" />
+                <span className="text-[13px] font-medium text-sub">{second.label}</span>
+              </div>
+              <button onClick={() => setSecond(null)}
+                className="w-6 h-6 rounded-full bg-line flex items-center justify-center flex-shrink-0">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                  <path d="M1 1l8 8M9 1L1 9" stroke="#8B95A1" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <RadiusSlider value={secondRadius} onChange={setSecondRadius} />
+        </div>
+      ) : (
+        /* 지역 추가 버튼 */
+        <button onClick={() => setShowSearch(true)}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-card border-2 border-dashed border-line text-sub mb-3 active:opacity-70 transition-opacity">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <circle cx="9" cy="9" r="8" stroke="#8B95A1" strokeWidth="1.5"/>
+            <path d="M9 5.5v7M5.5 9h7" stroke="#8B95A1" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <span className="text-[15px] font-medium">자주 가는 지역 추가하기</span>
+          <span className="text-[12px] text-tertiary">(선택)</span>
+        </button>
+      )}
+
+      {/* 지역 검색 모달 */}
+      {showSearch && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[70vh] flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[18px] font-bold text-ink">지역 검색</h3>
+              <button onClick={() => setShowSearch(false)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 6l12 12M18 6L6 18" stroke="#191F28" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <input type="text" placeholder="지역명 입력 (예: 강남구)" value={query}
+              onChange={(e) => setQuery(e.target.value)} autoFocus
+              className="w-full h-12 px-4 rounded-xl border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-4" />
+            <div className="overflow-y-auto">
+              {filtered.map((s) => (
+                <button key={s} onClick={() => selectSecond(s)}
+                  className="flex items-center gap-3 w-full py-4 border-b border-line last:border-0 active:bg-bg">
+                  <PinIcon color="#4E5968" />
+                  <span className="text-[16px] text-ink">{s}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 안내 */}
+      <p className="text-[13px] text-tertiary text-center mt-2 mb-6">
+        💡 두 지역 모두 시프트가 열리면 즉시 알림이 가요
+      </p>
+
+      <div className="mt-auto">
+        <Button onClick={() => {
+          const result: AreaPref[] = [{ label: primary.label, radius_km: primaryRadius }];
+          if (second) result.push({ label: second.label, radius_km: secondRadius });
+          onNext(result);
+        }}>다음 단계</Button>
+      </div>
     </div>
   );
 }

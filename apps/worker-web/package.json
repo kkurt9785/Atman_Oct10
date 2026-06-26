@@ -4,11 +4,12 @@
   "private": true,
   "description": "잇닿 워커(간호사·케어기버) 온보딩 + 시프트 앱",
   "scripts": {
-    "dev": "next dev -p 3001",
+    "dev": "next dev -p 3003",
     "build": "next build",
-    "start": "next start -p 3001"
+    "start": "next start -p 3003"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "next": "14.2",
     "react": "18.3.1",
     "react-dom": "18.3.1"
