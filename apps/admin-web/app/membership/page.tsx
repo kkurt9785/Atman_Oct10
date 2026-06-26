@@ -1,140 +1,217 @@
-import { Card, SectionTitle, BigStat, PrimaryButton } from '@/components/ui';
-import { getMembership, getAllTiers } from '@/lib/db/membership';
-import { won } from '@/lib/mock';
+'use client';
 
-const KIND_LABEL: Record<string, string> = {
-  signup_payback: '가입 즉시 페이백',
-  cycle_payback: '이용 페이백',
-  earn: '결제 적립',
-  spend: '크레딧 사용',
-  expire: '소멸',
-  admin_adjust: '관리자 조정',
-};
+import { useState } from 'react';
 
-function periodEndLabel(iso: string) {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+// ─── 볼륨 보너스 티어 ────────────────────────────────────────
+const TIERS = [
+  { id: 1, charge: 500000,   credit: 500000,   bonus: 0,   bonusRate: 0,   label: '50만원',   tag: null },
+  { id: 2, charge: 1000000,  credit: 1070000,  bonus: 70000,  bonusRate: 7,  label: '100만원',  tag: '인기' },
+  { id: 3, charge: 3000000,  credit: 3300000,  bonus: 300000, bonusRate: 10, label: '300만원',  tag: null },
+  { id: 4, charge: 5000000,  credit: 5750000,  bonus: 750000, bonusRate: 15, label: '500만원',  tag: '추천' },
+  { id: 5, charge: 10000000, credit: 12000000, bonus: 2000000, bonusRate: 20, label: '1,000만원+', tag: '최대 혜택' },
+];
+
+// Mock 잔액 + 이력 (실 데이터는 Supabase credit_ledger)
+const MOCK_BALANCE = 1070000;
+const MOCK_HISTORY = [
+  { id: 'h1', date: '2026-06-26', kind: '크레딧 충전',     delta: +1070000, note: '100만원 충전 (+7% 보너스)' },
+  { id: 'h2', date: '2026-06-25', kind: '시프트 수수료',   delta: -33600,   note: '강남세브란스 야간 시프트 #1024' },
+  { id: 'h3', date: '2026-06-24', kind: '시프트 수수료',   delta: -28800,   note: '삼성서울병원 일반 시프트 #1021' },
+  { id: 'h4', date: '2026-06-20', kind: '크레딧 충전',     delta: +107000,  note: '가입 첫 충전 보너스' },
+];
+
+function won(n: number) {
+  return '₩' + Math.abs(n).toLocaleString('ko-KR');
 }
 
-export default async function MembershipPage() {
-  const [membership, tiers] = await Promise.all([getMembership(), getAllTiers()]);
-
+// ─── 티어 카드 ────────────────────────────────────────────────
+function TierCard({
+  tier,
+  selected,
+  onClick,
+}: {
+  tier: typeof TIERS[number];
+  selected: boolean;
+  onClick: () => void;
+}) {
   return (
-    <main className="px-4">
-      <h1 className="text-display font-extrabold text-ink mt-3 mb-3 px-1">멤버십·크레딧</h1>
-
-      {membership ? (
-        <>
-          {/* 현재 멤버십 */}
-          <Card className="shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-label font-bold text-primary bg-primary/10 rounded-full px-3 py-1">
-                {membership.tierName}
-              </span>
-              <span className="text-label text-sub">{membership.consecutiveCycles}주기 연속 이용 중</span>
-            </div>
-            <BigStat label="크레딧 잔액" value={won(membership.creditBalance)} />
-            <p className="text-label text-sub mt-2">
-              다음 주기 마감 {periodEndLabel(membership.periodEnd)} · 자동 갱신
-            </p>
-            <div className="mt-4 pt-4 border-t border-line">
-              <p className="text-label text-sub mb-1">이번 주기 활동 페이백 조건</p>
-              <p className="text-body text-ink">
-                결제 <b>{won(membership.paybackThreshold)} 이상</b> 이용 시 회비 전액 크레딧 환급
-              </p>
-              <p className="text-label text-sub mt-1">
-                결제액의 {(membership.earnRate * 100).toFixed(1)}% 자동 적립
-              </p>
-            </div>
-          </Card>
-
-          {/* 크레딧 이력 */}
-          {membership.recentCredits.length > 0 && (
-            <>
-              <SectionTitle>최근 크레딧 내역</SectionTitle>
-              <Card className="divide-y divide-line p-0">
-                {membership.recentCredits.map((c) => (
-                  <div key={c.id} className="flex items-center justify-between px-5 py-4">
-                    <div>
-                      <p className="text-body font-bold text-ink">
-                        {KIND_LABEL[c.kind] ?? c.kind}
-                      </p>
-                      {c.note && <p className="text-label text-sub">{c.note}</p>}
-                    </div>
-                    <p
-                      className={`text-title font-bold ${
-                        c.delta > 0 ? 'text-success' : 'text-red-500'
-                      }`}
-                    >
-                      {c.delta > 0 ? '+' : ''}
-                      {won(c.delta)}
-                    </p>
-                  </div>
-                ))}
-              </Card>
-            </>
-          )}
-        </>
-      ) : (
-        /* 미가입 상태 */
-        <Card className="shadow-sm text-center py-6">
-          <p className="text-3xl mb-3">🎁</p>
-          <p className="text-title font-bold text-ink mb-1">아직 멤버십이 없어요</p>
-          <p className="text-body text-sub mb-1">가입 즉시 회비 100% 크레딧 환급!</p>
-          <p className="text-label text-sub">크레딧으로 수수료 결제 가능</p>
-        </Card>
+    <button
+      onClick={onClick}
+      className={`w-full text-left rounded-2xl border-2 p-4 transition-all relative ${
+        selected ? 'border-primary bg-primary/5' : 'border-line bg-white'
+      }`}
+    >
+      {/* 뱃지 */}
+      {tier.tag && (
+        <span className={`absolute top-3 right-3 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
+          tier.tag === '최대 혜택' ? 'bg-amber-100 text-amber-600' :
+          tier.tag === '추천'     ? 'bg-primary/10 text-primary' :
+                                    'bg-green-50 text-green-600'
+        }`}>
+          {tier.tag}
+        </span>
       )}
 
-      {/* 플랜 목록 */}
-      {tiers.length > 0 && (
+      <div className="flex items-end gap-2 mb-1.5">
+        <span className="text-[18px] font-extrabold text-ink">{won(tier.charge)}</span>
+        <span className="text-[13px] text-sub mb-0.5">충전 시</span>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <span className="text-[15px] font-bold text-primary">{won(tier.credit)} 크레딧</span>
+        {tier.bonus > 0 && (
+          <span className="text-[12px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+            +{tier.bonusRate}% 보너스
+          </span>
+        )}
+      </div>
+
+      {tier.bonus > 0 && (
+        <p className="text-[11px] text-tertiary mt-1">
+          보너스 {won(tier.bonus)} 추가 지급
+        </p>
+      )}
+
+      {/* 선택 인디케이터 */}
+      <div className={`absolute top-4 left-4 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
+        selected ? 'border-primary bg-primary' : 'border-line'
+      }`}>
+        {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+      </div>
+      <div className="pl-6">{/* 라디오 인덴트용 — 실제 내용은 위에 */}</div>
+    </button>
+  );
+}
+
+// ─── 메인 ────────────────────────────────────────────────────
+export default function CreditPage() {
+  const [selectedId, setSelectedId] = useState<number | null>(2); // 100만원 기본 선택
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const selected = TIERS.find((t) => t.id === selectedId);
+
+  return (
+    <main className="px-4 pb-28">
+      <h1 className="text-[22px] font-extrabold text-ink mt-3 mb-4 px-1">크레딧 충전</h1>
+
+      {/* 현재 잔액 카드 */}
+      <div className="bg-primary rounded-2xl p-5 mb-6 flex items-center justify-between">
+        <div>
+          <p className="text-[13px] text-white/70 font-semibold">현재 크레딧 잔액</p>
+          <p className="text-[30px] font-extrabold text-white leading-tight mt-0.5">
+            {won(MOCK_BALANCE)}
+          </p>
+          <p className="text-[12px] text-white/60 mt-1">수수료 자동 차감 · 잔액 이월</p>
+        </div>
+        <div className="text-[44px] opacity-30">💳</div>
+      </div>
+
+      {/* 볼륨 보너스 안내 */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
+        <span className="text-[16px] mt-0.5">🎁</span>
+        <div>
+          <p className="text-[13px] font-bold text-amber-700">많이 충전할수록 보너스 크레딧 ↑</p>
+          <p className="text-[11px] text-amber-600 mt-0.5">보너스 크레딧은 수수료 결제에 동일하게 사용돼요</p>
+        </div>
+      </div>
+
+      {/* 티어 선택 */}
+      <div className="flex flex-col gap-3 mb-6">
+        {TIERS.map((t) => (
+          <TierCard
+            key={t.id}
+            tier={t}
+            selected={selectedId === t.id}
+            onClick={() => setSelectedId(t.id)}
+          />
+        ))}
+      </div>
+
+      {/* 충전 버튼 */}
+      {selected && (
+        <button
+          onClick={() => setShowConfirm(true)}
+          className="w-full h-14 bg-primary text-white rounded-2xl text-[16px] font-extrabold shadow-btn active:opacity-80 mb-8"
+        >
+          {won(selected.charge)} 충전하기 →&nbsp;
+          <span className="opacity-80 text-[14px]">{won(selected.credit)} 크레딧</span>
+        </button>
+      )}
+
+      {/* 크레딧 사용 안내 */}
+      <div className="bg-bg rounded-2xl p-4 mb-6">
+        <p className="text-[13px] font-bold text-ink mb-2">크레딧 사용 방법</p>
+        <ul className="text-[12px] text-sub space-y-1.5">
+          <li>✓ 시프트 매칭 완료 시 수수료 자동 차감</li>
+          <li>✓ 잔액은 다음 시프트에 이월 (유효기간 1년)</li>
+          <li>✓ 원금은 충전 후 1년 내 환불 가능</li>
+          <li>✓ 보너스 크레딧은 환불 불가 (포인트 성격)</li>
+        </ul>
+      </div>
+
+      {/* 크레딧 이력 */}
+      <p className="text-[15px] font-extrabold text-ink mb-3 px-1">사용 내역</p>
+      <div className="bg-white rounded-2xl shadow-card divide-y divide-line">
+        {MOCK_HISTORY.map((h) => (
+          <div key={h.id} className="flex items-center justify-between px-4 py-4">
+            <div className="min-w-0">
+              <p className="text-[13px] font-bold text-ink">{h.kind}</p>
+              <p className="text-[11px] text-tertiary mt-0.5 truncate">{h.note}</p>
+              <p className="text-[11px] text-tertiary">{h.date}</p>
+            </div>
+            <p className={`text-[15px] font-extrabold flex-shrink-0 ml-3 ${
+              h.delta > 0 ? 'text-primary' : 'text-ink'
+            }`}>
+              {h.delta > 0 ? '+' : ''}{won(h.delta)}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* 충전 확인 모달 */}
+      {showConfirm && selected && (
         <>
-          <SectionTitle>{membership ? '플랜 업그레이드' : '멤버십 가입'}</SectionTitle>
-          <div className="flex flex-col gap-3">
-            {tiers.map((t) => (
-              <Card
-                key={t.code}
-                className={`relative ${
-                  membership?.tierCode === t.code ? 'border-2 border-primary' : ''
-                }`}
-              >
-                {membership?.tierCode === t.code && (
-                  <span className="absolute top-3 right-4 text-label font-bold text-primary">
-                    현재 플랜
-                  </span>
-                )}
-                <div className="flex items-end gap-2 mb-2">
-                  <p className="text-title font-extrabold text-ink">{t.name}</p>
-                  <p className="text-body text-sub mb-0.5">월 {won(t.monthlyFee)}</p>
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowConfirm(false)} />
+          <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-3xl z-50 px-5 pt-6 pb-10">
+            <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
+            <p className="text-[18px] font-extrabold text-ink mb-4">충전 확인</p>
+
+            <div className="bg-bg rounded-2xl p-4 mb-5 space-y-2">
+              <div className="flex justify-between text-[13px]">
+                <span className="text-sub">결제 금액</span>
+                <span className="font-bold text-ink">{won(selected.charge)}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-sub">기본 크레딧</span>
+                <span className="font-bold text-ink">{won(selected.charge)}</span>
+              </div>
+              {selected.bonus > 0 && (
+                <div className="flex justify-between text-[13px]">
+                  <span className="text-sub">보너스 크레딧 (+{selected.bonusRate}%)</span>
+                  <span className="font-bold text-primary">+{won(selected.bonus)}</span>
                 </div>
-                <ul className="text-label text-sub space-y-1 mb-4">
-                  <li>✓ 가입 즉시 회비 100% 크레딧 환급</li>
-                  <li>✓ 결제액 {(t.earnRate * 100).toFixed(1)}% 자동 적립</li>
-                  <li>✓ {won(t.paybackThreshold)} 이상 이용 시 회비 재환급</li>
-                  {t.grantsPlanCode === 'bundle' && (
-                    <li>✓ 매칭 + 노무관리 통합 기능 포함</li>
-                  )}
-                </ul>
-                {membership?.tierCode !== t.code && (
-                  <PrimaryButton href="#">
-                    {membership ? `${t.name}으로 변경` : `${t.name} 가입하기`}
-                  </PrimaryButton>
-                )}
-              </Card>
-            ))}
+              )}
+              <div className="flex justify-between text-[14px] pt-2 border-t border-line">
+                <span className="font-bold text-ink">지급 크레딧 합계</span>
+                <span className="font-extrabold text-primary">{won(selected.credit)}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowConfirm(false)}
+              className="w-full h-14 bg-primary text-white rounded-2xl text-[16px] font-extrabold shadow-btn active:opacity-80"
+            >
+              결제하기 (카드·계좌이체)
+            </button>
+            <button
+              onClick={() => setShowConfirm(false)}
+              className="w-full mt-3 py-3 text-[14px] text-sub font-semibold"
+            >
+              취소
+            </button>
           </div>
         </>
       )}
-
-      {/* 플랜 없을 때 기본 안내 */}
-      {tiers.length === 0 && !membership && (
-        <div className="mt-4">
-          <PrimaryButton href="#">멤버십 가입하기</PrimaryButton>
-        </div>
-      )}
-
-      <p className="text-label text-sub text-center mt-6 mb-2">
-        크레딧은 잇닿 수수료 결제에만 사용할 수 있어요
-      </p>
     </main>
   );
 }
