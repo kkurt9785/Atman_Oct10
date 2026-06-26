@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Splash } from '@/components/onboarding/Splash';
 import { Terms } from '@/components/onboarding/Terms';
@@ -25,6 +26,7 @@ type Step =
   | 'approval';
 
 export default function OnboardingPage() {
+  const router = useRouter();
   const [step, setStep] = useState<Step>('splash');
   const [areas, setAreas] = useState<AreaPref[]>([]);
 
@@ -52,7 +54,7 @@ export default function OnboardingPage() {
       {step === 'bank'     && <BankAccount onNext={() => go('otp')} />}
       {step === 'otp'      && <OTPVerification onNext={handleOtpNext} />}
       {step === 'review'   && <ReviewPending onHome={() => go('approval')} />}
-      {step === 'approval' && <Approval onStart={() => go('splash')} onBrowse={() => go('splash')} />}
+      {step === 'approval' && <Approval onStart={() => router.push('/shifts')} onBrowse={() => router.push('/shifts')} />}
     </>
   );
 }

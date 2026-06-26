@@ -4,10 +4,10 @@ import { usePathname } from 'next/navigation';
 
 const TABS = [
   { href: '/', icon: '🏠', label: '홈' },
+  { href: '/shifts', icon: '📋', label: '시프트' },
   { href: '/staff', icon: '👥', label: '직원' },
   { href: '/timesheet', icon: '🕐', label: '근태' },
   { href: '/payroll', icon: '💰', label: '급여' },
-  { href: '/membership', icon: '🎁', label: '멤버십' },
 ];
 
 export function BottomNav() {

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ClientLayout } from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
   title: 'atman — 간호사를 위한 야간 시프트',
@@ -11,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <body className="bg-bg min-h-screen flex justify-center">
         <div className="w-full max-w-app min-h-screen bg-white relative overflow-x-hidden">
-          {children}
+          <ClientLayout>{children}</ClientLayout>
         </div>
       </body>
     </html>
