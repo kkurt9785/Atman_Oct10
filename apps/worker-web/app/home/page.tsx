@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
 
@@ -11,6 +12,8 @@ const MOCK_USER = {
   role: 'rn' as 'rn' | 'na',
   areas: ['강남', '강동'],
 };
+
+const MOCK_CREDITS = 15000; // 실제는 Supabase user_credits 테이블에서
 
 const MOCK_SHIFTS: Shift[] = [
   // RN 시프트
@@ -323,11 +326,25 @@ export default function HomePage() {
     <div className="pb-24">
       {/* 헤더 */}
       <div className="px-5 pt-14 pb-4">
-        <p className="text-[14px] text-sub">안녕하세요 👋</p>
-        <h1 className="text-[26px] font-extrabold text-ink leading-tight mt-0.5">
-          {MOCK_USER.name} {roleLabel}님,<br />
-          <span className="text-primary">내 근처 시프트 {totalCount}건</span> 있어요
-        </h1>
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <p className="text-[14px] text-sub">안녕하세요 👋</p>
+            <h1 className="text-[24px] font-extrabold text-ink leading-tight mt-0.5">
+              {MOCK_USER.name} {roleLabel}님,<br />
+              <span className="text-primary">내 근처 시프트 {totalCount}건</span> 있어요
+            </h1>
+          </div>
+          {/* 적립금 버튼 */}
+          <Link href="/store" className="flex-shrink-0 ml-3 mt-1">
+            <div className="flex flex-col items-center bg-primary/8 border border-primary/20 px-3.5 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
+              <span className="text-[10px] font-semibold text-primary tracking-tight">적립금</span>
+              <span className="text-[17px] font-extrabold text-primary leading-tight">
+                ₩{MOCK_CREDITS.toLocaleString('ko-KR')}
+              </span>
+              <span className="text-[10px] text-primary/60 mt-0.5">스토어 →</span>
+            </div>
+          </Link>
+        </div>
         <div className="flex gap-1.5 mt-3">
           {MOCK_USER.areas.map((a) => (
             <span key={a} className="text-[12px] font-semibold text-primary bg-primary-light px-2.5 py-1 rounded-full">
