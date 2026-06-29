@@ -28,7 +28,6 @@ function CallbackInner() {
         const data = await res.json();
 
         if (data.error || !data.id_token) {
-          alert(JSON.stringify(data, null, 2));
           router.replace('/onboarding');
           return;
         }
