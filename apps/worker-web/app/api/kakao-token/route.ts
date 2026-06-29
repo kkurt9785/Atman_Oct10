@@ -19,7 +19,10 @@ export async function POST(request: Request) {
   const data = await res.json();
 
   if (data.error) {
-    return NextResponse.json({ error: data.error_description }, { status: 400 });
+    return NextResponse.json(
+      { error: `[${data.error}] ${data.error_description}` },
+      { status: 400 }
+    );
   }
 
   return NextResponse.json({ id_token: data.id_token });
