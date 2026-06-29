@@ -20,7 +20,11 @@ export async function POST(request: Request) {
 
   if (data.error) {
     return NextResponse.json(
-      { error: `[${data.error}] ${data.error_description}` },
+      {
+        error: `[${data.error}] ${data.error_description}`,
+        debug_client_id: process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY ?? 'MISSING',
+        debug_redirect_uri: redirectUri,
+      },
       { status: 400 }
     );
   }
