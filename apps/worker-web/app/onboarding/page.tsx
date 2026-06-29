@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Splash } from '@/components/onboarding/Splash';
 import { Terms } from '@/components/onboarding/Terms';
@@ -25,9 +25,15 @@ type Step =
   | 'review'
   | 'approval';
 
-export default function OnboardingPage() {
+const VALID_STEPS = new Set<Step>(['splash', 'terms', 'role', 'area', 'license', 'id', 'bank', 'otp', 'review', 'approval']);
+
+function OnboardingInner() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>('splash');
+  const searchParams = useSearchParams();
+  const param = searchParams.get('step') as Step | null;
+  const initial: Step = param && VALID_STEPS.has(param) ? param : 'splash';
+
+  const [step, setStep] = useState<Step>(initial);
   const [areas, setAreas] = useState<AreaPref[]>([]);
 
   const go = (s: Step) => setStep(s);
@@ -40,12 +46,18 @@ export default function OnboardingPage() {
         locations: areas,
       });
     }
+    if (user) {
+      await supabase
+        .from('profiles')
+        .update({ onboarding_done: true })
+        .eq('id', user.id);
+    }
     go('review');
   }
 
   return (
     <>
-      {step === 'splash'   && <Splash onNext={() => go('terms')} />}
+      {step === 'splash'   && <Splash />}
       {step === 'terms'    && <Terms onNext={() => go('role')} />}
       {step === 'role'     && <RoleSelect onNext={() => go('area')} />}
       {step === 'area'     && <ActivityArea onNext={(a) => { setAreas(a); go('license'); }} />}
@@ -56,5 +68,13 @@ export default function OnboardingPage() {
       {step === 'review'   && <ReviewPending onHome={() => go('approval')} />}
       {step === 'approval' && <Approval onStart={() => router.push('/shifts')} onBrowse={() => router.push('/shifts')} />}
     </>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+      <OnboardingInner />
+    </Suspense>
   );
 }

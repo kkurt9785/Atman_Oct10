@@ -43,7 +43,16 @@ function CallbackInner() {
           return;
         }
 
-        router.replace('/home');
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_done')
+          .single();
+
+        if (profile?.onboarding_done) {
+          router.replace('/home');
+        } else {
+          router.replace('/onboarding?step=terms');
+        }
       } catch (e) {
         alert('오류: ' + String(e));
         router.replace('/onboarding');
