@@ -1,10 +1,12 @@
+import Link from 'next/link';
 import { Card, SectionTitle, BigStat, ActionTile, StatusBadge } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
 import { getStaff, getSummary } from '@/lib/db/staff';
+import { getPendingCount } from '@/lib/db/applications';
 import { won, hours } from '@/lib/mock';
 
 export default async function Home() {
-  const [shop, staff] = await Promise.all([getShop(), getStaff()]);
+  const [shop, staff, pendingCount] = await Promise.all([getShop(), getStaff(), getPendingCount()]);
   const summary = await getSummary(staff);
 
   return (
@@ -34,6 +36,18 @@ export default async function Home() {
           <span className="text-body text-ink">지금 <b>{summary.workingNow}명</b> 근무 중이에요</span>
         </div>
       </Card>
+
+      {pendingCount > 0 && (
+        <Link href="/applications">
+          <div className="mt-4 bg-primary/10 border border-primary/20 rounded-2xl px-5 py-4 flex items-center justify-between active:opacity-80">
+            <div>
+              <p className="text-label font-bold text-primary">⚡ 처리 필요</p>
+              <p className="text-body font-bold text-ink mt-0.5">지원 대기 {pendingCount}건</p>
+            </div>
+            <span className="text-sub text-xl">→</span>
+          </div>
+        </Link>
+      )}
 
       <SectionTitle>빠른 메뉴</SectionTitle>
       <div className="grid grid-cols-2 gap-3">
