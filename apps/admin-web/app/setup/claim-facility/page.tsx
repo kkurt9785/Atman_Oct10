@@ -26,6 +26,7 @@ export default function ClaimFacilityPage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Facility[]>([]);
   const [selected, setSelected] = useState<Facility | null>(null);
+  const [inviteCode, setInviteCode] = useState('');
   const [searched, setSearched] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -45,7 +46,7 @@ export default function ClaimFacilityPage() {
     if (!user) { setError('로그인이 필요해요'); return; }
 
     startTransition(async () => {
-      const result = await claimFacility(selected.id, user.id);
+      const result = await claimFacility(selected.id, user.id, inviteCode);
       if (result.ok) {
         router.replace('/');
       } else {
@@ -123,15 +124,22 @@ export default function ClaimFacilityPage() {
           <p className="text-center text-[14px] text-danger">{error}</p>
         )}
 
-        {/* 연결 버튼 */}
+        {/* 초대 코드 + 연결 버튼 */}
         {selected && (
-          <div className="fixed bottom-0 inset-x-0 p-4 bg-white border-t border-line">
-            <p className="text-[13px] text-sub text-center mb-2">
+          <div className="fixed bottom-0 inset-x-0 p-4 bg-white border-t border-line space-y-3">
+            <p className="text-[13px] text-sub text-center">
               <span className="font-semibold text-ink">{selected.name}</span>으로 연결할게요
             </p>
+            <input
+              type="text"
+              value={inviteCode}
+              onChange={e => setInviteCode(e.target.value.toUpperCase())}
+              placeholder="초대 코드 입력 (예: A1B2C3D4)"
+              className="w-full border border-line rounded-xl px-4 py-3 text-[15px] font-mono tracking-widest outline-none focus:border-primary"
+            />
             <button
               onClick={handleClaim}
-              disabled={isPending}
+              disabled={isPending || inviteCode.trim().length < 4}
               className="w-full py-4 bg-primary text-white rounded-xl font-bold text-[16px] disabled:opacity-50"
             >
               {isPending ? '연결 중...' : '내 병원으로 연결하기'}

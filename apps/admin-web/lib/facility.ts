@@ -19,20 +19,22 @@ export async function setFacilityCookie(facilityId: string): Promise<void> {
   });
 }
 
-export async function claimFacility(facilityId: string, userId: string): Promise<{ ok: boolean; error?: string }> {
+export async function claimFacility(facilityId: string, userId: string, inviteCode: string): Promise<{ ok: boolean; error?: string }> {
   const sb = adminClient();
   if (!sb) return { ok: false, error: '서버 오류' };
 
-  // 이미 다른 사람이 클레임한 병원인지 확인
   const { data: existing } = await sb
     .from('facilities')
-    .select('id, admin_user_id')
+    .select('id, admin_user_id, invite_code')
     .eq('id', facilityId)
     .single();
 
   if (!existing) return { ok: false, error: '병원을 찾을 수 없어요' };
   if (existing.admin_user_id && existing.admin_user_id !== userId) {
     return { ok: false, error: '이미 다른 계정에서 연결된 병원이에요' };
+  }
+  if (!existing.invite_code || existing.invite_code.toUpperCase() !== inviteCode.trim().toUpperCase()) {
+    return { ok: false, error: '초대 코드가 올바르지 않아요' };
   }
 
   const { error } = await sb
