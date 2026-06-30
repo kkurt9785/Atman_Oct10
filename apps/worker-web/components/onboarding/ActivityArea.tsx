@@ -32,11 +32,26 @@ const SUGGESTIONS = ['서울 강남구', '서울 송파구', '서울 마포구',
 
 export type AreaPref = { label: string; radius_km: number };
 
-export function ActivityArea({ onNext }: { onNext: (areas: AreaPref[]) => void }) {
-  const [primary] = useState<Area>({ label: '강남구 역삼동', radius: 5 });
-  const [primaryRadius, setPrimaryRadius] = useState(5);
-  const [second, setSecond] = useState<Area | null>(null);
-  const [secondRadius, setSecondRadius] = useState(5);
+export function ActivityArea({
+  onNext,
+  initialLocations,
+  buttonLabel = '다음 단계',
+  showHeader = true,
+}: {
+  onNext: (areas: AreaPref[]) => void;
+  initialLocations?: AreaPref[];
+  buttonLabel?: string;
+  showHeader?: boolean;
+}) {
+  const [primary] = useState<Area>({
+    label: initialLocations?.[0]?.label ?? '강남구 역삼동',
+    radius: initialLocations?.[0]?.radius_km ?? 5,
+  });
+  const [primaryRadius, setPrimaryRadius] = useState(initialLocations?.[0]?.radius_km ?? 5);
+  const [second, setSecond] = useState<Area | null>(
+    initialLocations?.[1] ? { label: initialLocations[1].label, radius: initialLocations[1].radius_km } : null
+  );
+  const [secondRadius, setSecondRadius] = useState(initialLocations?.[1]?.radius_km ?? 5);
   const [showSearch, setShowSearch] = useState(false);
   const [query, setQuery] = useState('');
 
@@ -50,7 +65,7 @@ export function ActivityArea({ onNext }: { onNext: (areas: AreaPref[]) => void }
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
-      <p className="text-[13px] font-medium text-tertiary mb-2">단계 2 / 정보 입력</p>
+      {showHeader && <p className="text-[13px] font-medium text-tertiary mb-2">단계 2 / 정보 입력</p>}
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-1">
         시프트 알림 받을<br />지역을 설정해요
       </h1>
@@ -156,7 +171,7 @@ export function ActivityArea({ onNext }: { onNext: (areas: AreaPref[]) => void }
           const result: AreaPref[] = [{ label: primary.label, radius_km: primaryRadius }];
           if (second) result.push({ label: second.label, radius_km: secondRadius });
           onNext(result);
-        }}>다음 단계</Button>
+        }}>{buttonLabel}</Button>
       </div>
     </div>
   );
