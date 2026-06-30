@@ -46,6 +46,10 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
   const shift  = app.shifts  as unknown as { id: string; shift_date: string; start_time: string; end_time: string; hourly_wage: number; facility_id: string };
   const worker = app.workers as unknown as { id: string; name: string; auth_user_id: string };
 
+  // KST(+9h) 기준 오늘 날짜 — 서버는 UTC이므로 보정 필요
+  const kstNow  = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const todayKST = kstNow.toISOString().slice(0, 10);
+
   // 기존 attendance 조회
   const { data: attendance } = await sb
     .from('shift_attendances')
@@ -61,6 +65,14 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
 
   // ── 체크인 ──────────────────────────────────────
   if (!attendance) {
+    // 체크인은 당일(KST)만 허용
+    if (shift.shift_date !== todayKST) {
+      const diff = Math.ceil(
+        (new Date(shift.shift_date).getTime() - new Date(todayKST).getTime()) / 86400000
+      );
+      const msg = diff > 0 ? `${diff}일 후 시프트예요` : '이미 지난 시프트예요';
+      return { ok: false, message: msg };
+    }
     await sb.from('shift_attendances').insert({
       shift_id:        shift.id,
       worker_id:       worker.id,
