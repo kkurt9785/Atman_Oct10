@@ -19,7 +19,7 @@ export async function subscribeToPush(): Promise<PushSubscription | null> {
   const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
   return reg.pushManager.subscribe({
     userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(key),
+    applicationServerKey: urlBase64ToUint8Array(key).buffer as ArrayBuffer,
   });
 }
 
