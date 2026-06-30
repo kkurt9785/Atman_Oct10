@@ -1,216 +1,99 @@
-'use client';
+import { adminClient, ORG_ID } from '@/lib/supabase';
+import CreditChargePanel from './CreditChargePanel';
 
-import { useState } from 'react';
+type LedgerRow = {
+  id: string;
+  delta: number;
+  kind: string;
+  ref: string | null;
+  created_at: string;
+};
 
-// ─── 볼륨 보너스 티어 ────────────────────────────────────────
-const TIERS = [
-  { id: 1, charge: 500000,   credit: 500000,   bonus: 0,   bonusRate: 0,   label: '50만원',   tag: null },
-  { id: 2, charge: 1000000,  credit: 1070000,  bonus: 70000,  bonusRate: 7,  label: '100만원',  tag: '인기' },
-  { id: 3, charge: 3000000,  credit: 3300000,  bonus: 300000, bonusRate: 10, label: '300만원',  tag: null },
-  { id: 4, charge: 5000000,  credit: 5750000,  bonus: 750000, bonusRate: 15, label: '500만원',  tag: '추천' },
-  { id: 5, charge: 10000000, credit: 12000000, bonus: 2000000, bonusRate: 20, label: '1,000만원+', tag: '최대 혜택' },
-];
-
-// Mock 잔액 + 이력 (실 데이터는 Supabase credit_ledger)
-const MOCK_BALANCE = 1070000;
-const MOCK_HISTORY = [
-  { id: 'h1', date: '2026-06-26', kind: '크레딧 충전',     delta: +1070000, note: '100만원 충전 (+7% 보너스)' },
-  { id: 'h2', date: '2026-06-25', kind: '시프트 수수료',   delta: -33600,   note: '강남세브란스 야간 시프트 #1024' },
-  { id: 'h3', date: '2026-06-24', kind: '시프트 수수료',   delta: -28800,   note: '삼성서울병원 일반 시프트 #1021' },
-  { id: 'h4', date: '2026-06-20', kind: '크레딧 충전',     delta: +107000,  note: '가입 첫 충전 보너스' },
-];
+const KIND_LABEL: Record<string, string> = {
+  charge:     '크레딧 충전',
+  shift_wage: '시프트 임금',
+  bonus:      '보너스 크레딧',
+  refund:     '환불',
+};
 
 function won(n: number) {
   return '₩' + Math.abs(n).toLocaleString('ko-KR');
 }
 
-// ─── 티어 카드 ────────────────────────────────────────────────
-function TierCard({
-  tier,
-  selected,
-  onClick,
-}: {
-  tier: typeof TIERS[number];
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left rounded-2xl border-2 p-4 transition-all relative ${
-        selected ? 'border-primary bg-primary/5' : 'border-line bg-white'
-      }`}
-    >
-      {/* 뱃지 */}
-      {tier.tag && (
-        <span className={`absolute top-3 right-3 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-          tier.tag === '최대 혜택' ? 'bg-amber-100 text-amber-600' :
-          tier.tag === '추천'     ? 'bg-primary/10 text-primary' :
-                                    'bg-green-50 text-green-600'
-        }`}>
-          {tier.tag}
-        </span>
-      )}
+async function getLedger(): Promise<{ balance: number; rows: LedgerRow[] }> {
+  const sb = adminClient();
+  if (!sb || !ORG_ID) return { balance: 0, rows: [] };
 
-      <div className="flex items-end gap-2 mb-1.5">
-        <span className="text-[18px] font-extrabold text-ink">{won(tier.charge)}</span>
-        <span className="text-[13px] text-sub mb-0.5">충전 시</span>
-      </div>
+  const { data } = await sb
+    .from('credit_ledger')
+    .select('id, delta, kind, ref, created_at')
+    .eq('org_id', ORG_ID)
+    .order('created_at', { ascending: false })
+    .limit(30);
 
-      <div className="flex items-center gap-2">
-        <span className="text-[15px] font-bold text-primary">{won(tier.credit)} 크레딧</span>
-        {tier.bonus > 0 && (
-          <span className="text-[12px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-            +{tier.bonusRate}% 보너스
-          </span>
-        )}
-      </div>
-
-      {tier.bonus > 0 && (
-        <p className="text-[11px] text-tertiary mt-1">
-          보너스 {won(tier.bonus)} 추가 지급
-        </p>
-      )}
-
-      {/* 선택 인디케이터 */}
-      <div className={`absolute top-4 left-4 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
-        selected ? 'border-primary bg-primary' : 'border-line'
-      }`}>
-        {selected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-      </div>
-      <div className="pl-6">{/* 라디오 인덴트용 — 실제 내용은 위에 */}</div>
-    </button>
-  );
+  const rows = (data ?? []) as LedgerRow[];
+  const balance = rows.reduce((s, r) => s + (r.delta ?? 0), 0);
+  return { balance, rows };
 }
 
-// ─── 메인 ────────────────────────────────────────────────────
-export default function CreditPage() {
-  const [selectedId, setSelectedId] = useState<number | null>(2); // 100만원 기본 선택
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const selected = TIERS.find((t) => t.id === selectedId);
+export default async function MembershipPage() {
+  const { balance, rows } = await getLedger();
 
   return (
     <main className="px-4 pb-28">
-      <h1 className="text-[22px] font-extrabold text-ink mt-3 mb-4 px-1">크레딧 충전</h1>
+      <h1 className="text-[22px] font-extrabold text-ink mt-3 mb-4 px-1">크레딧</h1>
 
-      {/* 현재 잔액 카드 */}
-      <div className="bg-primary rounded-2xl p-5 mb-6 flex items-center justify-between">
+      {/* 현재 잔액 */}
+      <div className={`rounded-2xl p-5 mb-6 flex items-center justify-between ${
+        balance < 0 ? 'bg-red-500' : 'bg-primary'
+      }`}>
         <div>
           <p className="text-[13px] text-white/70 font-semibold">현재 크레딧 잔액</p>
           <p className="text-[30px] font-extrabold text-white leading-tight mt-0.5">
-            {won(MOCK_BALANCE)}
+            {balance < 0 ? '-' : ''}{won(balance)}
           </p>
-          <p className="text-[12px] text-white/60 mt-1">수수료 자동 차감 · 잔액 이월</p>
+          <p className="text-[12px] text-white/60 mt-1">
+            {balance < 0 ? '⚠️ 잔액 부족 — 충전이 필요해요' : '시프트 체크아웃 시 자동 차감'}
+          </p>
         </div>
         <div className="text-[44px] opacity-30">💳</div>
       </div>
 
-      {/* 볼륨 보너스 안내 */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
-        <span className="text-[16px] mt-0.5">🎁</span>
-        <div>
-          <p className="text-[13px] font-bold text-amber-700">많이 충전할수록 보너스 크레딧 ↑</p>
-          <p className="text-[11px] text-amber-600 mt-0.5">보너스 크레딧은 수수료 결제에 동일하게 사용돼요</p>
-        </div>
-      </div>
+      {/* 인터랙티브 충전 패널 (Client Component) */}
+      <CreditChargePanel />
 
-      {/* 티어 선택 */}
-      <div className="flex flex-col gap-3 mb-6">
-        {TIERS.map((t) => (
-          <TierCard
-            key={t.id}
-            tier={t}
-            selected={selectedId === t.id}
-            onClick={() => setSelectedId(t.id)}
-          />
-        ))}
-      </div>
-
-      {/* 충전 버튼 */}
-      {selected && (
-        <button
-          onClick={() => setShowConfirm(true)}
-          className="w-full h-14 bg-primary text-white rounded-2xl text-[16px] font-extrabold shadow-btn active:opacity-80 mb-8"
-        >
-          {won(selected.charge)} 충전하기 →&nbsp;
-          <span className="opacity-80 text-[14px]">{won(selected.credit)} 크레딧</span>
-        </button>
-      )}
-
-      {/* 크레딧 사용 안내 */}
-      <div className="bg-bg rounded-2xl p-4 mb-6">
-        <p className="text-[13px] font-bold text-ink mb-2">크레딧 사용 방법</p>
-        <ul className="text-[12px] text-sub space-y-1.5">
-          <li>✓ 시프트 매칭 완료 시 수수료 자동 차감</li>
-          <li>✓ 잔액은 다음 시프트에 이월 (유효기간 1년)</li>
-          <li>✓ 원금은 충전 후 1년 내 환불 가능</li>
-          <li>✓ 보너스 크레딧은 환불 불가 (포인트 성격)</li>
-        </ul>
-      </div>
-
-      {/* 크레딧 이력 */}
+      {/* 사용 내역 (실 데이터) */}
       <p className="text-[15px] font-extrabold text-ink mb-3 px-1">사용 내역</p>
-      <div className="bg-white rounded-2xl shadow-card divide-y divide-line">
-        {MOCK_HISTORY.map((h) => (
-          <div key={h.id} className="flex items-center justify-between px-4 py-4">
-            <div className="min-w-0">
-              <p className="text-[13px] font-bold text-ink">{h.kind}</p>
-              <p className="text-[11px] text-tertiary mt-0.5 truncate">{h.note}</p>
-              <p className="text-[11px] text-tertiary">{h.date}</p>
-            </div>
-            <p className={`text-[15px] font-extrabold flex-shrink-0 ml-3 ${
-              h.delta > 0 ? 'text-primary' : 'text-ink'
-            }`}>
-              {h.delta > 0 ? '+' : ''}{won(h.delta)}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* 충전 확인 모달 */}
-      {showConfirm && selected && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowConfirm(false)} />
-          <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-3xl z-50 px-5 pt-6 pb-10">
-            <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
-            <p className="text-[18px] font-extrabold text-ink mb-4">충전 확인</p>
-
-            <div className="bg-bg rounded-2xl p-4 mb-5 space-y-2">
-              <div className="flex justify-between text-[13px]">
-                <span className="text-sub">결제 금액</span>
-                <span className="font-bold text-ink">{won(selected.charge)}</span>
-              </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-sub">기본 크레딧</span>
-                <span className="font-bold text-ink">{won(selected.charge)}</span>
-              </div>
-              {selected.bonus > 0 && (
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-sub">보너스 크레딧 (+{selected.bonusRate}%)</span>
-                  <span className="font-bold text-primary">+{won(selected.bonus)}</span>
+      {rows.length === 0 ? (
+        <div className="bg-white rounded-2xl shadow-card px-5 py-8 text-center">
+          <p className="text-[14px] text-sub">아직 내역이 없어요</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-card divide-y divide-line">
+          {rows.map((r) => {
+            const label   = KIND_LABEL[r.kind] ?? r.kind;
+            const dateStr = new Date(r.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+            const timeStr = new Date(r.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+            return (
+              <div key={r.id} className="flex items-center justify-between px-4 py-4">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-ink">{label}</p>
+                  {r.ref && (
+                    <p className="text-[11px] text-tertiary mt-0.5 truncate font-mono">
+                      ref: {r.ref.slice(0, 8)}…
+                    </p>
+                  )}
+                  <p className="text-[11px] text-tertiary">{dateStr} {timeStr}</p>
                 </div>
-              )}
-              <div className="flex justify-between text-[14px] pt-2 border-t border-line">
-                <span className="font-bold text-ink">지급 크레딧 합계</span>
-                <span className="font-extrabold text-primary">{won(selected.credit)}</span>
+                <p className={`text-[15px] font-extrabold flex-shrink-0 ml-3 ${
+                  r.delta > 0 ? 'text-primary' : 'text-ink'
+                }`}>
+                  {r.delta > 0 ? '+' : '-'}{won(r.delta)}
+                </p>
               </div>
-            </div>
-
-            <button
-              onClick={() => setShowConfirm(false)}
-              className="w-full h-14 bg-primary text-white rounded-2xl text-[16px] font-extrabold shadow-btn active:opacity-80"
-            >
-              결제하기 (카드·계좌이체)
-            </button>
-            <button
-              onClick={() => setShowConfirm(false)}
-              className="w-full mt-3 py-3 text-[14px] text-sub font-semibold"
-            >
-              취소
-            </button>
-          </div>
-        </>
+            );
+          })}
+        </div>
       )}
     </main>
   );

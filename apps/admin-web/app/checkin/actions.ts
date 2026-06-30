@@ -119,6 +119,19 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
     calculated_at: now.toISOString(),
   });
 
+  // credit_ledger 차감 (실패해도 체크아웃은 완료 처리)
+  try {
+    await sb.from('credit_ledger').insert({
+      org_id:     shift.facility_id,
+      delta:      -gross,       // 음수 = 크레딧 차감
+      kind:       'shift_wage',
+      ref:        shift.id,
+      created_at: now.toISOString(),
+    });
+  } catch (err) {
+    console.error('[credit_ledger] 차감 실패 (체크아웃은 완료):', err);
+  }
+
   // shift_applications mirror + completed
   await sb.from('shift_applications')
     .update({ checked_out_at: now.toISOString(), status: 'completed' })
