@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { QRModal } from '@/components/shifts/QRModal';
 
 type ApplicationStatus = 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired';
 
@@ -9,6 +10,8 @@ type Application = {
   id: string;
   status: ApplicationStatus;
   applied_at: string;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   shift: {
     id: string;
     shift_date: string;
@@ -32,9 +35,11 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; className: strin
 function ApplicationCard({
   app,
   onCancel,
+  onQR,
 }: {
   app: Application;
   onCancel: (id: string) => void;
+  onQR: (app: Application) => void;
 }) {
   const { label, className } = STATUS_CONFIG[app.status];
   const start = app.shift.start_time.slice(0, 5);
@@ -44,6 +49,20 @@ function ApplicationCard({
     month: 'long',
     day: 'numeric',
   });
+
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = app.shift.shift_date === today;
+  const isCheckedIn  = !!app.checked_in_at;
+  const isCheckedOut = !!app.checked_out_at;
+
+  // 수락 배지 오버라이드
+  const dDiff = Math.ceil(
+    (new Date(app.shift.shift_date).getTime() - new Date(today).getTime()) / 86400000
+  );
+  const dLabel =
+    dDiff === 0 ? '오늘' :
+    dDiff === 1 ? '내일' :
+    dDiff > 0   ? `D-${dDiff}` : null;
 
   return (
     <div className="bg-white rounded-card shadow-card p-5 mb-3">
@@ -75,13 +94,44 @@ function ApplicationCard({
         <p className="text-[12px] text-tertiary">{appliedDate} 지원</p>
       </div>
 
-      {/* 수락됨 — 시프트 확인 메시지 */}
+      {/* 수락됨 — 날짜/체크인 상태별 분기 */}
       {app.status === 'accepted' && (
-        <div className="mt-3 p-3 bg-[#E5FAF4] rounded-xl">
-          <p className="text-[13px] font-semibold text-success">
-            🎉 수락됐어요! 당일 QR 체크인을 잊지 마세요
-          </p>
-        </div>
+        <>
+          {isCheckedOut ? (
+            /* 체크아웃 완료 */
+            <div className="mt-3 p-3 bg-bg rounded-xl flex items-center gap-2">
+              <span className="text-success">✅</span>
+              <p className="text-[13px] font-semibold text-sub">근무 완료</p>
+            </div>
+          ) : isCheckedIn ? (
+            /* 체크인 완료 — 근무 중 */
+            <div className="mt-3 p-3 bg-primary/8 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <p className="text-[13px] font-semibold text-primary">근무 중</p>
+              </div>
+              <button onClick={() => onQR(app)} className="text-[12px] font-bold text-primary underline">
+                QR 체크아웃
+              </button>
+            </div>
+          ) : isToday ? (
+            /* 오늘 시프트 — QR 체크인 */
+            <button
+              onClick={() => onQR(app)}
+              className="mt-3 w-full h-12 bg-[#E5FAF4] text-success text-[15px] font-bold rounded-xl flex items-center justify-center gap-2 active:opacity-80"
+            >
+              🔲 QR 체크인
+            </button>
+          ) : (
+            /* 미래 시프트 — D-day 안내 */
+            <div className="mt-3 p-3 bg-bg rounded-xl flex items-center gap-2">
+              <span className="text-success">✅</span>
+              <p className="text-[13px] font-semibold text-sub">
+                수락됨{dLabel ? ` · ${dLabel}` : ''}
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {/* 검토 중 — 취소 버튼 */}
@@ -101,6 +151,7 @@ export default function ApplicationsPage() {
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [noAuth, setNoAuth] = useState(false);
+  const [qrTarget, setQrTarget] = useState<Application | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -118,7 +169,7 @@ export default function ApplicationsPage() {
       const { data } = await supabase
         .from('shift_applications')
         .select(`
-          id, status, applied_at,
+          id, status, applied_at, checked_in_at, checked_out_at,
           shift:shifts (
             id, shift_date, start_time, end_time, is_overnight,
             estimated_total_pay, department, description
@@ -179,8 +230,17 @@ export default function ApplicationsPage() {
         </div>
       ) : (
         apps.map((a) => (
-          <ApplicationCard key={a.id} app={a} onCancel={handleCancel} />
+          <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onQR={setQrTarget} />
         ))
+      )}
+
+      {qrTarget && (
+        <QRModal
+          applicationId={qrTarget.id}
+          shiftDate={qrTarget.shift.shift_date}
+          startTime={qrTarget.shift.start_time}
+          onClose={() => setQrTarget(null)}
+        />
       )}
     </div>
   );

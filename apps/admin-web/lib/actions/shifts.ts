@@ -2,34 +2,15 @@
 
 import { redirect } from 'next/navigation';
 import { createShift } from '../db/shifts';
-import { adminClient, ORG_ID } from '../supabase';
+import { adminClient } from '../supabase';
+import { sendWebPush } from '../push';
+import type webpush from 'web-push';
 
 const ROLE_LABEL: Record<string, string> = {
   rn: '간호사',
   na: '간호조무사',
   any: '간호인력',
 };
-
-type ExpoMessage = {
-  to: string;
-  title: string;
-  body: string;
-  data?: Record<string, unknown>;
-};
-
-async function sendExpoPush(messages: ExpoMessage[]) {
-  if (messages.length === 0) return;
-  try {
-    await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(messages),
-    });
-  } catch {
-    // 푸시 실패는 시프트 등록에 영향 없음 — 로그만 남김
-    console.error('[push] Expo 발송 실패');
-  }
-}
 
 export async function createShiftAction(formData: FormData) {
   const shiftDate = formData.get('shift_date') as string;
@@ -61,37 +42,46 @@ export async function createShiftAction(formData: FormData) {
     notes,
   });
 
-  // 주변 워커 조회 후 푸시 알림 발송 (실패해도 shift 등록은 완료)
-  const sb = adminClient();
-  if (sb && ORG_ID) {
-    const { data: fac } = await sb
-      .from('facilities')
-      .select('location')
-      .eq('id', ORG_ID)
-      .single();
+  // Web Push 알림 발송 — 실패해도 시프트 등록은 완료됨
+  try {
+    const sb = adminClient();
+    if (sb) {
+      const roleFilter = requiredRole === 'any' ? ['rn', 'na'] : [requiredRole];
 
-    if (fac?.location) {
-      const { data: workers } = await sb.rpc('find_workers_in_radius', {
-        p_facility_location: fac.location,
-        p_required_role: requiredRole,
-      });
+      // 매칭 역할의 워커 ID 조회
+      const { data: workerIds } = await sb
+        .from('profiles')
+        .select('id')
+        .in('role', roleFilter);
 
-      const tokens = ((workers ?? []) as { expo_token: string | null }[])
-        .map((w) => w.expo_token)
-        .filter((t): t is string => Boolean(t));
+      if (workerIds && workerIds.length > 0) {
+        const ids = workerIds.map((w: { id: string }) => w.id);
 
-      const payLabel = estimatedTotalPay.toLocaleString('ko-KR') + '원';
-      const timeLabel = `${startTime.slice(0, 5)}~${endTime.slice(0, 5)}`;
+        // Web Push 구독 조회
+        const { data: subs } = await sb
+          .from('push_subscriptions')
+          .select('subscription')
+          .in('worker_id', ids);
 
-      await sendExpoPush(
-        tokens.map((token) => ({
-          to: token,
-          title: `새 시프트 공고 — ${ROLE_LABEL[requiredRole]}`,
-          body: `${shiftDate} ${timeLabel} · ${payLabel}`,
-          data: { type: 'new_shift' },
-        }))
-      );
+        if (subs && subs.length > 0) {
+          const payLabel = estimatedTotalPay.toLocaleString('ko-KR') + '원';
+          const timeLabel = `${startTime.slice(0, 5)}~${endTime.slice(0, 5)}`;
+          const payload = {
+            title: `새 시프트 공고 — ${ROLE_LABEL[requiredRole]}`,
+            body: `${shiftDate} ${timeLabel} · ${payLabel}`,
+            data: { type: 'new_shift' },
+          };
+
+          await Promise.all(
+            subs.map((row: { subscription: webpush.PushSubscription }) =>
+              sendWebPush(row.subscription, payload)
+            )
+          );
+        }
+      }
     }
+  } catch (err) {
+    console.error('[push] 알림 발송 실패:', err);
   }
 
   redirect('/shifts');

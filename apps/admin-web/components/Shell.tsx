@@ -5,10 +5,13 @@ import { TextSizeToggle } from './TextSizeToggle';
 import { BottomNav } from './BottomNav';
 
 const PUBLIC_PREFIX = ['/login', '/auth/'];
+const FULLSCREEN_PREFIX = ['/checkin'];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublic = PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
+
+  const isFullscreen = FULLSCREEN_PREFIX.some((p) => pathname.startsWith(p));
 
   if (isPublic) {
     return (
@@ -16,6 +19,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     );
+  }
+
+  if (isFullscreen) {
+    return <AuthGuard>{children}</AuthGuard>;
   }
 
   return (

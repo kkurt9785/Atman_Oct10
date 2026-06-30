@@ -5,6 +5,12 @@ import { ClientLayout } from '@/components/ClientLayout';
 export const metadata: Metadata = {
   title: 'atman — 간호사를 위한 야간 시프트',
   description: '내 근처 야간 시프트를 간편하게. 지원부터 정산까지 자동으로.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: '잇닿',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

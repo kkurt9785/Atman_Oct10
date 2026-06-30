@@ -52,6 +52,7 @@ export default async function Home() {
       <SectionTitle>빠른 메뉴</SectionTitle>
       <div className="grid grid-cols-2 gap-3">
         <ActionTile icon="📋" label="시프트 등록" href="/shifts/new" />
+        <ActionTile icon="🔲" label="QR 체크인" href="/checkin" />
         <ActionTile icon="🕐" label="근태 보기" href="/timesheet" />
         <ActionTile icon="📄" label="급여명세서 발급" href="/payroll" />
         <ActionTile icon="🎁" label="멤버십·크레딧" href="/membership" />

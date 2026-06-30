@@ -4,12 +4,21 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import type { AreaPref } from '@/components/onboarding/ActivityArea';
+import {
+  subscribeToPush,
+  unsubscribeFromPush,
+  getExistingSubscription,
+} from '@/lib/push-subscribe';
+import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 
 export default function SettingsPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [locations, setLocations] = useState<AreaPref[]>([]);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [showPwaGuide, setShowPwaGuide] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -25,9 +34,46 @@ export default function SettingsPage() {
 
       setRole(prof?.role ?? '');
       setLocations(locPref?.locations ?? []);
+
+      const existing = await getExistingSubscription();
+      setPushEnabled(!!existing);
     }
     load();
   }, [router]);
+
+  async function handlePushToggle() {
+    // iOS 사파리는 PWA(홈 화면 추가) 상태에서만 Web Push 지원
+    if (!('PushManager' in window)) {
+      setShowPwaGuide(true);
+      return;
+    }
+
+    setPushLoading(true);
+    try {
+      if (pushEnabled) {
+        await unsubscribeFromPush();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) await supabase.from('push_subscriptions').delete().eq('worker_id', user.id);
+        setPushEnabled(false);
+      } else {
+        const sub = await subscribeToPush();
+        if (sub) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('push_subscriptions').upsert({
+              worker_id: user.id,
+              subscription: sub.toJSON(),
+            });
+          }
+          setPushEnabled(true);
+        } else {
+          alert('알림 권한을 허용해 주세요.');
+        }
+      }
+    } finally {
+      setPushLoading(false);
+    }
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut();
@@ -77,6 +123,25 @@ export default function SettingsPage() {
           <span className="text-tertiary ml-3">›</span>
         </div>
       </Link>
+
+      {/* 시프트 알림 */}
+      <button
+        onClick={handlePushToggle}
+        disabled={pushLoading}
+        className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
+      >
+        <div className="text-left">
+          <p className="text-[15px] font-bold text-ink">시프트 알림</p>
+          <p className="text-[13px] text-tertiary mt-0.5">
+            {pushEnabled ? '새 시프트 공고를 즉시 알려드려요' : '알림을 켜면 새 시프트를 바로 받아요'}
+          </p>
+        </div>
+        <div className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 flex items-center px-1 ${pushEnabled ? 'bg-primary' : 'bg-line'}`}>
+          <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+        </div>
+      </button>
+
+      {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
 
       {/* 로그아웃 */}
       <button

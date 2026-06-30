@@ -1,114 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
 
-// ─── Mock 데이터 ──────────────────────────────────────────────
-// role 을 'rn' | 'na' 로 바꾸면 필터 칩 전환됨
-const MOCK_USER = {
-  name: '김수진',
-  role: 'rn' as 'rn' | 'na',
-  areas: ['강남', '강동'],
+type ShiftWithFacility = Shift & {
+  facilities: { name: string } | null;
 };
 
-const MOCK_CREDITS = 15000; // 실제는 Supabase user_credits 테이블에서
-
-const MOCK_SHIFTS: Shift[] = [
-  // RN 시프트
-  {
-    id: 'mock-1',
-    shift_date: '2026-06-28',
-    start_time: '22:00', end_time: '06:00', is_overnight: true,
-    required_role: 'rn', hourly_wage: 15000, estimated_total_pay: 120000,
-    description: '3층 일반병동 야간 간호 지원, 투약 및 활력징후 측정',
-    department: '일반병동', notes: '식사 제공 · 주차 가능',
-  },
-  {
-    id: 'mock-2',
-    shift_date: '2026-06-29',
-    start_time: '22:00', end_time: '06:00', is_overnight: true,
-    required_role: 'rn', hourly_wage: 16000, estimated_total_pay: 128000,
-    description: 'ICU 야간 집중간호, 중증환자 모니터링 및 처치 보조',
-    department: '중환자실', notes: '실력자 우대 · 복장 규정 있음',
-  },
-  {
-    id: 'mock-4',
-    shift_date: '2026-07-01',
-    start_time: '22:00', end_time: '06:00', is_overnight: true,
-    required_role: 'rn', hourly_wage: 15000, estimated_total_pay: 120000,
-    description: '응급실 야간 트리아지 지원',
-    department: '응급실', notes: null,
-  },
-  {
-    id: 'mock-5',
-    shift_date: '2026-07-02',
-    start_time: '14:00', end_time: '22:00', is_overnight: false,
-    required_role: 'rn', hourly_wage: 13000, estimated_total_pay: 98000,
-    description: '5층 내과 외래 오후 근무, 투약 및 드레싱',
-    department: '외래', notes: '저녁 제공',
-  },
-  // NA 시프트
-  {
-    id: 'mock-n1',
-    shift_date: '2026-06-28',
-    start_time: '09:00', end_time: '18:00', is_overnight: false,
-    required_role: 'na', hourly_wage: 12000, estimated_total_pay: 91200,
-    description: '어르신 일상생활 보조, 투약 지원, 기저귀 교환 등',
-    department: '요양원', notes: '점심 제공 · 요양보호사 자격 우대',
-  },
-  {
-    id: 'mock-n2',
-    shift_date: '2026-06-29',
-    start_time: '22:00', end_time: '06:00', is_overnight: true,
-    required_role: 'na', hourly_wage: 13000, estimated_total_pay: 104000,
-    description: '야간 어르신 케어, 활력징후 측정 및 낙상 예방',
-    department: '요양병원', notes: '야간수당 포함',
-  },
-  {
-    id: 'mock-n3',
-    shift_date: '2026-06-30',
-    start_time: '09:00', end_time: '14:00', is_overnight: false,
-    required_role: 'na', hourly_wage: 11000, estimated_total_pay: 49500,
-    description: '외래 접수·수납 보조, 처치실 준비 및 정리',
-    department: '의원·클리닉', notes: '주 3회 반복 근무 가능',
-  },
-  {
-    id: 'mock-n4',
-    shift_date: '2026-07-01',
-    start_time: '09:00', end_time: '17:00', is_overnight: false,
-    required_role: 'na', hourly_wage: 12000, estimated_total_pay: 86400,
-    description: '재활 훈련 보조, 이동 지원 및 일상생활 재활',
-    department: '재활병원', notes: '체력 필요 · 경험자 우대',
-  },
-  {
-    id: 'mock-n5',
-    shift_date: '2026-07-02',
-    start_time: '10:00', end_time: '19:00', is_overnight: false,
-    required_role: 'na', hourly_wage: 11500, estimated_total_pay: 92000,
-    description: '침술·뜸 보조, 접수 및 물리치료 준비',
-    department: '한의원', notes: '한방 관심자 환영',
-  },
-];
-
-const MOCK_FACILITIES: Record<string, { name: string; distance: string }> = {
-  'mock-1':  { name: '강남세브란스병원', distance: '1.2km' },
-  'mock-2':  { name: '삼성서울병원',    distance: '2.8km' },
-  'mock-4':  { name: '서울아산병원',    distance: '3.4km' },
-  'mock-5':  { name: '강남성모병원',    distance: '1.7km' },
-  'mock-n1': { name: '강남노인요양원',  distance: '0.8km' },
-  'mock-n2': { name: '강동요양병원',    distance: '1.5km' },
-  'mock-n3': { name: '강남내과의원',    distance: '0.4km' },
-  'mock-n4': { name: '강동재활병원',    distance: '2.1km' },
-  'mock-n5': { name: '강남한의원',      distance: '0.6km' },
-};
-
-// ─── 필터 타입 ────────────────────────────────────────────────
+// ─── 필터 타입 ─────────────────────────────────────────────────
 type DateFilter = 'all' | 'today' | 'tomorrow' | 'week';
 type TimeFilter = 'all' | 'night' | 'day' | 'early';
 type WageFilter = 'all' | '12k' | '15k';
-type DeptFilter = string; // role별로 동적
+type DeptFilter = string;
 
 const DATE_CHIPS: { value: DateFilter; label: string }[] = [
   { value: 'all',      label: '전체' },
@@ -127,7 +33,6 @@ const WAGE_CHIPS: { value: WageFilter; label: string }[] = [
   { value: '12k', label: '₩12,000+' },
   { value: '15k', label: '₩15,000+' },
 ];
-
 const DEPT_CHIPS_RN: { value: DeptFilter; label: string }[] = [
   { value: 'all',    label: '전체' },
   { value: '일반병동', label: '일반병동' },
@@ -137,19 +42,18 @@ const DEPT_CHIPS_RN: { value: DeptFilter; label: string }[] = [
   { value: '외래',   label: '외래' },
 ];
 const DEPT_CHIPS_NA: { value: DeptFilter; label: string }[] = [
-  { value: 'all',     label: '전체' },
-  { value: '요양원',  label: '요양원' },
+  { value: 'all',      label: '전체' },
+  { value: '요양원',   label: '요양원' },
   { value: '요양병원', label: '요양병원' },
   { value: '의원·클리닉', label: '의원·클리닉' },
   { value: '재활병원', label: '재활병원' },
-  { value: '한의원',  label: '한의원' },
+  { value: '한의원',   label: '한의원' },
 ];
 
-// ─── 필터 함수 ────────────────────────────────────────────────
+// ─── 필터 함수 ─────────────────────────────────────────────────
 function toDateStr(d: Date) {
   return d.toISOString().slice(0, 10);
 }
-
 function matchesDate(shift: Shift, f: DateFilter) {
   if (f === 'all') return true;
   const today    = toDateStr(new Date());
@@ -177,7 +81,7 @@ function matchesDept(shift: Shift, f: DeptFilter) {
   return shift.department === f;
 }
 
-// ─── 서브 컴포넌트 ────────────────────────────────────────────
+// ─── 서브 컴포넌트 ─────────────────────────────────────────────
 function ChipRow<T extends string>({
   options, value, onChange,
 }: { options: { value: T; label: string }[]; value: T; onChange: (v: T) => void }) {
@@ -198,8 +102,10 @@ function ChipRow<T extends string>({
   );
 }
 
-function ShiftCard({ shift, hot = false, onApply }: { shift: Shift; hot?: boolean; onApply: () => void }) {
-  const fac   = MOCK_FACILITIES[shift.id];
+function ShiftCard({
+  shift, hot = false, onApply,
+}: { shift: ShiftWithFacility; hot?: boolean; onApply: () => void }) {
+  const facilityName = shift.facilities?.name ?? '병원/클리닉';
   const start = shift.start_time.slice(0, 5);
   const end   = shift.end_time.slice(0, 5);
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
@@ -211,8 +117,7 @@ function ShiftCard({ shift, hot = false, onApply }: { shift: Shift; hot?: boolea
           <span className="text-[18px]">🏥</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-bold text-ink leading-tight truncate">{fac?.name}</p>
-          <p className="text-[12px] text-tertiary">{fac?.distance}</p>
+          <p className="text-[15px] font-bold text-ink leading-tight truncate">{facilityName}</p>
         </div>
         {hot && (
           <span className="text-[11px] font-bold text-warn bg-warn/10 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -250,8 +155,8 @@ function ShiftCard({ shift, hot = false, onApply }: { shift: Shift; hot?: boolea
   );
 }
 
-function ListCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
-  const fac   = MOCK_FACILITIES[shift.id];
+function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () => void }) {
+  const facilityName = shift.facilities?.name ?? '병원/클리닉';
   const start = shift.start_time.slice(0, 5);
   const end   = shift.end_time.slice(0, 5);
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
@@ -259,7 +164,7 @@ function ListCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
   return (
     <div className="bg-white rounded-card shadow-card p-4 mb-3 flex items-center gap-4">
       <div className="flex-1 min-w-0">
-        <p className="text-[12px] text-tertiary truncate">{fac?.name} · {fac?.distance}</p>
+        <p className="text-[12px] text-tertiary truncate">{facilityName}</p>
         <p className="text-[15px] font-bold text-ink mt-0.5">
           {shift.shift_date}　{start}–{end}
         </p>
@@ -278,26 +183,80 @@ function ListCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
   );
 }
 
-// ─── 메인 ─────────────────────────────────────────────────────
+// ─── 메인 ──────────────────────────────────────────────────────
 export default function HomePage() {
-  const role = MOCK_USER.role;
-  const deptChips = role === 'rn' ? DEPT_CHIPS_RN : DEPT_CHIPS_NA;
+  const [name,    setName]    = useState('');
+  const [role,    setRole]    = useState<'rn' | 'na'>('rn');
+  const [areas,   setAreas]   = useState<string[]>([]);
+  const [credits, setCredits] = useState(0);
+  const [shifts,  setShifts]  = useState<ShiftWithFacility[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [wageFilter, setWageFilter] = useState<WageFilter>('all');
   const [deptFilter, setDeptFilter] = useState<DeptFilter>('all');
-  const [selected, setSelected]     = useState<Shift | null>(null);
-  const [applied, setApplied]       = useState<Set<string>>(new Set());
 
-  // role에 맞는 시프트만 우선 추림
-  const roleShifts = MOCK_SHIFTS.filter(
-    (s) => s.required_role === role || s.required_role === 'any'
-  );
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-  const filtered = roleShifts.filter(
+      setName(user.user_metadata?.profile_nickname ?? '사용자');
+
+      const [
+        { data: prof },
+        { data: locPref },
+        { data: creditsData },
+        { data: workerRow },
+      ] = await Promise.all([
+        supabase.from('profiles').select('role').single(),
+        supabase.from('worker_location_prefs').select('locations').single(),
+        supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle(),
+        supabase.from('workers').select('id').eq('auth_user_id', user.id).maybeSingle(),
+      ]);
+
+      const userRole = (prof?.role as 'rn' | 'na') ?? 'rn';
+      setRole(userRole);
+      setAreas(((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label));
+      setCredits(creditsData?.balance ?? 0);
+
+      // 이미 지원한 shift_id 목록
+      if (workerRow?.id) {
+        const { data: appData } = await supabase
+          .from('shift_applications')
+          .select('shift_id')
+          .eq('worker_id', workerRow.id)
+          .in('status', ['applied', 'accepted']);
+        setApplied(new Set((appData ?? []).map((a: { shift_id: string }) => a.shift_id)));
+      }
+
+      // 역할에 맞는 공개 시프트 조회
+      const roleFilter = userRole === 'rn' ? ['rn', 'any'] : ['na', 'any'];
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: shiftData } = await supabase
+        .from('shifts')
+        .select('id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities(name)')
+        .eq('status', 'open')
+        .in('required_role', roleFilter)
+        .gte('shift_date', today)
+        .order('shift_date', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      setShifts((shiftData as unknown as ShiftWithFacility[]) ?? []);
+      setLoading(false);
+    }
+    load();
+  }, []);
+
+  const deptChips = role === 'rn' ? DEPT_CHIPS_RN : DEPT_CHIPS_NA;
+  const roleLabel = role === 'rn' ? '간호사' : '간호조무사';
+
+  const roleShifts = shifts.filter((s) => !applied.has(s.id));
+  const filtered   = roleShifts.filter(
     (s) =>
-      !applied.has(s.id) &&
       matchesDate(s, dateFilter) &&
       matchesTime(s, timeFilter) &&
       matchesWage(s, wageFilter) &&
@@ -319,8 +278,13 @@ export default function HomePage() {
     setSelected(null);
   }
 
-  const totalCount = roleShifts.length - applied.size;
-  const roleLabel  = role === 'rn' ? '간호사' : '간호조무사';
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="pb-24">
@@ -330,8 +294,11 @@ export default function HomePage() {
           <div className="flex-1 min-w-0">
             <p className="text-[14px] text-sub">안녕하세요 👋</p>
             <h1 className="text-[24px] font-extrabold text-ink leading-tight mt-0.5">
-              {MOCK_USER.name} {roleLabel}님,<br />
-              <span className="text-primary">내 근처 시프트 {totalCount}건</span> 있어요
+              {name} {roleLabel}님,<br />
+              {roleShifts.length > 0
+                ? <><span className="text-primary">시프트 {roleShifts.length}건</span> 있어요</>
+                : <span className="text-ink">새 시프트를 기다리는 중</span>
+              }
             </h1>
           </div>
           {/* 적립금 버튼 */}
@@ -339,22 +306,24 @@ export default function HomePage() {
             <div className="flex flex-col items-center bg-primary/8 border border-primary/20 px-3.5 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
               <span className="text-[10px] font-semibold text-primary tracking-tight">적립금</span>
               <span className="text-[17px] font-extrabold text-primary leading-tight">
-                ₩{MOCK_CREDITS.toLocaleString('ko-KR')}
+                ₩{credits.toLocaleString('ko-KR')}
               </span>
               <span className="text-[10px] text-primary/60 mt-0.5">스토어 →</span>
             </div>
           </Link>
         </div>
-        <div className="flex gap-1.5 mt-3">
-          {MOCK_USER.areas.map((a) => (
-            <span key={a} className="text-[12px] font-semibold text-primary bg-primary-light px-2.5 py-1 rounded-full">
-              📍 {a}
-            </span>
-          ))}
-        </div>
+        {areas.length > 0 && (
+          <div className="flex gap-1.5 mt-3 flex-wrap">
+            {areas.map((a) => (
+              <span key={a} className="text-[12px] font-semibold text-primary bg-primary-light px-2.5 py-1 rounded-full">
+                📍 {a}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* 필터 4줄 */}
+      {/* 필터 */}
       <div className="px-5 pb-4 flex flex-col gap-2">
         <ChipRow options={DATE_CHIPS} value={dateFilter} onChange={setDateFilter} />
         <ChipRow options={TIME_CHIPS} value={timeFilter} onChange={setTimeFilter} />
@@ -367,7 +336,7 @@ export default function HomePage() {
         <section className="mb-6">
           <div className="px-5 flex items-center justify-between mb-3">
             <h2 className="text-[16px] font-extrabold text-ink">🔥 추천 시프트</h2>
-            <span className="text-[12px] text-tertiary">내 지역 · 조건 맞춤</span>
+            <span className="text-[12px] text-tertiary">조건 맞춤</span>
           </div>
           <div className="overflow-x-auto scrollbar-hide">
             <div className="flex gap-3 px-5 pb-2">
@@ -379,10 +348,10 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* 지역 전체 공고 */}
+      {/* 전체 공고 */}
       <section className="px-5">
         <h2 className="text-[16px] font-extrabold text-ink mb-3">
-          📍 {MOCK_USER.areas.join(' · ')} 전체 공고
+          {areas.length > 0 ? `📍 ${areas[0]} 전체 공고` : '📍 전체 공고'}
         </h2>
 
         {filtered.length === 0 ? (
