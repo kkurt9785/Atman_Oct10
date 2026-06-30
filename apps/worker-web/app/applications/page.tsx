@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { QRModal } from '@/components/shifts/QRModal';
 
@@ -200,19 +201,19 @@ function WageCard({ wage }: { wage: WageRow }) {
 type Tab = 'applications' | 'wages';
 
 export default function ApplicationsPage() {
+  const router = useRouter();
   const [tab, setTab]       = useState<Tab>('applications');
   const [workerId, setWorkerId] = useState<string | null>(null);
   const [apps, setApps]     = useState<Application[]>([]);
   const [wages, setWages]   = useState<WageRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [noAuth, setNoAuth] = useState(false);
   const [qrTarget, setQrTarget] = useState<Application | null>(null);
 
   // 워커 ID + 지원 현황 초기 로드
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setNoAuth(true); setLoading(false); return; }
+      if (!user) { router.replace('/onboarding'); return; }
 
       const { data: worker } = await supabase
         .from('workers')
@@ -220,7 +221,7 @@ export default function ApplicationsPage() {
         .eq('auth_user_id', user.id)
         .single();
 
-      if (!worker) { setNoAuth(true); setLoading(false); return; }
+      if (!worker) { router.replace('/onboarding'); return; }
 
       setWorkerId(worker.id);
 
@@ -284,15 +285,7 @@ export default function ApplicationsPage() {
     );
   }
 
-  if (noAuth) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen gap-3 px-6">
-        <span className="text-5xl">🔐</span>
-        <p className="text-[17px] font-bold text-ink">로그인이 필요해요</p>
-        <p className="text-[14px] text-sub text-center">회원가입 후 지원 현황을 확인할 수 있어요</p>
-      </div>
-    );
-  }
+
 
   // 이번 달 급여 합계
   const thisMonth  = new Date().toISOString().slice(0, 7);
