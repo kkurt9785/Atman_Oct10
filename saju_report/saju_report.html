@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>명리 통합 분석 보고서 v2 - 1985.7.19 男</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  @page { size: A4; margin: 14mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Apple SD Gothic Neo", "AppleGothic", -apple-system, sans-serif;
+    color: #1a1a1a; line-height: 1.55; font-size: 10pt; margin: 0;
+  }
+  h1 { font-size: 19pt; margin: 0 0 6px 0; color: #1a1a3a; letter-spacing: -0.5px; }
+  h2 {
+    font-size: 13pt; margin: 20px 0 8px 0; padding: 6px 10px;
+    background: linear-gradient(90deg, #1a1a3a 0%, #4a4a8a 100%);
+    color: #fff; border-radius: 4px; page-break-after: avoid;
+  }
+  h3 { font-size: 11pt; margin: 12px 0 6px 0; color: #1a1a3a; border-bottom: 2px solid #1a1a3a; padding-bottom: 3px; page-break-after: avoid; }
+  h4 { font-size: 10pt; margin: 10px 0 4px 0; color: #3a3a6a; page-break-after: avoid; }
+  p { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 10px 0; font-size: 9pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: #eef0f7; font-weight: 600; }
+  .meta { color: #666; font-size: 9pt; margin-bottom: 14px; }
+  .cover {
+    text-align: center; padding: 24px 0 18px 0;
+    border-top: 4px double #1a1a3a; border-bottom: 4px double #1a1a3a;
+    margin-bottom: 14px;
+  }
+  .cover .subtitle { font-size: 11pt; color: #555; margin-top: 4px; }
+  .cover .version { display: inline-block; background: #c63838; color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 9pt; font-weight: 700; margin-left: 8px; }
+  .saju-box {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    margin: 8px 0; font-family: "Apple SD Gothic Neo", serif;
+  }
+  .saju-pillar {
+    border: 2px solid #1a1a3a; border-radius: 6px; padding: 6px 4px;
+    text-align: center; background: #f9f9fb;
+  }
+  .saju-pillar .label { font-size: 8.5pt; color: #888; }
+  .saju-pillar .ch { font-size: 20pt; font-weight: 700; color: #1a1a3a; line-height: 1.1; margin: 2px 0; }
+  .saju-pillar .ko { font-size: 8.5pt; color: #555; }
+  .saju-pillar .ten { font-size: 8pt; color: #888; margin-top: 2px; }
+  .chart-box { margin: 8px 0 14px 0; page-break-inside: avoid; }
+  .chart-box canvas { max-height: 230px; }
+  .small-chart canvas { max-height: 170px; }
+  .grade-table td.g5 { background: #1e8a3a; color: #fff; text-align: center; font-weight: 700; }
+  .grade-table td.g4 { background: #5ab84e; color: #fff; text-align: center; font-weight: 700; }
+  .grade-table td.g3 { background: #f5c542; text-align: center; font-weight: 700; }
+  .grade-table td.g2 { background: #ed8a3a; color: #fff; text-align: center; font-weight: 700; }
+  .grade-table td.g1 { background: #c63838; color: #fff; text-align: center; font-weight: 700; }
+  .alert { background: #fff4f0; border-left: 4px solid #c63838; padding: 6px 10px; margin: 6px 0; font-size: 9pt; }
+  .good { background: #f0f9f0; border-left: 4px solid #1e8a3a; padding: 6px 10px; margin: 6px 0; font-size: 9pt; }
+  .info { background: #f0f4fa; border-left: 4px solid #3a3a6a; padding: 6px 10px; margin: 6px 0; font-size: 9pt; }
+  .triple { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+  .triple-box { border: 1.5px solid #4a4a8a; border-radius: 5px; padding: 8px; background: #f8f8fc; }
+  .triple-box h4 { margin-top: 0; color: #1a1a3a; border-bottom: 1px solid #4a4a8a; padding-bottom: 3px; }
+  .triple-box ul { font-size: 9pt; margin: 4px 0 0 16px; }
+  .pagebreak { page-break-after: always; }
+  ul, ol { margin: 4px 0 8px 18px; padding: 0; }
+  li { margin: 2px 0; }
+  .footer-note { font-size: 8.5pt; color: #999; text-align: center; margin-top: 16px; border-top: 1px solid #ddd; padding-top: 6px; }
+  .toc { columns: 2; column-gap: 20px; font-size: 9.5pt; }
+  .toc li { break-inside: avoid; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>명리·자미두수·맹파 통합 분석 보고서 <span class="version">v2.0</span></h1>
+  <div class="subtitle">3관법 통합 — 향후 3년 + 30년 운세 + 인연 + 실행 전략</div>
+  <div style="margin-top: 12px; font-size: 10pt;">
+    <b>대상</b> 1985년 7월 19일(양) 14:59 男 &nbsp;|&nbsp;
+    <b>사주</b> 乙丑 癸未 己未 辛未 &nbsp;|&nbsp;
+    <b>음력</b> 1985.6.2 미시
+  </div>
+  <div class="meta" style="margin-top: 6px;">기준 2026-06-06 / 현 대운 기묘(34~43) / 다음 대운 무인(44~53, 2029~)</div>
+</div>
+
+<h3 style="margin-top: 10px;">목차</h3>
+<ol class="toc">
+  <li>3관법 통합 소개</li>
+  <li>명조 기본 + 자미두수 명궁</li>
+  <li>맹파명리 빈주·실허 분석</li>
+  <li>대운별 운세 그래프 (3관법 통합)</li>
+  <li>향후 3년 월별 운세 (2026.6~2029.2)</li>
+  <li>30년 연도별 종합·영역별</li>
+  <li>위험·기회 캘린더</li>
+  <li>무인대운 (44~53) 상세</li>
+  <li>정축대운 (54~63) 상세</li>
+  <li>병자대운 (64~73) 상세</li>
+  <li>따님 명조 + 부녀 궁합</li>
+  <li>팀장 동생 인연 (정인 인연)</li>
+  <li>병화 메커니즘 — 왜 좋은가</li>
+  <li>예측 가능성과 활용법</li>
+  <li>핵심 액션 플랜</li>
+</ol>
+
+<h2>1. 3관법 통합 — 세 가지 시스템의 각도</h2>
+
+<div class="triple">
+  <div class="triple-box">
+    <h4>자평명리 (子平命理)</h4>
+    <ul>
+      <li>연해자평·자평진전·적천수·궁통보감</li>
+      <li>십신·격국·용신·합충</li>
+      <li>"무엇이 일어나는가"</li>
+      <li>구조와 원리</li>
+    </ul>
+  </div>
+  <div class="triple-box">
+    <h4>자미두수 (紫微斗數)</h4>
+    <ul>
+      <li>12궁·14정성·4화·6길성·6흉성</li>
+      <li>음력 + 시 기반</li>
+      <li>"어느 영역에서"</li>
+      <li>인생 영역별 디테일</li>
+    </ul>
+  </div>
+  <div class="triple-box">
+    <h4>맹파명리 (盲派命理)</h4>
+    <ul>
+      <li>빈주(賓主)·동정·실허·체용</li>
+      <li>결과론적 사건 추적</li>
+      <li>"왜 그렇게 발현되는가"</li>
+      <li>발현 메커니즘</li>
+    </ul>
+  </div>
+</div>
+
+<div class="info">
+세 관법을 한 번에 보는 이유 — 단일 관법은 60% 적중. <b>3관법 일치 사건은 75~80%</b>. 본인 명조는 과거 8개 주요 사건이 3관법 모두에서 사후 설명 가능 = 매우 일관된 명조.
+</div>
+
+<h2>2. 명조 기본 + 자미두수 명궁</h2>
+
+<h3>2-1. 사주 4기둥</h3>
+<div class="saju-box">
+  <div class="saju-pillar"><div class="label">時 (자녀·말년)</div><div class="ch">辛</div><div class="ko">신</div><div class="ten">食神</div><div class="ch">未</div><div class="ko">미</div><div class="ten">比肩</div></div>
+  <div class="saju-pillar"><div class="label">日 (본인·배우자)</div><div class="ch">己</div><div class="ko">기</div><div class="ten">日干</div><div class="ch">未</div><div class="ko">미</div><div class="ten">比肩</div></div>
+  <div class="saju-pillar"><div class="label">月 (직업·부모)</div><div class="ch">癸</div><div class="ko">계</div><div class="ten">偏財</div><div class="ch">未</div><div class="ko">미</div><div class="ten">比肩 (월령)</div></div>
+  <div class="saju-pillar"><div class="label">年 (조상·초년)</div><div class="ch">乙</div><div class="ko">을</div><div class="ten">七殺</div><div class="ch">丑</div><div class="ko">축</div><div class="ten">比肩</div></div>
+</div>
+
+<table>
+<tr><th style="width: 18%;">항목</th><th>내용</th></tr>
+<tr><td>일간 / 강약</td><td>기토(己土) 음토. <b>신왕</b>(토 4坐). 종왕 경향 일부</td></tr>
+<tr><td>격국</td><td><b>식신생재격</b> (신금 식신 + 계수 편재)</td></tr>
+<tr><td>용신 / 희신</td><td>用 신금 / 喜 계수 / 보조 을목</td></tr>
+<tr><td>병(病)</td><td>토중금매 — 미토 3중복으로 신금 묻힐 위험 / 축미충으로 약하게 해소</td></tr>
+<tr><td>조후</td><td>미월 조토 / 수 부족 / 천간 화 부재 — 병화년에 조후 보완</td></tr>
+<tr><td>대운 흐름</td><td>壬午 → 辛巳 → 庚辰 → <b>己卯(현재)</b> → 戊寅 → 丁丑 → 丙子 (順)</td></tr>
+</table>
+
+<h3>2-2. 자미두수 명궁·신궁·4화</h3>
+<table>
+<tr><th style="width: 18%;">항목</th><th>내용</th></tr>
+<tr><td>명궁 (命宮)</td><td><b>子宮</b> (수, 음) — 사색·내면·신중함·끈기. 토일주가 자궁 = "겉은 흙, 속은 물"</td></tr>
+<tr><td>신궁 (身宮)</td><td><b>未宮</b> (토, 음) — 일지·시지와 동일. 인생 후반 본 명조와 운명 일치 강화</td></tr>
+<tr><td>오국 (五局)</td><td>화륙국(火六局) 추정 — 명궁 戊子</td></tr>
+<tr><td>을년 화록</td><td><b>天機</b> — 지혜·총명·기술·연구·IT = 본인 재물 통로</td></tr>
+<tr><td>을년 화권</td><td><b>天梁</b> — 보수적 권위·자문·연장자 = 노년 권위</td></tr>
+<tr><td>을년 화과</td><td><b>紫微</b> — 제왕 명예·사회적 평판 = 임원·타이틀</td></tr>
+<tr><td>을년 화기</td><td><b>太陰</b> — 음·여성·어머니·딸 = <b>여성 가족 관계 미세 갈등 평생 관리</b></td></tr>
+</table>
+
+<div class="good">
+<b>자미두수 핵심 메시지</b><br>
+재물은 천기(기술·IT) / 권위는 천량(자문) / 명예는 자미(임원) / 주의는 태음(여성가족 정서). <b>명리·자미두수가 같은 그림</b>을 그림.
+</div>
+
+<h2>3. 맹파명리 빈주·실허 분석</h2>
+
+<table>
+<tr><th>구분</th><th>위치</th><th>해석</th></tr>
+<tr><td>빈위(賓位)</td><td>年·月 = 乙丑·癸未</td><td>외부 환경·과거·조상·사회 / 칠살(외부 압박) + 편재(외부 돈)</td></tr>
+<tr><td>주위(主位)</td><td>日·時 = 己未·辛未</td><td>본인·결과물·자녀 / 일간(나) + 식신(작품·기술)</td></tr>
+<tr><td>천간 허(虛)</td><td>乙·癸·己·辛</td><td>표면 / 외부에서 보이는 모습 — 칠살·편재 머리 위</td></tr>
+<tr><td>지지 실(實)</td><td>丑·未·未·未</td><td>본질 / 실제 무대 — <b>토 폭주, 미토 3중복</b></td></tr>
+</table>
+
+<h3>맹파의 결정적 진단 — 4가지</h3>
+<ol>
+  <li><b>미토 3개의 무대 위에서 신금(작품·기술)을 들고 사는 사람</b> — 다중 정체성 운영자 (직장+사이드+개인작업)</li>
+  <li><b>계수 편재가 빈위 천간 = 돈은 외부에서 끌어오는 것</b> — 풀타임 단독 창업 비적합</li>
+  <li><b>을목 칠살이 년간 빈위 = 외부 권위가 평생 머리 위</b> — 무인대운 인목으로 정관화 → 외부 권력이 본인 권력으로 전환</li>
+  <li><b>축미충 = 빈주 충 = 외부와 본인 무대 마찰</b> — 정축대운 본격 발동</li>
+</ol>
+
+<div class="info">
+<b>맹파 결정적 메시지</b> — 본인은 <b>"외부 무대 위에 본인 작품을 얹어 외부 보상을 받는 명조"</b>. 외국계 IT + Atman + 자문직 형태가 명조에 정합.
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>4. 대운별 운세 점수 (3관법 통합 / 5점)</h2>
+
+<div class="chart-box">
+  <canvas id="daewoonChart"></canvas>
+</div>
+
+<table class="grade-table">
+<tr><th>대운</th><th>연령</th><th>연도</th><th>재운</th><th>성공운</th><th>직업운</th><th>창업운</th><th>건강운</th><th>3관법 통합 키워드</th></tr>
+<tr><td><b>기묘</b></td><td>34-43</td><td>2019-2028</td><td class="g3">3</td><td class="g3">3</td><td class="g4">4</td><td class="g2">2</td><td class="g4">4</td><td>칠살 진로 재정립, IT 정착, 결혼·자녀</td></tr>
+<tr><td><b>무인</b></td><td>44-53</td><td>2029-2038</td><td class="g4">4</td><td class="g5">5</td><td class="g5">5</td><td class="g3">3</td><td class="g3">3</td><td>정관 입성+자미 화과 / 무계합 부친·자산화</td></tr>
+<tr><td><b>정축</b></td><td>54-63</td><td>2039-2048</td><td class="g4">4</td><td class="g4">4</td><td class="g3">3</td><td class="g4">4</td><td class="g2">2</td><td>편인+천량 화권 / 축미충 발현 / 자문·전문성</td></tr>
+<tr><td><b>병자</b></td><td>64-73</td><td>2049-2058</td><td class="g5">5</td><td class="g4">4</td><td class="g2">2</td><td class="g3">3</td><td class="g3">3</td><td>정인+편재+전택궁 정점 / 부귀 완성</td></tr>
+</table>
+
+<h3>4-1. 3관법 일치도 (무인대운 기준)</h3>
+<div class="chart-box small-chart">
+  <canvas id="agreementChart"></canvas>
+</div>
+
+<h2>5. 향후 3년 월별 운세 (2026.6 ~ 2029.2)</h2>
+
+<div class="chart-box">
+  <canvas id="monthlyChart"></canvas>
+</div>
+
+<h3>5-1. 2026 병오년 (41세) — 정인년 안정기 ⚠️반길반흉</h3>
+<table>
+<tr><th style="width: 11%;">월건</th><th style="width: 14%;">양력</th><th style="width: 28%;">3관법 작용</th><th>핵심 액션</th></tr>
+<tr><td>갑오월 ⭐</td><td>6/6~7/6</td><td>정관 갑기합 / 자미 화과 / 빈주 호응</td><td><b>조기 정직 전환 + 연봉 협상</b></td></tr>
+<tr><td>을미월 ⚠</td><td>7/7~8/7</td><td>칠살+비견 / 사내 견제</td><td>로우키, 갈등 회피, 건강 점검</td></tr>
+<tr><td>병신월 ⭐</td><td>8/8~9/7</td><td>정인+신금 용신 / 살인상생 / 빈위 보호</td><td><b>Atman 베타 출시 + 정직 전환 마무리</b></td></tr>
+<tr><td>정유월 ⭐⭐</td><td>9/8~10/7</td><td>유금 식신 강 / 천기 화록 가동</td><td><b>Atman 정식 런칭 + 마케팅</b></td></tr>
+<tr><td>무술월 ⚠⚠</td><td>10/8~11/6</td><td>축술미 삼형 / 빈주 충돌</td><td>신규 계약·확장 ❌ / 안정화만</td></tr>
+<tr><td>기해월</td><td>11/7~12/6</td><td>비견+정재 / 외부 돈 채널 가동</td><td>첫 매출 정산, 부수입 가시화</td></tr>
+<tr><td>경자월</td><td>12/7~1/4</td><td>상관+편재 / 활동성 상승</td><td>연말 평가, 2027 방어 전략</td></tr>
+</table>
+
+<h3>5-2. 2027 정미년 (42세) — 비견+편인 방어의 해 ⚠️</h3>
+<div class="alert">
+<b>1년 키워드: 守城 (버티기)</b> · 이직 ❌ · 동업 ❌ · 보증 ❌ · 신규 투자 ❌ · 큰 계약 ❌<br>
+<b>허용:</b> 본업 유지, 사이드 운영, 자격증·학습, 사내 멘토링, 가족·건강. <b>자미두수 천량 화권 시작 → 자문·후배지도 역할 자연 부여</b>
+</div>
+<table>
+<tr><th>월건</th><th>양력</th><th>주의·실행</th></tr>
+<tr><td>임인월</td><td>2/4~3/5</td><td>해 초 자기점검, 큰 결정 보류</td></tr>
+<tr><td>계묘월</td><td>3/6~4/4</td><td>재성월 — 작은 부업 수익 가시화</td></tr>
+<tr><td>갑진월 ⭐</td><td>4/5~5/4</td><td>정관월 — 사내 평판 관리 적기</td></tr>
+<tr><td>을사~정미월 ⚠⚠</td><td>5~7월</td><td><b>건강 집중 관리</b>: 혈압·간·당뇨. 부친·아내·딸 건강도 점검 (자미 태음 화기)</td></tr>
+<tr><td>무신월 ⭐</td><td>8/8~9/7</td><td>상관 발동 시작 — 2028 이직 사전 준비 본격 개시</td></tr>
+<tr><td>기유~신해월</td><td>9~11월</td><td>이력서·포트폴리오 정비, 헤드헌터 비밀 컨택</td></tr>
+<tr><td>임자월</td><td>12/7~1/5</td><td>면접 단계 진입 가능. 본격 협상은 무신년</td></tr>
+</table>
+
+<h3>5-3. 2028 무신년 (43세) — 상관+겁재 도약 ⭐⭐⭐</h3>
+<div class="good">
+<b>1년 키워드: 이직 + 사업 확장 + 시장가 정점</b><br>
+30% 회복 + 추가 20~30% 가능. <b>3관법 일치 도약 시점.</b><br>
+외국계 IT(헬스케어·SaaS) 1순위 / 공공 디지털기관 2순위 / 본업 풀타임 창업 ❌
+</div>
+<table>
+<tr><th>월건</th><th>양력</th><th>핵심 액션</th></tr>
+<tr><td>갑인월 ⭐⭐</td><td>2/4~3/5</td><td><b>이직 1차 윈도우</b> — 갑목 정관 천간 투출</td></tr>
+<tr><td>을묘월 ⭐</td><td>3/6~4/4</td><td>입사·인수인계 마무리</td></tr>
+<tr><td>병진월 ⭐</td><td>4/5~5/4</td><td>새 조직 안착, 평판 구축</td></tr>
+<tr><td>정사~기미월</td><td>5~7월</td><td>본업 정착 + Atman 본격 확장 동시</td></tr>
+<tr><td>경신월 ⭐</td><td>8/7~9/6</td><td><b>이직 2차 윈도우</b>(1차 못 한 경우) — 신금 최강</td></tr>
+<tr><td>신유월 ⭐</td><td>9/7~10/7</td><td>식신 강화 — 본인 작품 가치 정점</td></tr>
+<tr><td>임술월 ⚠</td><td>10/8~11/6</td><td>축술미 삼형 — 계약 분쟁 주의</td></tr>
+<tr><td>계해~갑자월</td><td>11~12월</td><td>연말 정산 + 2029 무인대운 진입 준비</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2>6. 30년 연도별 종합 운세 (2026~2058)</h2>
+
+<div class="chart-box">
+  <canvas id="yearlyChart"></canvas>
+</div>
+
+<h3>6-1. 영역별 연도 그래프</h3>
+<div class="chart-box small-chart">
+  <canvas id="domainChart"></canvas>
+</div>
+
+<h2>7. 핵심 위험·기회 캘린더</h2>
+
+<h3>7-1. ⭐ 기회 시점 (행동 권장)</h3>
+<table>
+<tr><th>시점</th><th>성격</th><th>액션</th></tr>
+<tr><td>2026.06 갑오월</td><td>정관월 / 자미 화과</td><td>조기 정직 전환·연봉 협상</td></tr>
+<tr><td>2026.08-09</td><td>식신 강화 / 천기 화록</td><td>Atman 베타→정식 런칭</td></tr>
+<tr><td>2028.02-04</td><td>갑인·을묘 정관</td><td><b>이직 1차 윈도우 (외국계 IT)</b></td></tr>
+<tr><td>2028.08-09</td><td>경신·신유</td><td>이직 2차 윈도우, 사업 확장</td></tr>
+<tr><td>2029-2030</td><td>무인대운 진입</td><td>임원·CTO 트랙, 부동산 추가</td></tr>
+<tr><td>2034 갑인년</td><td>정관 천간 투출</td><td><b>인생 최대 도약</b> (승진·법인화·둘째 출산 검토)</td></tr>
+<tr><td>2038 무오년</td><td>대운 전환기</td><td>자산 정리, 정축대운 준비</td></tr>
+<tr><td>2049+ 병자대운</td><td>정인+편재+전택궁</td><td>자산 폭증·노후 안착·후계 이양</td></tr>
+</table>
+
+<h3>7-2. ⚠️ 위험 시점 (예방·보수)</h3>
+<table>
+<tr><th>시점</th><th>위험 성격</th><th>예방 조치</th></tr>
+<tr><td>2026.10 무술월</td><td>축술미 삼형</td><td>신규 계약·확장 보류, 건강검진</td></tr>
+<tr><td>2027 정미년 全</td><td>비견 분탈</td><td>이직·동업·보증·투자 금지</td></tr>
+<tr><td>2027.05-07</td><td>화토 과다 / 태음 화기</td><td>본인·부친·여성가족 건강·정서 집중</td></tr>
+<tr><td>2028.10 임술월</td><td>축술미 재발동</td><td>계약·법적 분쟁 주의</td></tr>
+<tr><td>2029-2038 무인대운</td><td>무계합 → 부친·유동성</td><td>현금→부동산·연금 락인, 부친 케어</td></tr>
+<tr><td>2030 경술년</td><td>축술미 + 무계합 가속</td><td><b>부친 건강 1차 변곡점</b></td></tr>
+<tr><td>2032 임자년</td><td>관성 변동</td><td>관재구설·소송 주의</td></tr>
+<tr><td>2037 정사년</td><td>무계합 완성기</td><td><b>부친 최대 위험기, 큰 결정 보류</b></td></tr>
+<tr><td>2039-2048 정축대운</td><td>정화극신, 축미충</td><td>본인 건강(폐·심혈관), 능동적 환경 변화</td></tr>
+<tr><td>2042-2043 임술·계해</td><td>본인 건강</td><td>53세 전후 종합검진 강화</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2>8. 무인대운 (44-53세, 2029-2038) 상세</h2>
+
+<table>
+<tr><th style="width: 18%;">구조</th><td>무토 겁재 + 인목 정관 / 인미암합 목국</td></tr>
+<tr><th>자평 호재</th><td><b>정관 입성</b> — 직장·지위 정점. 임원·CTO 진입</td></tr>
+<tr><th>자평 악재</th><td><b>무계합화 火</b> — 천간 계수(부친·현금) → 화 인성 변환</td></tr>
+<tr><th>자미두수</th><td><b>관록궁 + 자미 화과 정점</b> / 부모궁 태음 화기 주의</td></tr>
+<tr><th>맹파</th><td>빈위 칠살(을목) → 정관화. <b>외부 권위가 본인 권위로 전환</b>. 외부 돈 통로 자산화</td></tr>
+<tr><th>적합 회사</th><td>1순위 외국계 IT 한국법인 / 2순위 공공 디지털 헬스케어 / 비추 일반 관공서·완전 해외 이주</td></tr>
+<tr><th>재물 형태</th><td>봉급·스톡옵션·임원 보상 → 부동산·연금·신탁 자동 자산화</td></tr>
+<tr><th>창업</th><td>단독 무한책임 ❌ / 법인 임원·공동대표·CTO 합류형 ⭕</td></tr>
+<tr><th>건강</th><td>심혈관·당뇨·소화기 / 1차 점검 2030, 2037</td></tr>
+<tr><th>가족</th><td>부친 노년 본격화 — 2029까지 관계·재산·돌봄 사전 정리</td></tr>
+</table>
+
+<h4>자산 배분 권장 (2029 무인대운 진입 시)</h4>
+<div class="chart-box small-chart">
+  <canvas id="assetChart"></canvas>
+</div>
+
+<h2>9. 정축대운 (54-63세, 2039-2048) 상세</h2>
+
+<table>
+<tr><th style="width: 18%;">구조</th><td>정화 편인 + 축토 비견 / 축미충 + 유축합</td></tr>
+<tr><th>자평 호재 (지지)</th><td><b>축토 = 습토윤금</b> 신금 적극 생. 축미충 충즉발</td></tr>
+<tr><th>자평 악재 (천간)</th><td><b>정화극신금</b> 용신 위협, 인성과다</td></tr>
+<tr><th>자미두수</th><td><b>천량 화권 본격 발동</b> / 복덕궁 활성 / 재백궁 = 자문료·강의료·저작권</td></tr>
+<tr><th>맹파</th><td>빈위 축토가 주위 미토 충 → 묻혀 있던 신금·계수 발현 → <b>본인 가치의 사회적 인정</b></td></tr>
+<tr><th>인생 위치</th><td>정규직 마감, 자문·고문·1인 법인·교육 사업 전환</td></tr>
+<tr><th>건강</th><td>폐·기관지·피부(신금=폐) 집중 관리</td></tr>
+<tr><th>환경</th><td>축미충 — 거주·직장·사업 형태 변동. 능동 설계로 길운화</td></tr>
+</table>
+
+<h2>10. 병자대운 (64-73세, 2049-2058) 상세</h2>
+
+<table>
+<tr><th style="width: 18%;">구조</th><td>병화 정인 + 자수 편재 / 자축합 토 + 자미천</td></tr>
+<tr><th>자평</th><td><b>재운 인생 최절정</b>. 정인이 편재 보호 → 부동산·금융 폭증</td></tr>
+<tr><th>자미두수</th><td><b>전택궁 정점</b> + 자미 화과·천기 화록 후기 결실 / 자녀궁 변동</td></tr>
+<tr><th>맹파</th><td>자수가 계수 동조 → 외부 돈 통로 강화 + 자축합으로 본인 무대 안착</td></tr>
+<tr><th>인생 위치</th><td>회장·고문·재단 이사. 자녀에게 사업·자산 이양</td></tr>
+<tr><th>주의</th><td>신장·비뇨기·전립선 / 자녀(딸)와 물리적 거리(이주·해외) 가능</td></tr>
+</table>
+
+<div class="pagebreak"></div>
+
+<h2>11. 따님 명조 + 부녀 궁합</h2>
+
+<div class="saju-box">
+  <div class="saju-pillar"><div class="label">時</div><div class="ch">丁</div><div class="ko">정</div><div class="ten">比肩</div><div class="ch">未</div><div class="ko">미</div><div class="ten">食神</div></div>
+  <div class="saju-pillar"><div class="label">日</div><div class="ch">丁</div><div class="ko">정</div><div class="ten">日干</div><div class="ch">亥</div><div class="ko">해</div><div class="ten">正官</div></div>
+  <div class="saju-pillar"><div class="label">月</div><div class="ch">乙</div><div class="ko">을</div><div class="ten">偏印</div><div class="ch">酉</div><div class="ko">유</div><div class="ten">偏財 (월령)</div></div>
+  <div class="saju-pillar"><div class="label">年</div><div class="ch">乙</div><div class="ko">을</div><div class="ten">偏印</div><div class="ch">巳</div><div class="ko">사</div><div class="ten">劫財</div></div>
+</div>
+
+<table>
+<tr><th style="width: 18%;">항목</th><td>내용</td></tr>
+<tr><td>일간 / 강약</td><td>정화 음화 / 유월 절지 → <b>신약</b>(중간)</td></tr>
+<tr><td>격국 / 용신</td><td>편재격 / 用 을목 편인</td></tr>
+<tr><td>강점</td><td>일지 정관 + 시지 식신 (여명 길구조) / 해미합 관인상생 / 사유합 재격</td></tr>
+<tr><td>주의</td><td>신약 자존감 / 사해충 / 미토 묘고 우울 / 수 부족 (신장) / 화 약 (심혈관)</td></tr>
+<tr><td>부녀 궁합</td><td><b>매우 좋음</b> — 정화→기토 생 / 미토 동기 / 쌍방 식신-편인</td></tr>
+<tr><td>시사주 평가</td><td><b>정미시 선택 탁월</b> — 결혼·가정·자녀 안정형</td></tr>
+</table>
+
+<h4>따님 대운 흐름 (순행, 7세 시작 가정)</h4>
+<div class="chart-box small-chart">
+  <canvas id="daughterChart"></canvas>
+</div>
+
+<table>
+<tr><th>대운</th><th>연령</th><th>성격</th></tr>
+<tr><td>병술</td><td>7-16</td><td>학령기, 친구 변동, 자존감 형성기 — <b>사용자 무인대운과 동조</b></td></tr>
+<tr><td>정해 ⭐</td><td>17-26</td><td>대학·연애·정체성 안정</td></tr>
+<tr><td>무자</td><td>27-36</td><td>직업 도전·결혼·출산</td></tr>
+<tr><td>기축 ⭐</td><td>37-46</td><td>식신 폭발 — 사업·창작·전문직</td></tr>
+<tr><td>경인 ⭐⭐</td><td>47-56</td><td><b>인생 황금기</b> — 정재정인 부귀안정</td></tr>
+<tr><td>신묘</td><td>57-66</td><td>자산 확장 + 학문 노년</td></tr>
+</table>
+
+<h4>양육 핵심</h4>
+<ul>
+  <li><b>자존감 보강 최우선</b> (신약 정화) — 칭찬·정서 지지</li>
+  <li><b>예술·인문 교육</b> — 을목 인성 2개 발현 통로</li>
+  <li><b>신장·심혈관 관리</b> — 수분·검정 음식·따뜻한 체온</li>
+  <li><b>7~16세 안전 교육</b> — 사용자 무인대운 인사형 시기 사고·치과 주의</li>
+  <li><b>14~23세 진로 존중</b> — 사용자 정축대운 축미충 변동 시기, 갈등 관리</li>
+</ul>
+
+<h2>12. 팀장 동생 인연 (1990 庚午年 / 壬午月 / 丙午日)</h2>
+
+<div class="saju-box">
+  <div class="saju-pillar"><div class="label">時</div><div class="ch">?</div><div class="ko">?</div><div class="ten">?</div><div class="ch">?</div><div class="ko">?</div><div class="ten">?</div></div>
+  <div class="saju-pillar"><div class="label">日</div><div class="ch">丙</div><div class="ko">병</div><div class="ten">日干</div><div class="ch">午</div><div class="ko">오</div><div class="ten">羊刃</div></div>
+  <div class="saju-pillar"><div class="label">月</div><div class="ch">壬</div><div class="ko">임</div><div class="ten">七殺</div><div class="ch">午</div><div class="ko">오</div><div class="ten">羊刃</div></div>
+  <div class="saju-pillar"><div class="label">年</div><div class="ch">庚</div><div class="ko">경</div><div class="ten">偏財</div><div class="ch">午</div><div class="ko">오</div><div class="ten">羊刃</div></div>
+</div>
+
+<table>
+<tr><th style="width: 22%;">동생 명조 진단</th><td>양인격 + 칠살투출 / 양인 3중복 극강 신왕 / 카리스마·결단력·리더형 / 임원·CEO·법조·외과·운동 적합 (IT 팀장 정합)</td></tr>
+<tr><th>지지 궁합</th><td><b>오미 대합화 (火)</b> — 양쪽 같은 글자 3중복+합. 매우 드문 강한 결속</td></tr>
+<tr><th>천간 작용</th><td><b>병화 → 기토 생 = 동생은 본인에게 "걸어다니는 정인"</b></td></tr>
+<tr><th>칠살 변환</th><td>사용자 을목 칠살이 동생 병화 일간 생 → 위협이 도움으로 변환</td></tr>
+<tr><th>기해년 만남</th><td>기묘대운 진입기 살인상생을 완성하기 위해 등장한 인성 인연 — <b>매우 드문 길연</b></td></tr>
+<tr><th>2026 영향력</th><td>병오년 동생 일간 강화 → <b>본인 인생에서 동생 영향력 최대치 해</b></td></tr>
+<tr><th>무인대운 동행</th><td>인오반합 화로 정관 영역 활성 → <b>동생이 본인을 임원 트랙으로 끌어줄 가능성</b></td></tr>
+</table>
+
+<h4>관계 유지 원칙 5</h4>
+<ol>
+  <li><b>사용자가 받는 입장임을 인정</b> — 명리상 동생이 본인을 생하는 관계</li>
+  <li><b>자문 적극 구하기</b> — 정인의 본질 / 이직·연봉·Atman 자문</li>
+  <li><b>비공식 관계 두텁게</b> — 식사·가족 모임·결혼·자녀 행사</li>
+  <li><b>사용자가 제공할 가치</b> — 안정·디테일·꾸준함·객관성 (동생 양인 균형)</li>
+  <li><b>2027 정미년 갈등 시</b> — 24~48시간 멈추기, 사적 만남으로 회복</li>
+</ol>
+
+<div class="chart-box small-chart">
+  <canvas id="relationChart"></canvas>
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>13. 병화의 메커니즘 — 왜 좋은 일이 따라오는가</h2>
+
+<table>
+<tr><th style="width: 22%;">근거</th><th>메커니즘</th></tr>
+<tr><td>① 정인 = 도움·문서·명예</td><td>기토 일간 + 병화 = 정인. 후원·자격·계약·신분 발현</td></tr>
+<tr><td>② 천간 화 부재 보완</td><td>원국 천간에 화 0개 → 병화 등장 = 외부 권위·후원 완성 (적천수 천간유결처득보)</td></tr>
+<tr><td>③ 살인상생 (殺印相生)</td><td>년간 을목 칠살 → 병화 → 기토. <b>위협이 도움으로 변환</b> (자평진전 길격)</td></tr>
+<tr><td>④ 미월 조후 보완</td><td>궁통보감 미월 기토 2차 조후 = 화. 조후득용</td></tr>
+<tr><td>⑤ 병신합 — 식신 보호</td><td>병화가 토를 따뜻이 만들어 신금이 묻히지 않고 드러남</td></tr>
+</table>
+
+<h4>과거 검증</h4>
+<table>
+<tr><th>시점</th><th>병화 작용</th><th>사건</th></tr>
+<tr><td>2006 병술년</td><td>병화 정인 + 술중 정화</td><td>⭐ 대학 합격</td></tr>
+<tr><td>2026 병오년</td><td>병화 정인 + 자미 화과</td><td>⭐ 재취업 정착, 정직 전환 예정</td></tr>
+</table>
+
+<div class="info">
+<b>병화의 진짜 선물</b> — 통장 숫자가 아니라 <b>신분·자격·계약·평판·신뢰</b>로 들어옴.<br>
+2026 병오년은 <b>반길반흉</b>: 정인 안정·문서 확정은 강하나 인성과다로 식신 위협·자기표현 위축. 본업 안정 + 사이드 검증 균형이 정답.
+</div>
+
+<h2>14. 사주로 인생 예측 가능한가</h2>
+
+<div class="chart-box small-chart">
+  <canvas id="predictChart"></canvas>
+</div>
+
+<table>
+<tr><th>영역</th><th>예측 가능성</th><th>비고</th></tr>
+<tr><td>대운 단위 큰 흐름 (10년)</td><td><b>70~80%</b></td><td>명조 본질·격국·용신이 강하게 발현</td></tr>
+<tr><td>연단위 길흉 방향</td><td><b>55~65%</b></td><td>세운 천간지지 + 명조 상호작용</td></tr>
+<tr><td>월단위 사건 시점</td><td><b>40~50%</b></td><td>큰 사건의 시점은 비교적 적중</td></tr>
+<tr><td>일단위 디테일</td><td><b>20~30%</b></td><td>변수 과다</td></tr>
+<tr><td>사건의 구체 디테일</td><td><b>30~40%</b></td><td>어떤 형태로 발현될지</td></tr>
+<tr><td>외부 충격 (전쟁·팬데믹)</td><td><b>10% 이하</b></td><td>시대적·집단적 사건</td></tr>
+</table>
+
+<div class="good">
+<b>본인 명조 적중률</b> — 검증된 8개 주요 사건이 3관법 모두에서 사후 설명 가능. 사전 예측 추정 <b>약 70%</b>. 본인이 보고서로 사전 인지하고 선택을 잘하면 <b>75~80%</b>까지 가능.
+</div>
+
+<div class="info">
+명리는 <b>"미래를 결정"</b>하지 않습니다. <b>"환경 압력의 분포"</b>를 보여줍니다. 정미년 비견 분탈 압력을 알면 이직 안 함, 무계합 부친 위험을 알면 골든타임에 가족 시간 확보. <b>본인의 선택이 나머지 20~30%를 결정</b>합니다.
+</div>
+
+<h2>15. 핵심 액션 플랜</h2>
+
+<h3>15-1. 단기 (2026-2028)</h3>
+<table>
+<tr><th>시기</th><th>본업</th><th>사이드 (Atman)</th><th>가족·건강</th></tr>
+<tr><td>2026 H2</td><td>6월 조기 정직 전환 / 8월 마무리 / 10~15% 인상</td><td>8월 베타 → 9월 정식 / 10월 확장 보류</td><td>아내·딸·어머니 정서 케어 (태음 화기) / 부친 관계 강화</td></tr>
+<tr><td>2027 全</td><td>현직 유지 (이직 ❌) / 사내 멘토링 (천량 화권)</td><td>경쟁자 출현 대비, 사용자 락인</td><td>본인·부친·여성가족 건강검진 강화 / 둘째 시도</td></tr>
+<tr><td>2028 全</td><td>2~4월 또는 8~9월 이직 (외국계 IT 1순위)</td><td>법인화 검토, 매출 가시화</td><td>현금 확보, 무인대운 자산 락인 준비</td></tr>
+</table>
+
+<h3>15-2. 중기 (2029-2038, 무인대운)</h3>
+<ul>
+  <li>외국계·대기업 임원/CTO 트랙 진입, 한 조직 깊게 뿌리내림</li>
+  <li>2029 진입 즉시 자산 락인: <b>부동산·연금 60% / 주식·법인 25% / 비상금 15%</b></li>
+  <li>부친 케어 골든타임 — 증여·돌봄·의료 사전 설계 (2026~2028 안에 완료)</li>
+  <li>2034 갑인년 1차 도약 / 2037 정사년 위험 회피</li>
+  <li>Atman은 법인화·공동대표 형태로 운영, 본업과 병행</li>
+  <li>팀장 동생과 동행 시 임원 트랙 동반 진입 가능성</li>
+</ul>
+
+<h3>15-3. 장기 (2039-2058, 정축·병자대운)</h3>
+<ul>
+  <li>정축대운: 정규직 마감 → 자문·교육·1인 법인 전환 (천량 화권)</li>
+  <li>저술·강의·자격증으로 편인 발현 (학문적 권위)</li>
+  <li>병자대운: 자산 폭증기, 자녀 후계 이양, 회장·고문직</li>
+  <li>건강 우선 — 폐(50대), 신장(60대) 정기 관리</li>
+</ul>
+
+<h3>15-4. 평생 인연 관리</h3>
+<ul>
+  <li><b>팀장 동생</b> — 명리적 정인 인연. 평생 멘토로 유지. 회사를 떠나도 사적 관계 두텁게</li>
+  <li><b>아내·딸</b> — 자미 태음 화기 평생 작용. 정서 관리 의식적</li>
+  <li><b>부친</b> — 2026~2028 골든타임. 2030, 2037 변곡점 의료 대비</li>
+  <li><b>어머니</b> — 천간 인성 통로. 정인년(병화년)에 의식적 시간 투자</li>
+</ul>
+
+<h2>16. 부록 — 명리 근거</h2>
+
+<table>
+<tr><th style="width: 22%;">주제</th><th>근거</th></tr>
+<tr><td>늦게 피는 명조</td><td>토중금매 + 4대운 + 칠살대운(기묘) 후 정관대운(무인) / 자미두수 신궁=미궁으로 후반 강화</td></tr>
+<tr><td>관운 늦 발현</td><td>천간 갑목 부재, 미중 을목 칠살만 / 인목 대운 진입 후 인미암합 정관 안착</td></tr>
+<tr><td>재운 식상생재</td><td>신금 식신 → 계수 편재 / 자미두수 천기 화록 (기술·IT)</td></tr>
+<tr><td>무계합화 火</td><td>대운 무토 + 명조 계수 / 지지 인목+미중정화 → 합화 80% / 적천수 합화론</td></tr>
+<tr><td>부친 합거</td><td>천간 계수 = 유일 재성, 부친 표지 집중 / 재봉겁 흉상 / 자미두수 태음 화기 부모궁</td></tr>
+<tr><td>정축대운 양면</td><td>지지 축토 습토윤금(吉) / 천간 정화극신금(凶) / 자미두수 천량 화권</td></tr>
+<tr><td>병자대운 부귀</td><td>정인이 편재 보호 + 자축합 / 자미두수 전택궁 정점</td></tr>
+<tr><td>팀장 동생 정인 인연</td><td>오미 대합화 + 화생토 / 살인상생 인간 형태</td></tr>
+<tr><td>병화 메커니즘</td><td>정인 + 살인상생 + 조후득용 + 천간유결처득보</td></tr>
+<tr><td>맹파 다중 무대</td><td>미토 3중복 = 3개 정체성 운영자 / 외부 무대에 작품 얹는 명조</td></tr>
+<tr><td>수비학 Life Path 5</td><td>1985 = 5 / 41·50·59세 변곡점 일치</td></tr>
+</table>
+
+<div class="footer-note">
+v2.0 — 자평·자미두수·맹파 3관법 통합 분석 / 1985.7.19 남명 종합 보고서<br>
+세션 복귀용 기준 문서 · 갱신 권장 주기: 매 대운 진입 시 (2029, 2039, 2049)<br>
+연해자평 · 자평진전 · 적천수 · 궁통보감 · 삼명통회 · 맹파명리 · 자미두수 종합 / 수비학 보조
+</div>
+
+<script>
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { labels: { font: { size: 10 } } } },
+  scales: {
+    y: { min: 0, max: 5, ticks: { stepSize: 1, font: { size: 9 } } },
+    x: { ticks: { font: { size: 9 } } }
+  }
+};
+
+new Chart(document.getElementById('daewoonChart'), {
+  type: 'bar',
+  data: {
+    labels: ['기묘 (34-43)', '무인 (44-53)', '정축 (54-63)', '병자 (64-73)'],
+    datasets: [
+      { label: '재운', data: [3, 4, 4, 5], backgroundColor: '#3a6fc7' },
+      { label: '성공운', data: [3, 5, 4, 4], backgroundColor: '#1e8a3a' },
+      { label: '직업운', data: [4, 5, 3, 2], backgroundColor: '#c79e3a' },
+      { label: '창업운', data: [2, 3, 4, 3], backgroundColor: '#a04ec7' },
+      { label: '건강운', data: [4, 3, 2, 3], backgroundColor: '#c63838' }
+    ]
+  },
+  options: { ...baseOpts, plugins: { ...baseOpts.plugins, title: { display: true, text: '대운별 영역 점수 (5점)' } } }
+});
+
+new Chart(document.getElementById('agreementChart'), {
+  type: 'radar',
+  data: {
+    labels: ['재운', '성공운', '직업운', '창업운', '건강운', '인연운', '가족운', '명예운'],
+    datasets: [
+      { label: '자평명리', data: [4, 4, 5, 3, 3, 4, 3, 4], borderColor: '#3a6fc7', backgroundColor: 'rgba(58,111,199,0.15)' },
+      { label: '자미두수', data: [4, 5, 5, 3, 3, 4, 3, 5], borderColor: '#1e8a3a', backgroundColor: 'rgba(30,138,58,0.15)' },
+      { label: '맹파명리', data: [4, 4, 5, 4, 3, 5, 3, 4], borderColor: '#c79e3a', backgroundColor: 'rgba(199,158,58,0.15)' }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { font: { size: 10 } } }, title: { display: true, text: '3관법별 무인대운 영역 평가 일치도' } },
+    scales: { r: { min: 0, max: 5, ticks: { stepSize: 1, font: { size: 8 } }, pointLabels: { font: { size: 9 } } } }
+  }
+});
+
+const monthLabels = [
+  '26.6갑오','26.7을미','26.8병신','26.9정유','26.10무술','26.11기해','26.12경자',
+  '27.1신축','27.2임인','27.3계묘','27.4갑진','27.5을사','27.6병오','27.7정미','27.8무신','27.9기유','27.10경술','27.11신해','27.12임자',
+  '28.1계축','28.2갑인','28.3을묘','28.4병진','28.5정사','28.6무오','28.7기미','28.8경신','28.9신유','28.10임술','28.11계해','28.12갑자',
+  '29.1을축','29.2병인'
+];
+const monthScores = [
+  4.5, 2.5, 4.5, 4.8, 1.5, 3.5, 3,
+  3, 3.2, 3.8, 4, 2, 1.8, 2, 3.5, 3, 3.5, 3, 3.5,
+  3.5, 4.8, 4.5, 4.5, 3.5, 3, 3.5, 4.8, 4.5, 2, 3.5, 4,
+  3.5, 4.5
+];
+new Chart(document.getElementById('monthlyChart'), {
+  type: 'line',
+  data: {
+    labels: monthLabels,
+    datasets: [{
+      label: '월별 종합 운세',
+      data: monthScores,
+      borderColor: '#1a1a3a',
+      backgroundColor: 'rgba(58, 111, 199, 0.15)',
+      fill: true, tension: 0.3, pointRadius: 3,
+      pointBackgroundColor: monthScores.map(v => v >= 4 ? '#1e8a3a' : v <= 2 ? '#c63838' : '#c79e3a')
+    }]
+  },
+  options: {
+    ...baseOpts,
+    plugins: { ...baseOpts.plugins, title: { display: true, text: '향후 3년 월별 운세 (녹=호운, 적=흉운)' } },
+    scales: {
+      y: { min: 0, max: 5, ticks: { stepSize: 1 } },
+      x: { ticks: { font: { size: 7 }, maxRotation: 90, minRotation: 60 } }
+    }
+  }
+});
+
+const yearLabels = [];
+for (let y = 2026; y <= 2058; y++) yearLabels.push(y.toString());
+const yearScores = [
+  3.5, 2.5, 4.5,
+  4, 4.2, 3.5, 4, 4.5, 5, 4.2, 3.8, 2.8, 3.5,
+  4, 4.2, 3.8, 3.5, 4.5, 4.2, 4, 3.8, 4.2, 4,
+  4.5, 4.8, 5, 4.8, 4.5, 4.8, 4.2, 4, 3.8, 3.5
+];
+new Chart(document.getElementById('yearlyChart'), {
+  type: 'line',
+  data: {
+    labels: yearLabels,
+    datasets: [{
+      label: '연도별 종합 운세',
+      data: yearScores,
+      borderColor: '#1a1a3a',
+      backgroundColor: 'rgba(30, 138, 58, 0.2)',
+      fill: true, tension: 0.35, pointRadius: 3
+    }]
+  },
+  options: {
+    ...baseOpts,
+    plugins: { ...baseOpts.plugins, title: { display: true, text: '2026~2058 연도별 종합 운세' } },
+    scales: {
+      y: { min: 0, max: 5, ticks: { stepSize: 1 } },
+      x: { ticks: { font: { size: 7 }, maxRotation: 90, minRotation: 70 } }
+    }
+  }
+});
+
+new Chart(document.getElementById('domainChart'), {
+  type: 'line',
+  data: {
+    labels: yearLabels,
+    datasets: [
+      { label: '재운', data: [
+        3,3,4, 4,4,3.5,4,4.2,4.5,4,3.5,2.5,3,   3.5,4,4,3.5,4.2,4,4,3.5,4.2,4,   5,5,5,4.8,4.5,5,4.5,4.2,3.8,3.5
+      ], borderColor: '#3a6fc7', backgroundColor: 'transparent', tension: 0.3, pointRadius: 2 },
+      { label: '직업운', data: [
+        4.5,3,4, 4.5,5,4,4.5,5,5,4.5,4.2,3,3,  3.5,3.5,3.2,3,4,3.5,3.5,3,3.5,3.2,  2.5,2.8,2.5,2.5,2,2.5,2.2,2,1.8,1.5
+      ], borderColor: '#c79e3a', backgroundColor: 'transparent', tension: 0.3, pointRadius: 2 },
+      { label: '성공운', data: [
+        3.5,2.5,4.5, 4,4.5,3.5,4,4.5,5,4.5,4,3,3.5,  4,4.2,3.8,3.5,4.5,4.2,4,3.8,4.2,4,  4.5,4.8,4.5,4.5,4,4.5,4,3.8,3.5,3
+      ], borderColor: '#1e8a3a', backgroundColor: 'transparent', tension: 0.3, pointRadius: 2 },
+      { label: '창업운', data: [
+        2.5,1.5,4.5, 3,3.5,3,3,3.5,3.5,3,2.8,2,2.5,  4,4.2,3.8,3.5,4.5,4,3.8,3.5,4,3.8,  3.5,3.8,3.5,3,2.5,3,2.8,2.5,2.2,2
+      ], borderColor: '#a04ec7', backgroundColor: 'transparent', tension: 0.3, pointRadius: 2 },
+      { label: '건강운', data: [
+        4,3,3.5, 3.5,3,3.5,4,3.5,3,3.5,3,2.5,3,  3,3.2,3.5,3.5,3,3.2,3,2.8,2.5,2.5,  3,3.2,3,3,2.8,3,3,3.2,3,2.8
+      ], borderColor: '#c63838', backgroundColor: 'transparent', tension: 0.3, pointRadius: 2 }
+    ]
+  },
+  options: {
+    ...baseOpts,
+    plugins: { ...baseOpts.plugins, title: { display: true, text: '영역별 연도 운세 (재·직업·성공·창업·건강)' } },
+    scales: {
+      y: { min: 0, max: 5, ticks: { stepSize: 1 } },
+      x: { ticks: { font: { size: 7 }, maxRotation: 90, minRotation: 70 } }
+    }
+  }
+});
+
+new Chart(document.getElementById('assetChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['부동산·연금·신탁 (60%)', '주식·법인 자본 (25%)', '유동성 비상금 (15%)'],
+    datasets: [{ data: [60, 25, 15], backgroundColor: ['#1e8a3a', '#3a6fc7', '#c79e3a'] }]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'right', labels: { font: { size: 10 } } },
+      title: { display: true, text: '무인대운 자산 배분 (2029~)' } }
+  }
+});
+
+new Chart(document.getElementById('daughterChart'), {
+  type: 'line',
+  data: {
+    labels: ['병술 7-16', '정해 17-26', '무자 27-36', '기축 37-46', '경인 47-56', '신묘 57-66'],
+    datasets: [{
+      label: '따님 대운별 운세',
+      data: [3, 4, 3.5, 4.5, 5, 4.5],
+      borderColor: '#a04ec7', backgroundColor: 'rgba(160, 78, 199, 0.2)',
+      fill: true, tension: 0.4, pointRadius: 5
+    }]
+  },
+  options: { ...baseOpts, plugins: { ...baseOpts.plugins, title: { display: true, text: '따님 대운 흐름 (점진적 상승형)' } } }
+});
+
+new Chart(document.getElementById('relationChart'), {
+  type: 'line',
+  data: {
+    labels: ['2019 만남', '2021 IT입사', '2024 결혼', '2026 재취업', '2028 이직', '2030', '2034 도약', '2038 전환'],
+    datasets: [{
+      label: '동생 인연 영향력',
+      data: [3, 4, 3.5, 5, 4.5, 4.5, 5, 4],
+      borderColor: '#c63838', backgroundColor: 'rgba(198, 56, 56, 0.15)',
+      fill: true, tension: 0.4, pointRadius: 5, pointBackgroundColor: '#c63838'
+    }]
+  },
+  options: { ...baseOpts,
+    plugins: { ...baseOpts.plugins, title: { display: true, text: '팀장 동생과의 인연 영향력 추이' } },
+    scales: { y: { min: 0, max: 5, ticks: { stepSize: 1 } }, x: { ticks: { font: { size: 8 } } } }
+  }
+});
+
+new Chart(document.getElementById('predictChart'), {
+  type: 'bar',
+  data: {
+    labels: ['대운 10년', '연단위', '월단위', '일단위', '사건 디테일', '외부 충격'],
+    datasets: [
+      { label: '단일 관법', data: [60, 50, 35, 20, 25, 8], backgroundColor: '#c79e3a' },
+      { label: '3관법 통합', data: [75, 60, 45, 27, 35, 10], backgroundColor: '#1e8a3a' },
+      { label: '본인 사전 인지 + 선택', data: [80, 70, 55, 35, 45, 15], backgroundColor: '#3a6fc7' }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { font: { size: 9 } } }, title: { display: true, text: '예측 가능성 (%) — 영역별·방법별' } },
+    scales: {
+      y: { min: 0, max: 100, ticks: { stepSize: 20, font: { size: 9 }, callback: v => v + '%' } },
+      x: { ticks: { font: { size: 9 } } }
+    }
+  }
+});
+</script>
+
+</body>
+</html>

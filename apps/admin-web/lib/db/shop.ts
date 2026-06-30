@@ -1,4 +1,5 @@
-import { adminClient, ORG_ID } from '../supabase';
+import { adminClient } from '../supabase';
+import { getCurrentFacilityId } from '../facility';
 import { SHOP } from '../mock';
 
 export type ShopInfo = {
@@ -9,16 +10,17 @@ export type ShopInfo = {
 };
 
 export async function getShop(): Promise<ShopInfo> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return { ...SHOP, creditBalance: 0 };
+  if (!sb || !facilityId) return { ...SHOP, creditBalance: 0 };
 
   const [facilityRes, creditRes] = await Promise.all([
     sb
       .from('facilities')
       .select('name, is_5plus, plan_code')
-      .eq('id', ORG_ID)
+      .eq('id', facilityId)
       .single(),
-    sb.rpc('org_credit_balance', { p_org_id: ORG_ID }),
+    sb.rpc('org_credit_balance', { p_org_id: facilityId }),
   ]);
 
   const f = facilityRes.data;

@@ -1,4 +1,5 @@
-import { adminClient, ORG_ID } from '../supabase';
+import { adminClient } from '../supabase';
+import { getCurrentFacilityId } from '../facility';
 import { STAFF, SUMMARY } from '../mock';
 
 export type StaffRow = {
@@ -28,8 +29,9 @@ function roleLabel(role: string | null): string {
 }
 
 export async function getStaff(): Promise<StaffRow[]> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return STAFF;
+  if (!sb || !facilityId) return STAFF;
 
   const today      = new Date().toISOString().slice(0, 10);
   const monthStart = `${today.slice(0, 7)}-01`;
@@ -38,8 +40,8 @@ export async function getStaff(): Promise<StaffRow[]> {
   const { data: todayShifts, error } = await sb
     .from('shifts')
     .select('id, matched_worker_id')
-    .eq('facility_id', ORG_ID)
-    .eq('shift_date', today)             // ← shift_date (DATE 컬럼)으로 필터
+    .eq('facility_id', facilityId)
+    .eq('shift_date', today)
     .not('matched_worker_id', 'is', null);
 
   if (error || !todayShifts || todayShifts.length === 0) return STAFF;
@@ -59,7 +61,7 @@ export async function getStaff(): Promise<StaffRow[]> {
       .in('shift_id', shiftIds),
     sb.from('wage_calculations')            // ← payroll_ledger 대신 wage_calculations
       .select('worker_id, worked_minutes')
-      .eq('org_id', ORG_ID)
+      .eq('org_id', facilityId)
       .gte('calculated_at', `${monthStart}T00:00:00`)
       .in('worker_id', workerIds),
   ]);

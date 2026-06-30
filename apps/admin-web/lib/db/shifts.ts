@@ -1,4 +1,5 @@
-import { adminClient, ORG_ID } from '../supabase';
+import { adminClient } from '../supabase';
+import { getCurrentFacilityId } from '../facility';
 
 export type ShiftRow = {
   id: string;
@@ -37,15 +38,16 @@ const MOCK_SHIFTS: ShiftRow[] = [
 ];
 
 export async function getShifts(): Promise<ShiftRow[]> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return MOCK_SHIFTS;
+  if (!sb || !facilityId) return MOCK_SHIFTS;
 
   const { data } = await sb
     .from('shifts')
     .select(
       'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, status, created_at'
     )
-    .eq('facility_id', ORG_ID)
+    .eq('facility_id', facilityId)
     .order('shift_date', { ascending: false })
     .order('start_time', { ascending: true });
 
@@ -53,12 +55,13 @@ export async function getShifts(): Promise<ShiftRow[]> {
 }
 
 export async function createShift(payload: NewShift): Promise<void> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return;
+  if (!sb || !facilityId) return;
 
   const { error } = await sb.from('shifts').insert({
     ...payload,
-    facility_id: ORG_ID,
+    facility_id: facilityId,
   });
 
   if (error) throw new Error(error.message);

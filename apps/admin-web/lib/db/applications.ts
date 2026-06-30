@@ -1,4 +1,5 @@
-import { adminClient, ORG_ID } from '../supabase';
+import { adminClient } from '../supabase';
+import { getCurrentFacilityId } from '../facility';
 
 export type Applicant = {
   applicationId: string;
@@ -51,14 +52,15 @@ const MOCK: ApplicationGroup[] = [
 ];
 
 export async function getPendingApplications(): Promise<ApplicationGroup[]> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return MOCK;
+  if (!sb || !facilityId) return MOCK;
 
   // 1. 이 시설의 시프트 ID 목록
   const { data: shiftRows } = await sb
     .from('shifts')
     .select('id, shift_date, start_time, end_time, department, required_role, status')
-    .eq('facility_id', ORG_ID)
+    .eq('facility_id', facilityId)
     .eq('status', 'open');
 
   if (!shiftRows?.length) return [];
@@ -109,13 +111,14 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
 }
 
 export async function getPendingCount(): Promise<number> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return MOCK.reduce((s, g) => s + g.applicants.length, 0);
+  if (!sb || !facilityId) return MOCK.reduce((s, g) => s + g.applicants.length, 0);
 
   const { data: shiftRows } = await sb
     .from('shifts')
     .select('id')
-    .eq('facility_id', ORG_ID)
+    .eq('facility_id', facilityId)
     .eq('status', 'open');
 
   if (!shiftRows?.length) return 0;

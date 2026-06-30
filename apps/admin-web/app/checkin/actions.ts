@@ -1,6 +1,6 @@
 'use server';
 import { adminClient } from '@/lib/supabase';
-import { ORG_ID } from '@/lib/supabase';
+import { getCurrentFacilityId } from '@/lib/facility';
 
 // 야간 시간(22:00~06:00) 분 수 계산
 function calcNightMinutes(checkIn: Date, checkOut: Date): number {
@@ -114,7 +114,7 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
   // wage_calculations INSERT
   await sb.from('wage_calculations').insert({
     attendance_id:    attendance.id,
-    org_id:           ORG_ID ?? shift.facility_id,
+    org_id:           (await getCurrentFacilityId()) ?? shift.facility_id,
     worker_id:        worker.id,
     shift_id:         shift.id,
     rule_version:     '2026-KR',

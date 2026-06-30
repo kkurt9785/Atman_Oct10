@@ -1,4 +1,5 @@
-import { adminClient, ORG_ID } from '../supabase';
+import { adminClient } from '../supabase';
+import { getCurrentFacilityId } from '../facility';
 
 export type PayslipRow = {
   id: string;
@@ -8,8 +9,9 @@ export type PayslipRow = {
 };
 
 export async function getMonthPayslips(): Promise<PayslipRow[] | null> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return null;
+  if (!sb || !facilityId) return null;
 
   const today       = new Date().toISOString().slice(0, 10);
   const periodStart = `${today.slice(0, 7)}-01`;
@@ -18,7 +20,7 @@ export async function getMonthPayslips(): Promise<PayslipRow[] | null> {
   const { data: slips } = await sb
     .from('payslips')
     .select('id, worker_id, gross_pay, net_pay, workers ( name )')
-    .eq('org_id', ORG_ID)
+    .eq('org_id', facilityId)
     .eq('period_start', periodStart)
     .order('created_at', { ascending: false });
 
@@ -35,7 +37,7 @@ export async function getMonthPayslips(): Promise<PayslipRow[] | null> {
   const { data: wages } = await sb
     .from('wage_calculations')
     .select('worker_id, gross, workers ( name )')
-    .eq('org_id', ORG_ID)
+    .eq('org_id', facilityId)
     .gte('calculated_at', `${periodStart}T00:00:00`);
 
   if (!wages || wages.length === 0) return null;

@@ -1,4 +1,5 @@
-import { adminClient, ORG_ID } from '@/lib/supabase';
+import { adminClient } from '@/lib/supabase';
+import { getCurrentFacilityId } from '@/lib/facility';
 import CreditChargePanel from './CreditChargePanel';
 
 type LedgerRow = {
@@ -21,13 +22,14 @@ function won(n: number) {
 }
 
 async function getLedger(): Promise<{ balance: number; rows: LedgerRow[] }> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return { balance: 0, rows: [] };
+  if (!sb || !facilityId) return { balance: 0, rows: [] };
 
   const { data } = await sb
     .from('credit_ledger')
     .select('id, delta, kind, ref, created_at')
-    .eq('org_id', ORG_ID)
+    .eq('org_id', facilityId)
     .order('created_at', { ascending: false })
     .limit(30);
 

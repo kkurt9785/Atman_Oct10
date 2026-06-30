@@ -1,4 +1,5 @@
-import { adminClient, ORG_ID } from '../supabase';
+import { adminClient } from '../supabase';
+import { getCurrentFacilityId } from '../facility';
 
 export type MembershipInfo = {
   tierCode: string;
@@ -30,8 +31,9 @@ export type TierInfo = {
 };
 
 export async function getMembership(): Promise<MembershipInfo> {
+  const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !ORG_ID) return null;
+  if (!sb || !facilityId) return null;
 
   const [memRes, creditRes, histRes] = await Promise.all([
     sb
@@ -40,14 +42,14 @@ export async function getMembership(): Promise<MembershipInfo> {
         tier_code, consecutive_cycles, current_period_end, status,
         membership_tiers ( name, monthly_fee, earn_rate, payback_threshold )
       `)
-      .eq('org_id', ORG_ID)
+      .eq('org_id', facilityId)
       .eq('status', 'active')
       .maybeSingle(),
-    sb.rpc('org_credit_balance', { p_org_id: ORG_ID }),
+    sb.rpc('org_credit_balance', { p_org_id: facilityId }),
     sb
       .from('credit_ledger')
       .select('id, delta, kind, note, created_at')
-      .eq('org_id', ORG_ID)
+      .eq('org_id', facilityId)
       .order('created_at', { ascending: false })
       .limit(10),
   ]);

@@ -4,7 +4,7 @@ import { AuthGuard } from './AuthGuard';
 import { TextSizeToggle } from './TextSizeToggle';
 import { BottomNav } from './BottomNav';
 
-const PUBLIC_PREFIX = ['/login', '/auth/'];
+const PUBLIC_PREFIX = ['/login', '/auth/', '/setup/'];
 const FULLSCREEN_PREFIX = ['/checkin'];
 
 export function Shell({ children }: { children: React.ReactNode }) {

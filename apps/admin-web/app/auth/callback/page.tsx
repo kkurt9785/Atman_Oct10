@@ -53,6 +53,26 @@ function CallbackInner() {
           return;
         }
 
+        // 내 병원 연결 여부 확인
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: facility } = await supabase
+            .from('facilities')
+            .select('id')
+            .eq('admin_user_id', user.id)
+            .maybeSingle();
+
+          if (!facility) {
+            // 병원 미연결 → 내 병원 찾기
+            router.replace('/setup/claim-facility');
+            return;
+          }
+
+          // 쿠키 설정 (Server Action 경유)
+          const { setFacilityCookie } = await import('@/lib/facility');
+          await setFacilityCookie(facility.id);
+        }
+
         router.replace('/');
       } catch {
         router.replace('/login');
