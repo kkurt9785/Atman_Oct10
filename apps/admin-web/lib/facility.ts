@@ -1,8 +1,7 @@
 'use server';
 import { cookies } from 'next/headers';
 import { adminClient } from './supabase';
-
-export const FACILITY_COOKIE = 'atman_facility_id';
+import { FACILITY_COOKIE } from './constants';
 
 export async function getCurrentFacilityId(): Promise<string | null> {
   const jar = await cookies();

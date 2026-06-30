@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
-import { FACILITY_COOKIE } from '@/lib/facility';
+import { FACILITY_COOKIE } from '@/lib/constants';
 import { cookies } from 'next/headers';
 
 export async function POST(req: NextRequest) {
