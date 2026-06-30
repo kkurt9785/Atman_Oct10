@@ -6,6 +6,13 @@ export function Splash() {
   const [loading, setLoading] = useState(false);
 
   function handleKakaoLogin() {
+    // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출
+    if (navigator.userAgent.includes('KAKAO')) {
+      window.location.href =
+        'kakaotalk://web/openExternal?url=' + encodeURIComponent(window.location.href);
+      return;
+    }
+
     setLoading(true);
     const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
