@@ -68,9 +68,12 @@ function CallbackInner() {
             return;
           }
 
-          // 쿠키 설정 (Server Action 경유)
-          const { setFacilityCookie } = await import('@/lib/facility');
-          await setFacilityCookie(facility.id);
+          // 쿠키 설정 (API route 경유)
+          await fetch('/api/set-facility', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id }),
+          });
         }
 
         router.replace('/');
