@@ -237,26 +237,15 @@ export default function HomePage() {
       const roleFilter = userRole === 'rn' ? ['rn', 'any'] : ['na', 'any'];
       let shiftRows: ShiftWithFacility[] = [];
 
-      if (workerRow?.id) {
+      if (user) {
         const { data: rpcData } = await supabase.rpc('get_nearby_open_shifts', {
-          p_worker_id: workerRow.id,
+          p_auth_user_id: user.id,
           p_roles: roleFilter,
         });
         shiftRows = (rpcData ?? []).map((r: Record<string, unknown>) => ({
           ...r,
           facilities: { name: r.facility_name as string },
         })) as ShiftWithFacility[];
-      } else {
-        // 워커 미등록(온보딩 전) → 전체 표시
-        const today = new Date().toISOString().slice(0, 10);
-        const { data: shiftData } = await supabase
-          .from('shifts')
-          .select('id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities(name)')
-          .eq('status', 'open')
-          .in('required_role', roleFilter)
-          .gte('shift_date', today)
-          .order('shift_date', { ascending: true });
-        shiftRows = (shiftData as unknown as ShiftWithFacility[]) ?? [];
       }
 
       setShifts(shiftRows);

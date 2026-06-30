@@ -45,6 +45,17 @@ function OnboardingInner() {
         worker_id: user.id,
         locations: areas,
       });
+      // primary 지역 좌표 → workers.activity_center
+      const primary = areas[0];
+      if (primary?.lat && primary?.lng) {
+        await supabase.from('workers')
+          .update({
+            activity_center: `SRID=4326;POINT(${primary.lng} ${primary.lat})`,
+            activity_radius_meters: primary.radius_km * 1000,
+            activity_address_text: primary.label,
+          })
+          .eq('auth_user_id', user.id);
+      }
     }
     if (user) {
       await supabase

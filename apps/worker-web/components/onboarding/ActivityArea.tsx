@@ -2,7 +2,17 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 
-type Area = { label: string; radius: number };
+type Area = { label: string; radius: number; lat?: number; lng?: number };
+
+const AREA_COORDS: Record<string, { lat: number; lng: number }> = {
+  '경기 수원시':  { lat: 37.2636, lng: 127.0286 },
+  '광주 광산구':  { lat: 35.1795, lng: 126.8121 },
+  '서울 강남구':  { lat: 37.5172, lng: 127.0473 },
+  '서울 송파구':  { lat: 37.5145, lng: 127.1050 },
+  '서울 마포구':  { lat: 37.5663, lng: 126.9014 },
+  '서울 종로구':  { lat: 37.5735, lng: 126.9790 },
+  '경기 성남시':  { lat: 37.4449, lng: 127.1388 },
+};
 
 const PinIcon = ({ color = '#3182F6' }: { color?: string }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -28,9 +38,9 @@ const RadiusSlider = ({ value, onChange }: { value: number; onChange: (v: number
   </div>
 );
 
-const SUGGESTIONS = ['서울 강남구', '서울 송파구', '서울 마포구', '서울 종로구', '경기 성남시', '경기 수원시'];
+const SUGGESTIONS = ['경기 수원시', '광주 광산구', '서울 강남구', '서울 송파구', '서울 마포구', '서울 종로구', '경기 성남시'];
 
-export type AreaPref = { label: string; radius_km: number };
+export type AreaPref = { label: string; radius_km: number; lat?: number; lng?: number };
 
 export function ActivityArea({
   onNext,
@@ -43,23 +53,29 @@ export function ActivityArea({
   buttonLabel?: string;
   showHeader?: boolean;
 }) {
-  const [primary] = useState<Area>({
-    label: initialLocations?.[0]?.label ?? '강남구 역삼동',
+  const [primary, setPrimary] = useState<Area>({
+    label: initialLocations?.[0]?.label ?? '경기 수원시',
     radius: initialLocations?.[0]?.radius_km ?? 5,
+    ...AREA_COORDS[initialLocations?.[0]?.label ?? '경기 수원시'],
   });
   const [primaryRadius, setPrimaryRadius] = useState(initialLocations?.[0]?.radius_km ?? 5);
   const [second, setSecond] = useState<Area | null>(
-    initialLocations?.[1] ? { label: initialLocations[1].label, radius: initialLocations[1].radius_km } : null
+    initialLocations?.[1] ? { label: initialLocations[1].label, radius: initialLocations[1].radius_km, ...AREA_COORDS[initialLocations[1].label] } : null
   );
   const [secondRadius, setSecondRadius] = useState(initialLocations?.[1]?.radius_km ?? 5);
-  const [showSearch, setShowSearch] = useState(false);
+  const [showSearch, setShowSearch] = useState<'primary' | 'second' | null>(null);
   const [query, setQuery] = useState('');
 
   const filtered = SUGGESTIONS.filter((s) => !query || s.includes(query));
 
-  function selectSecond(label: string) {
-    setSecond({ label, radius: secondRadius });
-    setShowSearch(false);
+  function selectArea(label: string) {
+    const coords = AREA_COORDS[label];
+    if (showSearch === 'primary') {
+      setPrimary({ label, radius: primaryRadius, ...coords });
+    } else {
+      setSecond({ label, radius: secondRadius, ...coords });
+    }
+    setShowSearch(null);
     setQuery('');
   }
 
@@ -82,17 +98,18 @@ export function ActivityArea({
         <span className="text-[12px] text-tertiary">카카오맵</span>
       </div>
 
-      {/* 1번 지역 — 현재 위치 (자동, 고정) */}
+      {/* 1번 지역 */}
       <div className="bg-white rounded-card shadow-card p-4 mb-3 border-2 border-primary">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-white text-[12px] font-bold">1</div>
-            <span className="text-[15px] font-bold text-ink">현재 위치</span>
+            <span className="text-[15px] font-bold text-ink">주요 지역</span>
           </div>
-          <div className="flex items-center gap-1.5 bg-bg px-2.5 py-1 rounded-full">
+          <button onClick={() => setShowSearch('primary')}
+            className="flex items-center gap-1.5 bg-bg px-2.5 py-1 rounded-full active:opacity-70">
             <PinIcon />
             <span className="text-[13px] font-medium text-sub">{primary.label}</span>
-          </div>
+          </button>
         </div>
         <RadiusSlider value={primaryRadius} onChange={setPrimaryRadius} />
       </div>
@@ -122,7 +139,7 @@ export function ActivityArea({
         </div>
       ) : (
         /* 지역 추가 버튼 */
-        <button onClick={() => setShowSearch(true)}
+        <button onClick={() => setShowSearch('second')}
           className="w-full flex items-center justify-center gap-2 py-4 rounded-card border-2 border-dashed border-line text-sub mb-3 active:opacity-70 transition-opacity">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
             <circle cx="9" cy="9" r="8" stroke="#8B95A1" strokeWidth="1.5"/>
@@ -139,7 +156,7 @@ export function ActivityArea({
           <div className="bg-white w-full rounded-t-[24px] p-6 max-h-[70vh] flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[18px] font-bold text-ink">지역 검색</h3>
-              <button onClick={() => setShowSearch(false)}>
+              <button onClick={() => setShowSearch(null)}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                   <path d="M6 6l12 12M18 6L6 18" stroke="#191F28" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
@@ -150,7 +167,7 @@ export function ActivityArea({
               className="w-full h-12 px-4 rounded-xl border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-4" />
             <div className="overflow-y-auto">
               {filtered.map((s) => (
-                <button key={s} onClick={() => selectSecond(s)}
+                <button key={s} onClick={() => selectArea(s)}
                   className="flex items-center gap-3 w-full py-4 border-b border-line last:border-0 active:bg-bg">
                   <PinIcon color="#4E5968" />
                   <span className="text-[16px] text-ink">{s}</span>
@@ -168,8 +185,14 @@ export function ActivityArea({
 
       <div className="mt-auto">
         <Button onClick={() => {
-          const result: AreaPref[] = [{ label: primary.label, radius_km: primaryRadius }];
-          if (second) result.push({ label: second.label, radius_km: secondRadius });
+          const result: AreaPref[] = [{
+            label: primary.label, radius_km: primaryRadius,
+            lat: primary.lat, lng: primary.lng,
+          }];
+          if (second) result.push({
+            label: second.label, radius_km: secondRadius,
+            lat: second.lat, lng: second.lng,
+          });
           onNext(result);
         }}>{buttonLabel}</Button>
       </div>
