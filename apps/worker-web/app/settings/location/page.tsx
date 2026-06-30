@@ -34,6 +34,7 @@ export default function LocationSettingsPage() {
       }
     }
     setSaving(false);
+    router.refresh();
     router.push('/settings');
   }
 
