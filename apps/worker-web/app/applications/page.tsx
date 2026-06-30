@@ -215,13 +215,18 @@ export default function ApplicationsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/onboarding'); return; }
 
-      const { data: worker } = await supabase
-        .from('workers')
-        .select('id')
-        .eq('auth_user_id', user.id)
-        .single();
+      const [{ data: worker }, { data: profile }] = await Promise.all([
+        supabase.from('workers').select('id').eq('auth_user_id', user.id).single(),
+        supabase.from('profiles').select('onboarding_done').single(),
+      ]);
 
-      if (!worker) { router.replace('/onboarding'); return; }
+      if (!worker) {
+        // 온보딩 완료 → 심사 대기 중 (내 활동 빈 화면)
+        // 온보딩 미완료 → 온보딩으로
+        if (!profile?.onboarding_done) { router.replace('/onboarding'); return; }
+        setLoading(false);
+        return;
+      }
 
       setWorkerId(worker.id);
 
@@ -281,6 +286,16 @@ export default function ApplicationsPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-[15px] text-sub">불러오는 중...</p>
+      </div>
+    );
+  }
+
+  if (!workerId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-3 px-8 text-center">
+        <p className="text-4xl">⏳</p>
+        <p className="text-[18px] font-bold text-ink">심사 중이에요</p>
+        <p className="text-[14px] text-sub">서류 검토 후 승인되면 지원 및 활동 내역을 확인할 수 있어요.</p>
       </div>
     );
   }
