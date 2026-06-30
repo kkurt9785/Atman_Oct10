@@ -56,6 +56,13 @@ export default function NewShiftPage() {
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    // 클라이언트 검증
+    if (!shiftDate) { setError('날짜를 선택해주세요.'); return; }
+    if (!startTime || !endTime) { setError('시작·종료 시간을 입력해주세요.'); return; }
+    if (!description.trim()) { setError('업무 설명을 입력해주세요.'); return; }
+    if (!hourlyWage || hourlyWage < 9860) { setError('시급은 최저시급(9,860원) 이상이어야 해요.'); return; }
+
     const formData = new FormData(e.currentTarget);
     formData.set('required_role', role);
     formData.set('estimated_total_pay', String(estimatedPay));
@@ -64,8 +71,9 @@ export default function NewShiftPage() {
       try {
         await createShiftAction(formData);
       } catch (err: unknown) {
-        if (err instanceof Error && !err.message.includes('NEXT_REDIRECT')) {
-          setError(err.message);
+        const msg = err instanceof Error ? err.message : '';
+        if (!msg.includes('NEXT_REDIRECT') && !msg.includes('digest')) {
+          setError('등록 중 오류가 발생했어요. 다시 시도해주세요.');
         }
       }
     });
@@ -162,7 +170,9 @@ export default function NewShiftPage() {
                 name="hourly_wage"
                 required
                 min={9860}
-                value={hourlyWage}
+                step={100}
+                value={hourlyWage || ''}
+                placeholder="10000"
                 onChange={(e) => setHourlyWage(parseInt(e.target.value, 10) || 0)}
                 className="w-full bg-bg rounded-xl pl-8 pr-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
               />
