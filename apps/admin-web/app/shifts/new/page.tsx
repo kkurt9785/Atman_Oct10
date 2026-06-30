@@ -42,6 +42,17 @@ export default function NewShiftPage() {
     ? endTime <= startTime
     : false;
 
+  function handleStartTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    setStartTime(val);
+    // 종료 시각이 비어있으면 +8h 자동 제안
+    if (val && !endTime) {
+      const [h, m] = val.split(':').map(Number);
+      const endH = (h + 8) % 24;
+      setEndTime(`${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+    }
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
@@ -112,31 +123,29 @@ export default function NewShiftPage() {
                 className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            <div className="flex gap-3">
-              <div className="flex-1">
-                <label className="text-label text-sub block mb-1">시작</label>
-                <input
-                  type="time"
-                  name="start_time"
-                  required
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="text-label text-sub block mb-1">
-                  종료{isOvernight && <span className="ml-1 text-warn">익일</span>}
-                </label>
-                <input
-                  type="time"
-                  name="end_time"
-                  required
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
+            <div>
+              <label className="text-label text-sub block mb-1">시작</label>
+              <input
+                type="time"
+                name="start_time"
+                required
+                value={startTime}
+                onChange={handleStartTimeChange}
+                className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="text-label text-sub block mb-1">
+                종료{isOvernight && <span className="ml-1 text-warn"> · 익일</span>}
+              </label>
+              <input
+                type="time"
+                name="end_time"
+                required
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
           </div>
         </section>
