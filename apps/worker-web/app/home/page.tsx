@@ -193,6 +193,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
+  const [showProfileBanner, setShowProfileBanner] = useState(false);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
@@ -215,13 +216,22 @@ export default function HomePage() {
         supabase.from('profiles').select('role').single(),
         supabase.from('worker_location_prefs').select('locations').single(),
         supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle(),
-        supabase.from('workers').select('id').eq('auth_user_id', user.id).maybeSingle(),
+        supabase.from('workers')
+          .select('id, license_number, license_photo_url, experience_years, last_workplace, department_tags')
+          .eq('auth_user_id', user.id)
+          .maybeSingle(),
       ]);
 
       const userRole = (prof?.role as 'rn' | 'na') ?? 'rn';
       setRole(userRole);
       setAreas(((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label));
       setCredits(creditsData?.balance ?? 0);
+
+      if (workerRow) {
+        const w = workerRow as Record<string, unknown>;
+        const incomplete = !((w.license_number || w.license_photo_url) && w.experience_years && w.last_workplace && (w.department_tags as string[] | null)?.length);
+        setShowProfileBanner(incomplete);
+      }
 
       // 이미 지원한 shift_id 목록
       if (workerRow?.id) {
@@ -325,6 +335,29 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {/* 프로필 미완성 배너 */}
+      {showProfileBanner && (
+        <div className="mx-5 mb-4 bg-primary/8 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
+          <span className="text-2xl flex-shrink-0">📋</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-[13px] font-bold text-ink">프로필 카드를 완성해보세요</p>
+            <p className="text-[12px] text-sub mt-0.5">병원 HR에게 더 좋은 첫인상을 남길 수 있어요</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Link href="/settings/profile" className="text-[12px] font-bold text-primary whitespace-nowrap">
+              완성하기 →
+            </Link>
+            <button
+              onClick={() => setShowProfileBanner(false)}
+              className="text-tertiary text-[16px] leading-none"
+              aria-label="닫기"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 필터 */}
       <div className="px-5 pb-4 flex flex-col gap-2">

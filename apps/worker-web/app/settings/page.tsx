@@ -11,11 +11,14 @@ import {
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 
+const PROFILE_TOTAL = 4;
+
 export default function SettingsPage() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [locations, setLocations] = useState<AreaPref[]>([]);
+  const [profileFilled, setProfileFilled] = useState(0);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [showPwaGuide, setShowPwaGuide] = useState(false);
@@ -27,13 +30,27 @@ export default function SettingsPage() {
 
       setName(user.user_metadata?.profile_nickname ?? '사용자');
 
-      const [{ data: prof }, { data: locPref }] = await Promise.all([
+      const [{ data: prof }, { data: locPref }, { data: workerProf }] = await Promise.all([
         supabase.from('profiles').select('role').single(),
         supabase.from('worker_location_prefs').select('locations').single(),
+        supabase.from('workers')
+          .select('license_number, license_photo_url, experience_years, last_workplace, department_tags')
+          .eq('auth_user_id', user.id)
+          .maybeSingle(),
       ]);
 
       setRole(prof?.role ?? '');
       setLocations(locPref?.locations ?? []);
+
+      if (workerProf) {
+        const filled = [
+          workerProf.license_number || workerProf.license_photo_url,
+          workerProf.experience_years,
+          workerProf.last_workplace,
+          (workerProf.department_tags as string[] | null)?.length,
+        ].filter(Boolean).length;
+        setProfileFilled(filled);
+      }
 
       const existing = await getExistingSubscription();
       setPushEnabled(!!existing);
@@ -42,7 +59,6 @@ export default function SettingsPage() {
   }, [router]);
 
   async function handlePushToggle() {
-    // iOS 사파리는 PWA(홈 화면 추가) 상태에서만 Web Push 지원
     if (!('PushManager' in window)) {
       setShowPwaGuide(true);
       return;
@@ -81,6 +97,7 @@ export default function SettingsPage() {
   }
 
   const roleLabel = role === 'rn' ? '간호사 RN' : role === 'na' ? '간호조무사 NA' : '';
+  const profileDone = profileFilled >= PROFILE_TOTAL;
 
   return (
     <main className="px-4 pb-10">
@@ -102,6 +119,34 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* 내 프로필 카드 */}
+      <Link href="/settings/profile">
+        <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5">
+              <p className="text-[15px] font-bold text-ink">내 프로필 카드</p>
+              {profileDone ? (
+                <span className="text-[11px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">완성</span>
+              ) : (
+                <span className="text-[11px] font-bold text-warn bg-warn/10 px-2 py-0.5 rounded-full">
+                  {profileFilled}/{PROFILE_TOTAL} 완료
+                </span>
+              )}
+            </div>
+            <p className="text-[13px] text-tertiary">병원 HR 담당자에게 보이는 정보예요</p>
+            {!profileDone && (
+              <div className="mt-2 h-1.5 bg-bg rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
+                  style={{ width: `${(profileFilled / PROFILE_TOTAL) * 100}%` }}
+                />
+              </div>
+            )}
+          </div>
+          <span className="text-tertiary ml-3">›</span>
+        </div>
+      </Link>
 
       {/* 활동 지역 */}
       <Link href="/settings/location">
