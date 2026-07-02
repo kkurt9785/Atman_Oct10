@@ -52,7 +52,7 @@ function TierCard({
         )}
       </div>
       {tier.bonus > 0 && (
-        <p className="text-[11px] text-tertiary mt-1 pl-6">보너스 {won(tier.bonus)} 추가 지급</p>
+        <p className="text-[11px] text-sub mt-1 pl-6">보너스 {won(tier.bonus)} 추가 지급</p>
       )}
       <div className={`absolute top-4 left-4 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
         selected ? 'border-primary bg-primary' : 'border-line'

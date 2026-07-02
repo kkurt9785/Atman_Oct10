@@ -42,43 +42,50 @@ export default async function TimesheetPage() {
       </Card>
 
       <SectionTitle>오늘 출퇴근</SectionTitle>
-      <Card className="divide-y divide-line p-0">
-        {staff.map((s) => {
-          const inTime  = fmtTime(s.checkInAt);
-          const outTime = fmtTime(s.checkOutAt);
+      {staff.length === 0 ? (
+        <Card className="py-10 text-center">
+          <p className="text-body font-bold text-ink">오늘 출퇴근 기록이 없어요</p>
+          <p className="text-label text-sub mt-1">QR 체크인이 발생하면 여기에 쌓입니다.</p>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-line p-0">
+          {staff.map((s) => {
+            const inTime  = fmtTime(s.checkInAt);
+            const outTime = fmtTime(s.checkOutAt);
 
-          return (
-            <div key={s.id} className="px-5 py-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-body font-bold text-ink">{s.name}</p>
-                  <p className="text-label text-tertiary">{s.job}</p>
+            return (
+              <div key={s.id} className="px-5 py-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-body font-bold text-ink">{s.name}</p>
+                    <p className="text-label text-sub">{s.job}</p>
+                  </div>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_STYLE[s.todayStatus]}`}>
+                    {s.todayStatus}
+                  </span>
                 </div>
-                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_STYLE[s.todayStatus]}`}>
-                  {s.todayStatus}
-                </span>
-              </div>
 
-              {/* 체크인/아웃 시간 */}
-              <div className="mt-2 flex items-center gap-3 text-label text-sub">
-                {inTime ? (
-                  <>
-                    <span>🟢 {inTime} 출근</span>
-                    {outTime && <span>→ {outTime} 퇴근</span>}
-                  </>
-                ) : (
-                  <span className="text-tertiary">아직 출근 전</span>
-                )}
-              </div>
+                {/* 체크인/아웃 시간 */}
+                <div className="mt-2 flex items-center gap-3 text-label text-sub">
+                  {inTime ? (
+                    <>
+                      <span>🟢 {inTime} 출근</span>
+                      {outTime && <span>→ {outTime} 퇴근</span>}
+                    </>
+                  ) : (
+                    <span className="text-sub">아직 출근 전</span>
+                  )}
+                </div>
 
-              {/* 이번 달 누적 */}
-              <p className="text-label text-tertiary mt-1">
-                이번 달 누적 {hours(s.monthMinutes)}
-              </p>
-            </div>
-          );
-        })}
-      </Card>
+                {/* 이번 달 누적 */}
+                <p className="text-label text-sub mt-1">
+                  이번 달 누적 {hours(s.monthMinutes)}
+                </p>
+              </div>
+            );
+          })}
+        </Card>
+      )}
 
       <p className="text-label text-sub mt-3 px-1">
         QR 체크인 기록 기준 · 법정 전자기록 3년 보관

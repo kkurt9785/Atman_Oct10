@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
-
-function todayKST(): string {
-  return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
+import { todayKST } from '@/lib/date';
 
 export async function GET(req: NextRequest) {
   // Vercel Cron 인증
   const secret = process.env.CRON_SECRET;
   const auth   = req.headers.get('authorization');
+  if (!secret) {
+    return NextResponse.json({ error: 'CRON_SECRET is not configured' }, { status: 500 });
+  }
   if (secret && auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

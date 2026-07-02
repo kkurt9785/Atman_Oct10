@@ -69,10 +69,12 @@ function CallbackInner() {
           }
 
           // 쿠키 설정 (API route 경유)
+          const { data: sessionData } = await supabase.auth.getSession();
           await fetch('/api/set-facility', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id }),
+            headers: {
+              Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
+            },
           });
         }
 

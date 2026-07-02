@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createShiftAction } from '@/lib/actions/shifts';
+import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
 
 type Role = 'rn' | 'na' | 'any';
 
@@ -11,17 +12,6 @@ const ROLES: { value: Role; label: string }[] = [
   { value: 'na', label: '간호조무사 (NA)' },
   { value: 'any', label: '무관' },
 ];
-
-function calcEstimatedPay(startTime: string, endTime: string, hourlyWage: number): number {
-  if (!startTime || !endTime || hourlyWage < 9860) return 0;
-  const [sh, sm] = startTime.split(':').map(Number);
-  const [eh, em] = endTime.split(':').map(Number);
-  let totalMinutes = eh * 60 + em - (sh * 60 + sm);
-  if (totalMinutes <= 0) totalMinutes += 24 * 60; // 야간 시프트
-  if (totalMinutes >= 480) totalMinutes -= 60;     // 8h+ → 60분 휴게
-  else if (totalMinutes >= 240) totalMinutes -= 30; // 4h+ → 30분 휴게
-  return Math.round((totalMinutes / 60) * hourlyWage);
-}
 
 export default function NewShiftPage() {
   const router = useRouter();
@@ -37,7 +27,7 @@ export default function NewShiftPage() {
   const [department, setDepartment] = useState('');
   const [notes, setNotes] = useState('');
 
-  const estimatedPay = calcEstimatedPay(startTime, endTime, hourlyWage);
+  const estimatedPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage) ?? 0;
   const isOvernight = startTime && endTime
     ? endTime <= startTime
     : false;
@@ -61,11 +51,10 @@ export default function NewShiftPage() {
     if (!shiftDate) { setError('날짜를 선택해주세요.'); return; }
     if (!startTime || !endTime) { setError('시작·종료 시간을 입력해주세요.'); return; }
     if (!description.trim()) { setError('업무 설명을 입력해주세요.'); return; }
-    if (!hourlyWage || hourlyWage < 9860) { setError('시급은 최저시급(9,860원) 이상이어야 해요.'); return; }
+    if (!hourlyWage || hourlyWage < MIN_HOURLY_WAGE_2026) { setError('시급은 최저시급(9,860원) 이상이어야 해요.'); return; }
 
     const formData = new FormData(e.currentTarget);
     formData.set('required_role', role);
-    formData.set('estimated_total_pay', String(estimatedPay));
 
     startTransition(async () => {
       try {
@@ -176,7 +165,7 @@ export default function NewShiftPage() {
                 className="w-full bg-bg rounded-xl pl-8 pr-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            {hourlyWage > 0 && hourlyWage < 9860 && (
+            {hourlyWage > 0 && hourlyWage < MIN_HOURLY_WAGE_2026 && (
               <p className="text-label text-warn mt-1">2026년 최저시급(9,860원) 이상이어야 해요</p>
             )}
           </div>

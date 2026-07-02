@@ -1,6 +1,8 @@
 'use server';
 import { adminClient } from '@/lib/supabase';
 import { getCurrentFacilityId } from '@/lib/facility';
+import { calcBreakMinutes } from '@/lib/pay';
+import { todayKST } from '@/lib/date';
 
 // 야간 시간(22:00~06:00) 분 수 계산
 function calcNightMinutes(checkIn: Date, checkOut: Date): number {
@@ -14,20 +16,14 @@ function calcNightMinutes(checkIn: Date, checkOut: Date): number {
   return mins;
 }
 
-// 법정 휴게시간 (근로기준법)
-function breakMinutes(workedMins: number): number {
-  if (workedMins >= 480) return 60; // 8h+ → 60분
-  if (workedMins >= 240) return 30; // 4h+ → 30분
-  return 0;
-}
-
 export type CheckinResult =
   | { ok: true; workerName: string; shiftDate: string; startTime: string; action: 'checkin' | 'checkout'; gross?: number }
   | { ok: false; message: string };
 
 export async function recordCheckin(applicationId: string): Promise<CheckinResult> {
   const sb = adminClient();
-  if (!sb) return { ok: false, message: '서버 오류' };
+  const facilityId = await getCurrentFacilityId();
+  if (!sb || !facilityId) return { ok: false, message: '인증이 필요해요' };
 
   // shift_application + shift + worker 조회
   const { data: app, error } = await sb
@@ -45,10 +41,9 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
 
   const shift  = app.shifts  as unknown as { id: string; shift_date: string; start_time: string; end_time: string; hourly_wage: number; facility_id: string };
   const worker = app.workers as unknown as { id: string; name: string; auth_user_id: string };
+  if (shift.facility_id !== facilityId) return { ok: false, message: '이 병원의 시프트가 아니에요' };
 
-  // KST(+9h) 기준 오늘 날짜 — 서버는 UTC이므로 보정 필요
-  const kstNow  = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const todayKST = kstNow.toISOString().slice(0, 10);
+  const today = todayKST();
 
   // 기존 attendance 조회
   const { data: attendance } = await sb
@@ -66,9 +61,9 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
   // ── 체크인 ──────────────────────────────────────
   if (!attendance) {
     // 체크인은 당일(KST)만 허용
-    if (shift.shift_date !== todayKST) {
+    if (shift.shift_date !== today) {
       const diff = Math.ceil(
-        (new Date(shift.shift_date).getTime() - new Date(todayKST).getTime()) / 86400000
+        (new Date(shift.shift_date).getTime() - new Date(today).getTime()) / 86400000
       );
       const msg = diff > 0 ? `${diff}일 후 시프트예요` : '이미 지난 시프트예요';
       return { ok: false, message: msg };
@@ -97,7 +92,7 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
   // ── 체크아웃 ────────────────────────────────────
   const checkIn  = new Date(attendance.check_in_at as string);
   const rawMins  = Math.round((now.getTime() - checkIn.getTime()) / 60_000);
-  const breakMin = breakMinutes(rawMins);
+  const breakMin = calcBreakMinutes(rawMins);
   const workedMin = rawMins - breakMin;
   const nightMin  = calcNightMinutes(checkIn, now);
   const hourlyWage = shift.hourly_wage;
@@ -114,7 +109,7 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
   // wage_calculations INSERT
   await sb.from('wage_calculations').insert({
     attendance_id:    attendance.id,
-    org_id:           (await getCurrentFacilityId()) ?? shift.facility_id,
+    org_id:           facilityId,
     worker_id:        worker.id,
     shift_id:         shift.id,
     rule_version:     '2026-KR',

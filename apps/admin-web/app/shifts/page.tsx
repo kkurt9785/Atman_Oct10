@@ -1,8 +1,9 @@
 import Link from 'next/link';
-import { getShifts, ShiftRow } from '@/lib/db/shifts';
+import { getShifts, getExpiredOpenShifts, ShiftRow } from '@/lib/db/shifts';
 import { Card } from '@/components/ui';
 import { won } from '@/lib/mock';
 import { CancelButton } from './CancelButton';
+import { ExpiredShiftBanner } from './ExpiredShiftBanner';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', any: '무관' };
 
@@ -11,7 +12,7 @@ const STATUS_STYLE: Record<string, string> = {
   matched:     'bg-success/15 text-success',
   in_progress: 'bg-warn/15 text-warn',
   completed:   'bg-line text-sub',
-  cancelled:   'bg-line text-tertiary',
+  cancelled:   'bg-line text-sub',
 };
 const STATUS_LABEL: Record<string, string> = {
   open:        '모집중',
@@ -52,7 +53,7 @@ function ShiftCard({ s }: { s: ShiftRow }) {
 }
 
 export default async function ShiftsPage() {
-  const shifts = await getShifts();
+  const [shifts, expiredShifts] = await Promise.all([getShifts(), getExpiredOpenShifts()]);
 
   return (
     <main className="px-4 pb-24">
@@ -66,6 +67,8 @@ export default async function ShiftsPage() {
           <span>새 시프트</span>
         </Link>
       </div>
+
+      <ExpiredShiftBanner shifts={expiredShifts} />
 
       {shifts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">

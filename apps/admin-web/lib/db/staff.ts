@@ -1,6 +1,6 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
-import { STAFF, SUMMARY } from '../mock';
+import { todayKST } from '../date';
 
 export type StaffRow = {
   id: string;
@@ -31,9 +31,9 @@ function roleLabel(role: string | null): string {
 export async function getStaff(): Promise<StaffRow[]> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return STAFF;
+  if (!sb || !facilityId) return [];
 
-  const today      = new Date().toISOString().slice(0, 10);
+  const today      = todayKST();
   const monthStart = `${today.slice(0, 7)}-01`;
 
   // 오늘 이 시설의 매칭된 시프트
@@ -44,7 +44,7 @@ export async function getStaff(): Promise<StaffRow[]> {
     .eq('shift_date', today)
     .not('matched_worker_id', 'is', null);
 
-  if (error || !todayShifts || todayShifts.length === 0) return STAFF;
+  if (error || !todayShifts || todayShifts.length === 0) return [];
 
   const shiftIds  = (todayShifts as any[]).map((s) => s.id);
   const workerIds = [...new Set((todayShifts as any[]).map((s) => s.matched_worker_id as string))];
@@ -101,11 +101,10 @@ export async function getStaff(): Promise<StaffRow[]> {
     })
     .filter(Boolean) as StaffRow[];
 
-  return rows.length > 0 ? rows : STAFF;
+  return rows;
 }
 
 export async function getSummary(staff: StaffRow[]): Promise<SummaryInfo> {
-  if (staff === STAFF) return SUMMARY;
   return {
     totalMinutes: staff.reduce((s, x) => s + x.monthMinutes, 0),
     estimatedPay: staff.reduce(

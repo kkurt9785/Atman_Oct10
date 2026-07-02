@@ -28,14 +28,24 @@ export function ApplicantCard({
 
   async function handleAccept() {
     setLoading('accept');
-    await acceptApplication(applicant.applicationId, shiftId, applicant.workerId);
-    setLoading(null);
+    try {
+      await acceptApplication(applicant.applicationId, shiftId, applicant.workerId);
+    } catch {
+      alert('수락 처리에 실패했어요. 새로고침 후 다시 시도해주세요.');
+    } finally {
+      setLoading(null);
+    }
   }
 
   async function handleReject() {
     setLoading('reject');
-    await rejectApplication(applicant.applicationId);
-    setLoading(null);
+    try {
+      await rejectApplication(applicant.applicationId);
+    } catch {
+      alert('거절 처리에 실패했어요. 새로고침 후 다시 시도해주세요.');
+    } finally {
+      setLoading(null);
+    }
   }
 
   const hasProfile = applicant.experienceYears || applicant.lastWorkplace || applicant.departmentTags?.length;
@@ -92,7 +102,7 @@ export function ApplicantCard({
           {/* 면허증 */}
           {hasLicense && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-tertiary w-12 flex-shrink-0">면허증</span>
+              <span className="text-[11px] text-sub w-12 flex-shrink-0">면허증</span>
               {applicant.licensePhotoUrl ? (
                 <>
                   <button
@@ -125,7 +135,7 @@ export function ApplicantCard({
           {/* 경력 + 최근 근무지 */}
           {(applicant.experienceYears || applicant.lastWorkplace) && (
             <div className="flex items-start gap-2">
-              <span className="text-[11px] text-tertiary w-12 flex-shrink-0 pt-0.5">경력</span>
+              <span className="text-[11px] text-sub w-12 flex-shrink-0 pt-0.5">경력</span>
               <span className="text-[12px] text-ink">
                 {[applicant.experienceYears, applicant.lastWorkplace].filter(Boolean).join(' · ')}
               </span>
@@ -135,7 +145,7 @@ export function ApplicantCard({
           {/* 부서 태그 */}
           {applicant.departmentTags && applicant.departmentTags.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-tertiary w-12 flex-shrink-0">부서</span>
+              <span className="text-[11px] text-sub w-12 flex-shrink-0">부서</span>
               <div className="flex flex-wrap gap-1">
                 {applicant.departmentTags.map((tag) => (
                   <span key={tag} className="text-[11px] font-semibold bg-bg text-sub px-2 py-0.5 rounded-full">
@@ -150,7 +160,7 @@ export function ApplicantCard({
 
       {/* 프로필 미등록 안내 */}
       {!hasProfile && (
-        <p className="mt-2 ml-[52px] text-[12px] text-tertiary">프로필 카드 미등록</p>
+        <p className="mt-2 ml-[52px] text-[12px] text-sub">프로필 카드 미등록</p>
       )}
     </div>
   );

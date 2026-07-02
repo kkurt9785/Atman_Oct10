@@ -5,6 +5,7 @@ import { createShift } from '../db/shifts';
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { sendWebPush } from '../push';
+import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
 import type webpush from 'web-push';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -18,7 +19,6 @@ export async function createShiftAction(formData: FormData) {
   const startTime = formData.get('start_time') as string;
   const endTime = formData.get('end_time') as string;
   const hourlyWage = parseInt(formData.get('hourly_wage') as string, 10);
-  const estimatedTotalPay = parseInt(formData.get('estimated_total_pay') as string, 10);
   const requiredRole = formData.get('required_role') as 'rn' | 'na' | 'any';
   const description = (formData.get('description') as string).trim();
   const department = (formData.get('department') as string).trim() || null;
@@ -27,8 +27,15 @@ export async function createShiftAction(formData: FormData) {
   if (!shiftDate || !startTime || !endTime || !requiredRole || !description) {
     throw new Error('필수 항목을 모두 입력해 주세요.');
   }
-  if (isNaN(hourlyWage) || hourlyWage < 9860) {
+  if (!['rn', 'na', 'any'].includes(requiredRole)) {
+    throw new Error('필요 자격이 올바르지 않습니다.');
+  }
+  if (isNaN(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026) {
     throw new Error('시급은 2026년 최저시급(9,860원) 이상이어야 합니다.');
+  }
+  const estimatedTotalPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage);
+  if (estimatedTotalPay == null) {
+    throw new Error('근무 시간을 확인해 주세요.');
   }
 
   await createShift({
@@ -93,11 +100,16 @@ export async function cancelShiftAction(shiftId: string) {
   const facilityId = await getCurrentFacilityId();
   if (!sb || !facilityId) throw new Error('인증 필요');
 
-  await sb
+  const { data, error } = await sb
     .from('shifts')
     .update({ status: 'cancelled' })
     .eq('id', shiftId)
-    .eq('facility_id', facilityId);
+    .eq('facility_id', facilityId)
+    .in('status', ['open', 'matched'])
+    .select('id')
+    .maybeSingle();
+
+  if (error || !data) throw new Error('취소할 수 없는 시프트예요.');
 
   redirect('/shifts');
 }

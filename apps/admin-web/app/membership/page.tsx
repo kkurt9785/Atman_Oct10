@@ -26,15 +26,18 @@ async function getLedger(): Promise<{ balance: number; rows: LedgerRow[] }> {
   const sb = adminClient();
   if (!sb || !facilityId) return { balance: 0, rows: [] };
 
-  const { data } = await sb
-    .from('credit_ledger')
-    .select('id, delta, kind, ref, created_at')
-    .eq('org_id', facilityId)
-    .order('created_at', { ascending: false })
-    .limit(30);
+  const [ledgerRes, creditRes] = await Promise.all([
+    sb
+      .from('credit_ledger')
+      .select('id, delta, kind, ref, created_at')
+      .eq('org_id', facilityId)
+      .order('created_at', { ascending: false })
+      .limit(30),
+    sb.rpc('org_credit_balance', { p_org_id: facilityId }),
+  ]);
 
-  const rows = (data ?? []) as LedgerRow[];
-  const balance = rows.reduce((s, r) => s + (r.delta ?? 0), 0);
+  const rows = (ledgerRes.data ?? []) as LedgerRow[];
+  const balance = (creditRes.data as number) ?? 0;
   return { balance, rows };
 }
 
@@ -81,11 +84,11 @@ export default async function MembershipPage() {
                 <div className="min-w-0">
                   <p className="text-[13px] font-bold text-ink">{label}</p>
                   {r.ref && (
-                    <p className="text-[11px] text-tertiary mt-0.5 truncate font-mono">
+                    <p className="text-[11px] text-sub mt-0.5 truncate font-mono">
                       ref: {r.ref.slice(0, 8)}…
                     </p>
                   )}
-                  <p className="text-[11px] text-tertiary">{dateStr} {timeStr}</p>
+                  <p className="text-[11px] text-sub">{dateStr} {timeStr}</p>
                 </div>
                 <p className={`text-[15px] font-extrabold flex-shrink-0 ml-3 ${
                   r.delta > 0 ? 'text-primary' : 'text-ink'

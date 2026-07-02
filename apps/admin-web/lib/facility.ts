@@ -1,16 +1,43 @@
 'use server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
-import { adminClient } from './supabase';
+import { adminClient, getUserFromToken } from './supabase';
 import { FACILITY_COOKIE } from './constants';
+
+function cookieSecret(): string | null {
+  return process.env.FACILITY_COOKIE_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? null;
+}
+
+function signFacilityId(facilityId: string): string | null {
+  const secret = cookieSecret();
+  if (!secret) return null;
+  return createHmac('sha256', secret).update(facilityId).digest('base64url');
+}
+
+function verifySignedFacilityCookie(value: string | undefined): string | null {
+  if (!value) return null;
+  const [facilityId, signature] = value.split('.');
+  if (!facilityId || !signature) return null;
+
+  const expected = signFacilityId(facilityId);
+  if (!expected) return null;
+
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length) return null;
+  return timingSafeEqual(actualBuffer, expectedBuffer) ? facilityId : null;
+}
 
 export async function getCurrentFacilityId(): Promise<string | null> {
   const jar = await cookies();
-  return jar.get(FACILITY_COOKIE)?.value ?? null;
+  return verifySignedFacilityCookie(jar.get(FACILITY_COOKIE)?.value);
 }
 
 export async function setFacilityCookie(facilityId: string): Promise<void> {
   const jar = await cookies();
-  jar.set(FACILITY_COOKIE, facilityId, {
+  const signature = signFacilityId(facilityId);
+  if (!signature) throw new Error('FACILITY_COOKIE_SECRET is not configured');
+  jar.set(FACILITY_COOKIE, `${facilityId}.${signature}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -19,9 +46,11 @@ export async function setFacilityCookie(facilityId: string): Promise<void> {
   });
 }
 
-export async function claimFacility(facilityId: string, userId: string, inviteCode: string): Promise<{ ok: boolean; error?: string }> {
+export async function claimFacility(facilityId: string, accessToken: string, inviteCode: string): Promise<{ ok: boolean; error?: string }> {
   const sb = adminClient();
   if (!sb) return { ok: false, error: '서버 오류' };
+  const user = await getUserFromToken(accessToken);
+  if (!user) return { ok: false, error: '로그인이 필요해요' };
 
   const { data: existing } = await sb
     .from('facilities')
@@ -30,7 +59,7 @@ export async function claimFacility(facilityId: string, userId: string, inviteCo
     .single();
 
   if (!existing) return { ok: false, error: '병원을 찾을 수 없어요' };
-  if (existing.admin_user_id && existing.admin_user_id !== userId) {
+  if (existing.admin_user_id && existing.admin_user_id !== user.id) {
     return { ok: false, error: '이미 다른 계정에서 연결된 병원이에요' };
   }
   if (!existing.invite_code || existing.invite_code.toUpperCase() !== inviteCode.trim().toUpperCase()) {
@@ -39,7 +68,7 @@ export async function claimFacility(facilityId: string, userId: string, inviteCo
 
   const { error } = await sb
     .from('facilities')
-    .update({ admin_user_id: userId })
+    .update({ admin_user_id: user.id })
     .eq('id', facilityId);
 
   if (error) return { ok: false, error: '연결 실패' };

@@ -10,3 +10,23 @@ export function adminClient() {
 }
 
 export const ORG_ID = process.env.ORG_ID ?? null;
+
+export function bearerToken(headers: Headers): string | null {
+  const auth = headers.get('authorization');
+  if (!auth?.startsWith('Bearer ')) return null;
+  return auth.slice('Bearer '.length);
+}
+
+export async function getUserFromBearer(headers: Headers) {
+  const token = bearerToken(headers);
+  return getUserFromToken(token);
+}
+
+export async function getUserFromToken(token: string | null | undefined) {
+  const sb = adminClient();
+  if (!token || !sb) return null;
+
+  const { data, error } = await sb.auth.getUser(token);
+  if (error) return null;
+  return data.user ?? null;
+}

@@ -1,4 +1,4 @@
-import { Card, SectionTitle, BigStat, PrimaryButton } from '@/components/ui';
+import { Card, SectionTitle, BigStat } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
 import { getStaff } from '@/lib/db/staff';
 import { getMonthPayslips, hahrFeature } from '@/lib/db/payroll';
@@ -59,25 +59,28 @@ export default async function PayrollPage() {
       </Card>
 
       <SectionTitle>직원별 급여</SectionTitle>
-      <Card className="divide-y divide-line p-0">
-        {rows.map((r) => (
-          <div key={r.id} className="flex items-center justify-between px-5 py-4">
-            <div>
-              <p className="text-body font-bold text-ink">{r.name}</p>
-              <p className="text-label text-sub">세전 {won(r.grossPay)}</p>
+      {rows.length === 0 ? (
+        <Card className="py-10 text-center">
+          <p className="text-body font-bold text-ink">이번 달 급여 데이터가 없어요</p>
+          <p className="text-label text-sub mt-1">체크아웃 완료 후 급여가 계산됩니다.</p>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-line p-0">
+          {rows.map((r) => (
+            <div key={r.id} className="flex items-center justify-between px-5 py-4">
+              <div>
+                <p className="text-body font-bold text-ink">{r.name}</p>
+                <p className="text-label text-sub">세전 {won(r.grossPay)}</p>
+              </div>
+              <p className="text-title font-bold text-ink">{won(r.netPay)}</p>
             </div>
-            <p className="text-title font-bold text-ink">{won(r.netPay)}</p>
-          </div>
-        ))}
-      </Card>
+          ))}
+        </Card>
+      )}
 
       <p className="text-label text-sub mt-3 px-1">
         포괄임금 금지(2026) 대응 — 실제 근로시간 기준으로 항목을 나눠 계산해요.
       </p>
-
-      <div className="mt-4">
-        <PrimaryButton href="/payroll">📄 전체 명세서 발급하기</PrimaryButton>
-      </div>
     </main>
   );
 }

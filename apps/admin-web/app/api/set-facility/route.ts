@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminClient } from '@/lib/supabase';
-import { FACILITY_COOKIE } from '@/lib/constants';
-import { cookies } from 'next/headers';
+import { adminClient, getUserFromBearer } from '@/lib/supabase';
+import { setFacilityCookie } from '@/lib/facility';
 
 export async function POST(req: NextRequest) {
-  const { userId } = await req.json();
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+  const user = await getUserFromBearer(req.headers);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const sb = adminClient();
   if (!sb) return NextResponse.json({ error: 'DB error' }, { status: 500 });
@@ -13,19 +12,12 @@ export async function POST(req: NextRequest) {
   const { data: facility } = await sb
     .from('facilities')
     .select('id')
-    .eq('admin_user_id', userId)
+    .eq('admin_user_id', user.id)
     .maybeSingle();
 
   if (!facility) return NextResponse.json({ facilityId: null });
 
-  const jar = await cookies();
-  jar.set(FACILITY_COOKIE, facility.id, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  });
+  await setFacilityCookie(facility.id);
 
   return NextResponse.json({ facilityId: facility.id });
 }

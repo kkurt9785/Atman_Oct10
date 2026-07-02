@@ -1,5 +1,6 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
+import { todayKST, yesterdayKST } from '../date';
 
 export type ShiftRow = {
   id: string;
@@ -19,45 +20,52 @@ export type ShiftRow = {
 
 export type NewShift = Omit<ShiftRow, 'id' | 'is_overnight' | 'status' | 'created_at'>;
 
-const MOCK_SHIFTS: ShiftRow[] = [
-  {
-    id: 'mock-1',
-    shift_date: new Date().toISOString().slice(0, 10),
-    start_time: '22:00',
-    end_time: '06:00',
-    is_overnight: true,
-    required_role: 'rn',
-    hourly_wage: 15000,
-    estimated_total_pay: 120000,
-    description: '심야 병동 간호 지원',
-    department: '일반병동',
-    notes: '식사 제공',
-    status: 'open',
-    created_at: new Date().toISOString(),
-  },
-];
+const SELECT_COLS = 'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, status, created_at';
 
 export async function getShifts(): Promise<ShiftRow[]> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return MOCK_SHIFTS;
+  if (!sb || !facilityId) return [];
+
+  const today = todayKST();
+
+  // 오늘 이후 시프트 + 근무 진행 중인 것만
+  const { data } = await sb
+    .from('shifts')
+    .select(SELECT_COLS)
+    .eq('facility_id', facilityId)
+    .or(`shift_date.gte.${today},status.eq.in_progress`)
+    .not('status', 'eq', 'cancelled')
+    .order('shift_date', { ascending: true })
+    .order('start_time', { ascending: true });
+
+  return (data as ShiftRow[]) ?? [];
+}
+
+// 만료됐는데 매칭 못 된 시프트 (어제 이전 + open 상태)
+export async function getExpiredOpenShifts(): Promise<ShiftRow[]> {
+  const facilityId = await getCurrentFacilityId();
+  const sb = adminClient();
+  if (!sb || !facilityId) return [];
+
+  const yesterday = yesterdayKST();
 
   const { data } = await sb
     .from('shifts')
-    .select(
-      'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, status, created_at'
-    )
+    .select(SELECT_COLS)
     .eq('facility_id', facilityId)
+    .eq('status', 'open')
+    .lte('shift_date', yesterday)
     .order('shift_date', { ascending: false })
-    .order('start_time', { ascending: true });
+    .limit(10);
 
-  return (data as ShiftRow[]) ?? MOCK_SHIFTS;
+  return (data as ShiftRow[]) ?? [];
 }
 
 export async function createShift(payload: NewShift): Promise<void> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return;
+  if (!sb || !facilityId) throw new Error('인증 필요');
 
   const { error } = await sb.from('shifts').insert({
     ...payload,

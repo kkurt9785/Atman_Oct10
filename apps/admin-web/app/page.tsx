@@ -59,17 +59,24 @@ export default async function Home() {
       </div>
 
       <SectionTitle>오늘 근무</SectionTitle>
-      <Card className="divide-y divide-line p-0">
-        {staff.map((s) => (
-          <div key={s.id} className="flex items-center justify-between px-5 py-4">
-            <div>
-              <p className="text-body font-bold text-ink">{s.name}</p>
-              <p className="text-label text-sub">{s.job}</p>
+      {staff.length === 0 ? (
+        <Card className="py-8 text-center">
+          <p className="text-body font-bold text-ink">오늘 근무가 없어요</p>
+          <p className="text-label text-sub mt-1">매칭된 시프트가 생기면 표시됩니다.</p>
+        </Card>
+      ) : (
+        <Card className="divide-y divide-line p-0">
+          {staff.map((s) => (
+            <div key={s.id} className="flex items-center justify-between px-5 py-4">
+              <div>
+                <p className="text-body font-bold text-ink">{s.name}</p>
+                <p className="text-label text-sub">{s.job}</p>
+              </div>
+              <StatusBadge status={s.todayStatus} />
             </div>
-            <StatusBadge status={s.todayStatus} />
-          </div>
-        ))}
-      </Card>
+          ))}
+        </Card>
+      )}
     </main>
   );
 }

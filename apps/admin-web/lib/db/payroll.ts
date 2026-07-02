@@ -1,5 +1,6 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
+import { todayKST } from '../date';
 
 export type PayslipRow = {
   id: string;
@@ -13,7 +14,7 @@ export async function getMonthPayslips(): Promise<PayslipRow[] | null> {
   const sb = adminClient();
   if (!sb || !facilityId) return null;
 
-  const today       = new Date().toISOString().slice(0, 10);
+  const today       = todayKST();
   const periodStart = `${today.slice(0, 7)}-01`;
 
   // 먼저 payslips 테이블 시도
