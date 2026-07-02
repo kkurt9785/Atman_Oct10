@@ -3,6 +3,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AuthGuard } from './AuthGuard';
 import { TextSizeToggle } from './TextSizeToggle';
 import { BottomNav } from './BottomNav';
+import { FacilitySwitcher } from './FacilitySwitcher';
 import { supabase } from '@/lib/supabase-browser';
 
 const PUBLIC_PREFIX = ['/login', '/auth/', '/setup/'];
@@ -38,6 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <header className="sticky top-0 z-10 flex items-center justify-between px-5 h-14 bg-bg/90 backdrop-blur">
           <span className="text-title font-extrabold text-primary">잇닿</span>
           <div className="flex items-center gap-2">
+            <FacilitySwitcher />
             <TextSizeToggle />
             <button
               onClick={handleLogout}
