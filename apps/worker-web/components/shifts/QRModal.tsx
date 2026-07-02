@@ -16,7 +16,11 @@ export function QRModal({ applicationId, shiftDate, startTime, facilityName, onC
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    QRCode.toCanvas(canvasRef.current, applicationId, {
+    QRCode.toCanvas(canvasRef.current, JSON.stringify({
+      type: 'shift_application',
+      applicationId,
+      issuedAt: new Date().toISOString(),
+    }), {
       width: 240,
       margin: 2,
       color: { dark: '#191F28', light: '#FFFFFF' },

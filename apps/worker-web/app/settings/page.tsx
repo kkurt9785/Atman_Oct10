@@ -30,16 +30,15 @@ export default function SettingsPage() {
 
       setName(user.user_metadata?.profile_nickname ?? '사용자');
 
-      const [{ data: prof }, { data: locPref }, { data: workerProf }] = await Promise.all([
-        supabase.from('profiles').select('role').single(),
+      const [{ data: locPref }, { data: workerProf }] = await Promise.all([
         supabase.from('worker_location_prefs').select('locations').single(),
         supabase.from('workers')
-          .select('license_number, license_photo_url, experience_years, last_workplace, department_tags')
+          .select('role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
       ]);
 
-      setRole(prof?.role ?? '');
+      setRole(workerProf?.role ?? '');
       setLocations(locPref?.locations ?? []);
 
       if (workerProf) {

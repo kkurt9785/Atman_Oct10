@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
+import { dateKST } from '@/lib/date';
 
 export type Shift = {
   id: string;
@@ -87,24 +88,56 @@ export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Shift | null>(null);
+  const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from('shifts')
-      .select(
-        'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes'
-      )
-      .eq('status', 'open')
-      .order('shift_date', { ascending: true })
-      .order('start_time', { ascending: true })
-      .then(({ data }) => {
-        setShifts((data as Shift[]) ?? []);
-        setLoading(false);
-      });
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser();
+      let roleFilter: Array<'rn' | 'na' | 'any'> = ['rn', 'na', 'any'];
+      let appliedShiftIds = new Set<string>();
+
+      if (!user) {
+        setIsGuest(true);
+      } else {
+        const { data: worker } = await supabase
+          .from('workers')
+          .select('id, role, verification_status')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
+
+        if (worker?.verification_status === 'approved') {
+          roleFilter = worker.role === 'rn' ? ['rn', 'any'] : ['na', 'any'];
+          const { data: appData } = await supabase
+            .from('shift_applications')
+            .select('shift_id')
+            .eq('worker_id', worker.id)
+            .in('status', ['applied', 'accepted']);
+          appliedShiftIds = new Set((appData ?? []).map((a: { shift_id: string }) => a.shift_id));
+          setApplied(appliedShiftIds);
+        }
+      }
+
+      const { data: shiftData } = await supabase
+        .from('shifts')
+        .select(
+          'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes'
+        )
+        .eq('status', 'open')
+        .gte('shift_date', dateKST())
+        .in('required_role', roleFilter)
+        .order('shift_date', { ascending: true })
+        .order('start_time', { ascending: true });
+
+      setShifts(((shiftData as Shift[]) ?? []).filter((s) => !appliedShiftIds.has(s.id)));
+      setLoading(false);
+    }
+    load();
   }, []);
 
   function handleApplied(shiftId: string) {
     setShifts((prev) => prev.filter((s) => s.id !== shiftId));
+    setApplied((prev) => new Set(prev).add(shiftId));
     setSelected(null);
   }
 
@@ -124,6 +157,11 @@ export default function ShiftsPage() {
         <h1 className="text-[28px] font-extrabold text-ink leading-tight">
           시프트 {shifts.length}건
         </h1>
+        {isGuest && (
+          <p className="text-[13px] text-sub mt-2">
+            둘러보기는 바로 가능해요. 지원할 때 1분 가입과 인증을 진행합니다.
+          </p>
+        )}
       </div>
 
       {shifts.length === 0 ? (

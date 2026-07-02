@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
+import { dateKST } from '@/lib/date';
 
 type ShiftWithFacility = Shift & {
   facilities: { name: string } | null;
@@ -52,13 +53,13 @@ const DEPT_CHIPS_NA: { value: DeptFilter; label: string }[] = [
 
 // ─── 필터 함수 ─────────────────────────────────────────────────
 function toDateStr(d: Date) {
-  return d.toISOString().slice(0, 10);
+  return dateKST(0, d);
 }
 function matchesDate(shift: Shift, f: DateFilter) {
   if (f === 'all') return true;
-  const today    = toDateStr(new Date());
-  const tomorrow = toDateStr(new Date(Date.now() + 86400000));
-  const weekEnd  = toDateStr(new Date(Date.now() + 7 * 86400000));
+  const today    = dateKST();
+  const tomorrow = dateKST(1);
+  const weekEnd  = dateKST(7);
   if (f === 'today')    return shift.shift_date === today;
   if (f === 'tomorrow') return shift.shift_date === tomorrow;
   if (f === 'week')     return shift.shift_date >= today && shift.shift_date <= weekEnd;
@@ -208,21 +209,19 @@ export default function HomePage() {
       setName(user.user_metadata?.profile_nickname ?? '사용자');
 
       const [
-        { data: prof },
         { data: locPref },
         { data: creditsData },
         { data: workerRow },
       ] = await Promise.all([
-        supabase.from('profiles').select('role').single(),
         supabase.from('worker_location_prefs').select('locations').single(),
         supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle(),
         supabase.from('workers')
-          .select('id, license_number, license_photo_url, experience_years, last_workplace, department_tags')
+          .select('id, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
       ]);
 
-      const userRole = (prof?.role as 'rn' | 'na') ?? 'rn';
+      const userRole = (workerRow?.role as 'rn' | 'na') ?? 'rn';
       setRole(userRole);
       setAreas(((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label));
       setCredits(creditsData?.balance ?? 0);

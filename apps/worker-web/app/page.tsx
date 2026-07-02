@@ -11,7 +11,7 @@ function RootInner() {
     async function route() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.replace('/onboarding');
+        router.replace('/shifts');
         return;
       }
       const { data: profile } = await supabase

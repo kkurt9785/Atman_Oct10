@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import type { Shift } from '@/app/shifts/page';
+import { applyToShift } from '@/lib/shifts';
 
 type Props = {
   shift: Shift;
@@ -23,52 +23,19 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
   async function handleApply() {
     setState('loading');
 
-    // 1. 세션 확인
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
+    const result = await applyToShift(shift.id);
+    if (result.ok) {
+      setState('success');
+      return;
+    }
+
+    if (result.reason === 'auth' || result.reason === 'worker') {
       setState('no_auth');
       return;
     }
 
-    // 2. workers 테이블에서 worker_id 조회
-    const { data: worker } = await supabase
-      .from('workers')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single();
-
-    if (!worker) {
-      setState('no_auth');
-      return;
-    }
-
-    // 3. 이미 지원했는지 확인
-    const { data: existing } = await supabase
-      .from('shift_applications')
-      .select('id')
-      .eq('shift_id', shift.id)
-      .eq('worker_id', worker.id)
-      .maybeSingle();
-
-    if (existing) {
-      setErrorMsg('이미 지원한 시프트예요.');
-      setState('error');
-      return;
-    }
-
-    // 4. 지원 등록
-    const { error } = await supabase.from('shift_applications').insert({
-      shift_id: shift.id,
-      worker_id: worker.id,
-    });
-
-    if (error) {
-      setErrorMsg('지원 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.');
-      setState('error');
-      return;
-    }
-
-    setState('success');
+    setErrorMsg(result.message);
+    setState('error');
   }
 
   return (
@@ -162,15 +129,18 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
         {state === 'no_auth' && (
           <div className="flex flex-col items-center py-6 gap-3">
             <span className="text-5xl">🔐</span>
-            <h2 className="text-[20px] font-extrabold text-ink">로그인이 필요해요</h2>
+            <h2 className="text-[20px] font-extrabold text-ink">지원하려면 인증이 필요해요</h2>
             <p className="text-[14px] text-sub text-center">
-              회원가입 후 지원할 수 있어요
+              시프트는 먼저 둘러볼 수 있고,<br />지원 단계에서 카카오 가입과 자격 확인을 진행해요
             </p>
             <button
-              onClick={onClose}
+              onClick={() => { window.location.href = '/onboarding?step=splash'; }}
               className="mt-4 w-full h-14 bg-primary text-white text-[17px] font-bold rounded-btn shadow-btn active:opacity-80"
             >
-              확인
+              1분 가입하고 지원하기
+            </button>
+            <button onClick={onClose} className="text-[14px] text-sub py-2">
+              계속 둘러보기
             </button>
           </div>
         )}

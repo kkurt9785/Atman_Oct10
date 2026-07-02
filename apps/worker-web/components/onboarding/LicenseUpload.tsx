@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 
-export function LicenseUpload({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
+export function LicenseUpload({ onNext, onSkip }: { onNext: (file: File | null) => void; onSkip: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -35,7 +35,7 @@ export function LicenseUpload({ onNext, onSkip }: { onNext: () => void; onSkip: 
       <p className="text-[13px] text-tertiary text-center mb-10">JPG · PNG · HEIC, 10MB 이내</p>
 
       <div className="mt-auto flex flex-col gap-3">
-        <Button onClick={onNext}>등록하기</Button>
+        <Button onClick={() => onNext(file)} disabled={!file}>등록하기</Button>
         <Button variant="ghost" onClick={onSkip}>나중에 등록할게요</Button>
       </div>
     </div>

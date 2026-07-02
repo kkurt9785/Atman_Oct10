@@ -1,8 +1,14 @@
 'use client';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 
-const ROLES = [
+const ROLES: Array<{
+  id: 'rn' | 'na';
+  title: string;
+  desc: string;
+  icon: ReactNode;
+}> = [
   {
     id: 'rn',
     title: '간호사 (RN)',
@@ -27,8 +33,8 @@ const ROLES = [
   },
 ];
 
-export function RoleSelect({ onNext }: { onNext: () => void }) {
-  const [selected, setSelected] = useState<string | null>(null);
+export function RoleSelect({ onNext }: { onNext: (role: 'rn' | 'na') => void }) {
+  const [selected, setSelected] = useState<'rn' | 'na' | null>(null);
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
@@ -56,7 +62,7 @@ export function RoleSelect({ onNext }: { onNext: () => void }) {
         ))}
       </div>
 
-      <Button onClick={onNext} disabled={!selected}>다음 단계</Button>
+      <Button onClick={() => selected && onNext(selected)} disabled={!selected}>다음 단계</Button>
     </div>
   );
 }

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { QRModal } from '@/components/shifts/QRModal';
+import { dateKST, monthKST } from '@/lib/date';
+import { cancelApplication } from '@/lib/shifts';
 
 // ── 타입 ───────────────────────────────────────────────────────
 type ApplicationStatus = 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
@@ -74,7 +76,7 @@ function ApplicationCard({
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
   const appliedDate = new Date(app.applied_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 
-  const today      = new Date().toISOString().slice(0, 10);
+  const today      = dateKST();
   const isToday    = app.shift.shift_date === today;
   const isCheckedIn  = !!app.checked_in_at;
   const isCheckedOut = !!app.checked_out_at;
@@ -272,13 +274,12 @@ export default function ApplicationsPage() {
   }, [tab, workerId, wages.length]);
 
   async function handleCancel(applicationId: string) {
-    const { error } = await supabase
-      .from('shift_applications')
-      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
-      .eq('id', applicationId);
-
-    if (!error) {
+    if (!workerId) return;
+    const ok = await cancelApplication(applicationId, workerId);
+    if (ok) {
       setApps((prev) => prev.map((a) => a.id === applicationId ? { ...a, status: 'cancelled' as const } : a));
+    } else {
+      alert('취소할 수 없는 지원이에요.');
     }
   }
 
@@ -303,7 +304,7 @@ export default function ApplicationsPage() {
 
 
   // 이번 달 급여 합계
-  const thisMonth  = new Date().toISOString().slice(0, 7);
+  const thisMonth  = monthKST();
   const monthGross = wages
     .filter((w) => w.calculated_at.startsWith(thisMonth))
     .reduce((s, w) => s + w.gross, 0);

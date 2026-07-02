@@ -4,7 +4,9 @@ import { Button } from '@/components/ui/Button';
 
 const BANKS = ['카카오뱅크', '토스뱅크', '신한', 'KB국민', '하나', '우리', 'NH농협', 'IBK기업'];
 
-export function BankAccount({ onNext }: { onNext: () => void }) {
+export type BankAccountValue = { bankName: string; accountNumber: string };
+
+export function BankAccount({ onNext }: { onNext: (value: BankAccountValue) => void }) {
   const [bank, setBank] = useState('');
   const [account, setAccount] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -51,7 +53,7 @@ export function BankAccount({ onNext }: { onNext: () => void }) {
       <p className="text-[13px] text-tertiary mb-10">본인 명의의 계좌만 등록 가능해요</p>
 
       <div className="mt-auto">
-        <Button onClick={onNext} disabled={!bank || account.length < 10}>1원 인증 보내기</Button>
+        <Button onClick={() => onNext({ bankName: bank, accountNumber: account })} disabled={!bank || account.length < 10}>1원 인증 보내기</Button>
       </div>
     </div>
   );
