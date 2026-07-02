@@ -169,10 +169,9 @@ export default function NewShiftPage() {
                 type="number"
                 name="hourly_wage"
                 required
-                min={9860}
-                step={100}
+                step={1000}
                 value={hourlyWage || ''}
-                placeholder="10000"
+                placeholder="15000"
                 onChange={(e) => setHourlyWage(parseInt(e.target.value, 10) || 0)}
                 className="w-full bg-bg rounded-xl pl-8 pr-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
               />

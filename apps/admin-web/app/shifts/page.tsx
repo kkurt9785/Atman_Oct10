@@ -2,36 +2,42 @@ import Link from 'next/link';
 import { getShifts, ShiftRow } from '@/lib/db/shifts';
 import { Card } from '@/components/ui';
 import { won } from '@/lib/mock';
+import { CancelButton } from './CancelButton';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', any: '무관' };
 
 const STATUS_STYLE: Record<string, string> = {
-  open: 'bg-primary/10 text-primary',
-  matched: 'bg-success/15 text-success',
+  open:        'bg-primary/10 text-primary',
+  matched:     'bg-success/15 text-success',
   in_progress: 'bg-warn/15 text-warn',
-  completed: 'bg-line text-sub',
-  cancelled: 'bg-line text-sub',
+  completed:   'bg-line text-sub',
+  cancelled:   'bg-line text-tertiary',
 };
 const STATUS_LABEL: Record<string, string> = {
-  open: '모집중',
-  matched: '매칭완료',
+  open:        '모집중',
+  matched:     '매칭완료',
   in_progress: '근무중',
-  completed: '완료',
-  cancelled: '취소',
+  completed:   '완료',
+  cancelled:   '취소됨',
 };
 
 function ShiftCard({ s }: { s: ShiftRow }) {
-  const timeRange = `${s.start_time.slice(0, 5)} - ${s.end_time.slice(0, 5)}${s.is_overnight ? ' (익일)' : ''}`;
+  const timeRange = `${s.start_time.slice(0, 5)} – ${s.end_time.slice(0, 5)}${s.is_overnight ? ' (익일)' : ''}`;
+  const isCancellable = s.status === 'open' || s.status === 'matched';
+
   return (
     <Card className="mb-3 shadow-sm">
       <div className="flex items-start justify-between mb-2">
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="text-label text-sub">{s.shift_date} · {ROLE_LABEL[s.required_role]}</p>
           <p className="text-title font-bold text-ink mt-0.5">{timeRange}</p>
         </div>
-        <span className={`text-label font-bold px-3 py-1 rounded-full ${STATUS_STYLE[s.status]}`}>
-          {STATUS_LABEL[s.status]}
-        </span>
+        <div className="flex items-center gap-2 ml-3 flex-shrink-0">
+          <span className={`text-label font-bold px-3 py-1 rounded-full ${STATUS_STYLE[s.status]}`}>
+            {STATUS_LABEL[s.status]}
+          </span>
+          {isCancellable && <CancelButton shiftId={s.id} />}
+        </div>
       </div>
       {s.department && (
         <p className="text-label text-sub mb-1">{s.department}</p>

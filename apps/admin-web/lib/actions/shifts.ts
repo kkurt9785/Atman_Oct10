@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createShift } from '../db/shifts';
 import { adminClient } from '../supabase';
+import { getCurrentFacilityId } from '../facility';
 import { sendWebPush } from '../push';
 import type webpush from 'web-push';
 
@@ -83,6 +84,20 @@ export async function createShiftAction(formData: FormData) {
   } catch (err) {
     console.error('[push] 알림 발송 실패:', err);
   }
+
+  redirect('/shifts');
+}
+
+export async function cancelShiftAction(shiftId: string) {
+  const sb = adminClient();
+  const facilityId = await getCurrentFacilityId();
+  if (!sb || !facilityId) throw new Error('인증 필요');
+
+  await sb
+    .from('shifts')
+    .update({ status: 'cancelled' })
+    .eq('id', shiftId)
+    .eq('facility_id', facilityId);
 
   redirect('/shifts');
 }
