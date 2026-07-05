@@ -2,9 +2,22 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
+import { supabase } from '@/lib/supabase';
+
+const DEMO_PASSWORD = 'Atman-demo-2026!';
+const DEMO_WORKERS = [
+  { email: 'worker-demo-1@demo.atman.co.kr', label: '광주 RN' },
+  { email: 'worker-demo-2@demo.atman.co.kr', label: '수원 장안 RN' },
+  { email: 'worker-demo-3@demo.atman.co.kr', label: '수원 권선 NA' },
+  { email: 'worker-demo-4@demo.atman.co.kr', label: '수원 팔달 RN' },
+  { email: 'worker-demo-5@demo.atman.co.kr', label: '수원 영통 NA' },
+];
 
 export function Splash() {
   const [loading, setLoading] = useState(false);
+  const [demoLoadingEmail, setDemoLoadingEmail] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState('');
+  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
   function handleKakaoLogin() {
     // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출
@@ -20,6 +33,24 @@ export function Splash() {
     const scope = encodeURIComponent('openid profile_nickname profile_image');
     window.location.href =
       `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+  }
+
+  async function handleDemoLogin(email: string) {
+    setDemoLoadingEmail(email);
+    setDemoError('');
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: DEMO_PASSWORD,
+    });
+
+    if (error) {
+      setDemoError('데모 워커 로그인에 실패했습니다.');
+      setDemoLoadingEmail(null);
+      return;
+    }
+
+    window.location.href = '/home';
   }
 
   return (
@@ -42,6 +73,25 @@ export function Splash() {
           </svg>
           {loading ? '로그인 중...' : '카카오로 1분 가입하기'}
         </Button>
+        {showDemoLogin && (
+          <div className="rounded-2xl border border-line bg-white p-4">
+            <p className="mb-3 text-[13px] font-bold text-ink">시연용 워커 로그인</p>
+            <div className="grid grid-cols-1 gap-2">
+              {DEMO_WORKERS.map((worker) => (
+                <button
+                  key={worker.email}
+                  type="button"
+                  onClick={() => handleDemoLogin(worker.email)}
+                  disabled={loading || !!demoLoadingEmail}
+                  className="h-11 rounded-xl border border-line bg-bg text-[14px] font-semibold text-ink disabled:opacity-60"
+                >
+                  {demoLoadingEmail === worker.email ? '로그인 중...' : worker.label}
+                </button>
+              ))}
+            </div>
+            {demoError && <p className="mt-3 text-center text-[12px] text-red-600">{demoError}</p>}
+          </div>
+        )}
         <p className="text-center text-[13px] text-tertiary">
           계속 진행하면 이용약관 및 개인정보처리방침에 동의하게 됩니다
         </p>
