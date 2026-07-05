@@ -1,17 +1,24 @@
 'use client';
 
 import { useState } from 'react';
+import { CREDIT_TIERS, won } from '@/lib/billing';
 
-const TIERS = [
-  { id: 1, charge: 500000,   credit: 500000,   bonus: 0,      bonusRate: 0,  label: '50만원',    tag: null },
-  { id: 2, charge: 1000000,  credit: 1070000,  bonus: 70000,  bonusRate: 7,  label: '100만원',   tag: '인기' },
-  { id: 3, charge: 3000000,  credit: 3300000,  bonus: 300000, bonusRate: 10, label: '300만원',   tag: null },
-  { id: 4, charge: 5000000,  credit: 5750000,  bonus: 750000, bonusRate: 15, label: '500만원',   tag: '추천' },
-  { id: 5, charge: 10000000, credit: 12000000, bonus: 2000000,bonusRate: 20, label: '1,000만원+',tag: '최대 혜택' },
-];
-
-function won(n: number) {
-  return '₩' + Math.abs(n).toLocaleString('ko-KR');
+declare global {
+  interface Window {
+    TossPayments?: (clientKey: string) => {
+      requestPayment: (
+        method: '카드' | '가상계좌' | '계좌이체',
+        options: {
+          amount: number;
+          orderId: string;
+          orderName: string;
+          customerName?: string;
+          successUrl: string;
+          failUrl: string;
+        }
+      ) => Promise<void>;
+    };
+  }
 }
 
 function TierCard({
@@ -19,7 +26,7 @@ function TierCard({
   selected,
   onClick,
 }: {
-  tier: typeof TIERS[number];
+  tier: typeof CREDIT_TIERS[number];
   selected: boolean;
   onClick: () => void;
 }) {
@@ -63,11 +70,77 @@ function TierCard({
   );
 }
 
-export default function CreditChargePanel() {
-  const [selectedId, setSelectedId] = useState<number | null>(2);
+export default function CreditChargePanel({
+  initialAmount,
+  currentBalance,
+  recommendedAmount,
+}: {
+  initialAmount: number;
+  currentBalance: number;
+  recommendedAmount: number;
+}) {
+  const initialTier = CREDIT_TIERS.find((tier) => tier.charge === initialAmount)
+    ?? CREDIT_TIERS.find((tier) => tier.charge === recommendedAmount)
+    ?? CREDIT_TIERS[1];
+  const [selectedId, setSelectedId] = useState<number | null>(initialTier.id);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
-  const selected = TIERS.find((t) => t.id === selectedId);
+  const selected = CREDIT_TIERS.find((t) => t.id === selectedId);
+  const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+  const canPay = !!tossClientKey;
+
+  function loadTossScript() {
+    return new Promise<void>((resolve, reject) => {
+      if (window.TossPayments) {
+        resolve();
+        return;
+      }
+
+      const existing = document.querySelector<HTMLScriptElement>('script[data-toss-payments]');
+      if (existing) {
+        existing.addEventListener('load', () => resolve(), { once: true });
+        existing.addEventListener('error', () => reject(new Error('토스페이먼츠 스크립트를 불러오지 못했어요.')), { once: true });
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://js.tosspayments.com/v1/payment';
+      script.async = true;
+      script.dataset.tossPayments = 'true';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('토스페이먼츠 스크립트를 불러오지 못했어요.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  async function handlePayment() {
+    if (!selected || !tossClientKey) return;
+    setPaymentError('');
+    setPaying(true);
+
+    try {
+      await loadTossScript();
+      const tossPayments = window.TossPayments?.(tossClientKey);
+      if (!tossPayments) throw new Error('토스페이먼츠를 시작할 수 없어요.');
+
+      const origin = window.location.origin;
+      const orderId = `atman_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      await tossPayments.requestPayment('카드', {
+        amount: selected.charge,
+        orderId,
+        orderName: `잇닿 크레딧 ${selected.label}`,
+        customerName: '잇닿 병원 관리자',
+        successUrl: `${origin}/membership/success`,
+        failUrl: `${origin}/membership/fail`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '결제창을 열지 못했어요.';
+      setPaymentError(message);
+      setPaying(false);
+    }
+  }
 
   return (
     <>
@@ -82,7 +155,7 @@ export default function CreditChargePanel() {
 
       {/* 티어 선택 */}
       <div className="flex flex-col gap-3 mb-6">
-        {TIERS.map((t) => (
+        {CREDIT_TIERS.map((t) => (
           <TierCard key={t.id} tier={t} selected={selectedId === t.id} onClick={() => setSelectedId(t.id)} />
         ))}
       </div>
@@ -118,6 +191,10 @@ export default function CreditChargePanel() {
             <p className="text-[18px] font-extrabold text-ink mb-4">충전 확인</p>
             <div className="bg-bg rounded-2xl p-4 mb-5 space-y-2">
               <div className="flex justify-between text-[13px]">
+                <span className="text-sub">현재 크레딧</span>
+                <span className="font-bold text-ink">{won(currentBalance)}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
                 <span className="text-sub">결제 금액</span>
                 <span className="font-bold text-ink">{won(selected.charge)}</span>
               </div>
@@ -136,11 +213,25 @@ export default function CreditChargePanel() {
                 <span className="font-extrabold text-primary">{won(selected.credit)}</span>
               </div>
             </div>
-            {/* 사업자 등록 전 — 결제 비활성화 */}
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-              <p className="text-[13px] font-bold text-amber-700">🚧 결제 준비 중</p>
-              <p className="text-[11px] text-amber-600 mt-0.5">사업자 등록 완료 후 토스페이먼츠 결제가 활성화돼요</p>
-            </div>
+            {canPay ? (
+              <button
+                onClick={handlePayment}
+                disabled={paying}
+                className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl disabled:opacity-50"
+              >
+                {paying ? '결제창 여는 중...' : '토스페이먼츠로 결제하기'}
+              </button>
+            ) : (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+                <p className="text-[13px] font-bold text-amber-700">🚧 결제 키 설정 필요</p>
+                <p className="text-[11px] text-amber-600 mt-0.5">
+                  Vercel에 NEXT_PUBLIC_TOSS_CLIENT_KEY, TOSS_SECRET_KEY를 설정하면 결제가 활성화돼요
+                </p>
+              </div>
+            )}
+            {paymentError && (
+              <p className="text-[12px] text-warn font-bold mt-3">{paymentError}</p>
+            )}
             <button
               onClick={() => setShowConfirm(false)}
               className="w-full mt-2 py-3 text-[14px] text-sub font-semibold"

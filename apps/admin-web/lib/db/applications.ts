@@ -26,6 +26,7 @@ export type ApplicationGroup = {
   department: string | null;
   requiredRole: string;
   shiftStatus: string;
+  estimatedTotalPay: number;
   applicants: Applicant[];
 };
 
@@ -38,6 +39,7 @@ const MOCK: ApplicationGroup[] = [
     department: '응급실',
     requiredRole: 'na',
     shiftStatus: 'open',
+    estimatedTotalPay: 120000,
     applicants: [
       { applicationId: 'app-1', workerId: 'w-1', name: '홍길동', role: 'na', verificationStatus: 'approved', distanceMeters: 2100, matchScore: 92, appliedAt: new Date().toISOString(), licenseNumber: '제123456호', licensePhotoUrl: null, experienceYears: '3~5년', lastWorkplace: '아주대병원 응급실', departmentTags: ['응급실', '일반병동'], isDemo: true },
       { applicationId: 'app-2', workerId: 'w-2', name: '김간호', role: 'na', verificationStatus: 'approved', distanceMeters: 4500, matchScore: 78, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: null, lastWorkplace: null, departmentTags: null, isDemo: true },
@@ -51,6 +53,7 @@ const MOCK: ApplicationGroup[] = [
     department: '내과병동',
     requiredRole: 'rn',
     shiftStatus: 'open',
+    estimatedTotalPay: 140000,
     applicants: [
       { applicationId: 'app-3', workerId: 'w-3', name: '박수간', role: 'rn', verificationStatus: 'approved', distanceMeters: 1800, matchScore: 88, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: '1~3년', lastWorkplace: '분당서울대병원 중환자실', departmentTags: ['중환자실', '수술실'], isDemo: true },
     ],
@@ -65,7 +68,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
   // 1. 이 시설의 시프트 ID 목록
   const { data: shiftRows } = await sb
     .from('shifts')
-    .select('id, shift_date, start_time, end_time, department, required_role, status')
+    .select('id, shift_date, start_time, end_time, department, required_role, status, estimated_total_pay')
     .eq('facility_id', facilityId)
     .eq('status', 'open');
 
@@ -96,6 +99,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
         department: shift.department,
         requiredRole: shift.required_role,
         shiftStatus: shift.status,
+        estimatedTotalPay: shift.estimated_total_pay,
         applicants: [],
       });
     }

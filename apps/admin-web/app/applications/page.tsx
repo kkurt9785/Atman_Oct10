@@ -71,6 +71,7 @@ export default async function ApplicationsPage() {
                   key={applicant.applicationId}
                   applicant={applicant}
                   shiftId={group.shiftId}
+                  estimatedPay={group.estimatedTotalPay}
                   disabled={group.shiftStatus !== 'open'}
                 />
               ))}

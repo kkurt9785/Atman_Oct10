@@ -3,11 +3,22 @@ import { Card, SectionTitle, BigStat, ActionTile, StatusBadge } from '@/componen
 import { getShop } from '@/lib/db/shop';
 import { getStaff, getSummary } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
+import { getBillingSummary } from '@/lib/db/billing';
 import { won, hours } from '@/lib/mock';
+import { recommendedTierForShortfall } from '@/lib/billing';
 
 export default async function Home() {
-  const [shop, staff, pendingCount] = await Promise.all([getShop(), getStaff(), getPendingCount()]);
+  const [shop, staff, pendingCount, billing] = await Promise.all([
+    getShop(),
+    getStaff(),
+    getPendingCount(),
+    getBillingSummary(),
+  ]);
   const summary = await getSummary(staff);
+  const committedPay = billing.todayCommittedPay + billing.upcomingCommittedPay;
+  const projectedBalance = billing.balance - committedPay;
+  const shortfall = Math.max(0, -projectedBalance);
+  const recommendedTier = recommendedTierForShortfall(shortfall || Math.max(billing.openExposurePay, 500000));
 
   return (
     <main className="px-4">
@@ -34,6 +45,48 @@ export default async function Home() {
         <div className="mt-4 pt-4 border-t border-line flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-success" />
           <span className="text-body text-ink">지금 <b>{summary.workingNow}명</b> 근무 중이에요</span>
+        </div>
+      </Card>
+
+      <Card className={`mt-4 shadow-sm ${shortfall > 0 ? 'border border-warn/30' : ''}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-label font-bold text-sub">운영 가능 상태</p>
+            <p className="text-title font-extrabold text-ink mt-1">
+              {shortfall > 0 ? '충전이 필요해요' : '오늘 운영 가능해요'}
+            </p>
+          </div>
+          <span className={`text-label font-bold px-3 py-1 rounded-full ${
+            shortfall > 0 ? 'bg-warn/15 text-warn' : 'bg-success/15 text-success'
+          }`}>
+            {shortfall > 0 ? '부족' : '정상'}
+          </span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="bg-bg rounded-xl px-3 py-3">
+            <p className="text-label text-sub">현재 크레딧</p>
+            <p className="text-body font-extrabold text-ink mt-0.5">{won(billing.balance)}</p>
+          </div>
+          <div className="bg-bg rounded-xl px-3 py-3">
+            <p className="text-label text-sub">확정 근무 예정</p>
+            <p className="text-body font-extrabold text-ink mt-0.5">
+              {billing.todayMatchedCount + billing.upcomingMatchedCount}명 · {won(committedPay)}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 pt-3 border-t border-line flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-label text-sub">
+              {shortfall > 0 ? `부족 예상 ${won(shortfall)}` : `매칭 가능 여유 ${won(projectedBalance)}`}
+            </p>
+            <p className="text-label text-sub mt-0.5">추천 충전 {recommendedTier.label}</p>
+          </div>
+          <Link
+            href={`/membership?amount=${recommendedTier.charge}`}
+            className="h-10 px-4 rounded-xl bg-primary text-white text-label font-bold flex items-center justify-center flex-shrink-0"
+          >
+            충전하기
+          </Link>
         </div>
       </Card>
 

@@ -131,7 +131,7 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
     await sb.from('credit_ledger').insert({
       org_id:     shift.facility_id,
       delta:      -gross,       // 음수 = 크레딧 차감
-      kind:       'shift_wage',
+      kind:       'spend',
       ref:        shift.id,
       created_at: now.toISOString(),
     });

@@ -7,7 +7,7 @@ const TABS = [
   { href: '/shifts', icon: '📋', label: '시프트' },
   { href: '/staff', icon: '👥', label: '직원' },
   { href: '/timesheet', icon: '🕐', label: '근태' },
-  { href: '/membership', icon: '💳', label: '크레딧' },
+  { href: '/membership', icon: '💳', label: '결제' },
 ];
 
 export function BottomNav() {
