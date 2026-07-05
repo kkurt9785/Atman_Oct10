@@ -21,7 +21,14 @@ export default async function StaffPage() {
           {staff.map((s) => (
             <div key={s.id} className="flex items-center justify-between px-5 py-4">
               <div>
-                <p className="text-body font-bold text-ink">{s.name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-body font-bold text-ink">{s.name}</p>
+                  {s.isDemo && (
+                    <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      데모
+                    </span>
+                  )}
+                </div>
                 <p className="text-label text-sub">{s.job} · 이번 달 {hours(s.monthMinutes)}</p>
               </div>
               <StatusBadge status={s.todayStatus} />

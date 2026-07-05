@@ -15,6 +15,7 @@ export type Applicant = {
   experienceYears: string | null;
   lastWorkplace: string | null;
   departmentTags: string[] | null;
+  isDemo: boolean;
 };
 
 export type ApplicationGroup = {
@@ -38,8 +39,8 @@ const MOCK: ApplicationGroup[] = [
     requiredRole: 'na',
     shiftStatus: 'open',
     applicants: [
-      { applicationId: 'app-1', workerId: 'w-1', name: '홍길동', role: 'na', verificationStatus: 'approved', distanceMeters: 2100, matchScore: 92, appliedAt: new Date().toISOString(), licenseNumber: '제123456호', licensePhotoUrl: null, experienceYears: '3~5년', lastWorkplace: '아주대병원 응급실', departmentTags: ['응급실', '일반병동'] },
-      { applicationId: 'app-2', workerId: 'w-2', name: '김간호', role: 'na', verificationStatus: 'approved', distanceMeters: 4500, matchScore: 78, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: null, lastWorkplace: null, departmentTags: null },
+      { applicationId: 'app-1', workerId: 'w-1', name: '홍길동', role: 'na', verificationStatus: 'approved', distanceMeters: 2100, matchScore: 92, appliedAt: new Date().toISOString(), licenseNumber: '제123456호', licensePhotoUrl: null, experienceYears: '3~5년', lastWorkplace: '아주대병원 응급실', departmentTags: ['응급실', '일반병동'], isDemo: true },
+      { applicationId: 'app-2', workerId: 'w-2', name: '김간호', role: 'na', verificationStatus: 'approved', distanceMeters: 4500, matchScore: 78, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: null, lastWorkplace: null, departmentTags: null, isDemo: true },
     ],
   },
   {
@@ -51,7 +52,7 @@ const MOCK: ApplicationGroup[] = [
     requiredRole: 'rn',
     shiftStatus: 'open',
     applicants: [
-      { applicationId: 'app-3', workerId: 'w-3', name: '박수간', role: 'rn', verificationStatus: 'approved', distanceMeters: 1800, matchScore: 88, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: '1~3년', lastWorkplace: '분당서울대병원 중환자실', departmentTags: ['중환자실', '수술실'] },
+      { applicationId: 'app-3', workerId: 'w-3', name: '박수간', role: 'rn', verificationStatus: 'approved', distanceMeters: 1800, matchScore: 88, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: '1~3년', lastWorkplace: '분당서울대병원 중환자실', departmentTags: ['중환자실', '수술실'], isDemo: true },
     ],
   },
 ];
@@ -75,7 +76,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
   // 2. 해당 시프트의 대기 중 지원자
   const { data: apps } = await sb
     .from('shift_applications')
-    .select('id, shift_id, worker_id, distance_meters, match_score, applied_at, workers ( name, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags )')
+    .select('id, shift_id, worker_id, distance_meters, match_score, applied_at, workers ( name, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags, is_demo )')
     .eq('status', 'applied')
     .in('shift_id', shiftIds)
     .order('applied_at', { ascending: true });
@@ -112,6 +113,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
       experienceYears: row.workers.experience_years ?? null,
       lastWorkplace: row.workers.last_workplace ?? null,
       departmentTags: row.workers.department_tags ?? null,
+      isDemo: row.workers.is_demo === true,
     });
   }
 

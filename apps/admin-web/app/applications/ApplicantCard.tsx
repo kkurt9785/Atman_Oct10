@@ -60,6 +60,11 @@ export function ApplicantCard({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[15px] font-bold text-ink">{applicant.name}</span>
+              {applicant.isDemo && (
+                <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                  데모
+                </span>
+              )}
               <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ROLE_COLOR[applicant.role] ?? 'bg-line text-sub'}`}>
                 {ROLE_LABEL[applicant.role] ?? applicant.role}
               </span>

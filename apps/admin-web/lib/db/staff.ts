@@ -9,6 +9,7 @@ export type StaffRow = {
   todayStatus: '근무중' | '퇴근' | '예정' | '결근';
   monthMinutes: number;
   hourlyWage: number;
+  isDemo: boolean;
   checkInAt?: string | null;
   checkOutAt?: string | null;
 };
@@ -55,7 +56,7 @@ export async function getStaff(): Promise<StaffRow[]> {
     { data: attendances },
     { data: wages },
   ] = await Promise.all([
-    sb.from('workers').select('id, name, role').in('id', workerIds),
+    sb.from('workers').select('id, name, role, is_demo').in('id', workerIds),
     sb.from('shift_attendances')
       .select('shift_id, worker_id, check_in_at, check_out_at')
       .in('shift_id', shiftIds),
@@ -95,6 +96,7 @@ export async function getStaff(): Promise<StaffRow[]> {
         todayStatus,
         monthMinutes: monthMap[worker.id] ?? 0,
         hourlyWage:   10320,
+        isDemo:        worker.is_demo === true,
         checkInAt:    att?.check_in_at  ?? null,
         checkOutAt:   att?.check_out_at ?? null,
       } satisfies StaffRow;
