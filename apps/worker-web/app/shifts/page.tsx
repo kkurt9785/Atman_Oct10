@@ -17,6 +17,7 @@ export type Shift = {
   description: string;
   department: string | null;
   notes: string | null;
+  facilities?: { name: string; address_text: string } | Array<{ name: string; address_text: string }> | null;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -25,30 +26,127 @@ const ROLE_LABEL: Record<string, string> = {
   any: '무관',
 };
 
+type DateFilter = 'today' | 'week' | 'all';
+type TimeFilter = 'all' | 'day' | 'evening' | 'night';
+
+const DATE_FILTERS: Array<{ value: DateFilter; label: string }> = [
+  { value: 'today', label: '오늘' },
+  { value: 'week', label: '이번주' },
+  { value: 'all', label: '전체' },
+];
+
+const TIME_FILTERS: Array<{ value: TimeFilter; label: string }> = [
+  { value: 'all', label: '전체 시간' },
+  { value: 'day', label: '오전/주간' },
+  { value: 'evening', label: '오후' },
+  { value: 'night', label: '야간' },
+];
+
+function dateLabel(date: string) {
+  const today = dateKST();
+  const tomorrow = dateKST(1);
+  if (date === today) return '오늘';
+  if (date === tomorrow) return '내일';
+  const [, month, day] = date.split('-');
+  return `${Number(month)}/${Number(day)}`;
+}
+
+function timeBucket(shift: Shift) {
+  const hour = parseInt(shift.start_time.slice(0, 2), 10);
+  if (hour >= 22 || hour < 6) return { key: 'night', label: '야간' };
+  if (hour >= 14) return { key: 'evening', label: '오후' };
+  return { key: 'day', label: '오전/주간' };
+}
+
+function areaLabel(shift: Shift) {
+  const facility = Array.isArray(shift.facilities) ? shift.facilities[0] : shift.facilities;
+  const address = facility?.address_text;
+  if (!address) return null;
+  return address.split(' ').slice(0, 2).join(' ');
+}
+
+function matchesDate(shift: Shift, filter: DateFilter) {
+  const today = dateKST();
+  if (filter === 'today') return shift.shift_date === today;
+  if (filter === 'week') return shift.shift_date >= today && shift.shift_date <= dateKST(7);
+  return true;
+}
+
+function matchesTime(shift: Shift, filter: TimeFilter) {
+  if (filter === 'all') return true;
+  return timeBucket(shift).key === filter;
+}
+
+function ChipRow<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ value: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          className={`whitespace-nowrap px-3.5 py-2 rounded-full text-[13px] font-bold ${
+            value === option.value ? 'bg-primary text-white' : 'bg-white text-sub border border-line'
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function groupShifts(shifts: Shift[]) {
+  const groups = new Map<string, { title: string; shifts: Shift[] }>();
+  for (const shift of shifts) {
+    const bucket = timeBucket(shift);
+    const key = `${shift.shift_date}-${bucket.key}`;
+    const title = `${dateLabel(shift.shift_date)} · ${bucket.label}`;
+    const current = groups.get(key) ?? { title, shifts: [] };
+    current.shifts.push(shift);
+    groups.set(key, current);
+  }
+  return Array.from(groups.values());
+}
+
 function ShiftCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
   const start = shift.start_time.slice(0, 5);
   const end = shift.end_time.slice(0, 5);
   const timeLabel = `${start} – ${end}${shift.is_overnight ? ' (익일)' : ''}`;
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
+  const facility = Array.isArray(shift.facilities) ? shift.facilities[0] : shift.facilities;
+  const facilityName = facility?.name ?? '병원/클리닉';
+  const area = areaLabel(shift);
 
   return (
     <div className="bg-white rounded-card shadow-card p-5 mb-3">
       {/* 날짜 + 자격 */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[13px] font-semibold text-sub">{shift.shift_date}</span>
+        <span className="text-[13px] font-semibold text-sub">{dateLabel(shift.shift_date)}</span>
         <span className="text-[12px] font-bold text-primary bg-primary-light px-2.5 py-1 rounded-full">
           {ROLE_LABEL[shift.required_role]}
         </span>
       </div>
+
+      <p className="text-[15px] font-extrabold text-ink truncate mb-1">{facilityName}</p>
 
       {/* 시간 */}
       <p className="text-[22px] font-extrabold text-ink leading-tight mb-1">
         {timeLabel}
       </p>
 
-      {/* 부서 / 설명 */}
-      {shift.department && (
-        <p className="text-[13px] text-tertiary mb-0.5">{shift.department}</p>
+      {/* 지역 / 부서 */}
+      {(area || shift.department) && (
+        <p className="text-[13px] text-tertiary mb-0.5">
+          {[area, shift.department].filter(Boolean).join(' · ')}
+        </p>
       )}
       <p className="text-[14px] text-sub line-clamp-2 mb-4">{shift.description}</p>
 
@@ -90,6 +188,9 @@ export default function ShiftsPage() {
   const [selected, setSelected] = useState<Shift | null>(null);
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [isGuest, setIsGuest] = useState(false);
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [visibleLimit, setVisibleLimit] = useState(10);
 
   useEffect(() => {
     async function load() {
@@ -121,7 +222,7 @@ export default function ShiftsPage() {
       const { data: shiftData } = await supabase
         .from('shifts')
         .select(
-          'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes'
+          'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text )'
         )
         .eq('status', 'open')
         .gte('shift_date', dateKST())
@@ -129,7 +230,7 @@ export default function ShiftsPage() {
         .order('shift_date', { ascending: true })
         .order('start_time', { ascending: true });
 
-      setShifts(((shiftData as Shift[]) ?? []).filter((s) => !appliedShiftIds.has(s.id)));
+      setShifts(((shiftData as unknown as Shift[]) ?? []).filter((s) => !appliedShiftIds.has(s.id)));
       setLoading(false);
     }
     load();
@@ -140,6 +241,27 @@ export default function ShiftsPage() {
     setApplied((prev) => new Set(prev).add(shiftId));
     setSelected(null);
   }
+
+  function handleDateFilter(value: DateFilter) {
+    setDateFilter(value);
+    setVisibleLimit(10);
+  }
+
+  function handleTimeFilter(value: TimeFilter) {
+    setTimeFilter(value);
+    setVisibleLimit(10);
+  }
+
+  const filtered = shifts
+    .filter((shift) => matchesDate(shift, dateFilter) && matchesTime(shift, timeFilter))
+    .sort((a, b) => {
+      const date = a.shift_date.localeCompare(b.shift_date);
+      if (date !== 0) return date;
+      return b.estimated_total_pay - a.estimated_total_pay;
+    });
+  const recommended = filtered.slice(0, 3);
+  const grouped = groupShifts(filtered.slice(3, visibleLimit));
+  const visibleCount = Math.min(filtered.length, visibleLimit);
 
   if (loading) {
     return (
@@ -153,9 +275,9 @@ export default function ShiftsPage() {
     <div className="px-4 pb-10">
       {/* 헤더 */}
       <div className="pt-14 pb-6">
-        <p className="text-[14px] text-sub mb-1">내 근처 모집 중인 시프트</p>
+        <p className="text-[14px] text-sub mb-1">내 조건에 맞는 시프트</p>
         <h1 className="text-[28px] font-extrabold text-ink leading-tight">
-          시프트 {shifts.length}건
+          시프트 {filtered.length}건
         </h1>
         {isGuest && (
           <p className="text-[13px] text-sub mt-2">
@@ -164,18 +286,72 @@ export default function ShiftsPage() {
         )}
       </div>
 
-      {shifts.length === 0 ? (
+      <div className="flex flex-col gap-2 mb-5">
+        <ChipRow options={DATE_FILTERS} value={dateFilter} onChange={handleDateFilter} />
+        <ChipRow options={TIME_FILTERS} value={timeFilter} onChange={handleTimeFilter} />
+      </div>
+
+      {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <span className="text-5xl">🔍</span>
-          <p className="text-[17px] font-bold text-ink">근처 시프트가 없어요</p>
+          <p className="text-[17px] font-bold text-ink">조건에 맞는 시프트가 없어요</p>
           <p className="text-[14px] text-sub text-center">
-            새 공고가 올라오면<br />푸시 알림으로 알려드릴게요
+            필터를 넓히면 더 많은 공고를 볼 수 있어요
           </p>
+          <button
+            onClick={() => {
+              setDateFilter('all');
+              setTimeFilter('all');
+              setVisibleLimit(10);
+            }}
+            className="text-[14px] font-bold text-primary"
+          >
+            전체 시프트 보기
+          </button>
         </div>
       ) : (
-        shifts.map((s) => (
-          <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} />
-        ))
+        <>
+          {recommended.length > 0 && (
+            <section className="mb-6">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h2 className="text-[17px] font-extrabold text-ink">추천 시프트</h2>
+                <span className="text-[12px] text-tertiary">상위 {recommended.length}건</span>
+              </div>
+              {recommended.map((s) => (
+                <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} />
+              ))}
+            </section>
+          )}
+
+          {grouped.length > 0 && (
+            <section>
+              <div className="flex items-center justify-between mb-3 px-1">
+                <h2 className="text-[17px] font-extrabold text-ink">시간대별 공고</h2>
+                <span className="text-[12px] text-tertiary">
+                  {visibleCount}/{filtered.length}건 표시
+                </span>
+              </div>
+
+              {grouped.map((group) => (
+                <div key={group.title} className="mb-5">
+                  <p className="text-[13px] font-bold text-sub mb-2 px-1">{group.title}</p>
+                  {group.shifts.map((s) => (
+                    <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} />
+                  ))}
+                </div>
+              ))}
+
+              {visibleLimit < filtered.length && (
+                <button
+                  onClick={() => setVisibleLimit((value) => value + 10)}
+                  className="w-full h-12 rounded-xl border border-line bg-white text-[15px] font-bold text-ink"
+                >
+                  10건 더 보기
+                </button>
+              )}
+            </section>
+          )}
+        </>
       )}
 
       {selected && (
