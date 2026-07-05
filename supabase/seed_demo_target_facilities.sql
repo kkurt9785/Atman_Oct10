@@ -5,9 +5,9 @@
 -- inserts them as demo facilities, and grants 3 demo operator accounts access.
 --
 -- Local demo login accounts are created in auth.users:
---   sales-demo-1@atman.local / Atman-demo-2026!
---   sales-demo-2@atman.local / Atman-demo-2026!
---   sales-demo-3@atman.local / Atman-demo-2026!
+--   sales-demo-1@demo.atman.co.kr / Atman-demo-2026!
+--   sales-demo-2@demo.atman.co.kr / Atman-demo-2026!
+--   sales-demo-3@demo.atman.co.kr / Atman-demo-2026!
 --
 -- Note: admin-web can expose guarded demo email login with:
 --   NEXT_PUBLIC_ENABLE_DEMO_LOGIN=1
@@ -18,9 +18,9 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 WITH demo_admins(email, display_name) AS (
   VALUES
-    ('sales-demo-1@atman.local', '시연 슈퍼계정 1'),
-    ('sales-demo-2@atman.local', '시연 슈퍼계정 2'),
-    ('sales-demo-3@atman.local', '시연 슈퍼계정 3')
+    ('sales-demo-1@demo.atman.co.kr', '시연 슈퍼계정 1'),
+    ('sales-demo-2@demo.atman.co.kr', '시연 슈퍼계정 2'),
+    ('sales-demo-3@demo.atman.co.kr', '시연 슈퍼계정 3')
 ),
 upsert_users AS (
   INSERT INTO auth.users (
@@ -163,15 +163,15 @@ inserted AS (
 demo_users AS (
   SELECT u.id, u.email
   FROM auth.users u
-  WHERE u.email IN ('sales-demo-1@atman.local', 'sales-demo-2@atman.local', 'sales-demo-3@atman.local')
+  WHERE u.email IN ('sales-demo-1@demo.atman.co.kr', 'sales-demo-2@demo.atman.co.kr', 'sales-demo-3@demo.atman.co.kr')
 ),
 access_rows AS (
   SELECT
     du.id AS user_id,
     i.id AS facility_id,
     CASE
-      WHEN du.email = 'sales-demo-1@atman.local' THEN 'super'
-      WHEN du.email = 'sales-demo-2@atman.local' THEN 'sales'
+      WHEN du.email = 'sales-demo-1@demo.atman.co.kr' THEN 'super'
+      WHEN du.email = 'sales-demo-2@demo.atman.co.kr' THEN 'sales'
       ELSE 'operator'
     END AS access_role
   FROM demo_users du
@@ -194,6 +194,6 @@ ORDER BY area, facility_type;
 SELECT email, COUNT(faa.facility_id) AS accessible_facilities
 FROM auth.users u
 JOIN facility_admin_access faa ON faa.user_id = u.id
-WHERE u.email LIKE 'sales-demo-%@atman.local'
+WHERE u.email LIKE 'sales-demo-%@demo.atman.co.kr'
 GROUP BY email
 ORDER BY email;

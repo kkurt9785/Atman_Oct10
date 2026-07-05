@@ -6,9 +6,9 @@ import { supabase } from '@/lib/supabase-browser';
 
 const DEMO_PASSWORD = 'Atman-demo-2026!';
 const DEMO_ACCOUNTS = [
-  { email: 'sales-demo-1@atman.local', label: '슈퍼계정 1' },
-  { email: 'sales-demo-2@atman.local', label: '슈퍼계정 2' },
-  { email: 'sales-demo-3@atman.local', label: '슈퍼계정 3' },
+  { email: 'sales-demo-1@demo.atman.co.kr', label: '슈퍼계정 1' },
+  { email: 'sales-demo-2@demo.atman.co.kr', label: '슈퍼계정 2' },
+  { email: 'sales-demo-3@demo.atman.co.kr', label: '슈퍼계정 3' },
 ];
 
 function LoginInner() {

@@ -56,14 +56,18 @@ export async function createShiftAction(formData: FormData) {
     if (sb) {
       const roleFilter = requiredRole === 'any' ? ['rn', 'na'] : [requiredRole];
 
-      // 매칭 역할의 워커 ID 조회
-      const { data: workerIds } = await sb
-        .from('profiles')
-        .select('id')
-        .in('role', roleFilter);
+      // 매칭 역할의 승인 워커 auth user ID 조회
+      const { data: workers } = await sb
+        .from('workers')
+        .select('auth_user_id')
+        .in('role', roleFilter)
+        .eq('verification_status', 'approved')
+        .is('deleted_at', null);
 
-      if (workerIds && workerIds.length > 0) {
-        const ids = workerIds.map((w: { id: string }) => w.id);
+      if (workers && workers.length > 0) {
+        const ids = workers
+          .map((w: { auth_user_id: string | null }) => w.auth_user_id)
+          .filter(Boolean) as string[];
 
         // Web Push 구독 조회
         const { data: subs } = await sb

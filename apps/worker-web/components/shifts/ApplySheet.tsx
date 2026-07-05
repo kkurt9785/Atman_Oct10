@@ -10,7 +10,7 @@ type Props = {
   onApplied: () => void;
 };
 
-type ApplyState = 'confirm' | 'loading' | 'success' | 'no_auth' | 'error';
+type ApplyState = 'confirm' | 'loading' | 'success' | 'no_auth' | 'no_worker' | 'error';
 
 export function ApplySheet({ shift, onClose, onApplied }: Props) {
   const [state, setState] = useState<ApplyState>('confirm');
@@ -29,10 +29,8 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
       return;
     }
 
-    if (result.reason === 'auth' || result.reason === 'worker') {
-      setState('no_auth');
-      return;
-    }
+    if (result.reason === 'auth') { setState('no_auth'); return; }
+    if (result.reason === 'worker') { setState('no_worker'); return; }
 
     setErrorMsg(result.message);
     setState('error');
@@ -125,23 +123,39 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
           </div>
         )}
 
-        {/* 로그인 필요 상태 */}
+        {/* 미로그인 */}
         {state === 'no_auth' && (
           <div className="flex flex-col items-center py-6 gap-3">
             <span className="text-5xl">🔐</span>
-            <h2 className="text-[20px] font-extrabold text-ink">지원하려면 인증이 필요해요</h2>
+            <h2 className="text-[20px] font-extrabold text-ink">로그인이 필요해요</h2>
             <p className="text-[14px] text-sub text-center">
-              시프트는 먼저 둘러볼 수 있고,<br />지원 단계에서 카카오 가입과 자격 확인을 진행해요
+              시프트는 먼저 둘러볼 수 있고,<br />프로필 승인 후 지원할 수 있어요
             </p>
             <button
               onClick={() => { window.location.href = '/onboarding?step=splash'; }}
               className="mt-4 w-full h-14 bg-primary text-white text-[17px] font-bold rounded-btn shadow-btn active:opacity-80"
             >
-              1분 가입하고 지원하기
+              카카오로 1분 가입하기
             </button>
-            <button onClick={onClose} className="text-[14px] text-sub py-2">
-              계속 둘러보기
+            <button onClick={onClose} className="text-[14px] text-sub py-2">계속 둘러보기</button>
+          </div>
+        )}
+
+        {/* 로그인은 됐지만 워커 등록/승인 미완료 */}
+        {state === 'no_worker' && (
+          <div className="flex flex-col items-center py-6 gap-3">
+            <span className="text-5xl">📋</span>
+            <h2 className="text-[20px] font-extrabold text-ink">프로필 승인 후 지원 가능해요</h2>
+            <p className="text-[14px] text-sub text-center">
+              자격증과 신원 정보를 등록하면<br />검토 후 지원할 수 있어요
+            </p>
+            <button
+              onClick={() => { window.location.href = '/onboarding'; }}
+              className="mt-4 w-full h-14 bg-primary text-white text-[17px] font-bold rounded-btn shadow-btn active:opacity-80"
+            >
+              프로필 등록하기
             </button>
+            <button onClick={onClose} className="text-[14px] text-sub py-2">계속 둘러보기</button>
           </div>
         )}
 

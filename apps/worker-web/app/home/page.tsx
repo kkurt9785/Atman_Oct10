@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
@@ -186,6 +187,7 @@ function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () =>
 
 // ─── 메인 ──────────────────────────────────────────────────────
 export default function HomePage() {
+  const router = useRouter();
   const [name,    setName]    = useState('');
   const [role,    setRole]    = useState<'rn' | 'na'>('rn');
   const [areas,   setAreas]   = useState<string[]>([]);
@@ -204,7 +206,10 @@ export default function HomePage() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        router.replace('/shifts');
+        return;
+      }
 
       setName(user.user_metadata?.profile_nickname ?? '사용자');
 
@@ -261,7 +266,7 @@ export default function HomePage() {
       setLoading(false);
     }
     load();
-  }, []);
+  }, [router]);
 
   const deptChips = role === 'rn' ? DEPT_CHIPS_RN : DEPT_CHIPS_NA;
   const roleLabel = role === 'rn' ? '간호사' : '간호조무사';
