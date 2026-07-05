@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Shift } from '@/app/shifts/page';
 import { applyToShift } from '@/lib/shifts';
+import { facilityName, facilityOf, mobilityLabel, timeLabel } from '@/lib/shift-display';
 
 type Props = {
   shift: Shift;
@@ -17,8 +18,8 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
   const [errorMsg, setErrorMsg] = useState('');
 
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
-  const start = shift.start_time.slice(0, 5);
-  const end = shift.end_time.slice(0, 5);
+  const hourlyWage = shift.hourly_wage.toLocaleString('ko-KR');
+  const facility = facilityOf(shift);
 
   async function handleApply() {
     setState('loading');
@@ -53,19 +54,25 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
         {state === 'confirm' && (
           <>
             <h2 className="text-[20px] font-extrabold text-ink mb-1">이 시프트에 지원할까요?</h2>
-            <p className="text-[14px] text-sub mb-6">지원 후 시설에서 수락하면 매칭이 완료돼요</p>
+            <p className="text-[14px] text-sub mb-6">지원 후 병원에서 수락하면 매칭이 확정돼요</p>
 
             {/* 시프트 요약 */}
-            <div className="bg-bg rounded-card p-4 mb-6 flex flex-col gap-2">
+            <div className="bg-bg rounded-card p-4 mb-4">
+              <p className="text-[17px] font-extrabold text-ink truncate">{facilityName(shift)}</p>
+              {facility?.address_text && (
+                <p className="text-[13px] text-sub mt-1 line-clamp-2">{facility.address_text}</p>
+              )}
+              <p className="text-[13px] font-semibold text-primary mt-2">{mobilityLabel(shift)}</p>
+            </div>
+
+            <div className="bg-bg rounded-card p-4 mb-4 flex flex-col gap-2">
               <div className="flex justify-between text-[14px]">
                 <span className="text-sub">날짜</span>
                 <span className="font-semibold text-ink">{shift.shift_date}</span>
               </div>
               <div className="flex justify-between text-[14px]">
                 <span className="text-sub">시간</span>
-                <span className="font-semibold text-ink">
-                  {start} – {end}{shift.is_overnight ? ' (익일)' : ''}
-                </span>
+                <span className="font-semibold text-ink">{timeLabel(shift)}</span>
               </div>
               {shift.department && (
                 <div className="flex justify-between text-[14px]">
@@ -73,9 +80,22 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
                   <span className="font-semibold text-ink">{shift.department}</span>
                 </div>
               )}
+              <div className="flex justify-between text-[14px]">
+                <span className="text-sub">시급</span>
+                <span className="font-semibold text-ink">₩{hourlyWage}</span>
+              </div>
               <div className="flex justify-between text-[14px] pt-2 border-t border-line">
                 <span className="text-sub">예상 지급액</span>
                 <span className="font-extrabold text-primary text-[16px]">₩{pay}</span>
+              </div>
+            </div>
+
+            <div className="bg-white border border-line rounded-card p-4 mb-6">
+              <p className="text-[13px] font-extrabold text-ink mb-2">지원 전 확인</p>
+              <div className="flex flex-col gap-1.5 text-[13px] text-sub">
+                <p>병원이 수락하면 매칭 확정 상태로 바뀝니다.</p>
+                <p>매칭 확정 후 당일 취소는 운영팀 확인이 필요합니다.</p>
+                {shift.notes && <p className="text-ink font-semibold">{shift.notes}</p>}
               </div>
             </div>
 
@@ -112,7 +132,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
             </div>
             <h2 className="text-[20px] font-extrabold text-ink">지원 완료!</h2>
             <p className="text-[14px] text-sub text-center">
-              시설에서 수락하면 카카오 알림으로<br />알려드릴게요
+              지금은 병원 확인 중이에요.<br />수락되면 매칭 확정 알림을 보내드릴게요
             </p>
             <button
               onClick={onApplied}

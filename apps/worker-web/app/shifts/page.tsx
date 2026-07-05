@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { dateKST } from '@/lib/date';
+import { areaLabel, dateLabel, facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 
 export type Shift = {
   id: string;
@@ -17,7 +18,10 @@ export type Shift = {
   description: string;
   department: string | null;
   notes: string | null;
-  facilities?: { name: string; address_text: string } | Array<{ name: string; address_text: string }> | null;
+  facilities?: { name: string; address_text?: string | null } | Array<{ name: string; address_text?: string | null }> | null;
+  distance_km?: number | null;
+  distance_m?: number | null;
+  distance_meters?: number | null;
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -42,27 +46,11 @@ const TIME_FILTERS: Array<{ value: TimeFilter; label: string }> = [
   { value: 'night', label: '야간' },
 ];
 
-function dateLabel(date: string) {
-  const today = dateKST();
-  const tomorrow = dateKST(1);
-  if (date === today) return '오늘';
-  if (date === tomorrow) return '내일';
-  const [, month, day] = date.split('-');
-  return `${Number(month)}/${Number(day)}`;
-}
-
 function timeBucket(shift: Shift) {
   const hour = parseInt(shift.start_time.slice(0, 2), 10);
   if (hour >= 22 || hour < 6) return { key: 'night', label: '야간' };
   if (hour >= 14) return { key: 'evening', label: '오후' };
   return { key: 'day', label: '오전/주간' };
-}
-
-function areaLabel(shift: Shift) {
-  const facility = Array.isArray(shift.facilities) ? shift.facilities[0] : shift.facilities;
-  const address = facility?.address_text;
-  if (!address) return null;
-  return address.split(' ').slice(0, 2).join(' ');
 }
 
 function matchesDate(shift: Shift, filter: DateFilter) {
@@ -117,12 +105,7 @@ function groupShifts(shifts: Shift[]) {
 }
 
 function ShiftCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
-  const start = shift.start_time.slice(0, 5);
-  const end = shift.end_time.slice(0, 5);
-  const timeLabel = `${start} – ${end}${shift.is_overnight ? ' (익일)' : ''}`;
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
-  const facility = Array.isArray(shift.facilities) ? shift.facilities[0] : shift.facilities;
-  const facilityName = facility?.name ?? '병원/클리닉';
   const area = areaLabel(shift);
 
   return (
@@ -135,11 +118,11 @@ function ShiftCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
         </span>
       </div>
 
-      <p className="text-[15px] font-extrabold text-ink truncate mb-1">{facilityName}</p>
+      <p className="text-[15px] font-extrabold text-ink truncate mb-1">{facilityName(shift)}</p>
 
       {/* 시간 */}
       <p className="text-[22px] font-extrabold text-ink leading-tight mb-1">
-        {timeLabel}
+        {timeLabel(shift)}
       </p>
 
       {/* 지역 / 부서 */}
@@ -148,6 +131,7 @@ function ShiftCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
           {[area, shift.department].filter(Boolean).join(' · ')}
         </p>
       )}
+      <p className="text-[13px] font-semibold text-sub mb-2">{mobilityLabel(shift)}</p>
       <p className="text-[14px] text-sub line-clamp-2 mb-4">{shift.description}</p>
 
       {/* 야간 배지 */}

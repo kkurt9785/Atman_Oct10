@@ -7,9 +7,10 @@ import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
 import { dateKST } from '@/lib/date';
+import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 
 type ShiftWithFacility = Shift & {
-  facilities: { name: string } | null;
+  facilities: { name: string; address_text?: string | null } | null;
 };
 
 // ─── 필터 타입 ─────────────────────────────────────────────────
@@ -107,9 +108,6 @@ function ChipRow<T extends string>({
 function ShiftCard({
   shift, hot = false, onApply,
 }: { shift: ShiftWithFacility; hot?: boolean; onApply: () => void }) {
-  const facilityName = shift.facilities?.name ?? '병원/클리닉';
-  const start = shift.start_time.slice(0, 5);
-  const end   = shift.end_time.slice(0, 5);
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
 
   return (
@@ -119,7 +117,7 @@ function ShiftCard({
           <span className="text-[18px]">🏥</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-bold text-ink leading-tight truncate">{facilityName}</p>
+          <p className="text-[15px] font-bold text-ink leading-tight truncate">{facilityName(shift)}</p>
         </div>
         {hot && (
           <span className="text-[11px] font-bold text-warn bg-warn/10 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -130,8 +128,9 @@ function ShiftCard({
 
       <p className="text-[13px] text-sub mb-0.5">{shift.shift_date}</p>
       <p className="text-[19px] font-extrabold text-ink mb-1">
-        {start} – {end}{shift.is_overnight ? ' (익일)' : ''}
+        {timeLabel(shift)}
       </p>
+      <p className="text-[12px] font-semibold text-primary mb-1">{mobilityLabel(shift)}</p>
       {shift.department && (
         <p className="text-[12px] text-tertiary mb-2">{shift.department}</p>
       )}
@@ -158,19 +157,18 @@ function ShiftCard({
 }
 
 function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () => void }) {
-  const facilityName = shift.facilities?.name ?? '병원/클리닉';
-  const start = shift.start_time.slice(0, 5);
-  const end   = shift.end_time.slice(0, 5);
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
 
   return (
     <div className="bg-white rounded-card shadow-card p-4 mb-3 flex items-center gap-4">
       <div className="flex-1 min-w-0">
-        <p className="text-[12px] text-tertiary truncate">{facilityName}</p>
+        <p className="text-[12px] text-tertiary truncate">{facilityName(shift)}</p>
         <p className="text-[15px] font-bold text-ink mt-0.5">
-          {shift.shift_date}　{start}–{end}
+          {shift.shift_date}　{timeLabel(shift)}
         </p>
-        <p className="text-[12px] text-sub truncate mt-0.5">{shift.department}</p>
+        <p className="text-[12px] text-sub truncate mt-0.5">
+          {[mobilityLabel(shift), shift.department].filter(Boolean).join(' · ')}
+        </p>
       </div>
       <div className="text-right flex-shrink-0">
         <p className="text-[15px] font-extrabold text-primary">₩{pay}</p>
@@ -198,7 +196,7 @@ export default function HomePage() {
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
 
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [wageFilter, setWageFilter] = useState<WageFilter>('all');
   const [deptFilter, setDeptFilter] = useState<DeptFilter>('all');
@@ -258,7 +256,18 @@ export default function HomePage() {
         });
         shiftRows = (rpcData ?? []).map((r: Record<string, unknown>) => ({
           ...r,
-          facilities: { name: r.facility_name as string },
+          distance_km:
+            typeof r.distance_km === 'number'
+              ? r.distance_km
+              : typeof r.distance_meters === 'number'
+                ? r.distance_meters / 1000
+                : typeof r.distance_m === 'number'
+                  ? r.distance_m / 1000
+                  : null,
+          facilities: {
+            name: r.facility_name as string,
+            address_text: (r.address_text ?? r.facility_address) as string | null,
+          },
         })) as ShiftWithFacility[];
       }
 
@@ -282,6 +291,7 @@ export default function HomePage() {
 
   const recommended = filtered.slice(0, 3);
   const areaShifts  = filtered.slice(3);
+  const todayCount = roleShifts.filter((s) => matchesDate(s, 'today')).length;
 
   function resetFilters() {
     setDateFilter('all');
@@ -312,8 +322,8 @@ export default function HomePage() {
             <p className="text-[14px] text-sub">안녕하세요 👋</p>
             <h1 className="text-[24px] font-extrabold text-ink leading-tight mt-0.5">
               {name} {roleLabel}님,<br />
-              {roleShifts.length > 0
-                ? <><span className="text-primary">시프트 {roleShifts.length}건</span> 있어요</>
+              {todayCount > 0
+                ? <><span className="text-primary">오늘 지원 가능 {todayCount}건</span> 있어요</>
                 : <span className="text-ink">새 시프트를 기다리는 중</span>
               }
             </h1>
@@ -338,6 +348,21 @@ export default function HomePage() {
             ))}
           </div>
         )}
+      </div>
+
+      <div className="mx-5 mb-4 bg-ink rounded-2xl p-4 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold text-white/70">오늘 바로 지원</p>
+          <p className="text-[19px] font-extrabold text-white mt-0.5">
+            {todayCount > 0 ? `${todayCount}개 시프트 확인` : '조건을 넓혀서 보기'}
+          </p>
+        </div>
+        <Link
+          href="/shifts"
+          className="h-11 px-4 rounded-xl bg-white text-ink text-[14px] font-extrabold flex items-center justify-center flex-shrink-0"
+        >
+          보기
+        </Link>
       </div>
 
       {/* 프로필 미완성 배너 */}

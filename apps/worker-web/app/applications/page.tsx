@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { QRModal } from '@/components/shifts/QRModal';
 import { dateKST, monthKST } from '@/lib/date';
 import { cancelApplication } from '@/lib/shifts';
+import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 
 // ── 타입 ───────────────────────────────────────────────────────
 type ApplicationStatus = 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
@@ -25,6 +26,7 @@ type Application = {
     estimated_total_pay: number;
     department: string | null;
     description: string;
+    facilities?: { name: string; address_text: string } | Array<{ name: string; address_text: string }> | null;
   };
 };
 
@@ -45,19 +47,82 @@ type WageRow = {
 };
 
 // ── 상수 ───────────────────────────────────────────────────────
-const STATUS_CONFIG: Record<ApplicationStatus, { label: string; className: string }> = {
-  applied:   { label: '검토 중',  className: 'bg-primary/10 text-primary' },
-  accepted:  { label: '수락됨',   className: 'bg-[#E5FAF4] text-success' },
-  rejected:  { label: '미선정',   className: 'bg-[#F2F4F6] text-tertiary' },
-  cancelled: { label: '취소됨',   className: 'bg-[#F2F4F6] text-tertiary' },
-  expired:   { label: '만료',     className: 'bg-[#F2F4F6] text-tertiary' },
-  completed: { label: '근무 완료', className: 'bg-[#E5FAF4] text-success' },
+const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: string; className: string }> = {
+  applied: {
+    label: '병원 확인 중',
+    description: '지원이 접수됐고 병원에서 확인하고 있어요.',
+    className: 'bg-primary/10 text-primary',
+  },
+  accepted: {
+    label: '매칭 확정',
+    description: '병원이 수락했어요. 근무 당일 QR 체크인을 준비해 주세요.',
+    className: 'bg-[#E5FAF4] text-success',
+  },
+  rejected: {
+    label: '미선정',
+    description: '이번 시프트는 다른 지원자가 선정됐어요.',
+    className: 'bg-[#F2F4F6] text-tertiary',
+  },
+  cancelled: {
+    label: '취소됨',
+    description: '지원이 취소됐어요.',
+    className: 'bg-[#F2F4F6] text-tertiary',
+  },
+  expired: {
+    label: '만료',
+    description: '시프트 시간이 지나 지원이 만료됐어요.',
+    className: 'bg-[#F2F4F6] text-tertiary',
+  },
+  completed: {
+    label: '근무 완료',
+    description: '체크아웃이 완료됐고 정산 내역에서 확인할 수 있어요.',
+    className: 'bg-[#E5FAF4] text-success',
+  },
 };
 
 function fmtMinutes(min: number) {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function stepState(app: Application, step: 'applied' | 'accepted' | 'work') {
+  if (['rejected', 'cancelled', 'expired'].includes(app.status)) return 'muted';
+  if (step === 'applied') return 'done';
+  if (step === 'accepted') return app.status === 'accepted' || app.status === 'completed' ? 'done' : 'current';
+  if (app.status === 'completed' || app.checked_out_at) return 'done';
+  if (app.checked_in_at) return 'current';
+  return app.status === 'accepted' ? 'current' : 'muted';
+}
+
+function StatusSteps({ app }: { app: Application }) {
+  const steps = [
+    { key: 'applied' as const, label: '지원함' },
+    { key: 'accepted' as const, label: '매칭 확정' },
+    { key: 'work' as const, label: app.checked_in_at ? '근무 중' : '출근 예정' },
+  ];
+
+  return (
+    <div className="mt-3 grid grid-cols-3 gap-2">
+      {steps.map((step) => {
+        const state = stepState(app, step.key);
+        return (
+          <div
+            key={step.key}
+            className={`rounded-xl px-2.5 py-2 text-center text-[12px] font-bold ${
+              state === 'done'
+                ? 'bg-[#E5FAF4] text-success'
+                : state === 'current'
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-bg text-tertiary'
+            }`}
+          >
+            {step.label}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── 지원 카드 ──────────────────────────────────────────────────
@@ -70,9 +135,7 @@ function ApplicationCard({
   onCancel: (id: string) => void;
   onQR: (app: Application) => void;
 }) {
-  const { label, className } = STATUS_CONFIG[app.status];
-  const start = app.shift.start_time.slice(0, 5);
-  const end   = app.shift.end_time.slice(0, 5);
+  const { label, description, className } = STATUS_CONFIG[app.status];
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
   const appliedDate = new Date(app.applied_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 
@@ -93,13 +156,17 @@ function ApplicationCard({
         <span className="text-[13px] font-semibold text-sub">{app.shift.shift_date}</span>
         <span className={`text-[12px] font-bold px-2.5 py-1 rounded-full ${className}`}>{label}</span>
       </div>
+      <p className="text-[15px] font-extrabold text-ink truncate mb-1">{facilityName(app.shift)}</p>
       <p className="text-[20px] font-extrabold text-ink leading-tight mb-1">
-        {start} – {end}{app.shift.is_overnight ? ' (익일)' : ''}
+        {timeLabel(app.shift)}
       </p>
       {app.shift.department && (
         <p className="text-[13px] text-tertiary mb-0.5">{app.shift.department}</p>
       )}
+      <p className="text-[13px] font-semibold text-primary mb-2">{mobilityLabel(app.shift)}</p>
       <p className="text-[14px] text-sub line-clamp-2 mb-3">{app.shift.description}</p>
+      <p className="text-[13px] text-sub bg-bg rounded-xl px-3 py-2 mb-3">{description}</p>
+      <StatusSteps app={app} />
 
       <div className="flex items-center justify-between pt-3 border-t border-line">
         <div>
@@ -238,7 +305,8 @@ export default function ApplicationsPage() {
           id, status, applied_at, checked_in_at, checked_out_at,
           shift:shifts (
             id, shift_date, start_time, end_time, is_overnight,
-            estimated_total_pay, department, description
+            estimated_total_pay, department, description,
+            facilities ( name, address_text )
           )
         `)
         .eq('worker_id', worker.id)
