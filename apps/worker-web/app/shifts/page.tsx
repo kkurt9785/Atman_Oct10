@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
+import { FacilitySheet } from '@/components/shifts/FacilitySheet';
 import { dateKST } from '@/lib/date';
 import { areaLabel, dateLabel, facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 
 export type Shift = {
   id: string;
+  facility_id: string;
   shift_date: string;
   start_time: string;
   end_time: string;
@@ -104,7 +106,7 @@ function groupShifts(shifts: Shift[]) {
   return Array.from(groups.values());
 }
 
-function ShiftCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
+function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () => void; onFacility: () => void }) {
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
   const area = areaLabel(shift);
 
@@ -118,7 +120,15 @@ function ShiftCard({ shift, onApply }: { shift: Shift; onApply: () => void }) {
         </span>
       </div>
 
-      <p className="text-[15px] font-extrabold text-ink truncate mb-1">{facilityName(shift)}</p>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-[15px] font-extrabold text-ink truncate">{facilityName(shift)}</p>
+        <button
+          onClick={(e) => { e.stopPropagation(); onFacility(); }}
+          className="shrink-0 ml-2 text-[12px] font-semibold text-primary"
+        >
+          병원 보기 &gt;
+        </button>
+      </div>
 
       {/* 시간 */}
       <p className="text-[22px] font-extrabold text-ink leading-tight mb-1">
@@ -171,6 +181,7 @@ export default function ShiftsPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Shift | null>(null);
   const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [facilityInfo, setFacilityInfo] = useState<{ id: string; name: string } | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
@@ -206,7 +217,7 @@ export default function ShiftsPage() {
       const { data: shiftData } = await supabase
         .from('shifts')
         .select(
-          'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text )'
+          'id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text )'
         )
         .eq('status', 'open')
         .gte('shift_date', dateKST())
@@ -302,7 +313,7 @@ export default function ShiftsPage() {
                 <span className="text-[12px] text-tertiary">상위 {recommended.length}건</span>
               </div>
               {recommended.map((s) => (
-                <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} />
+                <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} />
               ))}
             </section>
           )}
@@ -320,7 +331,7 @@ export default function ShiftsPage() {
                 <div key={group.title} className="mb-5">
                   <p className="text-[13px] font-bold text-sub mb-2 px-1">{group.title}</p>
                   {group.shifts.map((s) => (
-                    <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} />
+                    <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} />
                   ))}
                 </div>
               ))}
@@ -343,6 +354,14 @@ export default function ShiftsPage() {
           shift={selected}
           onClose={() => setSelected(null)}
           onApplied={() => handleApplied(selected.id)}
+        />
+      )}
+
+      {facilityInfo && (
+        <FacilitySheet
+          facilityId={facilityInfo.id}
+          facilityName={facilityInfo.name}
+          onClose={() => setFacilityInfo(null)}
         />
       )}
     </div>

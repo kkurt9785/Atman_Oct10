@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import { adminClient, getUserFromToken } from './supabase';
 import { FACILITY_COOKIE } from './constants';
+import { grantOnboardingCredit } from './credits';
 
 function cookieSecret(): string | null {
   return process.env.FACILITY_COOKIE_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? null;
@@ -74,6 +75,7 @@ export async function claimFacility(facilityId: string, accessToken: string, inv
   if (error) return { ok: false, error: '연결 실패' };
 
   await setFacilityCookie(facilityId);
+  await grantOnboardingCredit(sb, facilityId, 'onboard_signup');
   return { ok: true };
 }
 

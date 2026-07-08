@@ -906,7 +906,7 @@ LTV 합산: 시프트 마진 (20만) + 스토어 마진 (10년 60만+) = **70만
 
 ---
 
-## 21. 개발 현황 (2026-06-26)
+## 21. 개발 현황 (2026-07-08)
 
 ### 모노레포 구조
 
@@ -918,12 +918,12 @@ atman/
 ├── packages/
 │   └── wage-engine/      # 법정수당 계산 엔진 (RULESET_2026, 최저시급 10,320원)
 └── supabase/
-    └── migrations/       # 로컬 DB 마이그레이션 5개 적용 완료
+    └── migrations/       # Production DB 마이그레이션 8개 적용 완료
 ```
 
 ### 완료된 작업
 
-**Supabase 마이그레이션 (5개, 모두 로컬 적용)**
+**Supabase 마이그레이션 (8개, Production 적용 완료)**
 
 | 파일 | 내용 |
 |---|---|
@@ -933,11 +933,15 @@ atman/
 | `20260623000000_membership_credits.sql` | 멤버십·크레딧 시스템 |
 | `20260626000000_profiles_role.sql` | profiles 테이블 (role: worker\|admin), 회원가입 auto-insert 트리거 |
 | `20260626100000_worker_location_prefs.sql` | 워커 알림 지역 설정 (최대 2개, JSONB) |
+| `20260708000000_facility_profile.sql` | facilities 프로필 필드 추가 (병상수·병동·편의시설·EMR·소개글) |
+| `20260708100000_onboarding_credit_kinds.sql` | credit_ledger kind 확장 (온보딩 3단계 크레딧) |
 
 **apps/admin-web** (port 3002)
 - Supabase 실데이터 연결 완료 (service_role key, server-side only)
 - 대시보드, 급여, 멤버십·크레딧 5탭 구성
 - `lib/db/{shop,staff,payroll,membership}.ts` — 실데이터/목업 fallback 구조
+- **[NEW] `/settings` 병원 프로필 페이지** — 편의시설 토글(주차/식사/유니폼), 병상수·병동·EMR·소개글 입력, Server Action 저장
+- **[NEW] 온보딩 락인 크레딧** — 가입 ₩30,000 / 프로필 입력 ₩20,000 / 첫 시프트 ₩50,000 자동 지급 (중복 방지)
 
 **apps/worker-web** (port 3003)
 - 워커 온보딩 10단계 wizard (Toss 디자인 시스템)
@@ -945,10 +949,22 @@ atman/
 - 지역 설정: 현재 위치(자동) + 추가 지역 1곳 선택, 각각 반경 슬라이더
 - OTP 인증 완료 후 `worker_location_prefs` Supabase 저장 연결
 - Toss 디자인 토큰: Primary `#3182F6`, BG `#F2F4F6`, Pretendard
+- **[NEW] 시프트 카드 "병원 보기 >" 버튼** → FacilitySheet Bottom Sheet
+- **[NEW] FacilitySheet** — 병원 편의시설·병상·소개글·재지원율 표시 (데이터 부족 시 graceful hide)
 
 **packages/wage-engine**
 - 법정수당 계산 엔진, 19개 테스트 통과
 - 최저시급 10,320원 (RULESET_2026) 적용
+
+### 온보딩 크레딧 흐름
+
+| 단계 | 트리거 | 금액 | 파일 |
+|---|---|---|---|
+| 병원 연결 완료 | `claimFacility()` | ₩30,000 | `lib/facility.ts` |
+| 프로필 입력 (intro 또는 병상수) | `saveFacilityProfile()` | ₩20,000 | `lib/actions/facility.ts` |
+| 첫 시프트 등록 | `createShiftAction()` | ₩50,000 | `lib/actions/shifts.ts` |
+
+`grantOnboardingCredit()` — 동일 kind 중복 지급 방지 (credit_ledger 존재 확인 후 skip).
 
 ### 로컬 개발 환경
 
@@ -968,9 +984,8 @@ cd apps/worker-web && npm run dev  # http://localhost:3003/onboarding
 ### 다음 단계
 
 1. **카카오 OAuth** — `itdot.co.kr` 도메인 심사 완료 후 Kakao Developers 앱 생성 + Supabase 연결
-2. **시프트 등록 폼** (admin) + **시프트 목록·지원** (worker) — 실 유저 검증 최소 기능
-3. **배포** — worker-web=`itdot.co.kr`, admin-web=`admin.itdot.co.kr`
-4. **실 유저 검증** — 지인 간호사 5명 온보딩, 요양원 1곳 시프트 등록
+2. **배포** — worker-web=`itdot.co.kr`, admin-web=`admin.itdot.co.kr`
+3. **실 유저 검증** — 지인 간호사 5명 온보딩, 요양원 1곳 시프트 등록 + 병원 프로필 입력
 
 ### 도메인
 
@@ -993,3 +1008,4 @@ cd apps/worker-web && npm run dev  # http://localhost:3003/onboarding
 - 2026-06-26 — 베타 보상 구조 개편: 가입만=커피(5천) / 가입+자격증=1만 / 추천 양쪽 1만→2만 인상. Unit Economics 재계산 (총 비용 280만→420만). 시프트 기능 MVP 구현: admin-web 시프트 등록 폼·목록·Expo 푸시 연동, worker-web 홈 개인화 피드(RN/NA 부서 필터·날짜 필터)·지원 바텀시트·내 지원 현황·BottomNav
 - 2026-06-12 — 시드 전략 §20 신설: 수원 4개 구 베타 (영통→권선→장안→팔달), 보상 구조 (가입 커피 / 첫 매칭 3만 / 추천 양쪽 1만), 적립금 +2% 보너스·12개월 만료·결제 50% 한도, 차등 수수료 (응급 15% / 일반 12% / 정기 10%, 베타 50% 할인), 간호용품 스토어 드롭시핑 모델 채택, Unit Economics (LTV/CAC 35배), 유입 채널 Top 5 (노무사 제휴·단톡방·요양병원협회·콘텐츠·휴직 풀), MVP/Phase 2 부가가치 lock-in 단계 분리
 - 2026-06-26 — 개발 현황 §21 신설: 모노레포 구조, 마이그레이션 6개, admin-web Supabase 연결, worker-web 10단계 온보딩 wizard, worker_location_prefs 저장 연결, wage-engine 19테스트, 도메인 itdot.co.kr 등록
+- 2026-07-08 — 병원 프로필 시스템: facilities 프로필 필드 마이그레이션, admin-web /settings 페이지, worker-web FacilitySheet Bottom Sheet, 온보딩 3단계 락인 크레딧 (₩100,000 총액, 중복 방지)

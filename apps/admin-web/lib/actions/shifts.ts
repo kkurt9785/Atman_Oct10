@@ -6,6 +6,7 @@ import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { sendWebPush } from '../push';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
+import { grantOnboardingCredit } from '../credits';
 import type webpush from 'web-push';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -38,6 +39,8 @@ export async function createShiftAction(formData: FormData) {
     throw new Error('근무 시간을 확인해 주세요.');
   }
 
+  const facilityId = await getCurrentFacilityId();
+
   await createShift({
     shift_date: shiftDate,
     start_time: startTime,
@@ -53,6 +56,9 @@ export async function createShiftAction(formData: FormData) {
   // Web Push 알림 발송 — 실패해도 시프트 등록은 완료됨
   try {
     const sb = adminClient();
+    if (sb && facilityId) {
+      await grantOnboardingCredit(sb, facilityId, 'onboard_first_shift');
+    }
     if (sb) {
       const roleFilter = requiredRole === 'any' ? ['rn', 'na'] : [requiredRole];
 
