@@ -28,7 +28,7 @@ export function Splash() {
     }
 
     setLoading(true);
-    const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
+    const key = process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
     const scope = encodeURIComponent('openid profile_nickname profile_image');
     window.location.href =

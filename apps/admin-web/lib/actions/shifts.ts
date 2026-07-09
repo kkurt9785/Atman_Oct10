@@ -32,7 +32,7 @@ export async function createShiftAction(formData: FormData) {
     throw new Error('필요 자격이 올바르지 않습니다.');
   }
   if (isNaN(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026) {
-    throw new Error('시급은 2026년 최저시급(9,860원) 이상이어야 합니다.');
+    throw new Error('시급은 2026년 최저시급(10,320원) 이상이어야 합니다.');
   }
   const estimatedTotalPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage);
   if (estimatedTotalPay == null) {

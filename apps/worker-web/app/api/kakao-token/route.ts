@@ -5,7 +5,7 @@ export async function POST(request: Request) {
 
   const params = new URLSearchParams({
     grant_type: 'authorization_code',
-    client_id: process.env.NEXT_PUBLIC_KAKAO_JS_KEY!,
+    client_id: process.env.KAKAO_REST_API_KEY!,
     redirect_uri: redirectUri,
     code,
   });

@@ -4,13 +4,13 @@ import { getCurrentFacilityId } from '@/lib/facility';
 import { calcBreakMinutes } from '@/lib/pay';
 import { todayKST } from '@/lib/date';
 
-// 야간 시간(22:00~06:00) 분 수 계산
+// 야간 시간(KST 22:00~06:00) 분 수 계산 — 서버 TZ(UTC)와 무관하게 KST로 판정
 function calcNightMinutes(checkIn: Date, checkOut: Date): number {
   let mins = 0;
   const cur = new Date(checkIn);
   while (cur < checkOut) {
-    const h = cur.getHours();
-    if (h >= 22 || h < 6) mins++;
+    const kstHour = new Date(cur.getTime() + 9 * 60 * 60_000).getUTCHours();
+    if (kstHour >= 22 || kstHour < 6) mins++;
     cur.setTime(cur.getTime() + 60_000);
   }
   return mins;
@@ -90,24 +90,23 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
   }
 
   // ── 체크아웃 ────────────────────────────────────
-  const checkIn  = new Date(attendance.check_in_at as string);
-  const rawMins  = Math.round((now.getTime() - checkIn.getTime()) / 60_000);
-  const breakMin = calcBreakMinutes(rawMins);
-  const workedMin = rawMins - breakMin;
-  const nightMin  = calcNightMinutes(checkIn, now);
-  const hourlyWage = shift.hourly_wage;
-  const base           = Math.round((workedMin / 60) * hourlyWage);
-  const nightPremium   = Math.round((nightMin  / 60) * hourlyWage * 0.5);
-  const gross          = base + nightPremium;
+  const checkIn   = new Date(attendance.check_in_at as string);
+  const rawMins   = Math.max(0, Math.round((now.getTime() - checkIn.getTime()) / 60_000)); // 시계 역전 방어
+  const breakMin  = calcBreakMinutes(rawMins);
+  const workedMin = Math.max(0, rawMins - breakMin);
+  const nightMin  = Math.min(calcNightMinutes(checkIn, now), workedMin);
+  const overtimeMin = Math.max(0, workedMin - 8 * 60); // 1일 8h 초과 = 연장
+  const hourlyWage  = shift.hourly_wage;
+  const perMin = hourlyWage / 60;
+  const base            = Math.round(workedMin * perMin);
+  const overtimePremium = Math.round(overtimeMin * perMin * 0.5); // 연장 +50%
+  const nightPremium    = Math.round(nightMin * perMin * 0.5);    // 야간 +50%
+  const holidayPremium  = 0; // 휴일 가산: shifts 휴일 플래그 필요 → 후속(데이터 추가)
+  const gross = base + overtimePremium + nightPremium + holidayPremium;
 
-  await sb.from('shift_attendances').update({
-    check_out_at:     now.toISOString(),
-    check_out_method: 'qr',
-    actual_minutes:   workedMin,
-  }).eq('id', attendance.id);
-
-  // wage_calculations INSERT
-  await sb.from('wage_calculations').insert({
+  // 순서: 금액 기록 → 크레딧 차감 → (여기서부터 재스캔 차단) 출퇴근 확정 → 미러.
+  // wage_calculations UNIQUE(attendance_id) / credit_ledger UNIQUE(org_id,ref) 로 재시도 안전.
+  const { error: wageErr } = await sb.from('wage_calculations').insert({
     attendance_id:    attendance.id,
     org_id:           facilityId,
     worker_id:        worker.id,
@@ -115,35 +114,38 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
     rule_version:     '2026-KR',
     worked_minutes:   workedMin,
     night_minutes:    nightMin,
-    overtime_minutes: 0,
+    overtime_minutes: overtimeMin,
     break_minutes:    breakMin,
     base,
-    overtime_premium: 0,
+    overtime_premium: overtimePremium,
     night_premium:    nightPremium,
-    holiday_premium:  0,
+    holiday_premium:  holidayPremium,
     gross,
     breakdown: { hourly_wage: hourlyWage, raw_minutes: rawMins, break_minutes: breakMin },
     calculated_at: now.toISOString(),
   });
+  if (wageErr && wageErr.code !== '23505') return { ok: false, message: '정산 기록에 실패했어요. 다시 시도해 주세요.' };
 
-  // credit_ledger 차감 (실패해도 체크아웃은 완료 처리)
-  try {
-    await sb.from('credit_ledger').insert({
-      org_id:     shift.facility_id,
-      delta:      -gross,       // 음수 = 크레딧 차감
-      kind:       'spend',
-      ref:        shift.id,
-      created_at: now.toISOString(),
-    });
-  } catch (err) {
-    console.error('[credit_ledger] 차감 실패 (체크아웃은 완료):', err);
-  }
+  const { error: creditErr } = await sb.from('credit_ledger').insert({
+    org_id:     shift.facility_id,
+    delta:      -gross,       // 음수 = 크레딧 차감
+    kind:       'spend',
+    ref:        shift.id,
+    created_at: now.toISOString(),
+  });
+  if (creditErr && creditErr.code !== '23505') return { ok: false, message: '크레딧 차감에 실패했어요. 다시 시도해 주세요.' };
 
-  // shift_applications mirror + completed
+  // 출퇴근 확정 (actual_minutes 는 GENERATED 컬럼이라 write 하지 않음)
+  const { error: attErr } = await sb.from('shift_attendances').update({
+    check_out_at:     now.toISOString(),
+    check_out_method: 'qr',
+  }).eq('id', attendance.id);
+  if (attErr) return { ok: false, message: '체크아웃 저장에 실패했어요. 다시 시도해 주세요.' };
+
+  // 미러(표시용) — best-effort
   await sb.from('shift_applications')
     .update({ checked_out_at: now.toISOString(), status: 'completed' })
     .eq('id', applicationId);
-
   await sb.from('shifts')
     .update({ status: 'completed' })
     .eq('id', shift.id);

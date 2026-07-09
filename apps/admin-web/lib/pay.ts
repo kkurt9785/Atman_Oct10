@@ -1,4 +1,4 @@
-export const MIN_HOURLY_WAGE_2026 = 9860;
+export const MIN_HOURLY_WAGE_2026 = 10320;
 
 function parseTimeToMinutes(time: string): number | null {
   const match = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(time);

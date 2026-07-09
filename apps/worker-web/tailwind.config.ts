@@ -12,6 +12,7 @@ const config: Config = {
         ink: '#191F28',
         sub: '#4E5968',
         tertiary: '#8B95A1',
+        warn: '#FF8B00',
         success: '#00C896',
         'success-light': '#E5FAF4',
         kakao: '#FEE500',

@@ -18,11 +18,12 @@ function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
-  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
+  const showDemoLogin =
+    process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && process.env.NODE_ENV !== 'production';
 
   function handleKakaoLogin() {
     setLoading(true);
-    const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
+    const key = process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
     const scope = encodeURIComponent('openid profile_nickname profile_image');
     window.location.href =

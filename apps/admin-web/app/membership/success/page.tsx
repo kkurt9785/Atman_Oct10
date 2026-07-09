@@ -86,7 +86,13 @@ async function confirmPayment(searchParams: {
   }
 
   const { error } = await sb.from('credit_ledger').insert(rows);
-  if (error) return { ok: false, message: '결제는 완료됐지만 크레딧 반영에 실패했어요. 운영팀에 문의해 주세요.' };
+  if (error) {
+    // 유니크 위반(23505) = 동시/재시도 요청이 이미 적립함 → 멱등 성공 처리
+    if (error.code === '23505') {
+      return { ok: true, credited: tier.credit, alreadyProcessed: true };
+    }
+    return { ok: false, message: '결제는 완료됐지만 크레딧 반영에 실패했어요. 운영팀에 문의해 주세요.' };
+  }
 
   revalidatePath('/');
   revalidatePath('/membership');
