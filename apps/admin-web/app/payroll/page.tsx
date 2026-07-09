@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { Card, SectionTitle, BigStat } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
 import { getStaff } from '@/lib/db/staff';
@@ -16,6 +17,8 @@ export default async function PayrollPage() {
     getStaff(),
     getMonthPayslips(),
   ]);
+
+  if (!shop) redirect('/setup/claim-facility');
 
   const hasHR = hahrFeature(shop.plan);
 
