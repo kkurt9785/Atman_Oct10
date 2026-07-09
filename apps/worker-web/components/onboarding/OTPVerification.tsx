@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 
-export function OTPVerification({ onNext }: { onNext: () => void }) {
+export function OTPVerification({ onNext, submitting, submitError }: { onNext: () => void; submitting?: boolean; submitError?: string }) {
   const [digits, setDigits] = useState(['', '', '', '']);
   const [timer, setTimer] = useState(47);
   const refs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
@@ -68,7 +68,12 @@ export function OTPVerification({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="mt-auto">
-        <Button onClick={onNext} disabled={!filled} variant={filled ? 'primary' : 'outline'}>인증 완료</Button>
+        {submitError && (
+          <p className="text-[13px] font-bold text-red-600 text-center mb-3">{submitError}</p>
+        )}
+        <Button onClick={onNext} disabled={!filled || submitting} variant={filled ? 'primary' : 'outline'}>
+          {submitting ? '처리 중...' : '인증 완료'}
+        </Button>
       </div>
     </div>
   );

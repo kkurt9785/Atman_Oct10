@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Card, SectionTitle, BigStat, ActionTile, StatusBadge } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
 import { getStaff, getSummary } from '@/lib/db/staff';
@@ -14,6 +15,9 @@ export default async function Home() {
     getPendingCount(),
     getBillingSummary(),
   ]);
+
+  if (!shop) redirect('/setup/claim-facility');
+
   const summary = await getSummary(staff);
   const committedPay = billing.todayCommittedPay + billing.upcomingCommittedPay;
   const projectedBalance = billing.balance - committedPay;

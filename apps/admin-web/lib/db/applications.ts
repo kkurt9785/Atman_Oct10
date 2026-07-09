@@ -30,40 +30,10 @@ export type ApplicationGroup = {
   applicants: Applicant[];
 };
 
-const MOCK: ApplicationGroup[] = [
-  {
-    shiftId: 'mock-1',
-    shiftDate: '2026-06-30',
-    startTime: '22:00:00',
-    endTime: '06:00:00',
-    department: '응급실',
-    requiredRole: 'na',
-    shiftStatus: 'open',
-    estimatedTotalPay: 120000,
-    applicants: [
-      { applicationId: 'app-1', workerId: 'w-1', name: '홍길동', role: 'na', verificationStatus: 'approved', distanceMeters: 2100, matchScore: 92, appliedAt: new Date().toISOString(), licenseNumber: '제123456호', licensePhotoUrl: null, experienceYears: '3~5년', lastWorkplace: '아주대병원 응급실', departmentTags: ['응급실', '일반병동'], isDemo: true },
-      { applicationId: 'app-2', workerId: 'w-2', name: '김간호', role: 'na', verificationStatus: 'approved', distanceMeters: 4500, matchScore: 78, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: null, lastWorkplace: null, departmentTags: null, isDemo: true },
-    ],
-  },
-  {
-    shiftId: 'mock-2',
-    shiftDate: '2026-07-01',
-    startTime: '22:00:00',
-    endTime: '06:00:00',
-    department: '내과병동',
-    requiredRole: 'rn',
-    shiftStatus: 'open',
-    estimatedTotalPay: 140000,
-    applicants: [
-      { applicationId: 'app-3', workerId: 'w-3', name: '박수간', role: 'rn', verificationStatus: 'approved', distanceMeters: 1800, matchScore: 88, appliedAt: new Date().toISOString(), licenseNumber: null, licensePhotoUrl: null, experienceYears: '1~3년', lastWorkplace: '분당서울대병원 중환자실', departmentTags: ['중환자실', '수술실'], isDemo: true },
-    ],
-  },
-];
-
 export async function getPendingApplications(): Promise<ApplicationGroup[]> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return MOCK;
+  if (!sb || !facilityId) return [];
 
   // 1. 이 시설의 시프트 ID 목록
   const { data: shiftRows } = await sb
@@ -129,7 +99,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
 export async function getPendingCount(): Promise<number> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return MOCK.reduce((s, g) => s + g.applicants.length, 0);
+  if (!sb || !facilityId) return 0;
 
   const { data: shiftRows } = await sb
     .from('shifts')
