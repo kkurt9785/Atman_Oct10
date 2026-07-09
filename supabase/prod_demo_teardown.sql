@@ -31,6 +31,16 @@ END $$;
 -- 확인:  SELECT jobid, schedule, command FROM cron.job;
 
 -- ── 2. 데모 로그인 계정 제거 (프로덕션에서만!) ──────────────────────────────
+-- shifts.matched_worker_id 가 데모 워커를 참조하면 FK(23503) 로 DELETE 가 막힘.
+-- 먼저 NULL 로 해제한 뒤 삭제한다.
+UPDATE shifts
+SET matched_worker_id = NULL
+WHERE matched_worker_id IN (
+  SELECT w.id FROM workers w
+  JOIN auth.users u ON u.id = w.auth_user_id
+  WHERE u.email LIKE '%@demo.atman.co.kr'
+);
+
 -- profiles·workers·shift_applications 등 연결 데이터는 FK CASCADE 로 함께 정리됨.
 -- 실행 전 반드시 대상 확인:
 --   SELECT id, email FROM auth.users WHERE email LIKE '%@demo.atman.co.kr';
