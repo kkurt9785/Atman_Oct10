@@ -31,8 +31,10 @@ END $$;
 -- 확인:  SELECT jobid, schedule, command FROM cron.job;
 
 -- ── 2. 데모 로그인 계정 제거 (프로덕션에서만!) ──────────────────────────────
--- shifts.matched_worker_id 가 데모 워커를 참조하면 FK(23503) 로 DELETE 가 막힘.
--- 먼저 NULL 로 해제한 뒤 삭제한다.
+-- workers 를 직접 참조하는 FK 테이블을 순서대로 정리한 뒤 삭제한다.
+-- 확인:  SELECT id, email FROM auth.users WHERE email LIKE '%@demo.atman.co.kr';
+
+-- (a) shifts.matched_worker_id → NULL
 UPDATE shifts
 SET matched_worker_id = NULL
 WHERE matched_worker_id IN (
@@ -41,9 +43,23 @@ WHERE matched_worker_id IN (
   WHERE u.email LIKE '%@demo.atman.co.kr'
 );
 
--- profiles·workers·shift_applications 등 연결 데이터는 FK CASCADE 로 함께 정리됨.
--- 실행 전 반드시 대상 확인:
---   SELECT id, email FROM auth.users WHERE email LIKE '%@demo.atman.co.kr';
+-- (b) wage_calculations → DELETE (shift_attendances 삭제 전에 먼저)
+DELETE FROM wage_calculations
+WHERE worker_id IN (
+  SELECT w.id FROM workers w
+  JOIN auth.users u ON u.id = w.auth_user_id
+  WHERE u.email LIKE '%@demo.atman.co.kr'
+);
+
+-- (c) shift_attendances → DELETE
+DELETE FROM shift_attendances
+WHERE worker_id IN (
+  SELECT w.id FROM workers w
+  JOIN auth.users u ON u.id = w.auth_user_id
+  WHERE u.email LIKE '%@demo.atman.co.kr'
+);
+
+-- profiles·workers·shift_applications·push_subscriptions 등은 FK CASCADE 로 정리됨.
 DELETE FROM auth.users WHERE email LIKE '%@demo.atman.co.kr';
 
 -- ── 3. (선택) 데모 플래그 시설/워커 정리 ────────────────────────────────────
