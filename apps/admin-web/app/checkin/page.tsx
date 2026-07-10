@@ -10,9 +10,20 @@ export default function CheckinPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
+  const coordsRef = useRef<{ lat: number; lng: number } | null>(null);
   const [state, setState] = useState<ScanState>('scanning');
   const [result, setResult] = useState<Extract<CheckinResult, { ok: true }> | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // 지오펜스용 스캔 기기 위치 — 카메라 켜는 동안 백그라운드로 확보
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => { coordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }; },
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 }
+    );
+  }, []);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -72,7 +83,7 @@ export default function CheckinPage() {
     } catch {
       // Backward compatible with older QR codes that contain only applicationId.
     }
-    const res = await recordCheckin(scannedApplicationId);
+    const res = await recordCheckin(scannedApplicationId, coordsRef.current);
     if (res.ok) {
       setResult(res);
       setState('success');

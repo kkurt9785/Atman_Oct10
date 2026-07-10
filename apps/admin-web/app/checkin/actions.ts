@@ -20,7 +20,42 @@ export type CheckinResult =
   | { ok: true; workerName: string; shiftDate: string; startTime: string; action: 'checkin' | 'checkout'; gross?: number }
   | { ok: false; message: string };
 
-export async function recordCheckin(applicationId: string): Promise<CheckinResult> {
+export type CheckinCoords = { lat: number; lng: number } | null;
+
+// 스캔 기기(관리자)와 병원 사이 허용 거리 — 초과 시 체크인 거부
+const GEOFENCE_METERS = 500;
+
+// PostGIS geography(POINT) WKB hex → { lng, lat }
+// 형식: 바이트0 endian(01=LE) · uint32 타입(SRID 플래그 포함) · uint32 SRID · float64 x · float64 y
+function parseWkbPoint(hex: string): { lng: number; lat: number } | null {
+  try {
+    if (!hex || hex.length < 50) return null;
+    const buf = Buffer.from(hex, 'hex');
+    const littleEndian = buf[0] === 1;
+    const type = littleEndian ? buf.readUInt32LE(1) : buf.readUInt32BE(1);
+    const hasSrid = (type & 0x20000000) !== 0;
+    const off = hasSrid ? 9 : 5;
+    const lng = littleEndian ? buf.readDoubleLE(off) : buf.readDoubleBE(off);
+    const lat = littleEndian ? buf.readDoubleLE(off + 8) : buf.readDoubleBE(off + 8);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+    return { lng, lat };
+  } catch {
+    return null;
+  }
+}
+
+function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(s)));
+}
+
+export async function recordCheckin(applicationId: string, coords: CheckinCoords = null): Promise<CheckinResult> {
   const sb = adminClient();
   const facilityId = await getCurrentFacilityId();
   if (!sb || !facilityId) return { ok: false, message: '인증이 필요해요' };
@@ -42,6 +77,23 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
   const shift  = app.shifts  as unknown as { id: string; shift_date: string; start_time: string; end_time: string; hourly_wage: number; facility_id: string };
   const worker = app.workers as unknown as { id: string; name: string; auth_user_id: string };
   if (shift.facility_id !== facilityId) return { ok: false, message: '이 병원의 시프트가 아니에요' };
+
+  // GPS 지오펜스 — 스캔 기기 위치가 있으면 병원과의 거리를 검증·기록
+  // (위치 미제공: 데스크톱 등 GPS 없는 기기 → 거리 기록 없이 허용)
+  let distanceM: number | null = null;
+  let scanPoint: string | null = null;
+  if (coords) {
+    const { data: fac } = await sb.from('facilities').select('location').eq('id', facilityId).single();
+    const facPoint = parseWkbPoint((fac?.location as string) ?? '');
+    if (facPoint) {
+      distanceM = haversineMeters(coords, facPoint);
+      if (distanceM > GEOFENCE_METERS) {
+        const km = (distanceM / 1000).toFixed(1);
+        return { ok: false, message: `병원에서 ${km}km 떨어진 위치예요. 병원 현장에서 스캔해주세요.` };
+      }
+    }
+    scanPoint = `SRID=4326;POINT(${coords.lng} ${coords.lat})`;
+  }
 
   const today = todayKST();
 
@@ -69,11 +121,13 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
       return { ok: false, message: msg };
     }
     await sb.from('shift_attendances').insert({
-      shift_id:        shift.id,
-      worker_id:       worker.id,
-      application_id:  applicationId,
-      check_in_at:     now.toISOString(),
-      check_in_method: 'qr',
+      shift_id:            shift.id,
+      worker_id:           worker.id,
+      application_id:      applicationId,
+      check_in_at:         now.toISOString(),
+      check_in_method:     'qr',
+      check_in_location:   scanPoint,
+      check_in_distance_m: distanceM,
     });
     // shift_applications mirror
     await sb.from('shift_applications')
@@ -137,8 +191,10 @@ export async function recordCheckin(applicationId: string): Promise<CheckinResul
 
   // 출퇴근 확정 (actual_minutes 는 GENERATED 컬럼이라 write 하지 않음)
   const { error: attErr } = await sb.from('shift_attendances').update({
-    check_out_at:     now.toISOString(),
-    check_out_method: 'qr',
+    check_out_at:         now.toISOString(),
+    check_out_method:     'qr',
+    check_out_location:   scanPoint,
+    check_out_distance_m: distanceM,
   }).eq('id', attendance.id);
   if (attErr) return { ok: false, message: '체크아웃 저장에 실패했어요. 다시 시도해 주세요.' };
 

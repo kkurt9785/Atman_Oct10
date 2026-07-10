@@ -7,10 +7,9 @@ import { Terms } from '@/components/onboarding/Terms';
 import { RoleSelect } from '@/components/onboarding/RoleSelect';
 import { ActivityArea, type AreaPref } from '@/components/onboarding/ActivityArea';
 import { LicenseUpload } from '@/components/onboarding/LicenseUpload';
-import { IDVerification } from '@/components/onboarding/IDVerification';
+import { BasicInfo, type BasicInfoValue } from '@/components/onboarding/BasicInfo';
 import { BankAccount } from '@/components/onboarding/BankAccount';
 import type { BankAccountValue } from '@/components/onboarding/BankAccount';
-import { OTPVerification } from '@/components/onboarding/OTPVerification';
 import { ReviewPending } from '@/components/onboarding/ReviewPending';
 import { Approval } from '@/components/onboarding/Approval';
 
@@ -20,13 +19,12 @@ type Step =
   | 'role'
   | 'area'
   | 'license'
-  | 'id'
+  | 'info'
   | 'bank'
-  | 'otp'
   | 'review'
   | 'approval';
 
-const VALID_STEPS = new Set<Step>(['splash', 'terms', 'role', 'area', 'license', 'id', 'bank', 'otp', 'review', 'approval']);
+const VALID_STEPS = new Set<Step>(['splash', 'terms', 'role', 'area', 'license', 'info', 'bank', 'review', 'approval']);
 
 function OnboardingInner() {
   const router = useRouter();
@@ -38,13 +36,14 @@ function OnboardingInner() {
   const [role, setRole] = useState<'rn' | 'na' | null>(null);
   const [areas, setAreas] = useState<AreaPref[]>([]);
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
-  const [bankAccount, setBankAccount] = useState<BankAccountValue | null>(null);
+  const [basicInfo, setBasicInfo] = useState<BasicInfoValue | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
   const go = (s: Step) => setStep(s);
 
-  async function handleOtpNext() {
+  // 계좌 입력이 마지막 단계 — 여기서 전체 가입 정보를 저장한다
+  async function handleSubmit(bankAccount: BankAccountValue) {
     if (submitting) return;
     setSubmitting(true);
     setSubmitError('');
@@ -67,15 +66,16 @@ function OnboardingInner() {
       }
 
       if (role) {
-        const nickname = user.user_metadata?.profile_nickname ?? '사용자';
+        const realName = basicInfo?.name ?? user.user_metadata?.profile_nickname ?? '사용자';
         const { error: wErr } = await supabase.from('workers').upsert({
           auth_user_id: user.id,
           kakao_id: user.app_metadata?.provider === 'kakao'
             ? user.user_metadata?.provider_id ?? user.id
             : user.id,
-          name: nickname,
+          name: realName,
           email: user.email,
-          birth_date: '1990-01-01',
+          phone: basicInfo?.phone ?? null,
+          birth_date: basicInfo?.birthDate ?? '1990-01-01',
           role,
           verification_status: licensePhotoUrl ? 'reviewing' : 'pending',
           license_photo_url: licensePhotoUrl,
@@ -86,14 +86,13 @@ function OnboardingInner() {
           return;
         }
 
-        if (bankAccount) {
-          await supabase.rpc('upsert_my_bank_account', {
-            p_bank_code: bankAccount.bankName,
-            p_bank_name: bankAccount.bankName,
-            p_account_number: bankAccount.accountNumber,
-            p_account_holder_name: nickname,
-          });
-        }
+        // 계좌는 미인증 상태로 수집 — 1원 인증은 오픈뱅킹 연동 후 활성화
+        await supabase.rpc('upsert_my_bank_account', {
+          p_bank_code: bankAccount.bankName,
+          p_bank_name: bankAccount.bankName,
+          p_account_number: bankAccount.accountNumber,
+          p_account_holder_name: realName,
+        });
       }
 
       if (areas.length > 0) {
@@ -135,10 +134,9 @@ function OnboardingInner() {
       {step === 'terms'    && <Terms onNext={() => go('role')} />}
       {step === 'role'     && <RoleSelect onNext={(r) => { setRole(r); go('area'); }} />}
       {step === 'area'     && <ActivityArea onNext={(a) => { setAreas(a); go('license'); }} />}
-      {step === 'license'  && <LicenseUpload onNext={(f) => { setLicenseFile(f); go('id'); }} onSkip={() => go('id')} />}
-      {step === 'id'       && <IDVerification onNext={() => go('bank')} />}
-      {step === 'bank'     && <BankAccount onNext={(b) => { setBankAccount(b); go('otp'); }} />}
-      {step === 'otp'      && <OTPVerification onNext={handleOtpNext} submitting={submitting} submitError={submitError} />}
+      {step === 'license'  && <LicenseUpload onNext={(f) => { setLicenseFile(f); go('info'); }} onSkip={() => go('info')} />}
+      {step === 'info'     && <BasicInfo onNext={(v) => { setBasicInfo(v); go('bank'); }} />}
+      {step === 'bank'     && <BankAccount onNext={handleSubmit} submitting={submitting} submitError={submitError} />}
       {step === 'review'   && <ReviewPending onHome={() => go('approval')} />}
       {step === 'approval' && <Approval onStart={() => router.push('/shifts')} onBrowse={() => router.push('/shifts')} />}
     </>

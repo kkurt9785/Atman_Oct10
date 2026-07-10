@@ -6,14 +6,22 @@ const BANKS = ['카카오뱅크', '토스뱅크', '신한', 'KB국민', '하나'
 
 export type BankAccountValue = { bankName: string; accountNumber: string };
 
-export function BankAccount({ onNext }: { onNext: (value: BankAccountValue) => void }) {
+export function BankAccount({
+  onNext,
+  submitting,
+  submitError,
+}: {
+  onNext: (value: BankAccountValue) => void;
+  submitting?: boolean;
+  submitError?: string;
+}) {
   const [bank, setBank] = useState('');
   const [account, setAccount] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
-      <p className="text-[13px] font-medium text-tertiary mb-2">인증 2/3</p>
+      <p className="text-[13px] font-medium text-tertiary mb-2">가입 정보 2/2</p>
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">정산받을 계좌</h1>
       <p className="text-[15px] text-sub mb-8">급여를 받을 계좌를 등록해주세요</p>
 
@@ -50,10 +58,18 @@ export function BankAccount({ onNext }: { onNext: (value: BankAccountValue) => v
         onChange={(e) => setAccount(e.target.value.replace(/\D/g, ''))}
         className="w-full h-[52px] px-4 bg-white rounded-card border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-2"
       />
-      <p className="text-[13px] text-tertiary mb-10">본인 명의의 계좌만 등록 가능해요</p>
+      <p className="text-[13px] text-tertiary mb-10">본인 명의의 계좌만 등록 가능해요. 계좌 인증은 첫 정산 전에 진행돼요.</p>
 
       <div className="mt-auto">
-        <Button onClick={() => onNext({ bankName: bank, accountNumber: account })} disabled={!bank || account.length < 10}>1원 인증 보내기</Button>
+        {submitError && (
+          <p className="text-[13px] font-bold text-red-600 text-center mb-3">{submitError}</p>
+        )}
+        <Button
+          onClick={() => onNext({ bankName: bank, accountNumber: account })}
+          disabled={!bank || account.length < 10 || submitting}
+        >
+          {submitting ? '처리 중...' : '등록하고 시작하기'}
+        </Button>
       </div>
     </div>
   );
