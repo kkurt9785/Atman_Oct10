@@ -2,9 +2,10 @@
 -- ① QR replay 방지 — 스캔된 nonce 1회용 기록 (UNIQUE 위반 = 재사용 차단)
 -- ② 암호화 fail-closed — 계좌 암호화 키 미설정 시 데모 키 폴백 대신 실패
 --
--- ⚠️ 실행 전 필수: 운영 암호화 키 설정 (한 번만, 키는 안전한 곳에 보관)
---    ALTER DATABASE postgres SET app.bank_encryption_key = '<32자 이상 랜덤 키>';
---    (미설정 상태로 이 마이그레이션만 적용하면 계좌 등록이 에러로 막힘 = 의도된 fail-closed)
+-- ⚠️ 실행 전 필수: 운영 암호화 키를 Supabase Vault에 저장 (한 번만, 키는 안전한 곳에 보관)
+--    SELECT vault.create_secret('<32자 이상 랜덤 키>', 'bank_encryption_key');
+--    (호스팅 Supabase는 ALTER DATABASE 권한이 없어 Vault를 사용한다.
+--     미설정 상태로 이 마이그레이션만 적용하면 계좌 등록이 에러로 막힘 = 의도된 fail-closed)
 -- ============================================================================
 
 -- ── ① QR 스캔 nonce 원장 ────────────────────────────────────────────────────
@@ -48,8 +49,18 @@ BEGIN
     RAISE EXCEPTION 'worker not found';
   END IF;
 
-  -- fail-closed: 운영 키 미설정이면 데모 키로 저장하지 않고 즉시 실패
-  v_key := NULLIF(current_setting('app.bank_encryption_key', true), '');
+  -- fail-closed: Vault(운영) → GUC(로컬 개발) 순으로 키 조회, 없으면 즉시 실패
+  BEGIN
+    SELECT decrypted_secret INTO v_key
+    FROM vault.decrypted_secrets
+    WHERE name = 'bank_encryption_key'
+    LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    v_key := NULL; -- Vault 미설치 환경(로컬 CLI 등)
+  END;
+  IF v_key IS NULL THEN
+    v_key := NULLIF(current_setting('app.bank_encryption_key', true), '');
+  END IF;
   IF v_key IS NULL THEN
     RAISE EXCEPTION 'bank encryption key is not configured';
   END IF;
