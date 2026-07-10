@@ -1,11 +1,11 @@
 {
-  "name": "잇닿 — 간호사 시프트",
-  "short_name": "잇닿",
-  "description": "내 근처 야간 시프트를 간편하게",
-  "start_url": "/home",
+  "name": "잇닿 사장님 — 관리 콘솔",
+  "short_name": "잇닿 사장님",
+  "description": "직원·근태·급여를 한 번에",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#3182F6",
+  "theme_color": "#191F28",
   "orientation": "portrait",
   "icons": [
     {

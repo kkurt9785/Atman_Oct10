@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthGuard } from './AuthGuard';
 import { TextSizeToggle } from './TextSizeToggle';
@@ -12,6 +13,13 @@ const FULLSCREEN_PREFIX = ['/checkin'];
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  // PWA: 설치 가능 조건 충족을 위해 앱 로드 시 SW 등록
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
 
   async function handleLogout() {
     await supabase.auth.signOut();
