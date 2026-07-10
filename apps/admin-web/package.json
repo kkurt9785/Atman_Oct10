@@ -4,9 +4,9 @@
   "private": true,
   "description": "잇닿 사장님 관리자 대시보드 (40대+ 소상공인 심플 UI)",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3002",
     "build": "next build",
-    "start": "next start"
+    "start": "next start -p 3002"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

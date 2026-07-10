@@ -10,6 +10,11 @@ export async function POST(request: Request) {
     code,
   });
 
+  // 카카오 콘솔에서 Client Secret 활성화 시 필수
+  if (process.env.KAKAO_CLIENT_SECRET) {
+    params.set('client_secret', process.env.KAKAO_CLIENT_SECRET);
+  }
+
   const res = await fetch('https://kauth.kakao.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

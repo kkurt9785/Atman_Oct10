@@ -9,7 +9,6 @@ export function adminClient() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-export const ORG_ID = process.env.ORG_ID ?? null;
 
 export function bearerToken(headers: Headers): string | null {
   const auth = headers.get('authorization');

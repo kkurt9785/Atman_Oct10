@@ -17,7 +17,7 @@ export function Splash() {
   const [loading, setLoading] = useState(false);
   const [demoLoadingEmail, setDemoLoadingEmail] = useState<string | null>(null);
   const [demoError, setDemoError] = useState('');
-  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
+  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && process.env.NODE_ENV !== 'production';
 
   function handleKakaoLogin() {
     // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출
