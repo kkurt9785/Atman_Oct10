@@ -10,6 +10,8 @@
 
 ## 0. 구현 현황 (2026-07-10)
 
+> 📋 **상세 기능 명세서**: [docs/FEATURES.md](docs/FEATURES.md) — 화면·기능별 구현 상태, DB 구조, 정산 규칙, 시연 가이드
+
 **프로덕션**: [itdot.co.kr](https://itdot.co.kr) (워커) · [admin.itdot.co.kr](https://admin.itdot.co.kr) (병원 관리자) — Vercel, PWA 설치 지원
 
 | 영역 | 상태 |
