@@ -24,6 +24,7 @@
 | 크레딧 충전 (토스페이먼츠) | 🟡 코드 완성 — 전자결제 가입 보류 중 (가입비 33만) |
 | 본인인증 (PASS) | ⏳ 사업자등록 후 |
 | 앱스토어 | ⏳ 보류 — PWA 우선, 사용자 확보 후 RN WebView |
+| 운영 보안 (2026-07-11) | ✅ RLS 작업별 분리·정산 단일 트랜잭션 RPC·결제 멱등(주문원장+webhook)·QR 회전/HMAC/nonce·Private Storage·Vault 암호화 키 — 상세 [docs/FEATURES.md](docs/FEATURES.md) |
 
 시연: `python3 scripts/revive_demo.py` (전날 실행) → sales-demo-1/2/3 계정, 로컬 dev에서 데모 로그인.
 
@@ -305,12 +306,12 @@ ALTER TABLE worker_preferences
                               근무 시간 × 시급 자동 정산
 ```
 
-### 보안 4겹
+### 보안 4겹 — ✅ 전부 구현 완료 (2026-07-11)
 
-1. **회전 QR** — 30~60초마다 갱신, 스크린샷 부정 차단 *(예정)*
-2. **HMAC 서명** — 서버 비밀키로 payload 서명, QR 위조 차단 *(예정)*
-3. **위치 검증** — 스캐너 GPS와 시설 위치 비교 ✅ **구현됨 (2026-07-10)** — 반경 500m 초과 시 체크인 거부, `check_in/out_location`·`distance_m` 기록. GPS 없는 기기는 거리 기록 없이 허용
-4. **Nonce UNIQUE** — DB 제약으로 같은 QR 두 번 처리 차단 *(스키마 준비됨, 미사용)*
+1. **회전 QR** ✅ — 서버 발급 토큰 45초 자동 갱신 (TTL 60초), 스크린샷 재사용 차단
+2. **HMAC 서명** ✅ — `QR_SECRET`으로 payload 서명, 위조 QR 거부
+3. **위치 검증** ✅ — 스캐너 GPS와 시설 위치 비교, 반경 500m 초과 시 거부, `check_in/out_location`·`distance_m` 기록
+4. **Nonce UNIQUE** ✅ — `qr_scan_nonces` 1회용 기록, 같은 QR 재스캔 시 DB 제약으로 차단
 
 ### 페이로드 구조
 
