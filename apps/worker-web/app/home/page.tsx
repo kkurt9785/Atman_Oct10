@@ -183,6 +183,28 @@ function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () =>
   );
 }
 
+// 현재 위치 조회 — 거부/타임아웃 시 null (지역 설정 기준으로 폴백)
+function getPosition(timeoutMs = 3500): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (!('geolocation' in navigator)) {
+      resolve(null);
+      return;
+    }
+    const timer = setTimeout(() => resolve(null), timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timer);
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      },
+      { enableHighAccuracy: false, timeout: timeoutMs, maximumAge: 5 * 60 * 1000 }
+    );
+  });
+}
+
 // ─── 메인 ──────────────────────────────────────────────────────
 export default function HomePage() {
   const router = useRouter();
@@ -195,6 +217,7 @@ export default function HomePage() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
+  const [gpsUsed, setGpsUsed] = useState(false);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
@@ -245,15 +268,30 @@ export default function HomePage() {
         setApplied(new Set((appData ?? []).map((a: { shift_id: string }) => a.shift_id)));
       }
 
-      // 위치 기반 근처 시프트 조회
+      // 위치 기반 근처 시프트 조회 — GPS(현재 위치) + 지역 설정 이중 기준
       const roleFilter = userRole === 'rn' ? ['rn', 'any'] : ['na', 'any'];
       let shiftRows: ShiftWithFacility[] = [];
 
       if (user) {
-        const { data: rpcData } = await supabase.rpc('get_nearby_open_shifts', {
+        const pos = await getPosition();
+        setGpsUsed(!!pos);
+
+        let { data: rpcData, error: rpcErr } = await supabase.rpc('get_nearby_open_shifts_v2', {
           p_auth_user_id: user.id,
           p_roles: roleFilter,
+          p_lat: pos?.lat ?? null,
+          p_lng: pos?.lng ?? null,
         });
+
+        // v2 미적용 DB 폴백 (마이그레이션 전 배포 안전망)
+        if (rpcErr) {
+          const v1 = await supabase.rpc('get_nearby_open_shifts', {
+            p_auth_user_id: user.id,
+            p_roles: roleFilter,
+          });
+          rpcData = v1.data;
+          setGpsUsed(false);
+        }
         shiftRows = (rpcData ?? []).map((r: Record<string, unknown>) => ({
           ...r,
           distance_km:
@@ -339,8 +377,13 @@ export default function HomePage() {
             </div>
           </Link>
         </div>
-        {areas.length > 0 && (
+        {(gpsUsed || areas.length > 0) && (
           <div className="flex gap-1.5 mt-3 flex-wrap">
+            {gpsUsed && (
+              <span className="text-[12px] font-semibold text-white bg-primary px-2.5 py-1 rounded-full">
+                🛰 현재 위치
+              </span>
+            )}
             {areas.map((a) => (
               <span key={a} className="text-[12px] font-semibold text-primary bg-primary-light px-2.5 py-1 rounded-full">
                 📍 {a}
