@@ -74,16 +74,10 @@ export default function CheckinPage() {
     };
   }, []);
 
-  async function handleScan(applicationId: string) {
+  async function handleScan(rawToken: string) {
     setState('loading');
-    let scannedApplicationId = applicationId;
-    try {
-      const payload = JSON.parse(applicationId) as { applicationId?: string };
-      if (payload.applicationId) scannedApplicationId = payload.applicationId;
-    } catch {
-      // Backward compatible with older QR codes that contain only applicationId.
-    }
-    const res = await recordCheckin(scannedApplicationId, coordsRef.current);
+    // 서명 토큰(aqr1.*)을 그대로 서버로 — 검증·TTL·replay 차단은 서버에서
+    const res = await recordCheckin(rawToken, coordsRef.current);
     if (res.ok) {
       setResult(res);
       setState('success');

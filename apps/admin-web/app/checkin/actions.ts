@@ -1,7 +1,31 @@
 'use server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { adminClient } from '@/lib/supabase';
 import { requireFacilityAdmin } from '@/lib/facility';
 import { todayKST } from '@/lib/date';
+
+// QR 토큰 검증 — HMAC 서명 + TTL. 형식: aqr1.<applicationId>.<exp>.<nonce>.<sig>
+function verifyQrToken(raw: string): { applicationId: string; nonce: string } | { error: string } {
+  const secret = process.env.QR_SECRET;
+  if (!secret) return { error: 'QR 검증 키가 설정되지 않았어요' };
+
+  const parts = raw.split('.');
+  if (parts.length !== 5 || parts[0] !== 'aqr1') {
+    return { error: '만료된 QR 형식이에요. 워커 앱에서 QR을 다시 열어주세요.' };
+  }
+  const [, applicationId, exp, nonce, sig] = parts;
+
+  const expected = createHmac('sha256', secret).update(`${applicationId}.${exp}.${nonce}`).digest('base64url');
+  const a = new Uint8Array(Buffer.from(sig));
+  const b = new Uint8Array(Buffer.from(expected));
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    return { error: '위조된 QR이에요' };
+  }
+  if (Number(exp) < Math.floor(Date.now() / 1000)) {
+    return { error: 'QR이 만료됐어요. 워커 화면의 새 QR을 스캔해주세요.' };
+  }
+  return { applicationId, nonce };
+}
 
 export type CheckinResult =
   | { ok: true; workerName: string; shiftDate: string; startTime: string; action: 'checkin' | 'checkout'; gross?: number }
@@ -42,11 +66,27 @@ function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng:
   return Math.round(2 * R * Math.asin(Math.sqrt(s)));
 }
 
-export async function recordCheckin(applicationId: string, coords: CheckinCoords = null): Promise<CheckinResult> {
+export async function recordCheckin(rawToken: string, coords: CheckinCoords = null): Promise<CheckinResult> {
   const sb = adminClient();
   const session = await requireFacilityAdmin();
   if (!sb || !session) return { ok: false, message: '인증이 필요해요' };
   const facilityId = session.facilityId;
+
+  // 1) QR 토큰 검증 (HMAC + TTL)
+  const verified = verifyQrToken(rawToken.trim());
+  if ('error' in verified) return { ok: false, message: verified.error };
+  const { applicationId, nonce } = verified;
+
+  // 2) replay 차단 — nonce 1회용 (재사용 시 UNIQUE 위반)
+  const { error: nonceErr } = await sb
+    .from('qr_scan_nonces')
+    .insert({ nonce, application_id: applicationId });
+  if (nonceErr) {
+    if (nonceErr.code === '23505') {
+      return { ok: false, message: '이미 사용된 QR이에요. 워커 화면의 새 QR을 스캔해주세요.' };
+    }
+    return { ok: false, message: 'QR 확인에 실패했어요. 다시 시도해 주세요.' };
+  }
 
   // shift_application + shift + worker 조회
   const { data: app, error } = await sb
