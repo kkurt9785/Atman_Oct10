@@ -218,12 +218,10 @@ export default function HomePage() {
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
 
-  // 매칭 기준 토글 — 🛰 GPS / 📍 등록 지역별 켜고 끄기
+  // 매칭 기준 선택 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
-  const [gpsOn, setGpsOn] = useState(true);
-  const [offAreas, setOffAreas] = useState<Set<string>>(new Set());
+  const [basis, setBasis] = useState<'gps' | string>('gps');
   const userRef = useRef<{ id: string; roles: string[] } | null>(null);
-  const areasRef = useRef<string[]>([]);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
@@ -248,20 +246,18 @@ export default function HomePage() {
       },
     })) as ShiftWithFacility[];
 
-  // 현재 토글 상태 기준 시프트 조회 (칩 탭 시 재호출)
-  const fetchShifts = useCallback(async (p: { lat: number; lng: number } | null, on: boolean, off: Set<string>) => {
+  // 선택한 기준(현재 위치 또는 특정 지역) 하나로 시프트 조회
+  const fetchShifts = useCallback(async (p: { lat: number; lng: number } | null, b: 'gps' | string) => {
     const u = userRef.current;
     if (!u) return;
 
-    const allAreas = areasRef.current;
-    const activeLabels = allAreas.filter((a) => !off.has(a));
-
+    const useGps = b === 'gps' && !!p;
     let { data: rpcData, error: rpcErr } = await supabase.rpc('get_nearby_open_shifts_v2', {
       p_auth_user_id: u.id,
       p_roles: u.roles,
-      p_lat: on && p ? p.lat : null,
-      p_lng: on && p ? p.lng : null,
-      p_pref_labels: off.size === 0 ? null : activeLabels,
+      p_lat: useGps ? p!.lat : null,
+      p_lng: useGps ? p!.lng : null,
+      p_pref_labels: useGps ? [] : b === 'gps' ? null : [b],
     });
 
     // 신규 파라미터 미적용 DB 폴백 (마이그레이션 전 배포 안전망)
@@ -269,8 +265,8 @@ export default function HomePage() {
       const v2old = await supabase.rpc('get_nearby_open_shifts_v2', {
         p_auth_user_id: u.id,
         p_roles: u.roles,
-        p_lat: on && p ? p.lat : null,
-        p_lng: on && p ? p.lng : null,
+        p_lat: useGps ? p!.lat : null,
+        p_lng: useGps ? p!.lng : null,
       });
       rpcData = v2old.data;
       rpcErr = v2old.error;
@@ -285,18 +281,10 @@ export default function HomePage() {
     setShifts(mapRows(rpcData));
   }, []);
 
-  function toggleGps() {
-    const next = !gpsOn;
-    setGpsOn(next);
-    fetchShifts(pos, next, offAreas);
-  }
-
-  function toggleArea(label: string) {
-    const next = new Set(offAreas);
-    if (next.has(label)) next.delete(label);
-    else next.add(label);
-    setOffAreas(next);
-    fetchShifts(pos, gpsOn, next);
+  function selectBasis(b: 'gps' | string) {
+    if (b === basis) return;
+    setBasis(b);
+    fetchShifts(pos, b);
   }
 
   useEffect(() => {
@@ -329,7 +317,6 @@ export default function HomePage() {
       setCredits(typeof balanceData === 'number' ? balanceData : 0);
 
       userRef.current = { id: user.id, roles: userRole === 'rn' ? ['rn', 'any'] : ['na', 'any'] };
-      areasRef.current = areaLabels;
 
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;
@@ -347,9 +334,12 @@ export default function HomePage() {
         setApplied(new Set((appData ?? []).map((a: { shift_id: string }) => a.shift_id)));
       }
 
+      // 기본 기준: GPS 가능하면 현재 위치, 아니면 첫 번째 등록 지역
       const p = await getPosition();
       setPos(p);
-      await fetchShifts(p, true, new Set());
+      const initialBasis: 'gps' | string = p ? 'gps' : areaLabels[0] ?? 'gps';
+      setBasis(initialBasis);
+      await fetchShifts(p, initialBasis);
       setLoading(false);
     }
     load();
@@ -421,9 +411,9 @@ export default function HomePage() {
           <div className="flex gap-1.5 mt-3 flex-wrap">
             {pos && (
               <button
-                onClick={toggleGps}
-                className={`text-[12px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
-                  gpsOn ? 'text-white bg-primary' : 'text-tertiary bg-bg line-through'
+                onClick={() => selectBasis('gps')}
+                className={`text-[12px] font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                  basis === 'gps' ? 'text-white bg-primary' : 'text-sub bg-bg'
                 }`}
               >
                 🛰 현재 위치
@@ -432,9 +422,9 @@ export default function HomePage() {
             {areas.map((a) => (
               <button
                 key={a}
-                onClick={() => toggleArea(a)}
-                className={`text-[12px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
-                  !offAreas.has(a) ? 'text-primary bg-primary-light' : 'text-tertiary bg-bg line-through'
+                onClick={() => selectBasis(a)}
+                className={`text-[12px] font-semibold px-3 py-1.5 rounded-full transition-colors ${
+                  basis === a ? 'text-white bg-primary' : 'text-sub bg-bg'
                 }`}
               >
                 📍 {a}
