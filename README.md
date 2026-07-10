@@ -116,15 +116,15 @@
 
 | 영역 | 선택 | 비고 |
 |---|---|---|
-| 앱 | **Expo (React Native) + TypeScript** | OTA 업데이트, EAS Build 무료 |
+| 앱 | **Next.js (App Router) + TypeScript — PWA** (2026-07 전환) | 앱스토어 심사 없이 즉시 배포·업데이트. 홈 화면 설치 + 푸시 지원. 스토어 등록은 사용자 확보 후 RN WebView로 |
 | 백엔드 | **Supabase** (Postgres + PostGIS + Auth + Realtime + Storage + Edge Functions) | 무료 한도로 MVP 충분 |
-| 푸시 | **Expo Push Notifications** | FCM/APNs 추상화, 무료 |
+| 푸시 | **Web Push (VAPID) + Service Worker** | 브라우저 네이티브, 무료 |
 | 지도 | **카카오맵 SDK** | 한국 좌표·POI 우수 |
 | 인증 (MVP) | 카카오 OAuth via Supabase | PASS는 Phase 2 |
 | 인증 (정식) | NICE/KCB PASS 본인인증 | 사업자등록 후 |
 | 결제 (Phase 2) | 토스페이먼츠 + 에스크로 | 시프트 정산 |
 | 즉시 정산 파트너 (Phase 2) | 페이워치 / 비즈머니플러스 / 토스뱅크 | 자기 자본 회피 |
-| 향후 웹 | Next.js + Vercel | 어드민·B2B 대시보드 |
+| 웹 호스팅 | Vercel (itdot.co.kr / admin.itdot.co.kr) | worker·admin 두 앱 모두 |
 | 모니터링 | Sentry / PostHog | Phase 2 |
 
 **왜 Supabase인가:** PostGIS 네이티브 지원이 결정적. Firestore는 지리 쿼리에 약하다.
