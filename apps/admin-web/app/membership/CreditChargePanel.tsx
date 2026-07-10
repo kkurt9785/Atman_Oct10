@@ -144,12 +144,12 @@ export default function CreditChargePanel({
 
   return (
     <>
-      {/* 볼륨 보너스 안내 */}
+      {/* 대량 충전 혜택 안내 */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
         <span className="text-[16px] mt-0.5">🎁</span>
         <div>
-          <p className="text-[13px] font-bold text-amber-700">많이 충전할수록 보너스 크레딧 ↑</p>
-          <p className="text-[11px] text-amber-600 mt-0.5">보너스 크레딧은 수수료 결제에 동일하게 사용돼요</p>
+          <p className="text-[13px] font-bold text-amber-700">300만원 이상 충전 시 보너스 크레딧 제공</p>
+          <p className="text-[11px] text-amber-600 mt-0.5">보너스 크레딧은 임금 지급에 동일하게 사용돼요</p>
         </div>
       </div>
 
@@ -198,10 +198,6 @@ export default function CreditChargePanel({
                 <span className="text-sub">결제 금액</span>
                 <span className="font-bold text-ink">{won(selected.charge)}</span>
               </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-sub">기본 크레딧</span>
-                <span className="font-bold text-ink">{won(selected.charge)}</span>
-              </div>
               {selected.bonus > 0 && (
                 <div className="flex justify-between text-[13px]">
                   <span className="text-sub">보너스 크레딧 (+{selected.bonusRate}%)</span>
@@ -209,7 +205,7 @@ export default function CreditChargePanel({
                 </div>
               )}
               <div className="flex justify-between text-[14px] pt-2 border-t border-line">
-                <span className="font-bold text-ink">지급 크레딧 합계</span>
+                <span className="font-bold text-ink">지급 크레딧</span>
                 <span className="font-extrabold text-primary">{won(selected.credit)}</span>
               </div>
             </div>

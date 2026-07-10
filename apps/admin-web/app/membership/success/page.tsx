@@ -68,7 +68,7 @@ async function confirmPayment(searchParams: {
   const rows = [
     {
       org_id: facilityId,
-      delta: tier.charge,
+      delta: tier.credit - tier.bonus,
       kind: 'earn',
       ref: orderId,
       expires_at: expiresAt.toISOString(),

@@ -8,12 +8,14 @@ export type CreditTier = {
   tag: string | null;
 };
 
+// Toss 수수료 3.4% 반영: credit < charge × 0.966 → 수수료 커버 + 플랫폼 마진
+// 이익 = (charge × 0.966) - credit / 50만원 +1.8만, 100만원 +2.6만, 이상 ~2.6%
 export const CREDIT_TIERS: CreditTier[] = [
-  { id: 1, charge: 500000, credit: 500000, bonus: 0, bonusRate: 0, label: '50만원', tag: null },
-  { id: 2, charge: 1000000, credit: 1070000, bonus: 70000, bonusRate: 7, label: '100만원', tag: '1주 운영' },
-  { id: 3, charge: 3000000, credit: 3300000, bonus: 300000, bonusRate: 10, label: '300만원', tag: '2주 운영' },
-  { id: 4, charge: 5000000, credit: 5750000, bonus: 750000, bonusRate: 15, label: '500만원', tag: '추천' },
-  { id: 5, charge: 10000000, credit: 12000000, bonus: 2000000, bonusRate: 20, label: '1,000만원+', tag: '1개월 운영' },
+  { id: 1, charge: 500_000,    credit: 465_000,   bonus: 0,        bonusRate: 0,   label: '50만원',     tag: null },
+  { id: 2, charge: 1_000_000,  credit: 940_000,   bonus: 0,        bonusRate: 0,   label: '100만원',   tag: null },
+  { id: 3, charge: 3_000_000,  credit: 2_820_000, bonus: 20_000,   bonusRate: 0.7, label: '300만원',   tag: '추천' },
+  { id: 4, charge: 5_000_000,  credit: 4_700_000, bonus: 50_000,   bonusRate: 1,   label: '500만원',   tag: '인기' },
+  { id: 5, charge: 10_000_000, credit: 9_460_000, bonus: 100_000,  bonusRate: 1,   label: '1,000만원+', tag: '최대 혜택' },
 ];
 
 export function won(n: number) {
