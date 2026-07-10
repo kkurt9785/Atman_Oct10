@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 import { adminClient } from '@/lib/supabase';
-import { getCurrentFacilityId } from '@/lib/facility';
+import { requireFacilityAdmin } from '@/lib/facility';
 import { findCreditTierByCharge, won } from '@/lib/billing';
 
 export const dynamic = 'force-dynamic';
@@ -29,19 +29,25 @@ async function confirmPayment(searchParams: {
     return { ok: false, message: 'TOSS_SECRET_KEY가 설정되지 않았어요.' };
   }
 
-  const facilityId = await getCurrentFacilityId();
+  const session = await requireFacilityAdmin();
   const sb = adminClient();
-  if (!sb || !facilityId) return { ok: false, message: '병원 인증 정보가 필요해요.' };
+  if (!sb || !session) return { ok: false, message: '병원 인증 정보가 필요해요.' };
 
-  const { data: existing } = await sb
-    .from('credit_ledger')
-    .select('id')
-    .eq('org_id', facilityId)
-    .eq('ref', orderId)
+  // 주문 원장 검증 — 결제 전 생성된 주문이 있어야만 승인 진행
+  const { data: order } = await sb
+    .from('payment_orders')
+    .select('order_id, org_id, amount, status')
+    .eq('order_id', orderId)
     .maybeSingle();
 
-  if (existing) {
+  if (!order || order.org_id !== session.facilityId) {
+    return { ok: false, message: '주문 정보를 찾을 수 없어요.' };
+  }
+  if (order.status === 'paid') {
     return { ok: true, credited: tier.credit, alreadyProcessed: true };
+  }
+  if (order.amount !== amount) {
+    return { ok: false, message: '결제 금액이 주문과 달라요.' };
   }
 
   const res = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
@@ -62,36 +68,18 @@ async function confirmPayment(searchParams: {
     };
   }
 
-  const expiresAt = new Date();
-  expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-
-  const rows = [
-    {
-      org_id: facilityId,
-      delta: tier.credit - tier.bonus,
-      kind: 'earn',
-      ref: orderId,
-      expires_at: expiresAt.toISOString(),
-    },
-  ];
-
-  if (tier.bonus > 0) {
-    rows.push({
-      org_id: facilityId,
-      delta: tier.bonus,
-      kind: 'earn',
-      ref: orderId,
-      expires_at: expiresAt.toISOString(),
-    });
+  // 크레딧 지급 — 단일 트랜잭션·멱등 RPC (원장 기록 + 주문 paid 전환 + 감사로그)
+  const { data: applied, error } = await sb.rpc('apply_payment_credit', {
+    p_order_id: orderId,
+    p_payment_key: paymentKey,
+    p_amount: amount,
+  });
+  const appliedResult = applied as { ok: boolean; already?: boolean; credited?: number; message?: string } | null;
+  if (error || !appliedResult?.ok) {
+    return { ok: false, message: appliedResult?.message ?? '결제는 완료됐지만 크레딧 반영에 실패했어요. 운영팀에 문의해 주세요.' };
   }
-
-  const { error } = await sb.from('credit_ledger').insert(rows);
-  if (error) {
-    // 유니크 위반(23505) = 동시/재시도 요청이 이미 적립함 → 멱등 성공 처리
-    if (error.code === '23505') {
-      return { ok: true, credited: tier.credit, alreadyProcessed: true };
-    }
-    return { ok: false, message: '결제는 완료됐지만 크레딧 반영에 실패했어요. 운영팀에 문의해 주세요.' };
+  if (appliedResult.already) {
+    return { ok: true, credited: tier.credit, alreadyProcessed: true };
   }
 
   revalidatePath('/');

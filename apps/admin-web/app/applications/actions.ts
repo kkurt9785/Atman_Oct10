@@ -1,7 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { adminClient } from '@/lib/supabase';
-import { getCurrentFacilityId } from '@/lib/facility';
+import { requireFacilityAdmin } from '@/lib/facility';
 import { sendWebPush } from '@/lib/push';
 import type webpush from 'web-push';
 
@@ -11,8 +11,9 @@ export async function acceptApplication(
   workerId: string,
 ) {
   const sb = adminClient();
-  const facilityId = await getCurrentFacilityId();
-  if (!sb || !facilityId) throw new Error('인증 필요');
+  const session = await requireFacilityAdmin();
+  if (!sb || !session) throw new Error('인증 필요');
+  const facilityId = session.facilityId;
 
   const now = new Date().toISOString();
 
@@ -95,8 +96,9 @@ export async function acceptApplication(
 
 export async function rejectApplication(applicationId: string) {
   const sb = adminClient();
-  const facilityId = await getCurrentFacilityId();
-  if (!sb || !facilityId) throw new Error('인증 필요');
+  const session = await requireFacilityAdmin();
+  if (!sb || !session) throw new Error('인증 필요');
+  const facilityId = session.facilityId;
 
   const { data: app } = await sb
     .from('shift_applications')

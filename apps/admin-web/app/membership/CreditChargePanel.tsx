@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { CREDIT_TIERS, won } from '@/lib/billing';
+import { createPaymentOrder } from './actions';
 
 declare global {
   interface Window {
@@ -125,8 +126,12 @@ export default function CreditChargePanel({
       const tossPayments = window.TossPayments?.(tossClientKey);
       if (!tossPayments) throw new Error('토스페이먼츠를 시작할 수 없어요.');
 
+      // 서버에서 주문 원장을 먼저 생성 — 승인 시 금액·시설 대조 (멱등성 기준점)
+      const order = await createPaymentOrder(selected.charge);
+      if (!order.ok) throw new Error(order.message);
+
       const origin = window.location.origin;
-      const orderId = `atman_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const orderId = order.orderId;
       await tossPayments.requestPayment('카드', {
         amount: selected.charge,
         orderId,

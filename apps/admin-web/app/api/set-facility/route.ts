@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       sb.from('facility_admin_access').select('facility_id').eq('user_id', user.id).eq('facility_id', body.facilityId).maybeSingle(),
     ]);
     if (!owned && !delegated) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    await setFacilityCookie(body.facilityId);
+    await setFacilityCookie(body.facilityId, user.id);
     return NextResponse.json({ facilityId: body.facilityId });
   }
 
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const facilityId = owned?.id ?? delegated?.facility_id ?? null;
   if (!facilityId) return NextResponse.json({ facilityId: null });
 
-  await setFacilityCookie(facilityId);
+  await setFacilityCookie(facilityId, user.id);
 
   return NextResponse.json({ facilityId });
 }

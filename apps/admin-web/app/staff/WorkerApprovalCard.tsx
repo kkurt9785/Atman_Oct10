@@ -99,7 +99,7 @@ export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={worker.licensePhotoUrl}
+            src={`/api/license-photo?src=${encodeURIComponent(worker.licensePhotoUrl)}`}
             alt="면허증"
             className="max-w-full max-h-full rounded-xl object-contain"
           />

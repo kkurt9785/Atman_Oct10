@@ -1,20 +1,7 @@
 'use server';
 import { adminClient } from '@/lib/supabase';
-import { getCurrentFacilityId } from '@/lib/facility';
-import { calcBreakMinutes } from '@/lib/pay';
+import { requireFacilityAdmin } from '@/lib/facility';
 import { todayKST } from '@/lib/date';
-
-// 야간 시간(KST 22:00~06:00) 분 수 계산 — 서버 TZ(UTC)와 무관하게 KST로 판정
-function calcNightMinutes(checkIn: Date, checkOut: Date): number {
-  let mins = 0;
-  const cur = new Date(checkIn);
-  while (cur < checkOut) {
-    const kstHour = new Date(cur.getTime() + 9 * 60 * 60_000).getUTCHours();
-    if (kstHour >= 22 || kstHour < 6) mins++;
-    cur.setTime(cur.getTime() + 60_000);
-  }
-  return mins;
-}
 
 export type CheckinResult =
   | { ok: true; workerName: string; shiftDate: string; startTime: string; action: 'checkin' | 'checkout'; gross?: number }
@@ -57,8 +44,9 @@ function haversineMeters(a: { lat: number; lng: number }, b: { lat: number; lng:
 
 export async function recordCheckin(applicationId: string, coords: CheckinCoords = null): Promise<CheckinResult> {
   const sb = adminClient();
-  const facilityId = await getCurrentFacilityId();
-  if (!sb || !facilityId) return { ok: false, message: '인증이 필요해요' };
+  const session = await requireFacilityAdmin();
+  if (!sb || !session) return { ok: false, message: '인증이 필요해요' };
+  const facilityId = session.facilityId;
 
   // shift_application + shift + worker 조회
   const { data: app, error } = await sb
@@ -143,68 +131,22 @@ export async function recordCheckin(applicationId: string, coords: CheckinCoords
     };
   }
 
-  // ── 체크아웃 ────────────────────────────────────
-  const checkIn   = new Date(attendance.check_in_at as string);
-  const rawMins   = Math.max(0, Math.round((now.getTime() - checkIn.getTime()) / 60_000)); // 시계 역전 방어
-  const breakMin  = calcBreakMinutes(rawMins);
-  const workedMin = Math.max(0, rawMins - breakMin);
-  const nightMin  = Math.min(calcNightMinutes(checkIn, now), workedMin);
-  const overtimeMin = Math.max(0, workedMin - 8 * 60); // 1일 8h 초과 = 연장
-  const hourlyWage  = shift.hourly_wage;
-  const perMin = hourlyWage / 60;
-  const base            = Math.round(workedMin * perMin);
-  const overtimePremium = Math.round(overtimeMin * perMin * 0.5); // 연장 +50%
-  const nightPremium    = Math.round(nightMin * perMin * 0.5);    // 야간 +50%
-  const holidayPremium  = 0; // 휴일 가산: shifts 휴일 플래그 필요 → 후속(데이터 추가)
-  const gross = base + overtimePremium + nightPremium + holidayPremium;
-
-  // 순서: 금액 기록 → 크레딧 차감 → (여기서부터 재스캔 차단) 출퇴근 확정 → 미러.
-  // wage_calculations UNIQUE(attendance_id) / credit_ledger UNIQUE(org_id,ref) 로 재시도 안전.
-  const { error: wageErr } = await sb.from('wage_calculations').insert({
-    attendance_id:    attendance.id,
-    org_id:           facilityId,
-    worker_id:        worker.id,
-    shift_id:         shift.id,
-    rule_version:     '2026-KR',
-    worked_minutes:   workedMin,
-    night_minutes:    nightMin,
-    overtime_minutes: overtimeMin,
-    break_minutes:    breakMin,
-    base,
-    overtime_premium: overtimePremium,
-    night_premium:    nightPremium,
-    holiday_premium:  holidayPremium,
-    gross,
-    breakdown: { hourly_wage: hourlyWage, raw_minutes: rawMins, break_minutes: breakMin },
-    calculated_at: now.toISOString(),
+  // ── 체크아웃 — 정산 전체를 단일 DB 트랜잭션으로 (checkout_and_settle) ──
+  // 임금계산·크레딧차감·상태변경·감사로그가 한 트랜잭션. 실패 시 전체 롤백, 재스캔 멱등.
+  const { data: settle, error: settleErr } = await sb.rpc('checkout_and_settle', {
+    p_application_id: applicationId,
+    p_facility_id: facilityId,
+    p_lat: coords?.lat ?? null,
+    p_lng: coords?.lng ?? null,
   });
-  if (wageErr && wageErr.code !== '23505') return { ok: false, message: '정산 기록에 실패했어요. 다시 시도해 주세요.' };
 
-  const { error: creditErr } = await sb.from('credit_ledger').insert({
-    org_id:     shift.facility_id,
-    delta:      -gross,       // 음수 = 크레딧 차감
-    kind:       'spend',
-    ref:        shift.id,
-    created_at: now.toISOString(),
-  });
-  if (creditErr && creditErr.code !== '23505') return { ok: false, message: '크레딧 차감에 실패했어요. 다시 시도해 주세요.' };
-
-  // 출퇴근 확정 (actual_minutes 는 GENERATED 컬럼이라 write 하지 않음)
-  const { error: attErr } = await sb.from('shift_attendances').update({
-    check_out_at:         now.toISOString(),
-    check_out_method:     'qr',
-    check_out_location:   scanPoint,
-    check_out_distance_m: distanceM,
-  }).eq('id', attendance.id);
-  if (attErr) return { ok: false, message: '체크아웃 저장에 실패했어요. 다시 시도해 주세요.' };
-
-  // 미러(표시용) — best-effort
-  await sb.from('shift_applications')
-    .update({ checked_out_at: now.toISOString(), status: 'completed' })
-    .eq('id', applicationId);
-  await sb.from('shifts')
-    .update({ status: 'completed' })
-    .eq('id', shift.id);
+  if (settleErr) {
+    return { ok: false, message: '정산 처리에 실패했어요. 다시 시도해 주세요.' };
+  }
+  const result = settle as { ok: boolean; message?: string; gross?: number };
+  if (!result.ok) {
+    return { ok: false, message: result.message ?? '정산 처리에 실패했어요.' };
+  }
 
   return {
     ok: true,
@@ -212,6 +154,6 @@ export async function recordCheckin(applicationId: string, coords: CheckinCoords
     shiftDate:  shift.shift_date,
     startTime:  shift.start_time,
     action: 'checkout',
-    gross,
+    gross: result.gross,
   };
 }

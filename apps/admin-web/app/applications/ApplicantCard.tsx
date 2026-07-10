@@ -144,7 +144,7 @@ export function ApplicantCard({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={applicant.licensePhotoUrl}
+                        src={`/api/license-photo?src=${encodeURIComponent(applicant.licensePhotoUrl)}`}
                         alt="면허증"
                         className="max-w-full max-h-[80vh] rounded-xl object-contain"
                         onClick={(e) => e.stopPropagation()}

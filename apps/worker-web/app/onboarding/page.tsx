@@ -52,6 +52,7 @@ function OnboardingInner() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { go('splash'); return; }
 
+      // 비공개 버킷 — URL이 아닌 경로만 저장, 열람은 관리자 signed URL로
       let licensePhotoUrl: string | null = null;
       if (licenseFile) {
         const ext = licenseFile.name.split('.').pop() ?? 'jpg';
@@ -60,8 +61,7 @@ function OnboardingInner() {
           .from('license-photos')
           .upload(path, licenseFile, { upsert: true });
         if (!uploadError) {
-          const { data: urlData } = supabase.storage.from('license-photos').getPublicUrl(path);
-          licensePhotoUrl = urlData.publicUrl;
+          licensePhotoUrl = path;
         }
       }
 

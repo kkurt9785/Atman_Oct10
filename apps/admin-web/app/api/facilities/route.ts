@@ -56,6 +56,6 @@ export async function POST(req: NextRequest) {
 
   if (!owned && !delegated) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
-  await setFacilityCookie(facilityId);
+  await setFacilityCookie(facilityId, user.id);
   return NextResponse.json({ facilityId });
 }

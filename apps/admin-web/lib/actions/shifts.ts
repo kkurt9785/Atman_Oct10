@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { createShift } from '../db/shifts';
 import { adminClient } from '../supabase';
-import { getCurrentFacilityId } from '../facility';
+import { requireFacilityAdmin } from '../facility';
 import { sendWebPush } from '../push';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
 import { grantOnboardingCredit } from '../credits';
@@ -39,7 +39,9 @@ export async function createShiftAction(formData: FormData) {
     throw new Error('근무 시간을 확인해 주세요.');
   }
 
-  const facilityId = await getCurrentFacilityId();
+  const session = await requireFacilityAdmin();
+  if (!session) throw new Error('관리자 인증이 필요합니다.');
+  const facilityId = session.facilityId;
 
   await createShift({
     shift_date: shiftDate,
@@ -107,8 +109,9 @@ export async function createShiftAction(formData: FormData) {
 
 export async function cancelShiftAction(shiftId: string) {
   const sb = adminClient();
-  const facilityId = await getCurrentFacilityId();
-  if (!sb || !facilityId) throw new Error('인증 필요');
+  const session = await requireFacilityAdmin();
+  if (!sb || !session) throw new Error('인증 필요');
+  const facilityId = session.facilityId;
 
   const { data, error } = await sb
     .from('shifts')
