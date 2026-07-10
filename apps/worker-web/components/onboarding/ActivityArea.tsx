@@ -4,9 +4,16 @@ import { Button } from '@/components/ui/Button';
 
 type Area = { label: string; radius: number; lat?: number; lng?: number };
 
+// 활성 병원이 있는 지역만 선택지로 노출 (SUGGESTIONS) — 병원 확보 시 추가
+// 아래 legacy 키는 기존 가입자의 저장된 지역 좌표 복원용으로만 유지
 const AREA_COORDS: Record<string, { lat: number; lng: number }> = {
-  '경기 수원시':  { lat: 37.2636, lng: 127.0286 },
   '광주 광산구':  { lat: 35.1795, lng: 126.8121 },
+  '수원 장안구':  { lat: 37.3037, lng: 127.0106 },
+  '수원 권선구':  { lat: 37.2574, lng: 127.0286 },
+  '수원 팔달구':  { lat: 37.2636, lng: 127.0305 },
+  '수원 영통구':  { lat: 37.2905, lng: 127.0574 },
+  // legacy
+  '경기 수원시':  { lat: 37.2636, lng: 127.0286 },
   '서울 강남구':  { lat: 37.5172, lng: 127.0473 },
   '서울 송파구':  { lat: 37.5145, lng: 127.1050 },
   '서울 마포구':  { lat: 37.5663, lng: 126.9014 },
@@ -38,7 +45,7 @@ const RadiusSlider = ({ value, onChange }: { value: number; onChange: (v: number
   </div>
 );
 
-const SUGGESTIONS = ['경기 수원시', '광주 광산구', '서울 강남구', '서울 송파구', '서울 마포구', '서울 종로구', '경기 성남시'];
+const SUGGESTIONS = ['수원 장안구', '수원 권선구', '수원 팔달구', '수원 영통구', '광주 광산구'];
 
 export type AreaPref = { label: string; radius_km: number; lat?: number; lng?: number };
 
@@ -54,9 +61,9 @@ export function ActivityArea({
   showHeader?: boolean;
 }) {
   const [primary, setPrimary] = useState<Area>({
-    label: initialLocations?.[0]?.label ?? '경기 수원시',
+    label: initialLocations?.[0]?.label ?? '수원 팔달구',
     radius: initialLocations?.[0]?.radius_km ?? 5,
-    ...AREA_COORDS[initialLocations?.[0]?.label ?? '경기 수원시'],
+    ...AREA_COORDS[initialLocations?.[0]?.label ?? '수원 팔달구'],
   });
   const [primaryRadius, setPrimaryRadius] = useState(initialLocations?.[0]?.radius_km ?? 5);
   const [second, setSecond] = useState<Area | null>(

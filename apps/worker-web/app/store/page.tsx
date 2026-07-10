@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
-const MOCK_CREDITS = 15000;
 const SHIPPING_FEE = 3500;
 const FREE_SHIPPING_THRESHOLD = 30000;
 
@@ -278,6 +279,13 @@ export default function StorePage() {
   const [category, setCategory]   = useState<Category>('all');
   const [cart, setCart]           = useState<Record<number, number>>({});
   const [showCart, setShowCart]   = useState(false);
+  const [credits, setCredits]     = useState(0);
+
+  useEffect(() => {
+    supabase.rpc('get_my_credit_balance').then(({ data }) => {
+      if (typeof data === 'number') setCredits(data);
+    });
+  }, []);
 
   const totalQty     = Object.values(cart).reduce((s, q) => s + q, 0);
   const subtotal     = PRODUCTS.reduce((s, p) => s + p.price * (cart[p.id] ?? 0), 0);
@@ -304,12 +312,13 @@ export default function StorePage() {
             ←
           </button>
           <h1 className="text-[18px] font-extrabold text-ink flex-1">간호용품 스토어</h1>
-          <div className="flex items-center gap-1 bg-primary/8 border border-primary/20 px-3 py-1.5 rounded-full">
+          <Link href="/store/credits" className="flex items-center gap-1 bg-primary/8 border border-primary/20 px-3 py-1.5 rounded-full active:opacity-70">
             <span className="text-[12px]">💰</span>
             <span className="text-[13px] font-extrabold text-primary">
-              ₩{MOCK_CREDITS.toLocaleString('ko-KR')}
+              ₩{credits.toLocaleString('ko-KR')}
             </span>
-          </div>
+            <span className="text-[11px] text-primary/60">→</span>
+          </Link>
         </div>
 
         {/* 적립금 안내 배너 */}
@@ -400,7 +409,7 @@ export default function StorePage() {
       {showCart && (
         <CartSheet
           cart={cart}
-          credits={MOCK_CREDITS}
+          credits={credits}
           onClose={() => setShowCart(false)}
           onQtyChange={handleQty}
         />

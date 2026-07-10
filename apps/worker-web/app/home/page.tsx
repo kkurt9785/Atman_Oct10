@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -217,12 +217,87 @@ export default function HomePage() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
-  const [gpsUsed, setGpsUsed] = useState(false);
+
+  // 매칭 기준 토글 — 🛰 GPS / 📍 등록 지역별 켜고 끄기
+  const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsOn, setGpsOn] = useState(true);
+  const [offAreas, setOffAreas] = useState<Set<string>>(new Set());
+  const userRef = useRef<{ id: string; roles: string[] } | null>(null);
+  const areasRef = useRef<string[]>([]);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [wageFilter, setWageFilter] = useState<WageFilter>('all');
   const [deptFilter, setDeptFilter] = useState<DeptFilter>('all');
+
+  // RPC 결과 → 화면 모델
+  const mapRows = (rows: Record<string, unknown>[] | null) =>
+    (rows ?? []).map((r) => ({
+      ...r,
+      distance_km:
+        typeof r.distance_km === 'number'
+          ? r.distance_km
+          : typeof r.distance_meters === 'number'
+            ? r.distance_meters / 1000
+            : typeof r.distance_m === 'number'
+              ? r.distance_m / 1000
+              : null,
+      facilities: {
+        name: r.facility_name as string,
+        address_text: (r.address_text ?? r.facility_address) as string | null,
+      },
+    })) as ShiftWithFacility[];
+
+  // 현재 토글 상태 기준 시프트 조회 (칩 탭 시 재호출)
+  const fetchShifts = useCallback(async (p: { lat: number; lng: number } | null, on: boolean, off: Set<string>) => {
+    const u = userRef.current;
+    if (!u) return;
+
+    const allAreas = areasRef.current;
+    const activeLabels = allAreas.filter((a) => !off.has(a));
+
+    let { data: rpcData, error: rpcErr } = await supabase.rpc('get_nearby_open_shifts_v2', {
+      p_auth_user_id: u.id,
+      p_roles: u.roles,
+      p_lat: on && p ? p.lat : null,
+      p_lng: on && p ? p.lng : null,
+      p_pref_labels: off.size === 0 ? null : activeLabels,
+    });
+
+    // 신규 파라미터 미적용 DB 폴백 (마이그레이션 전 배포 안전망)
+    if (rpcErr) {
+      const v2old = await supabase.rpc('get_nearby_open_shifts_v2', {
+        p_auth_user_id: u.id,
+        p_roles: u.roles,
+        p_lat: on && p ? p.lat : null,
+        p_lng: on && p ? p.lng : null,
+      });
+      rpcData = v2old.data;
+      rpcErr = v2old.error;
+    }
+    if (rpcErr) {
+      const v1 = await supabase.rpc('get_nearby_open_shifts', {
+        p_auth_user_id: u.id,
+        p_roles: u.roles,
+      });
+      rpcData = v1.data;
+    }
+    setShifts(mapRows(rpcData));
+  }, []);
+
+  function toggleGps() {
+    const next = !gpsOn;
+    setGpsOn(next);
+    fetchShifts(pos, next, offAreas);
+  }
+
+  function toggleArea(label: string) {
+    const next = new Set(offAreas);
+    if (next.has(label)) next.delete(label);
+    else next.add(label);
+    setOffAreas(next);
+    fetchShifts(pos, gpsOn, next);
+  }
 
   useEffect(() => {
     async function load() {
@@ -236,11 +311,11 @@ export default function HomePage() {
 
       const [
         { data: locPref },
-        { data: creditsData },
+        { data: balanceData },
         { data: workerRow },
       ] = await Promise.all([
         supabase.from('worker_location_prefs').select('locations').single(),
-        supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle(),
+        supabase.rpc('get_my_credit_balance'),
         supabase.from('workers')
           .select('id, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
@@ -248,9 +323,13 @@ export default function HomePage() {
       ]);
 
       const userRole = (workerRow?.role as 'rn' | 'na') ?? 'rn';
+      const areaLabels = ((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label);
       setRole(userRole);
-      setAreas(((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label));
-      setCredits(creditsData?.balance ?? 0);
+      setAreas(areaLabels);
+      setCredits(typeof balanceData === 'number' ? balanceData : 0);
+
+      userRef.current = { id: user.id, roles: userRole === 'rn' ? ['rn', 'any'] : ['na', 'any'] };
+      areasRef.current = areaLabels;
 
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;
@@ -268,52 +347,13 @@ export default function HomePage() {
         setApplied(new Set((appData ?? []).map((a: { shift_id: string }) => a.shift_id)));
       }
 
-      // 위치 기반 근처 시프트 조회 — GPS(현재 위치) + 지역 설정 이중 기준
-      const roleFilter = userRole === 'rn' ? ['rn', 'any'] : ['na', 'any'];
-      let shiftRows: ShiftWithFacility[] = [];
-
-      if (user) {
-        const pos = await getPosition();
-        setGpsUsed(!!pos);
-
-        let { data: rpcData, error: rpcErr } = await supabase.rpc('get_nearby_open_shifts_v2', {
-          p_auth_user_id: user.id,
-          p_roles: roleFilter,
-          p_lat: pos?.lat ?? null,
-          p_lng: pos?.lng ?? null,
-        });
-
-        // v2 미적용 DB 폴백 (마이그레이션 전 배포 안전망)
-        if (rpcErr) {
-          const v1 = await supabase.rpc('get_nearby_open_shifts', {
-            p_auth_user_id: user.id,
-            p_roles: roleFilter,
-          });
-          rpcData = v1.data;
-          setGpsUsed(false);
-        }
-        shiftRows = (rpcData ?? []).map((r: Record<string, unknown>) => ({
-          ...r,
-          distance_km:
-            typeof r.distance_km === 'number'
-              ? r.distance_km
-              : typeof r.distance_meters === 'number'
-                ? r.distance_meters / 1000
-                : typeof r.distance_m === 'number'
-                  ? r.distance_m / 1000
-                  : null,
-          facilities: {
-            name: r.facility_name as string,
-            address_text: (r.address_text ?? r.facility_address) as string | null,
-          },
-        })) as ShiftWithFacility[];
-      }
-
-      setShifts(shiftRows);
+      const p = await getPosition();
+      setPos(p);
+      await fetchShifts(p, true, new Set());
       setLoading(false);
     }
     load();
-  }, [router]);
+  }, [router, fetchShifts]);
 
   const deptChips = role === 'rn' ? DEPT_CHIPS_RN : DEPT_CHIPS_NA;
   const roleLabel = role === 'rn' ? '간호사' : '간호조무사';
@@ -377,17 +417,28 @@ export default function HomePage() {
             </div>
           </Link>
         </div>
-        {(gpsUsed || areas.length > 0) && (
+        {(pos || areas.length > 0) && (
           <div className="flex gap-1.5 mt-3 flex-wrap">
-            {gpsUsed && (
-              <span className="text-[12px] font-semibold text-white bg-primary px-2.5 py-1 rounded-full">
+            {pos && (
+              <button
+                onClick={toggleGps}
+                className={`text-[12px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                  gpsOn ? 'text-white bg-primary' : 'text-tertiary bg-bg line-through'
+                }`}
+              >
                 🛰 현재 위치
-              </span>
+              </button>
             )}
             {areas.map((a) => (
-              <span key={a} className="text-[12px] font-semibold text-primary bg-primary-light px-2.5 py-1 rounded-full">
+              <button
+                key={a}
+                onClick={() => toggleArea(a)}
+                className={`text-[12px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
+                  !offAreas.has(a) ? 'text-primary bg-primary-light' : 'text-tertiary bg-bg line-through'
+                }`}
+              >
                 📍 {a}
-              </span>
+              </button>
             ))}
           </div>
         )}
