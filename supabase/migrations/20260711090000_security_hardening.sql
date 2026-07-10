@@ -13,6 +13,7 @@
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- workers: INSERT 정책이 없어 온보딩 가입이 RLS에 막히던 문제 + UPDATE WITH CHECK
+DROP POLICY IF EXISTS workers_insert_own ON workers;
 CREATE POLICY workers_insert_own ON workers FOR INSERT
   WITH CHECK (auth_user_id = auth.uid());
 DROP POLICY IF EXISTS workers_update_own ON workers;
@@ -22,47 +23,60 @@ CREATE POLICY workers_update_own ON workers FOR UPDATE
 
 -- credentials: FOR ALL → 작업별
 DROP POLICY IF EXISTS credentials_own ON worker_credentials;
+DROP POLICY IF EXISTS credentials_select_own ON worker_credentials;
 CREATE POLICY credentials_select_own ON worker_credentials FOR SELECT
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS credentials_insert_own ON worker_credentials;
 CREATE POLICY credentials_insert_own ON worker_credentials FOR INSERT
   WITH CHECK (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS credentials_update_own ON worker_credentials;
 CREATE POLICY credentials_update_own ON worker_credentials FOR UPDATE
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()))
   WITH CHECK (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
 
 -- bank_accounts: 직접 쓰기 차단 (쓰기는 upsert_my_bank_account RPC 전용) → SELECT만
 DROP POLICY IF EXISTS bank_own ON worker_bank_accounts;
+DROP POLICY IF EXISTS bank_select_own ON worker_bank_accounts;
 CREATE POLICY bank_select_own ON worker_bank_accounts FOR SELECT
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
 
 -- preferences / push_tokens: FOR ALL → 작업별 + WITH CHECK
 DROP POLICY IF EXISTS preferences_own ON worker_preferences;
+DROP POLICY IF EXISTS preferences_select_own ON worker_preferences;
 CREATE POLICY preferences_select_own ON worker_preferences FOR SELECT
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS preferences_write_own ON worker_preferences;
 CREATE POLICY preferences_write_own ON worker_preferences FOR INSERT
   WITH CHECK (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS preferences_update_own ON worker_preferences;
 CREATE POLICY preferences_update_own ON worker_preferences FOR UPDATE
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()))
   WITH CHECK (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
 
 DROP POLICY IF EXISTS push_own ON push_tokens;
+DROP POLICY IF EXISTS push_select_own ON push_tokens;
 CREATE POLICY push_select_own ON push_tokens FOR SELECT
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS push_insert_own ON push_tokens;
 CREATE POLICY push_insert_own ON push_tokens FOR INSERT
   WITH CHECK (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS push_delete_own ON push_tokens;
 CREATE POLICY push_delete_own ON push_tokens FOR DELETE
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
 
 -- ⚠️ applications: 기존 FOR ALL은 워커가 자기 지원을 'accepted'로 바꿀 수 있었음
 DROP POLICY IF EXISTS applications_worker ON shift_applications;
+DROP POLICY IF EXISTS applications_worker_select ON shift_applications;
 CREATE POLICY applications_worker_select ON shift_applications FOR SELECT
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
+DROP POLICY IF EXISTS applications_worker_insert ON shift_applications;
 CREATE POLICY applications_worker_insert ON shift_applications FOR INSERT
   WITH CHECK (
     worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid())
     AND status = 'applied'
   );
 -- 워커 UPDATE는 취소만 가능 (수락/거절은 서버 전용)
+DROP POLICY IF EXISTS applications_worker_cancel ON shift_applications;
 CREATE POLICY applications_worker_cancel ON shift_applications FOR UPDATE
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()))
   WITH CHECK (
@@ -72,21 +86,26 @@ CREATE POLICY applications_worker_cancel ON shift_applications FOR UPDATE
 
 -- ⚠️ attendances: 기존 FOR ALL은 워커가 출퇴근 기록을 직접 생성/수정 가능했음 → 조회만
 DROP POLICY IF EXISTS attendances_worker ON shift_attendances;
+DROP POLICY IF EXISTS attendances_worker_select ON shift_attendances;
 CREATE POLICY attendances_worker_select ON shift_attendances FOR SELECT
   USING (worker_id IN (SELECT id FROM workers WHERE auth_user_id = auth.uid()));
 
 -- shifts: FOR ALL → 작업별 + WITH CHECK
 DROP POLICY IF EXISTS shifts_facility_write ON shifts;
+DROP POLICY IF EXISTS shifts_facility_insert ON shifts;
 CREATE POLICY shifts_facility_insert ON shifts FOR INSERT
   WITH CHECK (facility_id IN (SELECT id FROM facilities WHERE admin_user_id = auth.uid()));
+DROP POLICY IF EXISTS shifts_facility_update ON shifts;
 CREATE POLICY shifts_facility_update ON shifts FOR UPDATE
   USING (facility_id IN (SELECT id FROM facilities WHERE admin_user_id = auth.uid()))
   WITH CHECK (facility_id IN (SELECT id FROM facilities WHERE admin_user_id = auth.uid()));
+DROP POLICY IF EXISTS shifts_facility_delete ON shifts;
 CREATE POLICY shifts_facility_delete ON shifts FOR DELETE
   USING (facility_id IN (SELECT id FROM facilities WHERE admin_user_id = auth.uid()));
 
 -- memberships: FOR ALL → 조회만 (변경은 서버 전용)
 DROP POLICY IF EXISTS org_admin_memberships ON memberships;
+DROP POLICY IF EXISTS org_admin_memberships_select ON memberships;
 CREATE POLICY org_admin_memberships_select ON memberships FOR SELECT
   USING (org_id IN (SELECT id FROM facilities WHERE admin_user_id = auth.uid()));
 
