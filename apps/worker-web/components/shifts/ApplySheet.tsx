@@ -54,7 +54,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
         {state === 'confirm' && (
           <>
             <h2 className="text-[20px] font-extrabold text-ink mb-1">이 시프트에 지원할까요?</h2>
-            <p className="text-[14px] text-sub mb-6">지원 후 병원에서 수락하면 매칭이 확정돼요</p>
+            <p className="text-[14px] text-sub mb-6">내가 선택한 공고에 지원하면 병원이 직접 검토해요</p>
 
             {/* 시프트 요약 */}
             <div className="bg-bg rounded-card p-4 mb-4">
@@ -93,8 +93,8 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
             <div className="bg-white border border-line rounded-card p-4 mb-6">
               <p className="text-[13px] font-extrabold text-ink mb-2">지원 전 확인</p>
               <div className="flex flex-col gap-1.5 text-[13px] text-sub">
-                <p>병원이 수락하면 매칭 확정 상태로 바뀝니다.</p>
-                <p>매칭 확정 후 당일 취소는 운영팀 확인이 필요합니다.</p>
+                <p>병원이 수락하면 병원 채용확정 상태로 바뀝니다.</p>
+                <p>채용확정 후 당일 취소는 병원과 먼저 확인해 주세요.</p>
                 {shift.notes && <p className="text-ink font-semibold">{shift.notes}</p>}
               </div>
             </div>
@@ -132,7 +132,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
             </div>
             <h2 className="text-[20px] font-extrabold text-ink">지원 완료!</h2>
             <p className="text-[14px] text-sub text-center">
-              지금은 병원 확인 중이에요.<br />수락되면 매칭 확정 알림을 보내드릴게요
+              지금은 병원 확인 중이에요.<br />수락되면 병원 채용확정 알림을 보내드릴게요
             </p>
             <button
               onClick={onApplied}

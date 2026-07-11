@@ -7,6 +7,7 @@ const TABS = [
   { href: '/home',         label: '홈',     icon: '🏠' },
   { href: '/shifts',       label: '시프트', icon: '🏥' },
   { href: '/applications', label: '내 활동', icon: '📋' },
+  { href: '/earnings',     label: '급여',   icon: '₩' },
   { href: '/settings',     label: '내 정보', icon: '👤' },
 ];
 

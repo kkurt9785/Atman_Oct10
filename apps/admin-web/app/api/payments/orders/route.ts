@@ -3,14 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createPaymentOrder } from '@/lib/payment-service';
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({})) as { tierId?: unknown };
-  const tierId = typeof body.tierId === 'number' ? body.tierId : Number(body.tierId);
-  if (!Number.isInteger(tierId)) {
-    return NextResponse.json({ error: 'tierId required' }, { status: 400 });
+  const body = await request.json().catch(() => ({})) as { invoiceId?: unknown };
+  const invoiceId = typeof body.invoiceId === 'string' ? body.invoiceId : '';
+  if (!invoiceId) {
+    return NextResponse.json({ error: 'invoiceId required' }, { status: 400 });
   }
 
   try {
-    const order = await createPaymentOrder(tierId);
+    const order = await createPaymentOrder(invoiceId);
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : '주문 생성에 실패했어요.';

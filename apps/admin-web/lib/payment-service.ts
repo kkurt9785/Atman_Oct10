@@ -2,7 +2,6 @@
 import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from './admin-auth';
-import { CREDIT_TIERS } from './billing';
 import { adminClient } from './supabase';
 import {
   assertTossPaymentMatches,
@@ -17,7 +16,7 @@ type PaymentOrderRow = {
   order_id: string;
   facility_id: string;
   requested_by: string;
-  tier_id: number;
+  tier_id: number | null;
   order_name: string;
   amount: number;
   base_credit: number;
@@ -25,10 +24,12 @@ type PaymentOrderRow = {
   status: string;
   provider_payment_key: string | null;
   idempotency_key: string;
+  order_type: 'legacy_credit' | 'service_invoice';
+  service_invoice_id: string | null;
 };
 
 export type PaymentConfirmation = {
-  credited: number;
+  invoiceId: string;
   alreadyProcessed: boolean;
   orderId: string;
 };
@@ -39,16 +40,16 @@ function getServiceClient() {
   return sb;
 }
 
-export async function createPaymentOrder(tierId: number) {
-  const context = await requireAdminContext(['owner', 'operator', 'super']);
-  const tier = CREDIT_TIERS.find((item) => item.id === tierId);
-  if (!tier) throw new Error('선택한 충전 상품을 찾을 수 없어요.');
-
+export async function createPaymentOrder(invoiceId: string) {
+  const context = await requireAdminContext(['owner', 'super']);
   const sb = getServiceClient();
+  const { data: invoice, error: invoiceError } = await sb.from('service_invoices')
+    .select('id,invoice_number,total_amount,status').eq('id', invoiceId)
+    .eq('facility_id', context.facilityId).in('status', ['issued','overdue']).maybeSingle();
+  if (invoiceError || !invoice) throw new Error('결제 가능한 서비스 청구서를 찾을 수 없어요.');
   const orderId = `atman_${Date.now()}_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   const idempotencyKey = `confirm:${randomUUID()}`;
-  const baseCredit = Math.max(0, tier.credit - tier.bonus);
-  const orderName = `잇닿 크레딧 ${tier.label}`;
+  const orderName = `잇닿 SaaS 이용료 ${invoice.invoice_number}`;
 
   const { data, error } = await sb
     .from('payment_orders')
@@ -56,15 +57,17 @@ export async function createPaymentOrder(tierId: number) {
       order_id: orderId,
       facility_id: context.facilityId,
       requested_by: context.user.id,
-      tier_id: tier.id,
+      tier_id: null,
       order_name: orderName,
-      amount: tier.charge,
-      base_credit: baseCredit,
-      bonus_credit: tier.bonus,
+      amount: invoice.total_amount,
+      base_credit: 0,
+      bonus_credit: 0,
+      order_type: 'service_invoice',
+      service_invoice_id: invoice.id,
       status: 'ready',
       idempotency_key: idempotencyKey,
     })
-    .select('order_id, order_name, amount, base_credit, bonus_credit')
+    .select('order_id, order_name, amount, service_invoice_id')
     .single();
 
   if (error || !data) throw new Error(error?.message || '결제 주문 생성에 실패했어요.');
@@ -72,7 +75,7 @@ export async function createPaymentOrder(tierId: number) {
     orderId: data.order_id as string,
     orderName: data.order_name as string,
     amount: data.amount as number,
-    credit: (data.base_credit as number) + (data.bonus_credit as number),
+    invoiceId: data.service_invoice_id as string,
   };
 }
 
@@ -99,22 +102,21 @@ async function finalize(order: PaymentOrderRow, payment: TossPayment): Promise<P
   if (payment.status !== 'DONE') throw new Error(`결제 상태가 완료가 아니에요 (${payment.status}).`);
 
   const sb = getServiceClient();
-  const { data, error } = await sb.rpc('finalize_credit_payment', {
+  if (order.order_type !== 'service_invoice' || !order.service_invoice_id) throw new Error('레거시 크레딧 결제는 중단됐어요.');
+  const { data, error } = await sb.rpc('finalize_service_invoice_payment', {
     p_order_id: order.order_id,
     p_payment_key: payment.paymentKey,
     p_provider_status: payment.status,
     p_provider_payload: payment,
   });
-  if (error) throw new Error(error.message || '크레딧 적립에 실패했어요.');
+  if (error) throw new Error(error.message || '서비스 청구서 결제 반영에 실패했어요.');
 
   const result = (data ?? {}) as Record<string, unknown>;
   revalidatePath('/');
   revalidatePath('/membership');
   return {
     orderId: order.order_id,
-    credited: typeof result.credited === 'number'
-      ? result.credited
-      : order.base_credit + order.bonus_credit,
+    invoiceId: order.service_invoice_id,
     alreadyProcessed: result.alreadyProcessed === true,
   };
 }
@@ -129,6 +131,7 @@ export async function confirmPaymentOrder(input: {
   }
 
   const order = await getOwnedOrder(input.orderId);
+  if (order.order_type !== 'service_invoice' || !order.service_invoice_id) throw new Error('레거시 크레딧 결제는 더 이상 처리하지 않아요.');
   if (order.amount !== input.amount) throw new Error('주문 금액과 결제 금액이 일치하지 않아요.');
   if (order.status === 'paid') {
     if (order.provider_payment_key && order.provider_payment_key !== input.paymentKey) {
@@ -136,7 +139,7 @@ export async function confirmPaymentOrder(input: {
     }
     return {
       orderId: order.order_id,
-      credited: order.base_credit + order.bonus_credit,
+      invoiceId: order.service_invoice_id,
       alreadyProcessed: true,
     };
   }
@@ -167,7 +170,7 @@ export async function confirmPaymentOrder(input: {
     if (latest?.status === 'paid' && latest.provider_payment_key === input.paymentKey) {
       return {
         orderId: order.order_id,
-        credited: order.base_credit + order.bonus_credit,
+        invoiceId: order.service_invoice_id,
         alreadyProcessed: true,
       };
     }

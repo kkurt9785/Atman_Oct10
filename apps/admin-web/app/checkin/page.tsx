@@ -157,7 +157,7 @@ export default function CheckinPage() {
       {state === 'loading' && (
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-white text-[15px]">권한·위치·정산을 확인 중...</p>
+          <p className="text-white text-[15px]">권한·위치·근무기록을 확인 중...</p>
         </div>
       )}
 
@@ -169,16 +169,15 @@ export default function CheckinPage() {
             </svg>
           </div>
           <h2 className="text-[22px] font-extrabold text-ink mb-1">
-            {result.action === 'checkin' ? '체크인 완료!' : '체크아웃·정산 등록 완료!'}
+            {result.action === 'checkin' ? '체크인 완료!' : '체크아웃·지급 요청 등록 완료!'}
           </h2>
           <p className="text-[17px] font-bold text-primary mb-1">{result.workerName}</p>
           <p className="text-[14px] text-sub">{result.shiftDate} · {result.startTime.slice(0, 5)}</p>
           {result.action === 'checkout' && typeof result.gross === 'number' && (
             <div className="mt-4 w-full rounded-2xl bg-bg p-4 text-[13px] space-y-2">
-              <div className="flex justify-between"><span className="text-sub">총 임금</span><b>₩{result.gross.toLocaleString('ko-KR')}</b></div>
-              {typeof result.platformFee === 'number' && <div className="flex justify-between"><span className="text-sub">플랫폼 수수료</span><b>₩{result.platformFee.toLocaleString('ko-KR')}</b></div>}
-              {typeof result.charged === 'number' && <div className="flex justify-between border-t border-line pt-2"><span className="text-ink font-bold">총 차감</span><b className="text-primary">₩{result.charged.toLocaleString('ko-KR')}</b></div>}
-              {typeof result.balance === 'number' && <div className="flex justify-between"><span className="text-sub">잔여 크레딧</span><b>₩{result.balance.toLocaleString('ko-KR')}</b></div>}
+              <div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>₩{result.gross.toLocaleString('ko-KR')}</b></div>
+              <div className="flex justify-between"><span className="text-sub">공제 상태</span><b>병원 확인 예정</b></div>
+              <div className="flex justify-between border-t border-line pt-2"><span className="text-ink font-bold">지급 방식</span><b className="text-primary">병원 직접 지급</b></div>
             </div>
           )}
           <button onClick={reset} className="mt-8 w-full bg-primary text-white font-bold rounded-2xl py-4 active:opacity-80">

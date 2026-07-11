@@ -211,7 +211,6 @@ export default function HomePage() {
   const [name,    setName]    = useState('');
   const [role,    setRole]    = useState<'rn' | 'na'>('rn');
   const [areas,   setAreas]   = useState<string[]>([]);
-  const [credits, setCredits] = useState(0);
   const [shifts,  setShifts]  = useState<ShiftWithFacility[]>([]);
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState<Set<string>>(new Set());
@@ -284,11 +283,9 @@ export default function HomePage() {
 
       const [
         { data: locPref },
-        { data: balanceData },
         { data: workerRow },
       ] = await Promise.all([
         supabase.from('worker_location_prefs').select('locations').single(),
-        supabase.rpc('get_my_credit_balance'),
         supabase.from('workers')
           .select('id, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
@@ -299,7 +296,6 @@ export default function HomePage() {
       const areaLabels = ((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label);
       setRole(userRole);
       setAreas(areaLabels);
-      setCredits(typeof balanceData === 'number' ? balanceData : 0);
 
       approvedRef.current = workerRow?.verification_status === 'approved';
 
@@ -381,14 +377,11 @@ export default function HomePage() {
               }
             </h1>
           </div>
-          {/* 적립금 버튼 */}
-          <Link href="/store" className="flex-shrink-0 ml-3 mt-1">
+          <Link href="/earnings" className="flex-shrink-0 ml-3 mt-1">
             <div className="flex flex-col items-center bg-primary/8 border border-primary/20 px-3.5 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
-              <span className="text-[10px] font-semibold text-primary tracking-tight">적립금</span>
-              <span className="text-[17px] font-extrabold text-primary leading-tight">
-                ₩{credits.toLocaleString('ko-KR')}
-              </span>
-              <span className="text-[10px] text-primary/60 mt-0.5">스토어 →</span>
+              <span className="text-[10px] font-semibold text-primary tracking-tight">급여 현황</span>
+              <span className="text-[17px] font-extrabold text-primary leading-tight">₩</span>
+              <span className="text-[10px] text-primary/60 mt-0.5">확인 →</span>
             </div>
           </Link>
         </div>
@@ -465,11 +458,11 @@ export default function HomePage() {
         <ChipRow options={WAGE_CHIPS} value={wageFilter} onChange={setWageFilter} />
       </div>
 
-      {/* 추천 시프트 */}
+      {/* 조건 일치 공고 */}
       {recommended.length > 0 && (
         <section className="mb-6">
           <div className="px-5 flex items-center justify-between mb-3">
-            <h2 className="text-[16px] font-extrabold text-ink">🔥 추천 시프트</h2>
+            <h2 className="text-[16px] font-extrabold text-ink">내 조건과 가까운 공고</h2>
             <span className="text-[12px] text-tertiary">조건 맞춤</span>
           </div>
           <div className="overflow-x-auto scrollbar-hide">
@@ -497,7 +490,7 @@ export default function HomePage() {
             </button>
           </div>
         ) : areaShifts.length === 0 ? (
-          <p className="text-[13px] text-tertiary py-4 text-center">추천 외 추가 공고가 없어요</p>
+          <p className="text-[13px] text-tertiary py-4 text-center">조건에 맞는 추가 공고가 없어요</p>
         ) : (
           areaShifts.map((s) => (
             <ListCard key={s.id} shift={s} onApply={() => setSelected(s)} />

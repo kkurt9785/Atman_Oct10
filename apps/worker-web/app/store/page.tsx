@@ -1,9 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
 
 const SHIPPING_FEE = 3500;
 const FREE_SHIPPING_THRESHOLD = 30000;
@@ -127,25 +125,20 @@ function ProductCard({
 
 function CartSheet({
   cart,
-  credits,
   onClose,
   onQtyChange,
 }: {
   cart: Record<number, number>;
-  credits: number;
   onClose: () => void;
   onQtyChange: (id: number, delta: number) => void;
 }) {
-  const [useCreditsForShipping, setUseCreditsForShipping] = useState(false);
-
   const cartItems = PRODUCTS.filter((p) => (cart[p.id] ?? 0) > 0);
   const subtotal = cartItems.reduce((sum, p) => sum + p.price * (cart[p.id] ?? 0), 0);
   const needsShipping = subtotal < FREE_SHIPPING_THRESHOLD;
   const shipping = needsShipping ? SHIPPING_FEE : 0;
   const remaining = FREE_SHIPPING_THRESHOLD - subtotal;
   const progress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
-  const shippingAfterCredit = useCreditsForShipping && needsShipping ? 0 : shipping;
-  const total = subtotal + shippingAfterCredit;
+  const total = subtotal + shipping;
 
   return (
     <>
@@ -228,35 +221,12 @@ function CartSheet({
             <span className="text-sub">배송비</span>
             {needsShipping ? (
               <div className="flex items-center gap-2">
-                {useCreditsForShipping ? (
-                  <span className="text-primary font-bold">적립금 차감 (-₩{SHIPPING_FEE.toLocaleString('ko-KR')})</span>
-                ) : (
-                  <span className="text-sub">₩{SHIPPING_FEE.toLocaleString('ko-KR')}</span>
-                )}
+                <span className="text-sub">₩{SHIPPING_FEE.toLocaleString('ko-KR')}</span>
               </div>
             ) : (
               <span className="text-green-600 font-bold">무료</span>
             )}
           </div>
-
-          {/* 적립금으로 배송비 결제 토글 */}
-          {needsShipping && credits >= SHIPPING_FEE && (
-            <button
-              onClick={() => setUseCreditsForShipping((v) => !v)}
-              className="w-full flex items-center justify-between bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 mb-3 active:opacity-70"
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[16px]">💰</span>
-                <div className="text-left">
-                  <p className="text-[12px] font-bold text-primary">적립금으로 배송비 결제</p>
-                  <p className="text-[11px] text-tertiary">잔액 ₩{credits.toLocaleString('ko-KR')} → -₩{SHIPPING_FEE.toLocaleString('ko-KR')}</p>
-                </div>
-              </div>
-              <div className={`w-11 h-6 rounded-full transition-colors ${useCreditsForShipping ? 'bg-primary' : 'bg-line'}`}>
-                <div className={`w-5 h-5 bg-white rounded-full shadow mt-0.5 transition-transform ${useCreditsForShipping ? 'translate-x-5.5' : 'translate-x-0.5'}`} />
-              </div>
-            </button>
-          )}
 
           <div className="flex justify-between text-[16px] font-extrabold text-ink mb-4">
             <span>최종 결제</span>
@@ -279,13 +249,6 @@ export default function StorePage() {
   const [category, setCategory]   = useState<Category>('all');
   const [cart, setCart]           = useState<Record<number, number>>({});
   const [showCart, setShowCart]   = useState(false);
-  const [credits, setCredits]     = useState(0);
-
-  useEffect(() => {
-    supabase.rpc('get_my_credit_balance').then(({ data }) => {
-      if (typeof data === 'number') setCredits(data);
-    });
-  }, []);
 
   const totalQty     = Object.values(cart).reduce((s, q) => s + q, 0);
   const subtotal     = PRODUCTS.reduce((s, p) => s + p.price * (cart[p.id] ?? 0), 0);
@@ -312,20 +275,14 @@ export default function StorePage() {
             ←
           </button>
           <h1 className="text-[18px] font-extrabold text-ink flex-1">간호용품 스토어</h1>
-          <Link href="/store/credits" className="flex items-center gap-1 bg-primary/8 border border-primary/20 px-3 py-1.5 rounded-full active:opacity-70">
-            <span className="text-[12px]">💰</span>
-            <span className="text-[13px] font-extrabold text-primary">
-              ₩{credits.toLocaleString('ko-KR')}
-            </span>
-            <span className="text-[11px] text-primary/60">→</span>
-          </Link>
+          <button onClick={() => router.push('/earnings')} className="text-[12px] font-bold text-primary bg-primary/8 px-3 py-2 rounded-xl">급여 현황</button>
         </div>
 
-        {/* 적립금 안내 배너 */}
+        {/* 결제 안내 배너 */}
         <div className="mx-5 mb-3 bg-primary/5 rounded-xl px-4 py-2.5 flex items-center gap-2">
           <span className="text-[15px]">🎁</span>
           <p className="text-[12px] text-primary font-semibold">
-            시프트 적립금으로 결제 가능 · 배송비도 적립금으로 OK
+            상품 결제는 임금 지급과 분리되며, 결제 기능은 정식 입점 계약 후 열려요
           </p>
         </div>
 
@@ -409,7 +366,6 @@ export default function StorePage() {
       {showCart && (
         <CartSheet
           cart={cart}
-          credits={credits}
           onClose={() => setShowCart(false)}
           onQtyChange={handleQty}
         />

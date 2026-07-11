@@ -5,7 +5,6 @@ import { createShift } from '../db/shifts';
 import { adminClient } from '../supabase';
 import { requireAdminContext } from '../admin-auth';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
-import { grantOnboardingCredit } from '../credits';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', any: '간호인력' };
 
@@ -42,7 +41,6 @@ export async function createShiftAction(formData: FormData) {
   try {
     const sb = adminClient();
     if (sb) {
-      await grantOnboardingCredit(sb, context.facilityId, 'onboard_first_shift');
       const roleFilter = requiredRole === 'any' ? ['rn','na'] : [requiredRole];
       const { data: workers, error: workerError } = await sb
         .from('workers')

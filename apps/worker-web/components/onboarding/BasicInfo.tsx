@@ -32,7 +32,7 @@ export function BasicInfo({ birthDate, onNext }: { birthDate: string; onNext: (v
 
       <label className="text-[13px] font-semibold text-sub mb-1.5">휴대폰 번호</label>
       <input type="tel" inputMode="numeric" autoComplete="tel" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} className="w-full h-[52px] px-4 bg-white rounded-card border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-2" />
-      <p className="text-[13px] text-tertiary">시프트 매칭·정산 알림을 받을 번호예요.</p>
+      <p className="text-[13px] text-tertiary">공고 지원·병원 채용확정·급여 상태 알림을 받을 번호예요.</p>
 
       <div className="mt-auto">
         <Button onClick={() => onNext({ name: name.trim(), phone: formatPhone(phone) })} disabled={!valid} variant={valid ? 'primary' : 'outline'}>다음</Button>

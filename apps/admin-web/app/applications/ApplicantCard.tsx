@@ -1,9 +1,8 @@
 'use client';
 import { useState } from 'react';
-import Link from 'next/link';
 import { acceptApplication, rejectApplication } from './actions';
 import type { Applicant } from '@/lib/db/applications';
-import { estimatedFacilityCharge, recommendedTierForShortfall, won } from '@/lib/billing';
+import { won } from '@/lib/billing';
 
 const ROLE_LABEL: Record<string, string> = { rn: 'RN', na: 'NA' };
 const ROLE_COLOR: Record<string, string> = {
@@ -30,18 +29,9 @@ export function ApplicantCard({
   const [loading, setLoading] = useState<'accept' | 'reject' | null>(null);
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
   async function openAcceptConfirm() {
     setConfirmOpen(true);
-    if (creditBalance != null) return;
-    try {
-      const res = await fetch('/api/billing/summary');
-      const data = res.ok ? await res.json() : null;
-      if (typeof data?.balance === 'number') setCreditBalance(data.balance);
-    } catch {
-      setCreditBalance(null);
-    }
   }
 
   async function handleAccept() {
@@ -68,10 +58,6 @@ export function ApplicantCard({
 
   const hasProfile = applicant.experienceYears || applicant.lastWorkplace || applicant.departmentTags?.length;
   const hasLicense = applicant.licenseNumber || applicant.licensePhotoUrl;
-  const estimatedCharge = estimatedFacilityCharge(estimatedPay);
-  const projectedBalance = creditBalance == null ? null : creditBalance - estimatedCharge;
-  const shortfall = projectedBalance == null ? 0 : Math.max(0, -projectedBalance);
-  const recommendedTier = recommendedTierForShortfall(shortfall || estimatedCharge || 500000);
 
   return (
     <div className="py-4 px-5">
@@ -195,7 +181,7 @@ export function ApplicantCard({
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setConfirmOpen(false)} />
           <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-3xl z-50 px-5 pt-6 pb-10">
             <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
-            <p className="text-[20px] font-extrabold text-ink">매칭을 확정할까요?</p>
+            <p className="text-[20px] font-extrabold text-ink">병원 채용을 확정할까요?</p>
             <p className="text-[14px] text-sub mt-1">
               확정 후 워커에게 수락 알림이 전송됩니다.
             </p>
@@ -206,55 +192,20 @@ export function ApplicantCard({
                 <span className="font-bold text-ink">{applicant.name}</span>
               </div>
               <div className="flex justify-between text-[13px]">
-                <span className="text-sub">예상 임금</span>
+                <span className="text-sub">병원 직접 지급 예상액</span>
                 <span className="font-bold text-primary">{won(estimatedPay)}</span>
               </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-sub">수수료 포함 예상 차감</span>
-                <span className="font-bold text-ink">{won(estimatedCharge)}</span>
-              </div>
-              {creditBalance != null && (
-                <>
-                  <div className="flex justify-between text-[13px]">
-                    <span className="text-sub">현재 크레딧</span>
-                    <span className="font-bold text-ink">{won(creditBalance)}</span>
-                  </div>
-                  <div className="flex justify-between text-[13px] pt-2 border-t border-line">
-                    <span className="text-sub">확정 후 예상 잔액</span>
-                    <span className={`font-extrabold ${shortfall > 0 ? 'text-warn' : 'text-ink'}`}>
-                      {projectedBalance != null && projectedBalance < 0 ? '-' : ''}{won(projectedBalance ?? 0)}
-                    </span>
-                  </div>
-                </>
-              )}
             </div>
-
-            {shortfall > 0 && (
-              <div className="bg-warn/10 rounded-xl px-4 py-3 mt-4">
-                <p className="text-[13px] font-bold text-warn">부족 예상 {won(shortfall)}</p>
-                <p className="text-[12px] text-sub mt-0.5">
-                  충전 후 확정하면 체크아웃 정산까지 끊기지 않아요.
-                </p>
-              </div>
-            )}
+            <p className="text-[12px] text-sub mt-3">잇닿 이용료는 이 임금과 별도로 월 SaaS 청구서에 반영됩니다.</p>
 
             <div className="mt-5 flex flex-col gap-2">
-              {shortfall > 0 ? (
-                <Link
-                  href={`/membership?amount=${recommendedTier.charge}`}
-                  className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl flex items-center justify-center"
-                >
-                  부족분 충전하고 확정하기
-                </Link>
-              ) : (
                 <button
                   onClick={handleAccept}
                   disabled={loading != null}
                   className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl disabled:opacity-50"
                 >
-                  {loading === 'accept' ? '확정 중...' : '매칭 확정하기'}
+                  {loading === 'accept' ? '확정 중...' : '병원 채용 확정하기'}
                 </button>
-              )}
               <button
                 onClick={() => setConfirmOpen(false)}
                 className="w-full h-12 text-[14px] font-semibold text-sub"

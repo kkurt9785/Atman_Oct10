@@ -1,64 +1,26 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
-import { todayKST } from '../date';
 
-export type PayslipRow = {
-  id: string;
-  name: string;
-  grossPay: number;
-  netPay: number;
+export type WagePaymentRow = {
+  id: string; workerName: string; shiftDate: string; grossAmount: number; netAmount: number;
+  deductionStatus: string; dueDate: string | null; status: string; approvedAt: string | null;
+  paidAt: string | null; workerConfirmedAt: string | null; disputeReason: string | null;
 };
 
-export async function getMonthPayslips(): Promise<PayslipRow[] | null> {
+export async function getWagePayments(): Promise<WagePaymentRow[]> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return null;
-
-  const today       = todayKST();
-  const periodStart = `${today.slice(0, 7)}-01`;
-
-  // 먼저 payslips 테이블 시도
-  const { data: slips } = await sb
-    .from('payslips')
-    .select('id, worker_id, gross_pay, net_pay, workers ( name )')
-    .eq('org_id', facilityId)
-    .eq('period_start', periodStart)
-    .order('created_at', { ascending: false });
-
-  if (slips && slips.length > 0) {
-    return (slips as any[]).map((r) => ({
-      id:       r.id,
-      name:     r.workers?.name ?? '미상',
-      grossPay: r.gross_pay,
-      netPay:   r.net_pay,
-    }));
-  }
-
-  // payslips 없으면 wage_calculations 집계
-  const { data: wages } = await sb
-    .from('wage_calculations')
-    .select('worker_id, gross, workers ( name )')
-    .eq('org_id', facilityId)
-    .gte('calculated_at', `${periodStart}T00:00:00`);
-
-  if (!wages || wages.length === 0) return null;
-
-  // worker_id별 gross 합산
-  const map: Record<string, { name: string; gross: number }> = {};
-  for (const r of wages as any[]) {
-    if (!map[r.worker_id]) {
-      map[r.worker_id] = { name: r.workers?.name ?? '미상', gross: 0 };
-    }
-    map[r.worker_id].gross += r.gross ?? 0;
-  }
-
-  return Object.entries(map).map(([id, v]) => {
-    const incomeTax = Math.round(v.gross * 0.03);
-    const netPay    = v.gross - incomeTax - Math.round(incomeTax * 0.1);
-    return { id, name: v.name, grossPay: v.gross, netPay };
-  });
+  if (!sb || !facilityId) return [];
+  const { data, error } = await sb.from('wage_payment_instructions')
+    .select('id,gross_amount,net_amount,deduction_status,due_date,status,approved_at,paid_at,worker_confirmed_at,dispute_reason,workers(name),shifts(shift_date)')
+    .eq('facility_id', facilityId).order('created_at', { ascending: false }).limit(100);
+  if (error) return [];
+  return ((data ?? []) as any[]).map((row) => ({
+    id: row.id, workerName: row.workers?.name ?? '워커', shiftDate: row.shifts?.shift_date ?? '-',
+    grossAmount: row.gross_amount, netAmount: row.net_amount, deductionStatus: row.deduction_status,
+    dueDate: row.due_date, status: row.status, approvedAt: row.approved_at, paidAt: row.paid_at,
+    workerConfirmedAt: row.worker_confirmed_at, disputeReason: row.dispute_reason,
+  }));
 }
 
-export function hahrFeature(plan: string) {
-  return plan === 'bundle' || plan === 'hr';
-}
+export function hahrFeature(plan: string) { return plan === 'bundle' || plan === 'hr' || plan === 'growth' || plan === 'network'; }

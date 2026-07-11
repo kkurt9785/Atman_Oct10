@@ -41,7 +41,7 @@ export default async function StaffPage() {
       {staff.length === 0 ? (
         <Card className="py-10 text-center">
           <p className="text-body font-bold text-ink">오늘 배정된 직원이 없어요</p>
-          <p className="text-label text-sub mt-1">시프트가 매칭되면 여기에 표시됩니다.</p>
+          <p className="text-label text-sub mt-1">병원이 채용확정한 워커가 여기에 표시됩니다.</p>
         </Card>
       ) : (
         <Card className="divide-y divide-line p-0">

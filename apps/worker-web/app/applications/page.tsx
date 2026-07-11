@@ -54,7 +54,7 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: str
     className: 'bg-primary/10 text-primary',
   },
   accepted: {
-    label: '매칭 확정',
+    label: '병원 채용확정',
     description: '병원이 수락했어요. 근무 당일 QR 체크인을 준비해 주세요.',
     className: 'bg-[#E5FAF4] text-success',
   },
@@ -75,7 +75,7 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: str
   },
   completed: {
     label: '근무 완료',
-    description: '체크아웃이 완료됐고 정산 내역에서 확인할 수 있어요.',
+    description: '체크아웃이 완료됐고 급여 지급현황에서 확인할 수 있어요.',
     className: 'bg-[#E5FAF4] text-success',
   },
 };
@@ -98,7 +98,7 @@ function stepState(app: Application, step: 'applied' | 'accepted' | 'work') {
 function StatusSteps({ app }: { app: Application }) {
   const steps = [
     { key: 'applied' as const, label: '지원함' },
-    { key: 'accepted' as const, label: '매칭 확정' },
+    { key: 'accepted' as const, label: '채용확정' },
     { key: 'work' as const, label: app.checked_in_at ? '근무 중' : '출근 예정' },
   ];
 
@@ -252,7 +252,7 @@ function WageCard({ wage }: { wage: WageRow }) {
       <div className="flex items-center justify-between mb-1">
         <span className="text-[13px] font-semibold text-sub">{date}</span>
         <span className="text-[12px] font-bold px-2.5 py-1 rounded-full bg-[#E5FAF4] text-success">
-          정산 완료
+          지급 현황 보기
         </span>
       </div>
 
@@ -447,7 +447,7 @@ export default function ApplicationsPage() {
           {wages.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3">
               <span className="text-5xl">💸</span>
-              <p className="text-[17px] font-bold text-ink">아직 정산 내역이 없어요</p>
+              <p className="text-[17px] font-bold text-ink">아직 지급 내역이 없어요</p>
               <p className="text-[14px] text-sub text-center">시프트 체크아웃 완료 후 기록돼요</p>
             </div>
           ) : (

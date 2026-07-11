@@ -16,7 +16,7 @@ const STATUS_STYLE: Record<string, string> = {
 };
 const STATUS_LABEL: Record<string, string> = {
   open:        '모집중',
-  matched:     '매칭완료',
+  matched:     '채용확정',
   in_progress: '근무중',
   completed:   '완료',
   cancelled:   '취소됨',

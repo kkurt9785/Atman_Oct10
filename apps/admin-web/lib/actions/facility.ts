@@ -3,7 +3,6 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
-import { grantOnboardingCredit } from '../credits';
 
 export type FacilityProfile = {
   bed_count: number | null;
@@ -58,10 +57,6 @@ export async function saveFacilityProfile(formData: FormData) {
 
   const { error } = await sb.from('facilities').update(patch).eq('id', context.facilityId);
   if (error) throw new Error(error.message);
-
-  if (intro.length > 0 || bedCount !== null) {
-    await grantOnboardingCredit(sb, context.facilityId, 'onboard_profile');
-  }
 
   const { error: auditError } = await sb.from('audit_logs').insert({
     actor_type: 'admin',

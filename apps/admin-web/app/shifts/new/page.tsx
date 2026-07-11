@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
-import Link from 'next/link';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createShiftAction } from '@/lib/actions/shifts';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
-import { recommendedTierForShortfall, won } from '@/lib/billing';
+import { won } from '@/lib/billing';
 
 type Role = 'rn' | 'na' | 'any';
 
@@ -28,29 +27,11 @@ export default function NewShiftPage() {
   const [description, setDescription] = useState('');
   const [department, setDepartment] = useState('');
   const [notes, setNotes] = useState('');
-  const [creditBalance, setCreditBalance] = useState<number | null>(null);
 
   const estimatedPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage) ?? 0;
-  const projectedBalance = creditBalance == null ? null : creditBalance - estimatedPay;
-  const shortfall = projectedBalance == null ? 0 : Math.max(0, -projectedBalance);
-  const recommendedTier = recommendedTierForShortfall(shortfall || estimatedPay || 500000);
   const isOvernight = startTime && endTime
     ? endTime <= startTime
     : false;
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/billing/summary')
-      .then((res) => res.ok ? res.json() : null)
-      .then((data) => {
-        if (!cancelled && typeof data?.balance === 'number') setCreditBalance(data.balance);
-      })
-      .catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   function handleStartTimeChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value;
@@ -197,31 +178,7 @@ export default function NewShiftPage() {
                 <p className="text-money font-extrabold text-primary">{won(estimatedPay)}</p>
               </div>
 
-              {creditBalance != null && (
-                <div className="mt-4 bg-bg rounded-xl p-4">
-                  <div className="flex justify-between text-label">
-                    <span className="text-sub">현재 크레딧</span>
-                    <span className="font-bold text-ink">{won(creditBalance)}</span>
-                  </div>
-                  <div className="flex justify-between text-label mt-2">
-                    <span className="text-sub">매칭 시 예상 잔액</span>
-                    <span className={`font-bold ${shortfall > 0 ? 'text-warn' : 'text-ink'}`}>
-                      {projectedBalance != null && projectedBalance < 0 ? '-' : ''}{won(projectedBalance ?? 0)}
-                    </span>
-                  </div>
-                  {shortfall > 0 && (
-                    <div className="mt-3 pt-3 border-t border-line flex items-center justify-between gap-3">
-                      <p className="text-label text-warn font-bold">부족 예상 {won(shortfall)}</p>
-                      <Link
-                        href={`/membership?amount=${recommendedTier.charge}`}
-                        className="h-9 px-3 rounded-lg bg-primary text-white text-label font-bold flex items-center"
-                      >
-                        충전
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              )}
+              <p className="text-label text-sub mt-2">이 금액은 병원이 워커에게 직접 지급합니다. 잇닿 SaaS 이용료와 연동되지 않아요.</p>
             </div>
           )}
         </section>

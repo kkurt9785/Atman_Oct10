@@ -1,154 +1,38 @@
 import { adminClient } from '@/lib/supabase';
 import { getCurrentFacilityId } from '@/lib/facility';
-import CreditChargePanel from './CreditChargePanel';
-import { getBillingSummary } from '@/lib/db/billing';
-import { recommendedTierForShortfall } from '@/lib/billing';
+import ServiceInvoicePayButton from './CreditChargePanel';
 
-type LedgerRow = {
-  id: string;
-  delta: number;
-  kind: string;
-  ref: string | null;
-  created_at: string;
-};
+type Plan={code:string;name:string;monthly_fee:number;included_facilities:number;included_admin_seats:number;included_active_workers:number;included_attendance_slots:number;included_job_posting_slots:number;features:Record<string,boolean>};
+type Invoice={id:string;invoice_number:string;period_start:string;period_end:string;total_amount:number;status:string;due_date:string|null};
 
-const KIND_LABEL: Record<string, string> = {
-  charge:     '크레딧 충전',
-  earn:       '크레딧 충전',
-  shift_wage: '시프트 임금',
-  spend:      '시프트 임금',
-  bonus:      '보너스 크레딧',
-  refund:     '환불',
-};
-
-function won(n: number) {
-  return '₩' + Math.abs(n).toLocaleString('ko-KR');
-}
-
-async function getLedger(): Promise<{ balance: number; rows: LedgerRow[] }> {
-  const facilityId = await getCurrentFacilityId();
-  const sb = adminClient();
-  if (!sb || !facilityId) return { balance: 0, rows: [] };
-
-  const [ledgerRes, creditRes] = await Promise.all([
-    sb
-      .from('credit_ledger')
-      .select('id, delta, kind, ref, created_at')
-      .eq('org_id', facilityId)
-      .order('created_at', { ascending: false })
-      .limit(30),
-    sb.rpc('org_credit_balance', { p_org_id: facilityId }),
+async function getBilling() {
+  const sb=adminClient(); const facilityId=await getCurrentFacilityId();
+  if(!sb||!facilityId) return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[]};
+  const [plans,subscription,invoices,usage]=await Promise.all([
+    sb.from('service_plans').select('*').eq('is_active',true).order('sort_order'),
+    sb.from('facility_subscriptions').select('status,current_period_end,plan_code,service_plans(name,monthly_fee)').eq('facility_id',facilityId).in('status',['pending','active','past_due']).maybeSingle(),
+    sb.from('service_invoices').select('id,invoice_number,period_start,period_end,total_amount,status,due_date').eq('facility_id',facilityId).order('created_at',{ascending:false}).limit(12),
+    sb.from('service_usage_events').select('usage_type,quantity').eq('facility_id',facilityId).gte('occurred_at',new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString()),
   ]);
-
-  const rows = (ledgerRes.data ?? []) as LedgerRow[];
-  const balance = (creditRes.data as number) ?? 0;
-  return { balance, rows };
+  return {plans:(plans.data??[]) as Plan[],subscription:subscription.data,invoices:(invoices.data??[]) as Invoice[],usage:usage.data??[]};
 }
 
-export default async function MembershipPage({
-  searchParams,
-}: {
-  searchParams?: Promise<{ amount?: string }>;
-}) {
-  const params = searchParams ? await searchParams : undefined;
-  const [{ balance, rows }, billing] = await Promise.all([getLedger(), getBillingSummary()]);
-  const committedPay = billing.todayCommittedPay + billing.upcomingCommittedPay;
-  const projectedBalance = balance - committedPay;
-  const shortfall = Math.max(0, -projectedBalance);
-  const initialAmount = Number(params?.amount);
-  const recommendedTier = recommendedTierForShortfall(shortfall || Math.max(billing.openExposurePay, 500000));
+const USAGE:Record<string,string>={active_worker:'활성 워커',attendance_slot:'근태관리',job_posting_slot:'공고 게시',license_verification:'면허 검증',notification_usage:'알림',api_usage:'API',job_boost:'공고 Boost'};
+const INVOICE:Record<string,string>={draft:'작성 중',issued:'결제 대기',paying:'결제 확인 중',paid:'결제 완료',overdue:'미납',void:'취소'};
+function won(n:number){return `₩${n.toLocaleString('ko-KR')}`;}
 
-  return (
-    <main className="px-4 pb-28">
-      <h1 className="text-[22px] font-extrabold text-ink mt-3 mb-4 px-1">크레딧·정산</h1>
-
-      {/* 현재 잔액 */}
-      <div className={`rounded-2xl p-5 mb-6 flex items-center justify-between ${
-        balance < 0 ? 'bg-red-500' : 'bg-primary'
-      }`}>
-        <div>
-          <p className="text-[13px] text-white/70 font-semibold">현재 크레딧 잔액</p>
-          <p className="text-[30px] font-extrabold text-white leading-tight mt-0.5">
-            {balance < 0 ? '-' : ''}{won(balance)}
-          </p>
-          <p className="text-[12px] text-white/60 mt-1">
-            {balance < 0 ? '⚠️ 잔액 부족 — 충전이 필요해요' : '시프트 체크아웃 시 자동 차감'}
-          </p>
-        </div>
-        <div className="text-[44px] opacity-30">💳</div>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-card p-5 mb-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[13px] text-sub font-semibold">운영 자금 전망</p>
-            <p className="text-[19px] font-extrabold text-ink mt-1">
-              {shortfall > 0 ? '확정 근무 대비 잔액 부족' : '확정 근무 정산 가능'}
-            </p>
-          </div>
-          <span className={`text-[12px] font-bold px-3 py-1 rounded-full ${
-            shortfall > 0 ? 'bg-warn/15 text-warn' : 'bg-success/15 text-success'
-          }`}>
-            {shortfall > 0 ? '충전 권장' : '정상'}
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-3 mt-4">
-          <div className="bg-bg rounded-xl p-3">
-            <p className="text-[12px] text-sub">확정 근무 예정</p>
-            <p className="text-[15px] font-extrabold text-ink mt-0.5">
-              {billing.todayMatchedCount + billing.upcomingMatchedCount}명
-            </p>
-          </div>
-          <div className="bg-bg rounded-xl p-3">
-            <p className="text-[12px] text-sub">예상 차감</p>
-            <p className="text-[15px] font-extrabold text-ink mt-0.5">{won(committedPay)}</p>
-          </div>
-        </div>
-        <p className="text-[12px] text-sub mt-3">
-          추천 충전: {recommendedTier.label} · 공고/매칭이 늘어나면 자동 차감 예정액도 함께 커집니다.
-        </p>
-      </div>
-
-      {/* 인터랙티브 충전 패널 (Client Component) */}
-      <CreditChargePanel
-        initialAmount={Number.isFinite(initialAmount) ? initialAmount : recommendedTier.charge}
-        currentBalance={balance}
-        recommendedAmount={recommendedTier.charge}
-      />
-
-      {/* 사용 내역 (실 데이터) */}
-      <p className="text-[15px] font-extrabold text-ink mb-3 px-1">사용 내역</p>
-      {rows.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-card px-5 py-8 text-center">
-          <p className="text-[14px] text-sub">아직 내역이 없어요</p>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-card divide-y divide-line">
-          {rows.map((r) => {
-            const label   = KIND_LABEL[r.kind] ?? r.kind;
-            const dateStr = new Date(r.created_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
-            const timeStr = new Date(r.created_at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
-            return (
-              <div key={r.id} className="flex items-center justify-between px-4 py-4">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-bold text-ink">{label}</p>
-                  {r.ref && (
-                    <p className="text-[11px] text-sub mt-0.5 truncate font-mono">
-                      ref: {r.ref.slice(0, 8)}…
-                    </p>
-                  )}
-                  <p className="text-[11px] text-sub">{dateStr} {timeStr}</p>
-                </div>
-                <p className={`text-[15px] font-extrabold flex-shrink-0 ml-3 ${
-                  r.delta > 0 ? 'text-primary' : 'text-ink'
-                }`}>
-                  {r.delta > 0 ? '+' : '-'}{won(r.delta)}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </main>
-  );
+export default async function MembershipPage(){
+  const {plans,subscription,invoices,usage}=await getBilling();
+  const usageMap=usage.reduce((m:any,r:any)=>{m[r.usage_type]=(m[r.usage_type]??0)+r.quantity;return m;},{});
+  return <main className="px-4 pb-28">
+    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">임금과 완전히 분리된 요금</p><h1 className="text-display font-extrabold text-ink">요금제·청구</h1><p className="text-label text-sub mt-2 leading-5">잇닿 이용료는 지점·관리자·공고·근태 사용량 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.</p></div>
+    <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[12px] text-white/70">현재 구독</p><p className="text-[22px] font-extrabold mt-1">{subscription?.service_plans?.name??'파일럿 이용 중'}</p><p className="text-[12px] text-white/70 mt-2">{subscription?.current_period_end?`${subscription.current_period_end}까지 · ${subscription.status}`:'정식 청구 전 제한 파일럿'}</p></div>
+    <h2 className="text-title font-extrabold px-1 mb-3">요금제</h2>
+    <div className="space-y-3 mb-7">{plans.map(plan=><article key={plan.code} className={`bg-white rounded-2xl p-5 shadow-card ${subscription?.plan_code===plan.code?'ring-2 ring-primary':''}`}><div className="flex justify-between"><div><p className="text-title font-extrabold">{plan.name}</p><p className="text-label text-sub mt-1">월 {won(plan.monthly_fee)}</p></div>{subscription?.plan_code===plan.code&&<span className="text-[11px] font-bold text-primary">이용 중</span>}</div><div className="grid grid-cols-2 gap-2 mt-4 text-label text-sub"><span>지점 {plan.included_facilities}개</span><span>관리자 {plan.included_admin_seats}명</span><span>활성 워커 {plan.included_active_workers}명</span><span>근태 {plan.included_attendance_slots}건</span><span>공고 {plan.included_job_posting_slots}개</span><span>{plan.features.api?'API 포함':'기본 지원'}</span></div></article>)}</div>
+    <h2 className="text-title font-extrabold px-1 mb-3">이번 달 사용량</h2>
+    <div className="bg-white rounded-2xl shadow-card p-4 mb-7">{Object.keys(usageMap).length===0?<p className="text-label text-sub py-4 text-center">이번 달 기록된 초과 사용량이 없어요.</p>:Object.entries(usageMap).map(([key,value])=><div key={key} className="flex justify-between py-2 border-b border-line last:border-0 text-label"><span className="text-sub">{USAGE[key]??key}</span><b>{String(value)}건</b></div>)}</div>
+    <h2 className="text-title font-extrabold px-1 mb-3">청구서</h2>
+    {invoices.length===0?<div className="bg-white rounded-2xl p-8 text-center text-label text-sub">발행된 서비스 청구서가 없어요.</div>:<div className="space-y-3">{invoices.map(invoice=><article key={invoice.id} className="bg-white rounded-2xl p-4 shadow-card"><div className="flex justify-between gap-3"><div><p className="text-body font-bold">{invoice.invoice_number}</p><p className="text-[11px] text-sub mt-1">{invoice.period_start} – {invoice.period_end}</p></div><div className="text-right"><p className="font-extrabold">{won(invoice.total_amount)}</p><p className="text-[11px] text-sub mt-1">{INVOICE[invoice.status]??invoice.status}</p></div></div>{['issued','overdue'].includes(invoice.status)&&<div className="mt-3"><ServiceInvoicePayButton invoiceId={invoice.id} amount={invoice.total_amount}/></div>}</article>)}</div>}
+    <div className="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-4"><p className="text-label font-bold text-ink">별도 부가서비스</p><p className="text-[11px] text-sub leading-5 mt-1">공고 Boost, 면허 검증, SMS·푸시 초과 사용, 추가 관리자·활성 워커, API·ERP 연동은 청구서에 항목별로 표시됩니다.</p></div>
+  </main>;
 }

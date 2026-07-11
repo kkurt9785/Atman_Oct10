@@ -13,10 +13,8 @@ export type CheckinResult =
       startTime: string;
       action: 'checkin' | 'checkout';
       gross?: number;
-      platformFee?: number;
-      charged?: number;
-      netPay?: number;
-      balance?: number;
+      estimatedNet?: number;
+      deductionStatus?: string;
       distanceM?: number | null;
     }
   | { ok: false; message: string };
@@ -29,10 +27,8 @@ type RpcResult = {
   shiftDate?: unknown;
   startTime?: unknown;
   gross?: unknown;
-  platformFee?: unknown;
-  charged?: unknown;
-  netPay?: unknown;
-  balance?: unknown;
+  estimatedNet?: unknown;
+  deductionStatus?: unknown;
   distanceM?: unknown;
 };
 
@@ -83,10 +79,8 @@ export async function recordCheckin(
       shiftDate: result.shiftDate,
       startTime: result.startTime,
       gross: asNumber(result.gross),
-      platformFee: asNumber(result.platformFee),
-      charged: asNumber(result.charged),
-      netPay: asNumber(result.netPay),
-      balance: asNumber(result.balance),
+      estimatedNet: asNumber(result.estimatedNet),
+      deductionStatus: typeof result.deductionStatus === 'string' ? result.deductionStatus : undefined,
       distanceM: typeof result.distanceM === 'number' ? result.distanceM : null,
     };
   } catch (error) {

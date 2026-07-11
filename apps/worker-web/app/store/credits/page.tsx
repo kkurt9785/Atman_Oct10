@@ -1,213 +1,98 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-type LedgerRow = { id: string; delta: number; kind: string; memo: string | null; created_at: string };
-type PayoutRow = { id: string; amount: number; bank_name: string | null; account_last4: string | null; status: string; requested_at: string };
-
-const KIND_LABEL: Record<string, string> = {
-  earn: '적립', spend: '사용', payout: '환급', adjust: '조정',
+type PaymentRow = {
+  id: string;
+  gross_amount: number;
+  net_amount: number;
+  deduction_status: string;
+  due_date: string | null;
+  status: string;
+  created_at: string;
+  dispute_reason: string | null;
+  shifts: { shift_date: string; start_time: string; end_time: string; facilities: { name: string } | null } | null;
 };
-const STATUS_LABEL: Record<string, { text: string; cls: string }> = {
-  pending:  { text: '처리 중', cls: 'bg-amber-50 text-amber-600' },
-  paid:     { text: '환급 완료', cls: 'bg-green-50 text-green-600' },
-  rejected: { text: '거절됨', cls: 'bg-red-50 text-red-500' },
+
+const STATUS: Record<string, { label: string; style: string }> = {
+  draft: { label: '병원 검토 전', style: 'bg-slate-100 text-slate-600' },
+  approved: { label: '지급 승인', style: 'bg-blue-50 text-blue-700' },
+  exported: { label: '이체 준비', style: 'bg-violet-50 text-violet-700' },
+  paid: { label: '병원 지급 완료', style: 'bg-green-50 text-green-700' },
+  worker_confirmed: { label: '입금 확인', style: 'bg-green-100 text-green-800' },
+  disputed: { label: '확인 요청 중', style: 'bg-red-50 text-red-600' },
+  cancelled: { label: '취소', style: 'bg-slate-100 text-slate-500' },
 };
 
-function dateLabel(iso: string) {
-  const d = new Date(iso);
-  return `${d.getMonth() + 1}.${d.getDate()}`;
-}
+function won(value: number) { return `₩${Math.round(value).toLocaleString('ko-KR')}`; }
 
-export default function CreditsPage() {
+export default function EarningsPage() {
   const router = useRouter();
-  const [balance, setBalance] = useState(0);
-  const [ledger, setLedger] = useState<LedgerRow[]>([]);
-  const [payouts, setPayouts] = useState<PayoutRow[]>([]);
-  const [bank, setBank] = useState<{ name: string; last4: string } | null>(null);
+  const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [showSheet, setShowSheet] = useState(false);
-  const [amount, setAmount] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
-
-  const pendingSum = payouts.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
-  // request_credit_payout() reserves funds immediately with a negative ledger row.
-  const refundable = Math.max(0, balance);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoading(true); setError('');
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.replace('/shifts'); return; }
-
-    const [{ data: bal }, { data: rows }, { data: reqs }, { data: bankRow }] = await Promise.all([
-      supabase.rpc('get_my_credit_balance'),
-      supabase.from('worker_credit_ledger').select('id, delta, kind, memo, created_at').order('created_at', { ascending: false }).limit(30),
-      supabase.from('credit_payout_requests').select('id, amount, bank_name, account_last4, status, requested_at').order('requested_at', { ascending: false }).limit(10),
-      supabase.from('worker_bank_accounts').select('bank_name, account_number_last4').eq('is_primary', true).is('deleted_at', null).maybeSingle(),
-    ]);
-
-    setBalance(typeof bal === 'number' ? bal : 0);
-    setLedger((rows ?? []) as LedgerRow[]);
-    setPayouts((reqs ?? []) as PayoutRow[]);
-    if (bankRow?.bank_name) setBank({ name: bankRow.bank_name as string, last4: (bankRow.account_number_last4 as string) ?? '' });
+    if (!user) { router.replace('/'); return; }
+    const { data, error: queryError } = await supabase
+      .from('wage_payment_instructions')
+      .select('id,gross_amount,net_amount,deduction_status,due_date,status,created_at,dispute_reason,shifts(shift_date,start_time,end_time,facilities(name))')
+      .order('created_at', { ascending: false });
+    if (queryError) setError('지급 현황을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+    setRows((data ?? []) as unknown as PaymentRow[]);
     setLoading(false);
   }, [router]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  async function submitPayout() {
-    const n = Number(amount.replace(/\D/g, ''));
-    if (!n) return;
-    setSubmitting(true);
-    setError('');
-    const { error: err } = await supabase.rpc('request_credit_payout', { p_amount: n });
-    setSubmitting(false);
-    if (err) {
-      setError(err.message.replace(/^.*: /, ''));
-      return;
-    }
-    setDone(true);
-    await load();
+  async function act(id: string, action: 'confirm' | 'dispute') {
+    const reason = action === 'dispute' ? window.prompt('병원 급여 담당자가 확인할 내용을 5자 이상 입력해 주세요.') : null;
+    if (action === 'dispute' && (!reason || reason.trim().length < 5)) return;
+    setBusyId(id); setError('');
+    const { error: actionError } = await supabase.rpc('update_wage_payment_status', {
+      p_instruction_id: id, p_action: action, p_payment_reference: null, p_dispute_reason: reason,
+    });
+    if (actionError) setError(actionError.message.replace(/^.*: /, ''));
+    else await load();
+    setBusyId(null);
   }
 
-  function openSheet() {
-    setAmount(String(refundable));
-    setError('');
-    setDone(false);
-    setShowSheet(true);
-  }
+  const pending = rows.filter((row) => ['draft','approved','exported'].includes(row.status)).reduce((sum, row) => sum + row.net_amount, 0);
+  const paid = rows.filter((row) => ['paid','worker_confirmed'].includes(row.status)).reduce((sum, row) => sum + row.net_amount, 0);
 
-  return (
-    <div className="pb-16 min-h-screen bg-bg">
-      {/* 헤더 */}
-      <div className="bg-white px-5 pt-12 pb-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-ink text-[20px] leading-none -ml-1 p-1">←</button>
-        <h1 className="text-[18px] font-extrabold text-ink">내 적립금</h1>
-      </div>
+  return <main className="min-h-screen bg-bg pb-20">
+    <header className="bg-white px-5 pt-12 pb-5">
+      <button onClick={() => router.back()} className="text-[14px] text-sub mb-4">← 돌아가기</button>
+      <p className="text-[12px] font-bold text-primary mb-1">병원 직접 지급</p>
+      <h1 className="text-[26px] font-extrabold text-ink">급여 지급 현황</h1>
+      <p className="text-[13px] text-sub mt-2 leading-5">잇닿은 근무시간과 지급 정보를 관리하고, 임금은 채용 병원이 등록한 계좌로 직접 지급합니다.</p>
+    </header>
 
-      {/* 잔액 카드 */}
-      <div className="bg-white px-5 pb-6">
-        <p className="text-[13px] text-sub">사용 가능 적립금</p>
-        <p className="text-[34px] font-extrabold text-ink mt-1">₩{balance.toLocaleString('ko-KR')}</p>
-        {pendingSum > 0 && (
-          <p className="text-[12px] text-amber-600 font-semibold mt-1">환급 처리 중 ₩{pendingSum.toLocaleString('ko-KR')}</p>
-        )}
-        <div className="flex gap-2 mt-4">
-          <button
-            onClick={openSheet}
-            disabled={refundable < 1000}
-            className="flex-1 h-12 rounded-xl bg-primary text-white text-[14px] font-extrabold disabled:opacity-40"
-          >
-            계좌로 환급
-          </button>
-          <button
-            onClick={() => router.push('/store')}
-            className="flex-1 h-12 rounded-xl bg-bg text-ink text-[14px] font-extrabold"
-          >
-            스토어에서 쓰기
-          </button>
-        </div>
-        {refundable < 1000 && (
-          <p className="text-[11px] text-tertiary mt-2">환급은 1,000원부터 신청할 수 있어요</p>
-        )}
-      </div>
+    <section className="grid grid-cols-2 gap-3 px-5 -mt-1 py-5">
+      <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-[12px] text-sub">지급 예정</p><p className="text-[20px] font-extrabold text-ink mt-1">{won(pending)}</p></div>
+      <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-[12px] text-sub">지급 완료</p><p className="text-[20px] font-extrabold text-primary mt-1">{won(paid)}</p></div>
+    </section>
 
-      {/* 환급 신청 내역 */}
-      {payouts.length > 0 && (
-        <div className="mt-3 bg-white px-5 py-4">
-          <p className="text-[14px] font-bold text-ink mb-3">환급 신청 내역</p>
-          <div className="divide-y divide-line">
-            {payouts.map((p) => (
-              <div key={p.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-bold text-ink">₩{p.amount.toLocaleString('ko-KR')}</p>
-                  <p className="text-[12px] text-sub">{p.bank_name} ****{p.account_last4} · {dateLabel(p.requested_at)}</p>
-                </div>
-                <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${STATUS_LABEL[p.status]?.cls ?? ''}`}>
-                  {STATUS_LABEL[p.status]?.text ?? p.status}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 적립·사용 내역 */}
-      <div className="mt-3 bg-white px-5 py-4">
-        <p className="text-[14px] font-bold text-ink mb-3">적립·사용 내역</p>
-        {loading ? (
-          <p className="text-[13px] text-tertiary py-6 text-center">불러오는 중...</p>
-        ) : ledger.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-[14px] font-bold text-ink">아직 내역이 없어요</p>
-            <p className="text-[12px] text-sub mt-1">시프트를 완료하면 적립금이 쌓여요</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-line">
-            {ledger.map((l) => (
-              <div key={l.id} className="py-3 flex items-center justify-between">
-                <div>
-                  <p className="text-[13px] font-bold text-ink">{KIND_LABEL[l.kind] ?? l.kind}</p>
-                  <p className="text-[12px] text-sub">{l.memo ?? ''} {dateLabel(l.created_at)}</p>
-                </div>
-                <p className={`text-[14px] font-extrabold ${l.delta >= 0 ? 'text-primary' : 'text-ink'}`}>
-                  {l.delta >= 0 ? '+' : ''}{l.delta.toLocaleString('ko-KR')}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 환급 신청 바텀시트 */}
-      {showSheet && (
-        <>
-          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowSheet(false)} />
-          <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-3xl z-50 px-5 pt-6 pb-10">
-            <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
-            {done ? (
-              <div className="text-center py-4">
-                <p className="text-[40px] mb-2">✅</p>
-                <p className="text-[18px] font-extrabold text-ink">환급 신청 완료</p>
-                <p className="text-[13px] text-sub mt-2">영업일 기준 1~2일 내 입금돼요</p>
-                <button onClick={() => setShowSheet(false)} className="w-full h-13 mt-6 py-3.5 rounded-xl bg-primary text-white text-[15px] font-extrabold">
-                  확인
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="text-[18px] font-extrabold text-ink mb-1">계좌로 환급</p>
-                <p className="text-[13px] text-sub mb-5">
-                  {bank ? `${bank.name} ****${bank.last4} 계좌로 입금돼요` : '등록된 계좌로 입금돼요'}
-                </p>
-                <div className="bg-bg rounded-2xl px-4 py-3 mb-2 flex items-center justify-between">
-                  <span className="text-[13px] text-sub">환급 가능</span>
-                  <span className="text-[14px] font-bold text-ink">₩{refundable.toLocaleString('ko-KR')}</span>
-                </div>
-                <input
-                  type="tel"
-                  value={amount ? Number(amount.replace(/\D/g, '')).toLocaleString('ko-KR') : ''}
-                  onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
-                  placeholder="환급할 금액"
-                  className="w-full h-[52px] px-4 bg-white rounded-xl border border-line text-[18px] font-bold text-ink focus:border-primary outline-none mb-2"
-                />
-                {error && <p className="text-[12px] font-bold text-red-500 mb-2">{error}</p>}
-                <button
-                  onClick={submitPayout}
-                  disabled={submitting || !Number(amount.replace(/\D/g, ''))}
-                  className="w-full h-13 py-3.5 rounded-xl bg-primary text-white text-[15px] font-extrabold disabled:opacity-40"
-                >
-                  {submitting ? '신청 중...' : '환급 신청하기'}
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
+    {error && <p role="alert" className="mx-5 mb-3 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-bold text-red-600">{error}</p>}
+    <section className="px-5">
+      {loading ? <div className="bg-white rounded-2xl p-8 text-center text-[13px] text-sub">지급 내역을 불러오는 중...</div>
+      : rows.length === 0 ? <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2">근무 체크아웃이 완료되면 병원 지급 요청이 여기에 표시돼요.</p></div>
+      : <div className="space-y-3">{rows.map((row) => {
+        const shift = row.shifts; const state = STATUS[row.status] ?? STATUS.draft;
+        return <article key={row.id} className="bg-white rounded-2xl p-4 shadow-card">
+          <div className="flex items-start justify-between gap-3"><div><p className="text-[15px] font-extrabold text-ink">{shift?.facilities?.name ?? '채용 병원'}</p><p className="text-[12px] text-sub mt-1">{shift?.shift_date ?? new Date(row.created_at).toLocaleDateString('ko-KR')} · {shift?.start_time?.slice(0,5)}–{shift?.end_time?.slice(0,5)}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>
+          <div className="mt-4 rounded-xl bg-bg p-3 space-y-2 text-[12px]"><div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>{won(row.gross_amount)}</b></div><div className="flex justify-between"><span className="text-sub">공제</span><b>{row.deduction_status === 'unconfirmed' ? '병원 확인 예정' : '병원 확인'}</b></div><div className="flex justify-between border-t border-line pt-2"><span className="font-bold">지급 예정액</span><b className="text-primary">{won(row.net_amount)}</b></div>{row.due_date && <div className="flex justify-between"><span className="text-sub">지급 예정일</span><b>{row.due_date}</b></div>}</div>
+          {row.status === 'paid' && <button disabled={busyId===row.id} onClick={() => void act(row.id,'confirm')} className="mt-3 w-full h-11 rounded-xl bg-primary text-white text-[13px] font-extrabold disabled:opacity-50">내 계좌 입금 확인</button>}
+          {['approved','exported','paid'].includes(row.status) && <button disabled={busyId===row.id} onClick={() => void act(row.id,'dispute')} className="mt-2 w-full py-2 text-[12px] font-bold text-sub disabled:opacity-50">금액·입금 문제 확인 요청</button>}
+          {row.dispute_reason && <p className="mt-2 rounded-lg bg-red-50 p-2 text-[11px] text-red-600">요청 내용: {row.dispute_reason}</p>}
+        </article>;
+      })}</div>}
+    </section>
+    <p className="px-5 mt-5 text-[11px] leading-5 text-tertiary">표시 금액은 병원의 최종 공제 판단 전 예상액일 수 있습니다. 잇닿은 임금을 수취하거나 재지급하지 않습니다.</p>
+  </main>;
 }

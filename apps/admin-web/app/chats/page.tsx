@@ -68,7 +68,7 @@ export default async function ChatsPage() {
   return (
     <main className="px-4">
       <h1 className="text-display font-extrabold text-ink mt-3 mb-1 px-1">워커 채팅</h1>
-      <p className="text-label text-sub mb-4 px-1">매칭된 워커와 대화해요 · 근무 종료 24시간 후 잠김</p>
+      <p className="text-label text-sub mb-4 px-1">채용확정된 워커와 근무에 필요한 내용만 대화해요 · 근무 종료 24시간 후 잠김</p>
 
       <SectionTitle>대화 목록</SectionTitle>
       {rows.length === 0 ? (
@@ -90,7 +90,7 @@ export default async function ChatsPage() {
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
                     row.status === 'accepted' ? 'bg-primary/10 text-primary' : 'bg-bg text-sub'
                   }`}>
-                    {row.status === 'accepted' ? '매칭중' : '완료'}
+                    {row.status === 'accepted' ? '채용확정' : '완료'}
                   </span>
                 </div>
                 <p className="text-label text-sub truncate mt-0.5">

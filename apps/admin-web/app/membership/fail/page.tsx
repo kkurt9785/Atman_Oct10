@@ -23,7 +23,7 @@ export default async function TossPaymentFailPage({
         <p className="text-[14px] text-sub mt-2">결제 내역에 승인 금액이 없다면 다시 시도해 주세요.</p>
         {params.code && <p className="text-[11px] text-tertiary mt-2 font-mono">오류 코드: {params.code.slice(0, 80)}</p>}
         <Link href="/membership" className="mt-6 h-12 rounded-xl bg-primary text-white text-[15px] font-bold flex items-center justify-center">
-          다시 충전하기
+          청구서로 돌아가기
         </Link>
       </div>
     </main>

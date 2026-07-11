@@ -314,7 +314,7 @@ export default function ShiftsPage() {
           {recommended.length > 0 && (
             <section className="mb-6">
               <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-[17px] font-extrabold text-ink">추천 시프트</h2>
+                <h2 className="text-[17px] font-extrabold text-ink">내 조건과 가까운 공고</h2>
                 <span className="text-[12px] text-tertiary">상위 {recommended.length}건</span>
               </div>
               {recommended.map((s) => (
