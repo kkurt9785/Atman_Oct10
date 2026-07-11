@@ -1,6 +1,7 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST } from '../date';
+import { estimatedFacilityCharge } from '../billing';
 
 export type BillingSummary = {
   balance: number;
@@ -30,7 +31,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
     sb.rpc('org_credit_balance', { p_org_id: facilityId }),
     sb
       .from('shifts')
-      .select('shift_date, estimated_total_pay, status')
+      .select('shift_date, estimated_total_pay, platform_fee_rate, status')
       .eq('facility_id', facilityId)
       .gte('shift_date', today)
       .in('status', ['open', 'matched', 'in_progress']),
@@ -39,6 +40,7 @@ export async function getBillingSummary(): Promise<BillingSummary> {
   const shifts = (shiftsRes.data ?? []) as Array<{
     shift_date: string;
     estimated_total_pay: number;
+    platform_fee_rate: number | null;
     status: string;
   }>;
 
@@ -49,9 +51,9 @@ export async function getBillingSummary(): Promise<BillingSummary> {
 
   return {
     balance: (creditRes.data as number) ?? 0,
-    todayCommittedPay: todayCommitted.reduce((sum, shift) => sum + shift.estimated_total_pay, 0),
-    upcomingCommittedPay: upcomingCommitted.reduce((sum, shift) => sum + shift.estimated_total_pay, 0),
-    openExposurePay: openShifts.reduce((sum, shift) => sum + shift.estimated_total_pay, 0),
+    todayCommittedPay: todayCommitted.reduce((sum, shift) => sum + estimatedFacilityCharge(shift.estimated_total_pay, Number(shift.platform_fee_rate ?? 0.12)), 0),
+    upcomingCommittedPay: upcomingCommitted.reduce((sum, shift) => sum + estimatedFacilityCharge(shift.estimated_total_pay, Number(shift.platform_fee_rate ?? 0.12)), 0),
+    openExposurePay: openShifts.reduce((sum, shift) => sum + estimatedFacilityCharge(shift.estimated_total_pay, Number(shift.platform_fee_rate ?? 0.12)), 0),
     todayMatchedCount: todayCommitted.length,
     upcomingMatchedCount: upcomingCommitted.length,
   };

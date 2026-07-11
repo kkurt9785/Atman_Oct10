@@ -68,23 +68,31 @@ export default function SettingsPage() {
       if (pushEnabled) {
         await unsubscribeFromPush();
         const { data: { user } } = await supabase.auth.getUser();
-        if (user) await supabase.from('push_subscriptions').delete().eq('worker_id', user.id);
+        if (!user) throw new Error('로그인이 만료됐어요.');
+        const { error: deleteError } = await supabase.from('push_subscriptions').delete().eq('worker_id', user.id);
+        if (deleteError) throw deleteError;
         setPushEnabled(false);
       } else {
         const sub = await subscribeToPush();
         if (sub) {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
-            await supabase.from('push_subscriptions').upsert({
+            const { error: upsertError } = await supabase.from('push_subscriptions').upsert({
               worker_id: user.id,
               subscription: sub.toJSON(),
             });
+            if (upsertError) {
+              await unsubscribeFromPush().catch(() => undefined);
+              throw upsertError;
+            }
           }
           setPushEnabled(true);
         } else {
           alert('알림 권한을 허용해 주세요.');
         }
       }
+    } catch (toggleError) {
+      alert(toggleError instanceof Error ? toggleError.message : '알림 설정을 저장하지 못했어요.');
     } finally {
       setPushLoading(false);
     }

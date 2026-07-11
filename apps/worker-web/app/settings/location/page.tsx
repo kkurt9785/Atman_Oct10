@@ -8,6 +8,7 @@ export default function LocationSettingsPage() {
   const router = useRouter();
   const [initialLocations, setInitialLocations] = useState<AreaPref[] | undefined>();
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     supabase.from('worker_location_prefs').select('locations').single()
@@ -15,25 +16,15 @@ export default function LocationSettingsPage() {
   }, []);
 
   async function handleSave(areas: AreaPref[]) {
+    if (saving) return;
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('worker_location_prefs').upsert({
-        worker_id: user.id,
-        locations: areas,
-      });
-      const primary = areas[0];
-      if (primary?.lat && primary?.lng) {
-        await supabase.from('workers')
-          .update({
-            activity_center: `SRID=4326;POINT(${primary.lng} ${primary.lat})`,
-            activity_radius_meters: primary.radius_km * 1000,
-            activity_address_text: primary.label,
-          })
-          .eq('auth_user_id', user.id);
-      }
-    }
+    setError('');
+    const { error: saveError } = await supabase.rpc('update_my_activity_areas', { p_areas: areas });
     setSaving(false);
+    if (saveError) {
+      setError(saveError.message.replace(/^.*?: /, ''));
+      return;
+    }
     router.refresh();
     router.push('/settings');
   }
@@ -47,11 +38,14 @@ export default function LocationSettingsPage() {
   }
 
   return (
-    <ActivityArea
+    <>
+      {error && <p className="mx-6 mt-6 rounded-xl bg-red-50 px-4 py-3 text-[13px] font-bold text-red-600">{error}</p>}
+      <ActivityArea
       onNext={handleSave}
       initialLocations={initialLocations}
       buttonLabel={saving ? '저장 중...' : '저장하기'}
       showHeader={false}
     />
+    </>
   );
 }

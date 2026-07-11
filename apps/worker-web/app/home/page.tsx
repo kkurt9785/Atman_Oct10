@@ -221,7 +221,7 @@ export default function HomePage() {
   // 매칭 기준 선택 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [basis, setBasis] = useState<'gps' | string>('gps');
-  const userRef = useRef<{ id: string; roles: string[] } | null>(null);
+  const approvedRef = useRef(false);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
@@ -246,39 +246,24 @@ export default function HomePage() {
       },
     })) as ShiftWithFacility[];
 
-  // 선택한 기준(현재 위치 또는 특정 지역) 하나로 시프트 조회
-  const fetchShifts = useCallback(async (p: { lat: number; lng: number } | null, b: 'gps' | string) => {
-    const u = userRef.current;
-    if (!u) return;
-
-    const useGps = b === 'gps' && !!p;
-    let { data: rpcData, error: rpcErr } = await supabase.rpc('get_nearby_open_shifts_v2', {
-      p_auth_user_id: u.id,
-      p_roles: u.roles,
-      p_lat: useGps ? p!.lat : null,
-      p_lng: useGps ? p!.lng : null,
-      p_pref_labels: useGps ? [] : b === 'gps' ? null : [b],
+  // 사용자 ID·직군을 클라이언트에서 넘기지 않고 DB가 auth.uid()로 결정한다.
+  const fetchShifts = useCallback(async (position: { lat: number; lng: number } | null, selectedBasis: 'gps' | string) => {
+    if (!approvedRef.current) {
+      setShifts([]);
+      return;
+    }
+    const useGps = selectedBasis === 'gps' && Boolean(position);
+    const { data, error } = await supabase.rpc('get_nearby_open_shifts_secure', {
+      p_lat: useGps ? position!.lat : null,
+      p_lng: useGps ? position!.lng : null,
+      p_pref_labels: useGps ? [] : selectedBasis === 'gps' ? null : [selectedBasis],
     });
-
-    // 신규 파라미터 미적용 DB 폴백 (마이그레이션 전 배포 안전망)
-    if (rpcErr) {
-      const v2old = await supabase.rpc('get_nearby_open_shifts_v2', {
-        p_auth_user_id: u.id,
-        p_roles: u.roles,
-        p_lat: useGps ? p!.lat : null,
-        p_lng: useGps ? p!.lng : null,
-      });
-      rpcData = v2old.data;
-      rpcErr = v2old.error;
+    if (error) {
+      console.error('[home] secure shift discovery failed', error);
+      setShifts([]);
+      return;
     }
-    if (rpcErr) {
-      const v1 = await supabase.rpc('get_nearby_open_shifts', {
-        p_auth_user_id: u.id,
-        p_roles: u.roles,
-      });
-      rpcData = v1.data;
-    }
-    setShifts(mapRows(rpcData));
+    setShifts(mapRows((data ?? []) as Record<string, unknown>[]));
   }, []);
 
   function selectBasis(b: 'gps' | string) {
@@ -305,7 +290,7 @@ export default function HomePage() {
         supabase.from('worker_location_prefs').select('locations').single(),
         supabase.rpc('get_my_credit_balance'),
         supabase.from('workers')
-          .select('id, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
+          .select('id, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
       ]);
@@ -316,7 +301,7 @@ export default function HomePage() {
       setAreas(areaLabels);
       setCredits(typeof balanceData === 'number' ? balanceData : 0);
 
-      userRef.current = { id: user.id, roles: userRole === 'rn' ? ['rn', 'any'] : ['na', 'any'] };
+      approvedRef.current = workerRow?.verification_status === 'approved';
 
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;

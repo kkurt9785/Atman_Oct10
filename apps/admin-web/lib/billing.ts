@@ -30,3 +30,9 @@ export function recommendedTierForShortfall(shortfall: number) {
   if (shortfall <= 0) return CREDIT_TIERS[1];
   return CREDIT_TIERS.find((tier) => tier.credit >= shortfall) ?? CREDIT_TIERS[CREDIT_TIERS.length - 1];
 }
+
+export const PLATFORM_FEE_RATE = 0.12;
+
+export function estimatedFacilityCharge(grossPay: number, feeRate = PLATFORM_FEE_RATE) {
+  return Math.max(0, Math.round(grossPay * (1 + feeRate)));
+}

@@ -1,45 +1,48 @@
+
+import { timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { adminClient } from '@/lib/supabase';
+import { reconcilePaymentFromProvider } from '@/lib/payment-service';
+import { getTossPayment } from '@/lib/toss';
 
-export const dynamic = 'force-dynamic';
+function safeEqual(left: string, right: string): boolean {
+  const a = Buffer.from(left);
+  const b = Buffer.from(right);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
-// 토스페이먼츠 웹훅 — 결제 상태의 최종 진실.
-// 바디를 신뢰하지 않고 paymentKey로 토스 API를 역조회해 검증한 뒤,
-// 멱등 RPC(apply_payment_credit)로 크레딧을 반영한다 (redirect 유실 대비).
-export async function POST(req: NextRequest) {
-  const secretKey = process.env.TOSS_SECRET_KEY;
-  if (!secretKey) return NextResponse.json({ ok: false }, { status: 500 });
+function authorized(request: NextRequest): boolean {
+  const expected = process.env.TOSS_WEBHOOK_TOKEN;
+  if (!expected || expected.length < 24) return false;
+  const bearer = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
+  const header = request.headers.get('x-atman-webhook-token') ?? '';
+  const query = request.nextUrl.searchParams.get('token') ?? '';
+  return [bearer, header, query].some((candidate) => candidate && safeEqual(candidate, expected));
+}
 
-  const body = (await req.json().catch(() => null)) as {
-    eventType?: string;
-    data?: { paymentKey?: string; orderId?: string; status?: string };
-  } | null;
-
-  const paymentKey = body?.data?.paymentKey;
-  const orderId = body?.data?.orderId;
-  if (!paymentKey || !orderId) return NextResponse.json({ ok: true }); // 무관한 이벤트는 200으로 종료
-
-  // 소스 오브 트루스: 토스 API 역조회 (위조 웹훅 무력화)
-  const res = await fetch(`https://api.tosspayments.com/v1/payments/${paymentKey}`, {
-    headers: { Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}` },
-    cache: 'no-store',
-  });
-  if (!res.ok) return NextResponse.json({ ok: true });
-
-  const payment = (await res.json()) as { orderId?: string; status?: string; totalAmount?: number };
-  if (payment.orderId !== orderId || payment.status !== 'DONE' || !payment.totalAmount) {
-    return NextResponse.json({ ok: true });
+export async function POST(request: NextRequest) {
+  if (!authorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const sb = adminClient();
-  if (!sb) return NextResponse.json({ ok: false }, { status: 500 });
+  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
+  const data = (body?.data && typeof body.data === 'object'
+    ? body.data
+    : body) as Record<string, unknown> | null;
+  const paymentKey = typeof data?.paymentKey === 'string' ? data.paymentKey : null;
+  if (!paymentKey) {
+    return NextResponse.json({ error: 'paymentKey required' }, { status: 400 });
+  }
 
-  // 멱등 — 이미 redirect 흐름에서 처리됐으면 already:true로 끝남
-  await sb.rpc('apply_payment_credit', {
-    p_order_id: orderId,
-    p_payment_key: paymentKey,
-    p_amount: payment.totalAmount,
-  });
-
-  return NextResponse.json({ ok: true });
+  try {
+    // Webhook bodies are notifications, not settlement authority. Re-fetch from Toss.
+    const payment = await getTossPayment(paymentKey);
+    await reconcilePaymentFromProvider(payment);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error('[payments/webhook]', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Webhook processing failed' },
+      { status: 500 },
+    );
+  }
 }

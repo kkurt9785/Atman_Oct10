@@ -3,6 +3,9 @@ import type { ReactNode } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { Shell } from '@/components/Shell';
 
+// Admin pages depend on authenticated, facility-scoped data and must never be prerendered.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: '잇닿 사장님',
   description: '직원·근태·급여를 한 번에',
@@ -22,7 +25,6 @@ export const viewport: Viewport = {
   themeColor: '#191F28',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: 'cover',
 };
 

@@ -2,7 +2,7 @@
 
 > 최종 업데이트: 2026-07-10 · 상태 표기: ✅ 구현 · 🟡 부분 구현 · ⏳ 예정
 
-**구성**: 워커 앱 `itdot.co.kr` (Next.js 14, PWA) · 관리자 앱 `admin.itdot.co.kr` (Next.js 14, PWA) · Supabase (Postgres + PostGIS + Auth + Storage)
+**구성**: 워커 앱 `itdot.co.kr` (Next.js 15.5.20, PWA) · 관리자 앱 `admin.itdot.co.kr` (Next.js 15.5.20, PWA) · Supabase (Postgres + PostGIS + Auth + Storage)
 
 ---
 
@@ -13,7 +13,7 @@
 | 카카오 OAuth 로그인 (양쪽 앱) | ✅ | REST API 키 + Client Secret, 인가코드 → 자체 토큰 교환(`/api/kakao-token`) → Supabase `signInWithIdToken` |
 | 카카오 인앱 브라우저 우회 | ✅ | `kakaotalk://web/openExternal` 로 외부 브라우저 전환 |
 | 데모 계정 로그인 | ✅ | `NEXT_PUBLIC_ENABLE_DEMO_LOGIN=1` + 비프로덕션에서만 노출 |
-| 관리자 권한 검증 | ✅ | `profiles.role='admin'` + HMAC 서명 facility 쿠키 |
+| 관리자 권한 검증 | ✅ | Supabase 검증 세션 + 사용자에 묶인 서명 facility context + 역할 재검증 |
 | PASS 본인인증 | ⏳ | 사업자등록 후 NICE/KCB 계약 |
 
 ## 2. 워커 앱
@@ -31,16 +31,16 @@
 ### 2.2 시프트 탐색·지원 (`/home`, `/shifts`)
 | 항목 | 상태 | 비고 |
 |---|---|---|
-| GPS + 지역 이중 매칭 | ✅ | `get_nearby_open_shifts_v2` — 현재 위치 12km + 선호지역 합집합, 거리순. GPS 거부 시 지역만 |
+| GPS + 지역 이중 매칭 | ✅ | `get_nearby_open_shifts_secure` — `auth.uid()` 기반 직군·활동지역 검증, 현재 위치와 선호지역 합집합 |
 | 필터 | ✅ | 날짜/시간대(야간·주간·이른)/시급/부서 칩 |
 | 추천 시프트 | ✅ | 조건 맞춤 가로 캐러셀 |
-| 지원하기 | ✅ | `shift_applications` 생성, 중복 지원 차단 |
-| 지원 취소 | ✅ | RLS로 본인 것만 |
+| 지원하기 | ✅ | `apply_to_shift` RPC, 중복·겹치는 확정 근무·자격 상태 검증 |
+| 지원 취소 | ✅ | `cancel_my_shift_application` RPC로 본인 대기 지원만 취소 |
 
 ### 2.3 근무·정산
 | 항목 | 상태 | 비고 |
 |---|---|---|
-| 체크인용 QR 표시 | ✅ | `{type, applicationId, issuedAt}` JSON, 당일 유효 |
+| 체크인용 QR 표시 | ✅ | 서버 발급 무작위 토큰만 포함, 60초 만료·1회 사용 |
 | 지원 현황 (`/applications`) | ✅ | 대기/수락/완료 상태별 |
 | 적립금·스토어 (`/store`) | ✅ | `user_credits` 잔액 표시 |
 | 푸시 알림 | ✅ | Web Push (VAPID) + Service Worker, 매칭 알림 |
@@ -65,20 +65,20 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | 시프트 등록 (`/shifts/new`) | ✅ | 직군/날짜/시간/시급/부서 |
-| 지원자 수락/거절 (`/applications`) | ✅ | 서버 액션 + facility 쿠키 인증 |
+| 지원자 수락/거절 (`/applications`) | ✅ | 사용자 JWT + facility 역할 검증 + 트랜잭션 RPC |
 | 만료 미매칭 배너 → 다시 올리기 | ✅ | |
-| 워커 승인/거절 | 🟡 | 액션 구현·인증 가드 완료 — **facility 스코프 없음(전체 워커 노출), 전용 UI 미흡** |
+| 워커 승인/거절 | 🟡 | 플랫폼 `super` 역할만 전체 면허 심사, 시설 관리자는 지원자 범위만 열람 |
 
 ### 3.3 QR 체크인/체크아웃 (`/checkin`)
 관리자 기기 카메라로 워커 QR 스캔 → 체크인/아웃 토글
 
 | 항목 | 상태 | 비고 |
 |---|---|---|
-| QR 스캔 (jsQR) | ✅ | 당일(KST)만 체크인 허용 |
-| **GPS 지오펜스** | ✅ | 스캔 기기 위치 vs 병원 좌표, **500m 초과 거부**, `check_in/out_location`·`distance_m` 기록. GPS 없는 기기는 기록 없이 허용 |
+| QR 스캔 (jsQR) | ✅ | DB 토큰 해시·TTL·1회 사용·시프트 상태 검증 |
+| **GPS 지오펜스** | ✅ | 스캔 기기 위치 vs 병원 좌표, **500m 초과 거부**, `check_in/out_location`·`distance_m` 기록. 지오펜스 필수 시설은 GPS 누락도 거부 |
 | 자동 임금 계산 | ✅ | 기본급 + 연장(8h 초과 +50%) + 야간(KST 22~06시 +50%), 휴게시간 차감, `wage_calculations` 기록 |
-| 크레딧 자동 차감 | ✅ | 체크아웃 시 `credit_ledger` 차감, UNIQUE 제약으로 중복 방지 |
-| 회전 QR + HMAC + Nonce | ⏳ | 스키마 준비됨 (`check_out_qr_nonce`, `check_out_hmac_verified`) |
+| 크레딧 자동 차감 | ✅ | `consume_attendance_qr` 단일 트랜잭션에서 임금·수수료·크레딧·근태·원장 갱신 |
+| 서버 1회용 QR 토큰 | ✅ | 무작위 bearer token, DB에는 해시만 저장, 60초 TTL, `FOR UPDATE` 소비 |
 
 ### 3.4 근태·급여
 | 항목 | 상태 | 비고 |
@@ -90,7 +90,7 @@
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | 크레딧 티어 | ✅ | 50만~1,000만, Toss 3.4% 수수료 반영 흑자 구조 (마진 2~3.6%) |
-| 토스페이먼츠 결제 | 🟡 | 코드 완성 (`requestPayment` → success 승인 → 크레딧 지급) — **전자결제 가입 보류** (가입비 22만+연 11만) |
+| 토스페이먼츠 결제 | 🟡 | 서버 주문 원장 → 승인 검증 → webhook/cron 재조회 → 멱등 크레딧 지급. 운영 키 전환 전 Toss 샌드박스 장애 테스트 필요 |
 | 크레딧 원장 | ✅ | `credit_ledger` (earn/spend), 유효기간 1년, 보너스 환불 불가 정책 |
 
 ## 4. 백엔드 (Supabase)
@@ -99,8 +99,8 @@
 |---|---|
 | 핵심 테이블 | `workers`, `facilities`, `shifts`, `shift_applications`, `shift_attendances`, `wage_calculations`, `credit_ledger`, `worker_bank_accounts`, `worker_location_prefs`, `facility_admin_access`, `profiles` |
 | 위치 | PostGIS `geography(POINT,4326)` — 워커 활동중심/병원 위치/체크인 위치, GIST 인덱스 |
-| RPC | `get_nearby_open_shifts_v2` (GPS+지역 매칭), `upsert_my_bank_account` (계좌 암호화 저장) |
-| 보안 | RLS 전 테이블 · 서버 액션은 service_role + HMAC facility 쿠키 검증 · 계좌번호 pgp 암호화 |
+| RPC | `get_nearby_open_shifts_secure`, 지원·수락·QR·정산·결제·환급 RPC |
+| 보안 | 사용자 경로는 JWT/RLS/RPC, service_role은 결제·outbox 등 서버 전용, 민감 Storage private, 계좌 암호화 키 fail-closed |
 | 정산 규칙 | `rule_version='2026-KR'` — 최저시급 10,320원, 연장/야간 +50%, 휴게 자동 차감 |
 
 ## 5. 시연·운영

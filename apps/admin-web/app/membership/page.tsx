@@ -48,13 +48,14 @@ async function getLedger(): Promise<{ balance: number; rows: LedgerRow[] }> {
 export default async function MembershipPage({
   searchParams,
 }: {
-  searchParams?: { amount?: string };
+  searchParams?: Promise<{ amount?: string }>;
 }) {
+  const params = searchParams ? await searchParams : undefined;
   const [{ balance, rows }, billing] = await Promise.all([getLedger(), getBillingSummary()]);
   const committedPay = billing.todayCommittedPay + billing.upcomingCommittedPay;
   const projectedBalance = balance - committedPay;
   const shortfall = Math.max(0, -projectedBalance);
-  const initialAmount = Number(searchParams?.amount);
+  const initialAmount = Number(params?.amount);
   const recommendedTier = recommendedTierForShortfall(shortfall || Math.max(billing.openExposurePay, 500000));
 
   return (

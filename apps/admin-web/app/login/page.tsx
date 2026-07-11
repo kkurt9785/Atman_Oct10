@@ -1,25 +1,12 @@
 'use client';
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
-import { supabase } from '@/lib/supabase-browser';
-
-const DEMO_PASSWORD = 'Atman-demo-2026!';
-const DEMO_ACCOUNTS = [
-  { email: 'sales-demo-1@demo.atman.co.kr', label: '슈퍼계정 1' },
-  { email: 'sales-demo-2@demo.atman.co.kr', label: '슈퍼계정 2' },
-  { email: 'sales-demo-3@demo.atman.co.kr', label: '슈퍼계정 3' },
-];
 
 function LoginInner() {
   const [loading, setLoading] = useState(false);
-  const [demoLoadingEmail, setDemoLoadingEmail] = useState<string | null>(null);
-  const [demoError, setDemoError] = useState('');
-  const router = useRouter();
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
-  const showDemoLogin =
-    process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && process.env.NODE_ENV !== 'production';
 
   function handleKakaoLogin() {
     setLoading(true);
@@ -30,39 +17,6 @@ function LoginInner() {
       `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
   }
 
-  async function handleDemoLogin(email: string) {
-    setDemoLoadingEmail(email);
-    setDemoError('');
-
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password: DEMO_PASSWORD,
-    });
-
-    if (signInError || !data.session?.access_token) {
-      setDemoError('데모 계정 로그인에 실패했습니다. 로컬 시드 적용 여부를 확인해주세요.');
-      setDemoLoadingEmail(null);
-      return;
-    }
-
-    const facilityRes = await fetch('/api/set-facility', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${data.session.access_token}`,
-      },
-    });
-
-    const facilityData = await facilityRes.json().catch(() => ({}));
-    setDemoLoadingEmail(null);
-
-    if (facilityRes.ok && facilityData.facilityId) {
-      router.replace('/');
-      router.refresh();
-      return;
-    }
-
-    router.replace('/setup/claim-facility');
-  }
 
   return (
     <div className="flex flex-col min-h-screen px-6">
@@ -78,30 +32,9 @@ function LoginInner() {
       )}
 
       <div className="pb-10 flex flex-col gap-3">
-        {showDemoLogin && (
-          <div className="rounded-2xl border border-[#E5E8EB] bg-white p-4">
-            <p className="mb-3 text-[13px] font-bold text-main">시연용 슈퍼계정</p>
-            <div className="grid grid-cols-1 gap-2">
-              {DEMO_ACCOUNTS.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => handleDemoLogin(account.email)}
-                  disabled={loading || !!demoLoadingEmail}
-                  className="h-11 rounded-xl border border-[#D0D5DD] bg-[#F9FAFB] text-[14px] font-semibold text-[#191F28] disabled:opacity-60"
-                >
-                  {demoLoadingEmail === account.email ? '로그인 중...' : `${account.label} 로그인`}
-                </button>
-              ))}
-            </div>
-            {demoError && (
-              <p className="mt-3 text-center text-[12px] leading-5 text-red-600">{demoError}</p>
-            )}
-          </div>
-        )}
         <button
           onClick={handleKakaoLogin}
-          disabled={loading || !!demoLoadingEmail}
+          disabled={loading}
           className="w-full h-12 rounded-xl bg-[#FEE500] text-[#191F28] font-bold text-[15px] flex items-center justify-center gap-2 disabled:opacity-60"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
