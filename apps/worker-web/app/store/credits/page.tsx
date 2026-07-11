@@ -36,7 +36,8 @@ export default function CreditsPage() {
   const [done, setDone] = useState(false);
 
   const pendingSum = payouts.filter((p) => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
-  const refundable = Math.max(0, balance - pendingSum);
+  // request_credit_payout() reserves funds immediately with a negative ledger row.
+  const refundable = Math.max(0, balance);
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();

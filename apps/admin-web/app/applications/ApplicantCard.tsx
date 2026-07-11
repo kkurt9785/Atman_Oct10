@@ -3,7 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { acceptApplication, rejectApplication } from './actions';
 import type { Applicant } from '@/lib/db/applications';
-import { recommendedTierForShortfall, won } from '@/lib/billing';
+import { estimatedFacilityCharge, recommendedTierForShortfall, won } from '@/lib/billing';
 
 const ROLE_LABEL: Record<string, string> = { rn: 'RN', na: 'NA' };
 const ROLE_COLOR: Record<string, string> = {
@@ -68,9 +68,10 @@ export function ApplicantCard({
 
   const hasProfile = applicant.experienceYears || applicant.lastWorkplace || applicant.departmentTags?.length;
   const hasLicense = applicant.licenseNumber || applicant.licensePhotoUrl;
-  const projectedBalance = creditBalance == null ? null : creditBalance - estimatedPay;
+  const estimatedCharge = estimatedFacilityCharge(estimatedPay);
+  const projectedBalance = creditBalance == null ? null : creditBalance - estimatedCharge;
   const shortfall = projectedBalance == null ? 0 : Math.max(0, -projectedBalance);
-  const recommendedTier = recommendedTierForShortfall(shortfall || estimatedPay || 500000);
+  const recommendedTier = recommendedTierForShortfall(shortfall || estimatedCharge || 500000);
 
   return (
     <div className="py-4 px-5">
@@ -144,7 +145,7 @@ export function ApplicantCard({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/api/license-photo?src=${encodeURIComponent(applicant.licensePhotoUrl)}`}
+                        src={applicant.licensePhotoUrl}
                         alt="면허증"
                         className="max-w-full max-h-[80vh] rounded-xl object-contain"
                         onClick={(e) => e.stopPropagation()}
@@ -205,8 +206,12 @@ export function ApplicantCard({
                 <span className="font-bold text-ink">{applicant.name}</span>
               </div>
               <div className="flex justify-between text-[13px]">
-                <span className="text-sub">예상 지급액</span>
+                <span className="text-sub">예상 임금</span>
                 <span className="font-bold text-primary">{won(estimatedPay)}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-sub">수수료 포함 예상 차감</span>
+                <span className="font-bold text-ink">{won(estimatedCharge)}</span>
               </div>
               {creditBalance != null && (
                 <>

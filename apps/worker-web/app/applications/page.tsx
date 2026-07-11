@@ -343,7 +343,7 @@ export default function ApplicationsPage() {
 
   async function handleCancel(applicationId: string) {
     if (!workerId) return;
-    const ok = await cancelApplication(applicationId, workerId);
+    const ok = await cancelApplication(applicationId);
     if (ok) {
       setApps((prev) => prev.map((a) => a.id === applicationId ? { ...a, status: 'cancelled' as const } : a));
     } else {

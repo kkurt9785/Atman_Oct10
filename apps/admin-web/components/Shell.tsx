@@ -22,6 +22,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function handleLogout() {
+    await fetch('/api/admin-session', { method: 'DELETE' }).catch(() => undefined);
     await supabase.auth.signOut();
     router.replace('/login');
   }

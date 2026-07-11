@@ -24,7 +24,6 @@
 | 크레딧 충전 (토스페이먼츠) | 🟡 코드 완성 — 전자결제 가입 보류 중 (가입비 33만) |
 | 본인인증 (PASS) | ⏳ 사업자등록 후 |
 | 앱스토어 | ⏳ 보류 — PWA 우선, 사용자 확보 후 RN WebView |
-| 운영 보안 (2026-07-11) | ✅ RLS 작업별 분리·정산 단일 트랜잭션 RPC·결제 멱등(주문원장+webhook)·QR 회전/HMAC/nonce·Private Storage·Vault 암호화 키 — 상세 [docs/FEATURES.md](docs/FEATURES.md) |
 
 시연: `python3 scripts/revive_demo.py` (전날 실행) → sales-demo-1/2/3 계정, 로컬 dev에서 데모 로그인.
 
@@ -120,7 +119,7 @@
 - ✅ PostGIS 반경 매칭 (Edge Function)
 - ✅ Expo Push 즉시 알림
 - ✅ 워커 신청 → 고용주 수락 → 매칭 확정
-- ✅ **QR 체크인/체크아웃 (회전 + HMAC + 위치 검증)**
+- ✅ **QR 체크인/체크아웃 (서버 발급 1회용 토큰 + 60초 TTL + 위치 검증)**
 - ✅ 근무 시간 자동 계산 + 정산 미리보기
 
 ### 제외 (Phase 2 이후)
@@ -295,7 +294,7 @@ ALTER TABLE worker_preferences
 ### 흐름
 
 ```
-워커: 매칭 확정 → 시프트 카드 → "체크인" → 회전 QR 표시
+워커: 매칭 확정 → 시프트 카드 → "체크인" → 서버 발급 1회용 QR 표시
                                               ↓
 고용주: 앱 → "QR 스캔" → 카메라 → 결과 확인 → 서버 검증
                                               ↓
@@ -306,23 +305,20 @@ ALTER TABLE worker_preferences
                               근무 시간 × 시급 자동 정산
 ```
 
-### 보안 4겹 — ✅ 전부 구현 완료 (2026-07-11)
+### 보안 계층
 
-1. **회전 QR** ✅ — 서버 발급 토큰 45초 자동 갱신 (TTL 60초), 스크린샷 재사용 차단
-2. **HMAC 서명** ✅ — `QR_SECRET`으로 payload 서명, 위조 QR 거부
-3. **위치 검증** ✅ — 스캐너 GPS와 시설 위치 비교, 반경 500m 초과 시 거부, `check_in/out_location`·`distance_m` 기록
-4. **Nonce UNIQUE** ✅ — `qr_scan_nonces` 1회용 기록, 같은 QR 재스캔 시 DB 제약으로 차단
+1. **서버 발급 bearer token** — QR에는 시프트·워커 식별자를 넣지 않고 무작위 토큰만 표시
+2. **60초 만료** — DB의 `expires_at` 기준으로 만료된 토큰 거부
+3. **1회 사용** — 토큰 행을 `FOR UPDATE`로 잠그고 `consumed_at`을 원자적으로 기록해 재사용 차단
+4. **권한·시프트 상태 검증** — 발급자는 해당 지원 건의 워커, 소비자는 해당 병원의 관리자여야 함
+5. **위치 검증** — 병원이 지오펜스를 요구하면 GPS 누락 또는 반경 초과를 거부
 
-### 페이로드 구조
+### QR 페이로드
 
 ```ts
 {
-  shiftId: string,
-  workerId: string,
-  action: 'CHECK_IN' | 'CHECK_OUT',
-  ts: number,      // 30초마다 변경
-  nonce: string,   // 1회용 UUID
-  sig: string      // HMAC-SHA256(payload, QR_SECRET)
+  type: 'attendance_challenge',
+  token: string // DB에는 SHA-256 해시만 저장
 }
 ```
 
@@ -935,8 +931,8 @@ LTV 합산: 시프트 마진 (20만) + 스토어 마진 (10년 60만+) = **70만
 ```
 atman/
 ├── apps/
-│   ├── admin-web/        # 시설 관리자 웹 (Next.js 14, port 3002)
-│   └── worker-web/       # 워커 온보딩·앱 (Next.js 14, port 3003)
+│   ├── admin-web/        # 시설 관리자 웹 (Next.js 15.5.20, port 3002)
+│   └── worker-web/       # 워커 온보딩·앱 (Next.js 15.5.20, port 3003)
 ├── packages/
 │   └── wage-engine/      # 법정수당 계산 엔진 (RULESET_2026, 최저시급 10,320원)
 └── supabase/

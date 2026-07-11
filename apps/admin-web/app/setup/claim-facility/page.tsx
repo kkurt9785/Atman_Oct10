@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase-browser';
 import { claimFacility, searchFacilities } from '@/lib/facility';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -18,7 +17,6 @@ type Facility = {
   name: string;
   facility_type: string;
   address_text: string;
-  admin_user_id: string | null;
 };
 
 export default function ClaimFacilityPage() {
@@ -42,11 +40,8 @@ export default function ClaimFacilityPage() {
     if (!selected) return;
     setError('');
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setError('로그인이 필요해요'); return; }
-
     startTransition(async () => {
-      const result = await claimFacility(selected.id, session.access_token, inviteCode);
+      const result = await claimFacility(selected.id, inviteCode);
       if (result.ok) {
         router.replace('/');
       } else {
@@ -110,9 +105,6 @@ export default function ClaimFacilityPage() {
                     </span>
                   </div>
                   <p className="text-[13px] text-sub mt-0.5">{f.address_text}</p>
-                  {f.admin_user_id && (
-                    <p className="text-[12px] text-warn mt-1">이미 연결된 병원</p>
-                  )}
                 </button>
               </li>
             ))}

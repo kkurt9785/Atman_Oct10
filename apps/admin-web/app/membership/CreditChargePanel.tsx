@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { CREDIT_TIERS, won } from '@/lib/billing';
-import { createPaymentOrder } from './actions';
 
 declare global {
   interface Window {
@@ -22,6 +21,13 @@ declare global {
   }
 }
 
+type ServerOrder = {
+  orderId: string;
+  orderName: string;
+  amount: number;
+  credit: number;
+};
+
 function TierCard({
   tier,
   selected,
@@ -33,6 +39,7 @@ function TierCard({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`w-full text-left rounded-2xl border-2 p-4 transition-all relative ${
         selected ? 'border-primary bg-primary/5' : 'border-line bg-white'
@@ -41,27 +48,24 @@ function TierCard({
       {tier.tag && (
         <span className={`absolute top-3 right-3 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
           tier.tag === '최대 혜택' ? 'bg-amber-100 text-amber-600' :
-          tier.tag === '추천'     ? 'bg-primary/10 text-primary' :
-                                    'bg-green-50 text-green-600'
+          tier.tag === '추천' ? 'bg-primary/10 text-primary' :
+          'bg-green-50 text-green-600'
         }`}>
           {tier.tag}
         </span>
       )}
       <div className="flex items-end gap-2 mb-1.5 pl-6">
         <span className="text-[18px] font-extrabold text-ink">{won(tier.charge)}</span>
-        <span className="text-[13px] text-sub mb-0.5">충전 시</span>
+        <span className="text-[13px] text-sub mb-0.5">결제 시</span>
       </div>
       <div className="flex items-center gap-2 pl-6">
         <span className="text-[15px] font-bold text-primary">{won(tier.credit)} 크레딧</span>
         {tier.bonus > 0 && (
           <span className="text-[12px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-            +{tier.bonusRate}% 보너스
+            보너스 {won(tier.bonus)}
           </span>
         )}
       </div>
-      {tier.bonus > 0 && (
-        <p className="text-[11px] text-sub mt-1 pl-6">보너스 {won(tier.bonus)} 추가 지급</p>
-      )}
       <div className={`absolute top-4 left-4 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${
         selected ? 'border-primary bg-primary' : 'border-line'
       }`}>
@@ -90,7 +94,7 @@ export default function CreditChargePanel({
 
   const selected = CREDIT_TIERS.find((t) => t.id === selectedId);
   const tossClientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
-  const canPay = !!tossClientKey;
+  const canPay = Boolean(tossClientKey);
 
   function loadTossScript() {
     return new Promise<void>((resolve, reject) => {
@@ -116,129 +120,118 @@ export default function CreditChargePanel({
     });
   }
 
+  async function createServerOrder(tierId: number): Promise<ServerOrder> {
+    const response = await fetch('/api/payments/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tierId }),
+    });
+    const body = await response.json().catch(() => ({})) as Partial<ServerOrder> & { error?: string };
+    if (!response.ok || !body.orderId || !body.orderName || typeof body.amount !== 'number') {
+      throw new Error(body.error ?? '서버 주문을 만들지 못했어요.');
+    }
+    return body as ServerOrder;
+  }
+
   async function handlePayment() {
-    if (!selected || !tossClientKey) return;
+    if (!selected || !tossClientKey || paying) return;
     setPaymentError('');
     setPaying(true);
 
     try {
+      const order = await createServerOrder(selected.id);
       await loadTossScript();
       const tossPayments = window.TossPayments?.(tossClientKey);
       if (!tossPayments) throw new Error('토스페이먼츠를 시작할 수 없어요.');
 
-      // 서버에서 주문 원장을 먼저 생성 — 승인 시 금액·시설 대조 (멱등성 기준점)
-      const order = await createPaymentOrder(selected.charge);
-      if (!order.ok) throw new Error(order.message);
-
       const origin = window.location.origin;
-      const orderId = order.orderId;
       await tossPayments.requestPayment('카드', {
-        amount: selected.charge,
-        orderId,
-        orderName: `잇닿 크레딧 ${selected.label}`,
+        amount: order.amount,
+        orderId: order.orderId,
+        orderName: order.orderName,
         customerName: '잇닿 병원 관리자',
         successUrl: `${origin}/membership/success`,
-        failUrl: `${origin}/membership/fail`,
+        failUrl: `${origin}/membership/fail?localOrderId=${encodeURIComponent(order.orderId)}`,
       });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : '결제창을 열지 못했어요.';
-      setPaymentError(message);
+    } catch (error) {
+      setPaymentError(error instanceof Error ? error.message : '결제창을 열지 못했어요.');
       setPaying(false);
     }
   }
 
   return (
     <>
-      {/* 대량 충전 혜택 안내 */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 flex items-start gap-2">
-        <span className="text-[16px] mt-0.5">🎁</span>
+        <span className="text-[16px] mt-0.5">💳</span>
         <div>
-          <p className="text-[13px] font-bold text-amber-700">300만원 이상 충전 시 보너스 크레딧 제공</p>
-          <p className="text-[11px] text-amber-600 mt-0.5">보너스 크레딧은 임금 지급에 동일하게 사용돼요</p>
+          <p className="text-[13px] font-bold text-amber-700">결제 주문은 서버에서 먼저 생성돼요</p>
+          <p className="text-[11px] text-amber-600 mt-0.5">승인 금액과 지급 크레딧을 서버 원장 기준으로 검증합니다.</p>
         </div>
       </div>
 
-      {/* 티어 선택 */}
       <div className="flex flex-col gap-3 mb-6">
-        {CREDIT_TIERS.map((t) => (
-          <TierCard key={t.id} tier={t} selected={selectedId === t.id} onClick={() => setSelectedId(t.id)} />
+        {CREDIT_TIERS.map((tier) => (
+          <TierCard
+            key={tier.id}
+            tier={tier}
+            selected={selectedId === tier.id}
+            onClick={() => setSelectedId(tier.id)}
+          />
         ))}
       </div>
 
-      {/* 충전 버튼 */}
       {selected && (
         <button
+          type="button"
           onClick={() => setShowConfirm(true)}
           className="w-full h-14 bg-primary text-white rounded-2xl text-[16px] font-extrabold shadow-btn active:opacity-80 mb-8"
         >
-          {won(selected.charge)} 충전하기 →&nbsp;
+          {won(selected.charge)} 결제하기 →&nbsp;
           <span className="opacity-80 text-[14px]">{won(selected.credit)} 크레딧</span>
         </button>
       )}
 
-      {/* 크레딧 사용 안내 */}
       <div className="bg-bg rounded-2xl p-4 mb-6">
-        <p className="text-[13px] font-bold text-ink mb-2">크레딧 사용 방법</p>
+        <p className="text-[13px] font-bold text-ink mb-2">크레딧 사용 안내</p>
         <ul className="text-[12px] text-sub space-y-1.5">
-          <li>✓ 시프트 체크아웃 완료 시 임금 자동 차감</li>
-          <li>✓ 잔액은 다음 시프트에 이월 (유효기간 1년)</li>
-          <li>✓ 원금은 충전 후 1년 내 환불 가능</li>
-          <li>✓ 보너스 크레딧은 환불 불가 (포인트 성격)</li>
+          <li>✓ 체크아웃 시 임금과 플랫폼 수수료가 한 트랜잭션으로 차감돼요.</li>
+          <li>✓ 원금·보너스 크레딧은 원장에 구분 기록돼요.</li>
+          <li>✓ 환불·취소는 결제 원장과 사용 내역 확인 후 처리해야 해요.</li>
         </ul>
       </div>
 
-      {/* 충전 확인 모달 */}
       {showConfirm && selected && (
         <>
-          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setShowConfirm(false)} />
+          <button type="button" aria-label="닫기" className="fixed inset-0 bg-black/40 z-40" onClick={() => !paying && setShowConfirm(false)} />
           <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-3xl z-50 px-5 pt-6 pb-10">
             <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
-            <p className="text-[18px] font-extrabold text-ink mb-4">충전 확인</p>
+            <p className="text-[18px] font-extrabold text-ink mb-4">결제 확인</p>
             <div className="bg-bg rounded-2xl p-4 mb-5 space-y-2">
-              <div className="flex justify-between text-[13px]">
-                <span className="text-sub">현재 크레딧</span>
-                <span className="font-bold text-ink">{won(currentBalance)}</span>
-              </div>
-              <div className="flex justify-between text-[13px]">
-                <span className="text-sub">결제 금액</span>
-                <span className="font-bold text-ink">{won(selected.charge)}</span>
-              </div>
+              <div className="flex justify-between text-[13px]"><span className="text-sub">현재 크레딧</span><span className="font-bold text-ink">{won(currentBalance)}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-sub">결제 금액</span><span className="font-bold text-ink">{won(selected.charge)}</span></div>
+              <div className="flex justify-between text-[13px]"><span className="text-sub">기본 크레딧</span><span className="font-bold text-ink">{won(selected.credit - selected.bonus)}</span></div>
               {selected.bonus > 0 && (
-                <div className="flex justify-between text-[13px]">
-                  <span className="text-sub">보너스 크레딧 (+{selected.bonusRate}%)</span>
-                  <span className="font-bold text-primary">+{won(selected.bonus)}</span>
-                </div>
+                <div className="flex justify-between text-[13px]"><span className="text-sub">보너스 크레딧</span><span className="font-bold text-primary">+{won(selected.bonus)}</span></div>
               )}
-              <div className="flex justify-between text-[14px] pt-2 border-t border-line">
-                <span className="font-bold text-ink">지급 크레딧</span>
-                <span className="font-extrabold text-primary">{won(selected.credit)}</span>
-              </div>
+              <div className="flex justify-between text-[14px] pt-2 border-t border-line"><span className="font-bold text-ink">총 지급 크레딧</span><span className="font-extrabold text-primary">{won(selected.credit)}</span></div>
             </div>
             {canPay ? (
               <button
+                type="button"
                 onClick={handlePayment}
                 disabled={paying}
                 className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl disabled:opacity-50"
               >
-                {paying ? '결제창 여는 중...' : '토스페이먼츠로 결제하기'}
+                {paying ? '주문 생성·결제창 여는 중...' : '토스페이먼츠로 결제하기'}
               </button>
             ) : (
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-                <p className="text-[13px] font-bold text-amber-700">🚧 결제 키 설정 필요</p>
-                <p className="text-[11px] text-amber-600 mt-0.5">
-                  Vercel에 NEXT_PUBLIC_TOSS_CLIENT_KEY, TOSS_SECRET_KEY를 설정하면 결제가 활성화돼요
-                </p>
+                <p className="text-[13px] font-bold text-amber-700">결제 환경변수 설정 필요</p>
+                <p className="text-[11px] text-amber-600 mt-0.5">운영 전 테스트 키로 주문·승인·웹훅 복구를 검증하세요.</p>
               </div>
             )}
-            {paymentError && (
-              <p className="text-[12px] text-warn font-bold mt-3">{paymentError}</p>
-            )}
-            <button
-              onClick={() => setShowConfirm(false)}
-              className="w-full mt-2 py-3 text-[14px] text-sub font-semibold"
-            >
-              닫기
-            </button>
+            {paymentError && <p role="alert" className="text-[12px] text-warn font-bold mt-3">{paymentError}</p>}
+            <button type="button" disabled={paying} onClick={() => setShowConfirm(false)} className="w-full mt-2 py-3 text-[14px] text-sub font-semibold disabled:opacity-40">닫기</button>
           </div>
         </>
       )}

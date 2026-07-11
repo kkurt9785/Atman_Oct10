@@ -62,15 +62,16 @@ export async function getExpiredOpenShifts(): Promise<ShiftRow[]> {
   return (data as ShiftRow[]) ?? [];
 }
 
-export async function createShift(payload: NewShift): Promise<void> {
+export async function createShift(payload: NewShift): Promise<string> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
   if (!sb || !facilityId) throw new Error('인증 필요');
 
-  const { error } = await sb.from('shifts').insert({
+  const { data, error } = await sb.from('shifts').insert({
     ...payload,
     facility_id: facilityId,
-  });
+  }).select('id').single();
 
-  if (error) throw new Error(error.message);
+  if (error || !data) throw new Error(error?.message ?? '시프트 등록에 실패했어요.');
+  return data.id as string;
 }

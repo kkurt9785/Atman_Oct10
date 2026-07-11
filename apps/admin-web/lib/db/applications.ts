@@ -1,5 +1,6 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
+import { createLicenseSignedUrl } from '../license-storage';
 
 export type Applicant = {
   applicationId: string;
@@ -58,6 +59,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
 
   const groups = new Map<string, ApplicationGroup>();
   for (const row of apps as any[]) {
+    const signedLicenseUrl = await createLicenseSignedUrl(sb, row.workers?.license_photo_url, 300);
     const shift = shiftMap[row.shift_id];
     if (!shift) continue;
     if (!groups.has(row.shift_id)) {
@@ -83,7 +85,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
       matchScore: row.match_score,
       appliedAt: row.applied_at,
       licenseNumber: row.workers.license_number ?? null,
-      licensePhotoUrl: row.workers.license_photo_url ?? null,
+      licensePhotoUrl: signedLicenseUrl,
       experienceYears: row.workers.experience_years ?? null,
       lastWorkplace: row.workers.last_workplace ?? null,
       departmentTags: row.workers.department_tags ?? null,

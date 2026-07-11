@@ -190,45 +190,50 @@ export default function ShiftsPage() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      let roleFilter: Array<'rn' | 'na' | 'any'> = ['rn', 'na', 'any'];
       let appliedShiftIds = new Set<string>();
 
       if (!user) {
         setIsGuest(true);
-      } else {
-        const { data: worker } = await supabase
-          .from('workers')
-          .select('id, role, verification_status')
-          .eq('auth_user_id', user.id)
-          .maybeSingle();
-
-        if (worker?.verification_status === 'approved') {
-          roleFilter = worker.role === 'rn' ? ['rn', 'any'] : ['na', 'any'];
-          const { data: appData } = await supabase
-            .from('shift_applications')
-            .select('shift_id')
-            .eq('worker_id', worker.id)
-            .in('status', ['applied', 'accepted']);
-          appliedShiftIds = new Set((appData ?? []).map((a: { shift_id: string }) => a.shift_id));
-          setApplied(appliedShiftIds);
-        }
+        const { data: publicRows, error } = await supabase
+          .from('shifts')
+          .select('id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text )')
+          .eq('status', 'open')
+          .gte('shift_date', dateKST())
+          .order('shift_date', { ascending: true })
+          .order('start_time', { ascending: true });
+        if (error) console.error('[shifts] public browse failed', error);
+        setShifts((publicRows as unknown as Shift[]) ?? []);
+        setLoading(false);
+        return;
       }
 
-      const { data: shiftData } = await supabase
-        .from('shifts')
-        .select(
-          'id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text )'
-        )
-        .eq('status', 'open')
-        .gte('shift_date', dateKST())
-        .in('required_role', roleFilter)
-        .order('shift_date', { ascending: true })
-        .order('start_time', { ascending: true });
+      const { data: worker } = await supabase
+        .from('workers')
+        .select('id, verification_status')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
+      if (!worker || worker.verification_status !== 'approved') {
+        setShifts([]);
+        setLoading(false);
+        return;
+      }
 
-      setShifts(((shiftData as unknown as Shift[]) ?? []).filter((s) => !appliedShiftIds.has(s.id)));
+      const [{ data: appData }, { data: secureRows, error: discoveryError }] = await Promise.all([
+        supabase.from('shift_applications').select('shift_id').eq('worker_id', worker.id).in('status', ['applied', 'accepted']),
+        supabase.rpc('get_nearby_open_shifts_secure', { p_lat: null, p_lng: null, p_pref_labels: null }),
+      ]);
+      appliedShiftIds = new Set((appData ?? []).map((row: { shift_id: string }) => row.shift_id));
+      setApplied(appliedShiftIds);
+      if (discoveryError) console.error('[shifts] secure discovery failed', discoveryError);
+      const mapped = ((secureRows ?? []) as Record<string, unknown>[]).map((row) => ({
+        ...row,
+        facilities: { name: row.facility_name as string, address_text: row.address_text as string | null },
+        distance_km: typeof row.distance_m === 'number' ? row.distance_m / 1000 : null,
+      })) as unknown as Shift[];
+      setShifts(mapped.filter((shift) => !appliedShiftIds.has(shift.id)));
       setLoading(false);
     }
-    load();
+    void load();
   }, []);
 
   function handleApplied(shiftId: string) {

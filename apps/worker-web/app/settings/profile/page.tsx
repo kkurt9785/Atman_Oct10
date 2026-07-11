@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { validateLicenseFile } from '@/components/onboarding/LicenseUpload';
 
 type LicenseMode = 'photo' | 'text';
 
@@ -26,37 +27,48 @@ export default function ProfileEditPage() {
   const [licenseNumber,  setLicenseNumber]  = useState('');
   const [licenseFile,    setLicenseFile]    = useState<File | null>(null);
   const [licensePreview, setLicensePreview] = useState<string | null>(null);
-  const [licensePhotoUrl, setLicensePhotoUrl] = useState<string | null>(null);
+  const [licensePhotoPath, setLicensePhotoPath] = useState<string | null>(null);
   const [experience,     setExperience]     = useState('');
   const [lastWorkplace,  setLastWorkplace]  = useState('');
   const [deptTags,       setDeptTags]       = useState<string[]>([]);
   const [saving,         setSaving]         = useState(false);
   const [error,          setError]          = useState<string | null>(null);
 
-  // 기존 데이터 로드
+  // Private bucket stores an object path. Preview uses a short-lived signed URL.
   useEffect(() => {
-    supabase.from('workers')
-      .select('license_number, license_photo_url, experience_years, last_workplace, department_tags')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) return;
-        if (data.license_photo_url) {
-          setLicenseMode('photo');
-          setLicensePhotoUrl(data.license_photo_url);
-          setLicensePreview(data.license_photo_url);
-        } else if (data.license_number) {
-          setLicenseMode('text');
-          setLicenseNumber(data.license_number);
-        }
-        setExperience(data.experience_years ?? '');
-        setLastWorkplace(data.last_workplace ?? '');
-        setDeptTags(data.department_tags ?? []);
-      });
+    let active = true;
+    async function load() {
+      const { data, error: loadError } = await supabase.from('workers')
+        .select('license_number, license_photo_url, experience_years, last_workplace, department_tags')
+        .maybeSingle();
+      if (!active || loadError || !data) return;
+      if (data.license_photo_url) {
+        setLicenseMode('photo');
+        setLicensePhotoPath(data.license_photo_url);
+        const { data: signed } = await supabase.storage.from('license-photos').createSignedUrl(data.license_photo_url, 300);
+        if (active) setLicensePreview(signed?.signedUrl ?? null);
+      } else if (data.license_number) {
+        setLicenseMode('text');
+        setLicenseNumber(data.license_number);
+      }
+      setExperience(data.experience_years ?? '');
+      setLastWorkplace(data.last_workplace ?? '');
+      setDeptTags(data.department_tags ?? []);
+    }
+    void load();
+    return () => { active = false; };
   }, []);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const validation = validateLicenseFile(file);
+    if (validation) {
+      setError(validation);
+      e.target.value = '';
+      return;
+    }
+    setError(null);
     setLicenseFile(file);
     setLicensePreview(URL.createObjectURL(file));
   }
@@ -69,48 +81,52 @@ export default function ProfileEditPage() {
 
   async function handleSave() {
     setError(null);
-
-    if (licenseMode === 'text' && !licenseNumber.trim()) {
-      setError('면허 번호를 입력해주세요.'); return;
-    }
+    if (licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해주세요.'); return; }
+    if (licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해주세요.'); return; }
     if (!experience) { setError('경력을 선택해주세요.'); return; }
     if (!lastWorkplace.trim()) { setError('최근 근무지를 입력해주세요.'); return; }
     if (deptTags.length === 0) { setError('부서 태그를 최소 1개 선택해주세요.'); return; }
 
     setSaving(true);
+    let uploadedPath: string | null = null;
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error('로그인이 만료됐어요.');
 
-      let photoUrl = licensePhotoUrl;
-
-      // 새 사진 업로드
+      let nextPath = licenseMode === 'photo' ? licensePhotoPath : null;
       if (licenseMode === 'photo' && licenseFile) {
-        const ext  = licenseFile.name.split('.').pop() ?? 'jpg';
-        const path = `${user.id}/license.${ext}`;
-        const { error: uploadErr } = await supabase.storage
-          .from('license-photos')
-          .upload(path, licenseFile, { upsert: true });
-        if (uploadErr) throw uploadErr;
-        const { data: urlData } = supabase.storage
-          .from('license-photos')
-          .getPublicUrl(path);
-        photoUrl = urlData.publicUrl;
+        const extByType: Record<string, string> = {
+          'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
+          'image/heic': 'heic', 'image/heif': 'heif',
+        };
+        const ext = extByType[licenseFile.type];
+        if (!ext) throw new Error('지원하지 않는 면허 파일 형식이에요.');
+        uploadedPath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from('license-photos').upload(uploadedPath, licenseFile, {
+          upsert: false,
+          cacheControl: '3600',
+          contentType: licenseFile.type,
+        });
+        if (uploadError) throw uploadError;
+        nextPath = uploadedPath;
       }
 
-      const { error: updateErr } = await supabase.from('workers').update({
-        license_number:    licenseMode === 'text' ? licenseNumber.trim() : null,
-        license_photo_url: licenseMode === 'photo' ? photoUrl : null,
-        experience_years:  experience,
-        last_workplace:    lastWorkplace.trim(),
-        department_tags:   deptTags,
-      }).eq('auth_user_id', user.id);
+      const { error: updateError } = await supabase.rpc('update_my_worker_profile', {
+        p_license_number: licenseMode === 'text' ? licenseNumber.trim() : null,
+        p_license_path: nextPath,
+        p_experience_years: experience,
+        p_last_workplace: lastWorkplace.trim(),
+        p_department_tags: deptTags,
+      });
+      if (updateError) throw new Error(updateError.message.replace(/^.*?: /, ''));
 
-      if (updateErr) throw updateErr;
-
+      if (uploadedPath && licensePhotoPath && uploadedPath !== licensePhotoPath) {
+        await supabase.storage.from('license-photos').remove([licensePhotoPath]).catch(() => undefined);
+      }
       router.back();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '저장 중 오류가 발생했어요.');
+    } catch (saveError: unknown) {
+      if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
+      setError(saveError instanceof Error ? saveError.message : '저장 중 오류가 발생했어요.');
     } finally {
       setSaving(false);
     }
@@ -180,7 +196,7 @@ export default function ProfileEditPage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
                 className="hidden"
                 onChange={handleFileChange}
               />

@@ -41,35 +41,28 @@ function CallbackInner() {
           return;
         }
 
-        // 관리자 계정 확인
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .single();
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) {
+          router.replace('/login');
+          return;
+        }
 
-        if (profile?.role !== 'admin') {
+        const sessionRes = await fetch('/api/admin-session', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!sessionRes.ok) {
           await supabase.auth.signOut();
           router.replace('/login?error=unauthorized');
           return;
         }
 
-        // 내 병원 연결 여부 확인
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: sessionData } = await supabase.auth.getSession();
-          const facilityRes = await fetch('/api/set-facility', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${sessionData.session?.access_token ?? ''}`,
-            },
-          });
-          const facilityData = await facilityRes.json();
-
-          if (!facilityData.facilityId) {
-            // 병원 미연결 → 내 병원 찾기
-            router.replace('/setup/claim-facility');
-            return;
-          }
+        const facilityRes = await fetch('/api/set-facility', { method: 'POST' });
+        const facilityData = await facilityRes.json();
+        if (!facilityData.facilityId) {
+          router.replace('/setup/claim-facility');
+          return;
         }
 
         router.replace('/');

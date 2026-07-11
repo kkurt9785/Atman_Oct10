@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase-browser';
 
 type Facility = {
   id: string;
@@ -19,37 +18,39 @@ export function FacilitySwitcher() {
 
   useEffect(() => {
     async function load() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const res = await fetch('/api/facilities', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+      const res = await fetch('/api/facilities', { cache: 'no-store' });
       if (!res.ok) return;
 
       const data = await res.json();
       const rows = (data.facilities ?? []) as Facility[];
       setFacilities(rows);
-      const currentFacilityId = typeof data.currentFacilityId === 'string' ? data.currentFacilityId : null;
-      setSelected(currentFacilityId && rows.some((row) => row.id === currentFacilityId) ? currentFacilityId : rows[0]?.id ?? '');
+      const currentFacilityId = typeof data.currentFacilityId === 'string'
+        ? data.currentFacilityId
+        : null;
+      setSelected(
+        currentFacilityId && rows.some((row) => row.id === currentFacilityId)
+          ? currentFacilityId
+          : rows[0]?.id ?? '',
+      );
     }
-    load();
+    void load();
   }, []);
 
   async function handleChange(facilityId: string) {
+    const previous = selected;
     setSelected(facilityId);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
 
     const res = await fetch('/api/facilities', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ facilityId }),
     });
-    if (res.ok) router.refresh();
+
+    if (!res.ok) {
+      setSelected(previous);
+      return;
+    }
+    router.refresh();
   }
 
   if (facilities.length <= 1) return null;
@@ -57,12 +58,12 @@ export function FacilitySwitcher() {
   return (
     <select
       value={selected}
-      onChange={(e) => handleChange(e.target.value)}
-      className="max-w-[150px] bg-white border border-line rounded-lg px-2 py-1 text-[12px] font-semibold text-ink"
+      onChange={(event) => void handleChange(event.target.value)}
+      className="max-w-[150px] rounded-lg border border-line bg-white px-2 py-1 text-[12px] font-semibold text-ink"
       aria-label="병원 선택"
     >
-      {facilities.map((f) => (
-        <option key={f.id} value={f.id}>{f.name}</option>
+      {facilities.map((facility) => (
+        <option key={facility.id} value={facility.id}>{facility.name}</option>
       ))}
     </select>
   );

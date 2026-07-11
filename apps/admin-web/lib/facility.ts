@@ -1,126 +1,108 @@
 'use server';
-import { createHmac, timingSafeEqual } from 'crypto';
-import { cookies } from 'next/headers';
-import { adminClient, getUserFromToken } from './supabase';
-import { FACILITY_COOKIE } from './constants';
-import { grantOnboardingCredit } from './credits';
 
-function cookieSecret(): string | null {
-  return process.env.FACILITY_COOKIE_SECRET ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? null;
-}
-
-// 쿠키 v2: facilityId.userId.exp 통째 서명 — 사용자 바인딩 + 만료 포함
-function signPayload(payload: string): string | null {
-  const secret = cookieSecret();
-  if (!secret) return null;
-  return createHmac('sha256', secret).update(payload).digest('base64url');
-}
-
-type FacilitySession = { facilityId: string; userId: string };
-
-function verifyFacilityCookie(value: string | undefined): FacilitySession | null {
-  if (!value) return null;
-  const parts = value.split('.');
-  if (parts.length !== 4) return null; // 구버전(2파트) 쿠키 무효 → 재선택 유도
-  const [facilityId, userId, exp, signature] = parts;
-
-  const expected = signPayload(`${facilityId}.${userId}.${exp}`);
-  if (!expected) return null;
-
-  const actualBuffer = new Uint8Array(Buffer.from(signature));
-  const expectedBuffer = new Uint8Array(Buffer.from(expected));
-  if (actualBuffer.length !== expectedBuffer.length) return null;
-  if (!timingSafeEqual(actualBuffer, expectedBuffer)) return null;
-  if (Number(exp) < Date.now()) return null;
-  return { facilityId, userId };
-}
+import { revalidatePath } from 'next/cache';
+import { adminClient, userClient } from './supabase';
+import {
+  getAdminContext,
+  getAdminSession,
+  getFacilityAccessRole,
+  requireAdminSession,
+  setFacilityContextCookie,
+} from './admin-auth';
 
 export async function getCurrentFacilityId(): Promise<string | null> {
-  const jar = await cookies();
-  return verifyFacilityCookie(jar.get(FACILITY_COOKIE)?.value)?.facilityId ?? null;
+  return (await getAdminContext())?.facilityId ?? null;
 }
 
-/**
- * 뮤테이션 전용 — 서명 쿠키만 믿지 않고 매번 DB에서
- * ① admin 프로필인지 ② 아직 이 시설의 관리 권한이 있는지 재검증한다.
- */
-export async function requireFacilityAdmin(): Promise<FacilitySession | null> {
-  const jar = await cookies();
-  const session = verifyFacilityCookie(jar.get(FACILITY_COOKIE)?.value);
-  if (!session) return null;
-
-  const sb = adminClient();
-  if (!sb) return null;
-
-  const [{ data: profile }, { data: owned }, { data: delegated }] = await Promise.all([
-    sb.from('profiles').select('role').eq('id', session.userId).maybeSingle(),
-    sb.from('facilities').select('id').eq('id', session.facilityId).eq('admin_user_id', session.userId).is('deleted_at', null).maybeSingle(),
-    sb.from('facility_admin_access').select('facility_id').eq('user_id', session.userId).eq('facility_id', session.facilityId).maybeSingle(),
-  ]);
-
-  if (profile?.role !== 'admin') return null;
-  if (!owned && !delegated) return null;
-  return session;
+export async function setFacilityCookie(facilityId: string): Promise<void> {
+  const session = await requireAdminSession();
+  const accessRole = await getFacilityAccessRole(session.user.id, facilityId);
+  if (!accessRole) throw new Error('이 병원에 대한 권한이 없습니다.');
+  await setFacilityContextCookie(facilityId, session.user.id);
 }
 
-export async function setFacilityCookie(facilityId: string, userId: string): Promise<void> {
-  const jar = await cookies();
-  const exp = String(Date.now() + 1000 * 60 * 60 * 24 * 30); // 30일
-  const signature = signPayload(`${facilityId}.${userId}.${exp}`);
-  if (!signature) throw new Error('FACILITY_COOKIE_SECRET is not configured');
-  jar.set(FACILITY_COOKIE, `${facilityId}.${userId}.${exp}.${signature}`, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 24 * 30,
-    path: '/',
-  });
-}
+export async function claimFacility(
+  facilityId: string,
+  inviteCode: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const session = await requireAdminSession();
+    const sb = userClient(session.accessToken);
+    if (!sb) return { ok: false, error: '서버 설정 오류' };
 
-export async function claimFacility(facilityId: string, accessToken: string, inviteCode: string): Promise<{ ok: boolean; error?: string }> {
-  const sb = adminClient();
-  if (!sb) return { ok: false, error: '서버 오류' };
-  const user = await getUserFromToken(accessToken);
-  if (!user) return { ok: false, error: '로그인이 필요해요' };
+    const { data, error } = await sb.rpc('claim_facility_secure', {
+      p_facility_id: facilityId,
+      p_invite_code: inviteCode.trim(),
+    });
 
-  const { data: existing } = await sb
-    .from('facilities')
-    .select('id, admin_user_id, invite_code')
-    .eq('id', facilityId)
-    .single();
+    if (error || !data) {
+      return { ok: false, error: error?.message ?? '병원 연결에 실패했어요.' };
+    }
 
-  if (!existing) return { ok: false, error: '병원을 찾을 수 없어요' };
-  if (existing.admin_user_id && existing.admin_user_id !== user.id) {
-    return { ok: false, error: '이미 다른 계정에서 연결된 병원이에요' };
+    await setFacilityContextCookie(facilityId, session.user.id);
+    revalidatePath('/');
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : '병원 연결에 실패했어요.',
+    };
   }
-  if (!existing.invite_code || existing.invite_code.toUpperCase() !== inviteCode.trim().toUpperCase()) {
-    return { ok: false, error: '초대 코드가 올바르지 않아요' };
-  }
-
-  const { error } = await sb
-    .from('facilities')
-    .update({ admin_user_id: user.id })
-    .eq('id', facilityId);
-
-  if (error) return { ok: false, error: '연결 실패' };
-
-  await setFacilityCookie(facilityId, user.id);
-  await grantOnboardingCredit(sb, facilityId, 'onboard_signup');
-  return { ok: true };
 }
 
 export async function searchFacilities(query: string) {
-  const sb = adminClient();
+  const session = await getAdminSession();
+  if (!session || query.trim().length < 2) return [];
+
+  const sb = userClient(session.accessToken);
   if (!sb) return [];
 
-  const { data } = await sb
-    .from('facilities')
-    .select('id, name, facility_type, address_text, admin_user_id')
-    .ilike('name', `%${query}%`)
-    .eq('is_active', true)
-    .is('deleted_at', null)
-    .order('name')
-    .limit(20);
-
+  const { data, error } = await sb.rpc('search_claimable_facilities', {
+    p_query: query.trim(),
+  });
+  if (error) return [];
   return data ?? [];
+}
+
+export async function listAccessibleFacilities() {
+  const session = await getAdminSession();
+  const sb = adminClient();
+  if (!session || !sb) return [];
+
+  const [{ data: owned }, { data: delegated }] = await Promise.all([
+    sb
+      .from('facilities')
+      .select('id, name, facility_type, address_text')
+      .eq('admin_user_id', session.user.id)
+      .eq('is_active', true)
+      .is('deleted_at', null)
+      .order('name'),
+    sb
+      .from('facility_admin_access')
+      .select('access_role, facilities ( id, name, facility_type, address_text, is_active, deleted_at )')
+      .eq('user_id', session.user.id)
+      .order('access_role'),
+  ]);
+
+  const map = new Map<string, Record<string, unknown>>();
+  for (const facility of owned ?? []) {
+    map.set(facility.id, { ...facility, access_role: 'owner' });
+  }
+
+  for (const rawRow of delegated ?? []) {
+    const row = rawRow as unknown as {
+      access_role: string;
+      facilities: Record<string, unknown> | Array<Record<string, unknown>> | null;
+    };
+    const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
+    if (
+      typeof facility?.id === 'string' &&
+      facility.is_active === true &&
+      facility.deleted_at == null
+    ) {
+      map.set(facility.id, { ...facility, access_role: row.access_role });
+    }
+  }
+
+  return Array.from(map.values());
 }

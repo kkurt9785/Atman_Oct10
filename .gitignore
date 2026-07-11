@@ -1,4 +1,29 @@
 .DS_Store
 
+# dependencies and generated output
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.turbo/
+*.tsbuildinfo
+*.log
+
+# local secrets — examples remain versioned
+.env
+.env.*
+!.env.local.example
+
+# local Supabase/runtime files
+.supabase/
+.vercel/
+
+# keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+
 # personal
 docs/career/

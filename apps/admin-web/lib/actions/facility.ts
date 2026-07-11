@@ -1,8 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
-import { getCurrentFacilityId } from '../facility';
 import { grantOnboardingCredit } from '../credits';
 
 export type FacilityProfile = {
@@ -16,46 +16,62 @@ export type FacilityProfile = {
 };
 
 export async function getFacilityProfile(): Promise<FacilityProfile | null> {
-  const facilityId = await getCurrentFacilityId();
+  const context = await requireAdminContext();
   const sb = adminClient();
-  if (!sb || !facilityId) return null;
+  if (!sb) return null;
 
-  const { data } = await sb
+  const { data, error } = await sb
     .from('facilities')
     .select('bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro')
-    .eq('id', facilityId)
+    .eq('id', context.facilityId)
     .single();
 
-  return data as FacilityProfile | null;
+  if (error) {
+    console.error('[getFacilityProfile]', error);
+    return null;
+  }
+  return data as FacilityProfile;
 }
 
 export async function saveFacilityProfile(formData: FormData) {
-  const facilityId = await getCurrentFacilityId();
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = adminClient();
-  if (!sb || !facilityId) throw new Error('인증 오류');
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
 
-  const bedStr = (formData.get('bed_count') as string).trim();
+  const bedRaw = String(formData.get('bed_count') ?? '').trim();
+  const bedCount = bedRaw ? Number.parseInt(bedRaw, 10) : null;
+  if (bedCount !== null && (!Number.isInteger(bedCount) || bedCount < 0 || bedCount > 10000)) {
+    throw new Error('병상 수를 다시 확인해 주세요.');
+  }
 
-  const { error } = await sb
-    .from('facilities')
-    .update({
-      bed_count:       bedStr ? parseInt(bedStr, 10) : null,
-      main_department: (formData.get('main_department') as string).trim() || null,
-      has_parking:     formData.get('has_parking') === 'on',
-      has_meals:       formData.get('has_meals') === 'on',
-      has_uniform:     formData.get('has_uniform') === 'on',
-      emr_system:      (formData.get('emr_system') as string).trim() || null,
-      intro:           (formData.get('intro') as string).trim() || null,
-    })
-    .eq('id', facilityId);
+  const intro = String(formData.get('intro') ?? '').trim();
+  const patch = {
+    bed_count: bedCount,
+    main_department: String(formData.get('main_department') ?? '').trim().slice(0, 100) || null,
+    has_parking: formData.get('has_parking') === 'on',
+    has_meals: formData.get('has_meals') === 'on',
+    has_uniform: formData.get('has_uniform') === 'on',
+    emr_system: String(formData.get('emr_system') ?? '').trim().slice(0, 100) || null,
+    intro: intro.slice(0, 2000) || null,
+    updated_at: new Date().toISOString(),
+  };
 
+  const { error } = await sb.from('facilities').update(patch).eq('id', context.facilityId);
   if (error) throw new Error(error.message);
 
-  const intro = (formData.get('intro') as string).trim();
-  const profileMeaningful = intro.length > 0 || bedStr.length > 0;
-  if (profileMeaningful) {
-    await grantOnboardingCredit(sb, facilityId, 'onboard_profile');
+  if (intro.length > 0 || bedCount !== null) {
+    await grantOnboardingCredit(sb, context.facilityId, 'onboard_profile');
   }
+
+  const { error: auditError } = await sb.from('audit_logs').insert({
+    actor_type: 'admin',
+    actor_id: context.user.id,
+    action: 'facility.profile.update',
+    entity_type: 'facility',
+    entity_id: context.facilityId,
+    after_data: patch,
+  });
+  if (auditError) console.error('[saveFacilityProfile] audit log failed', auditError);
 
   revalidatePath('/settings');
 }
