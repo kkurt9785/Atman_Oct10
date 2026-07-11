@@ -25,7 +25,7 @@
 | 본인인증 (PASS) | ⏳ 사업자등록 후 |
 | 앱스토어 | ⏳ 보류 — PWA 우선, 사용자 확보 후 RN WebView |
 
-시연: `python3 scripts/revive_demo.py` (전날 실행) → sales-demo-1/2/3 계정, 로컬 dev에서 데모 로그인.
+시연: **[docs/DEMO_GUIDE.md](docs/DEMO_GUIDE.md)** — 계정·시나리오·주의사항. 전날 `python3 scripts/revive_demo.py` 실행.
 
 ---
 
