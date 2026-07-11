@@ -161,14 +161,24 @@ for rn, f in enumerate(facilities, start=1):
 status, created_open = req("POST", "/rest/v1/shifts", open_shifts, prefer="return=representation")
 assert status == 201, created_open
 by_notes = {s["notes"]: s for s in created_open}
+
+# 지원자 3명/시프트 — 병원이 '여러 명 중 고르는' 시연 연출.
+# 시프트 직군과 같은 직군 워커만, 시프트당 중복 없이 순환 배정.
+by_role = {"rn": [w for w in workers if w["role"] == "rn"],
+           "na": [w for w in workers if w["role"] == "na"]}
 open_apps = []
 for rn, w in open_workers:
     s = by_notes[f"DEMO-SHOWCASE-OPEN-{rn:04d}"]
-    open_apps.append({
-        "shift_id": s["id"], "worker_id": w["id"], "status": "applied",
-        "match_score": 80 + (rn % 19), "distance_meters": 700 + rn * 53,
-        "applied_at": iso(NOW - timedelta(minutes=rn % 90)),
-    })
+    pool = by_role[w["role"]]
+    picked = {pool[(rn * 3 + k * 7) % len(pool)]["id"] for k in range(5)}
+    picked.discard(None)
+    for j, wid in enumerate(sorted(picked)[:3]):
+        open_apps.append({
+            "shift_id": s["id"], "worker_id": wid, "status": "applied",
+            "match_score": 72 + ((rn * 5 + j * 11) % 27),
+            "distance_meters": 500 + ((rn * 53 + j * 431) % 7000),
+            "applied_at": iso(NOW - timedelta(minutes=(rn * 3 + j * 17) % 170)),
+        })
 status, _ = req("POST", "/rest/v1/shift_applications", open_apps)
 print(f"7. 모집 시프트 {len(created_open)} + 지원 {len(open_apps)}: {status}")
 
