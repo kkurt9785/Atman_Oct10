@@ -112,6 +112,7 @@ export default async function Home() {
         <ActionTile icon="🔲" label="QR 체크인" href="/checkin" />
         <ActionTile icon="🕐" label="근태 보기" href="/timesheet" />
         <ActionTile icon="📄" label="급여명세서 발급" href="/payroll" />
+        <ActionTile icon="💬" label="워커 채팅" href="/chats" />
         <ActionTile icon="🎁" label="멤버십·크레딧" href="/membership" />
         <ActionTile icon="🏥" label="병원 프로필" href="/settings" />
       </div>

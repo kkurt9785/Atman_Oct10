@@ -208,7 +208,22 @@ function ApplicationCard({
               </p>
             </div>
           )}
+          <a
+            href={`/chat/${app.id}`}
+            className="mt-2 w-full h-11 border border-primary/30 rounded-btn text-[14px] font-semibold text-primary flex items-center justify-center gap-1.5 active:bg-primary/5"
+          >
+            💬 병원 채팅
+          </a>
         </>
+      )}
+
+      {app.status === 'completed' && (
+        <a
+          href={`/chat/${app.id}`}
+          className="mt-3 w-full h-11 border border-line rounded-btn text-[14px] font-semibold text-sub flex items-center justify-center gap-1.5 active:bg-bg"
+        >
+          💬 채팅 기록 보기
+        </a>
       )}
 
       {app.status === 'applied' && (
