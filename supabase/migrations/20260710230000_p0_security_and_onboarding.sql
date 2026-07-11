@@ -7,7 +7,7 @@
 --   * atomic worker onboarding / profile / bank updates
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- ---------------------------------------------------------------------------
 -- Shared authorization helpers. SECURITY DEFINER functions use an empty
@@ -95,7 +95,7 @@ ALTER TABLE public.facilities
     CHECK (attendance_geofence_meters BETWEEN 50 AND 5000);
 
 UPDATE public.facilities
-SET invite_code_hash = public.crypt(upper(trim(invite_code)), public.gen_salt('bf')),
+SET invite_code_hash = extensions.crypt(upper(trim(invite_code)), extensions.gen_salt('bf')),
     invite_code_expires_at = COALESCE(invite_code_expires_at, now() + interval '30 days')
 WHERE invite_code_hash IS NULL
   AND invite_code IS NOT NULL
@@ -179,7 +179,7 @@ BEGIN
     RAISE EXCEPTION '초대 코드가 만료됐어요. 새 코드를 요청해 주세요';
   END IF;
 
-  IF public.crypt(upper(trim(p_invite_code)), v_facility.invite_code_hash) <> v_facility.invite_code_hash THEN
+  IF extensions.crypt(upper(trim(p_invite_code)), v_facility.invite_code_hash) <> v_facility.invite_code_hash THEN
     UPDATE public.facilities
     SET invite_failed_attempts = invite_failed_attempts + 1,
         invite_locked_until = CASE
@@ -300,7 +300,7 @@ BEGIN
     v_worker_id,
     trim(p_bank_code),
     trim(p_bank_name),
-    public.pgp_sym_encrypt(v_account, public.bank_encryption_key()),
+    extensions.pgp_sym_encrypt(v_account, public.bank_encryption_key()),
     right(v_account, 4),
     trim(p_account_holder_name),
     'pending',

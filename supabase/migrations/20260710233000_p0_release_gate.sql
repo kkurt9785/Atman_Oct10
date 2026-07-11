@@ -87,10 +87,10 @@ BEGIN
     RAISE EXCEPTION 'invalid invite validity';
   END IF;
 
-  v_code := upper(substr(encode(public.gen_random_bytes(8), 'hex'), 1, 12));
+  v_code := upper(substr(encode(extensions.gen_random_bytes(8), 'hex'), 1, 12));
   UPDATE public.facilities
   SET invite_code = NULL,
-      invite_code_hash = public.crypt(v_code, public.gen_salt('bf')),
+      invite_code_hash = extensions.crypt(v_code, extensions.gen_salt('bf')),
       invite_code_expires_at = now() + p_valid_for,
       invite_code_used_at = NULL,
       invite_failed_attempts = 0,

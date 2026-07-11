@@ -482,11 +482,11 @@ BEGIN
   WHERE application_id = p_application_id
     AND used_at IS NULL;
 
-  v_token := encode(public.gen_random_bytes(32), 'hex');
+  v_token := encode(extensions.gen_random_bytes(32), 'hex');
   INSERT INTO public.attendance_qr_tokens (
     token_hash, application_id, worker_id, expires_at
   ) VALUES (
-    encode(public.digest(v_token, 'sha256'), 'hex'),
+    encode(extensions.digest(v_token, 'sha256'), 'hex'),
     p_application_id,
     v_worker_id,
     v_expires
@@ -644,7 +644,7 @@ BEGIN
 
   SELECT * INTO v_qr
   FROM public.attendance_qr_tokens
-  WHERE token_hash = encode(public.digest(p_token, 'sha256'), 'hex')
+  WHERE token_hash = encode(extensions.digest(p_token, 'sha256'), 'hex')
   FOR UPDATE;
 
   IF NOT FOUND OR v_qr.used_at IS NOT NULL OR v_qr.expires_at <= v_now THEN
@@ -717,7 +717,7 @@ BEGIN
       v_attendance.id,
       NULL,
       jsonb_build_object('action','checkin','at',v_now,'distance_m',v_distance),
-      encode(public.digest(jsonb_build_object('action','checkin','at',v_now,'distance_m',v_distance)::text, 'sha256'), 'hex')
+      encode(extensions.digest(jsonb_build_object('action','checkin','at',v_now,'distance_m',v_distance)::text, 'sha256'), 'hex')
     );
 
     RETURN jsonb_build_object(
@@ -855,7 +855,7 @@ BEGIN
       'action','checkout','at',v_now,'distance_m',v_distance,
       'gross',v_gross,'platform_fee',v_platform_fee,'charged',v_charge
     ),
-    encode(public.digest(
+    encode(extensions.digest(
       COALESCE(prior.payload_hash, '') || jsonb_build_object(
         'action','checkout','at',v_now,'distance_m',v_distance,
         'gross',v_gross,'platform_fee',v_platform_fee,'charged',v_charge
