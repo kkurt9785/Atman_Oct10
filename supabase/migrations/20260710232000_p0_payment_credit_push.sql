@@ -53,6 +53,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_ledger_idempotency
   WHERE idempotency_key IS NOT NULL;
 
 DROP POLICY IF EXISTS org_admin_credit ON public.credit_ledger;
+DROP POLICY IF EXISTS credit_ledger_select_facility ON public.credit_ledger;
 CREATE POLICY credit_ledger_select_facility ON public.credit_ledger
   FOR SELECT USING (public.facility_access_role(org_id) IS NOT NULL);
 REVOKE INSERT, UPDATE, DELETE ON public.credit_ledger FROM anon, authenticated;

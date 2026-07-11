@@ -10,6 +10,23 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 -- ---------------------------------------------------------------------------
+-- 선행 정리: 2026-07-11 오전 자체 보안 마이그레이션이 만든 정책들 중
+-- 이 번들이 다른 이름/방식으로 대체하는 것들을 제거 (중복·잔존 방지)
+-- ---------------------------------------------------------------------------
+DROP POLICY IF EXISTS applications_worker_select ON public.shift_applications;
+DROP POLICY IF EXISTS applications_worker_insert ON public.shift_applications;
+DROP POLICY IF EXISTS applications_worker_cancel ON public.shift_applications;
+DROP POLICY IF EXISTS attendances_worker_select ON public.shift_attendances;
+DROP POLICY IF EXISTS shifts_facility_insert ON public.shifts;
+DROP POLICY IF EXISTS shifts_facility_update ON public.shifts;
+DROP POLICY IF EXISTS shifts_facility_delete ON public.shifts;
+DROP POLICY IF EXISTS credentials_insert_own ON public.worker_credentials;
+DROP POLICY IF EXISTS credentials_update_own ON public.worker_credentials;
+DROP POLICY IF EXISTS license_upload_own ON storage.objects;
+DROP POLICY IF EXISTS license_update_own ON storage.objects;
+DROP POLICY IF EXISTS license_read_own ON storage.objects;
+
+-- ---------------------------------------------------------------------------
 -- Shared authorization helpers. SECURITY DEFINER functions use an empty
 -- search_path and fully-qualified object names to avoid object-shadowing.
 -- ---------------------------------------------------------------------------
@@ -327,12 +344,16 @@ DROP POLICY IF EXISTS worker_onboarding_draft_select ON public.worker_onboarding
 DROP POLICY IF EXISTS worker_onboarding_draft_insert ON public.worker_onboarding_drafts;
 DROP POLICY IF EXISTS worker_onboarding_draft_update ON public.worker_onboarding_drafts;
 DROP POLICY IF EXISTS worker_onboarding_draft_delete ON public.worker_onboarding_drafts;
+DROP POLICY IF EXISTS worker_onboarding_draft_select ON public.worker_onboarding_drafts;
 CREATE POLICY worker_onboarding_draft_select ON public.worker_onboarding_drafts
   FOR SELECT USING (auth_user_id = auth.uid());
+DROP POLICY IF EXISTS worker_onboarding_draft_insert ON public.worker_onboarding_drafts;
 CREATE POLICY worker_onboarding_draft_insert ON public.worker_onboarding_drafts
   FOR INSERT WITH CHECK (auth_user_id = auth.uid());
+DROP POLICY IF EXISTS worker_onboarding_draft_update ON public.worker_onboarding_drafts;
 CREATE POLICY worker_onboarding_draft_update ON public.worker_onboarding_drafts
   FOR UPDATE USING (auth_user_id = auth.uid()) WITH CHECK (auth_user_id = auth.uid());
+DROP POLICY IF EXISTS worker_onboarding_draft_delete ON public.worker_onboarding_drafts;
 CREATE POLICY worker_onboarding_draft_delete ON public.worker_onboarding_drafts
   FOR DELETE USING (auth_user_id = auth.uid());
 
@@ -609,16 +630,20 @@ DROP POLICY IF EXISTS license_photos_select_own ON storage.objects;
 DROP POLICY IF EXISTS license_photos_insert_own ON storage.objects;
 DROP POLICY IF EXISTS license_photos_update_own ON storage.objects;
 DROP POLICY IF EXISTS license_photos_delete_own ON storage.objects;
+DROP POLICY IF EXISTS license_photos_select_own ON storage.objects;
 CREATE POLICY license_photos_select_own ON storage.objects
   FOR SELECT TO authenticated
   USING (bucket_id = 'license-photos' AND split_part(name, '/', 1) = auth.uid()::text);
+DROP POLICY IF EXISTS license_photos_insert_own ON storage.objects;
 CREATE POLICY license_photos_insert_own ON storage.objects
   FOR INSERT TO authenticated
   WITH CHECK (bucket_id = 'license-photos' AND split_part(name, '/', 1) = auth.uid()::text);
+DROP POLICY IF EXISTS license_photos_update_own ON storage.objects;
 CREATE POLICY license_photos_update_own ON storage.objects
   FOR UPDATE TO authenticated
   USING (bucket_id = 'license-photos' AND split_part(name, '/', 1) = auth.uid()::text)
   WITH CHECK (bucket_id = 'license-photos' AND split_part(name, '/', 1) = auth.uid()::text);
+DROP POLICY IF EXISTS license_photos_delete_own ON storage.objects;
 CREATE POLICY license_photos_delete_own ON storage.objects
   FOR DELETE TO authenticated
   USING (bucket_id = 'license-photos' AND split_part(name, '/', 1) = auth.uid()::text);
@@ -635,45 +660,58 @@ CREATE POLICY workers_select_own ON public.workers
 REVOKE INSERT, UPDATE, DELETE ON public.workers FROM authenticated;
 
 DROP POLICY IF EXISTS credentials_own ON public.worker_credentials;
+DROP POLICY IF EXISTS credentials_select_own ON public.worker_credentials;
 CREATE POLICY credentials_select_own ON public.worker_credentials
   FOR SELECT USING (worker_id = public.current_worker_id());
 REVOKE INSERT, UPDATE, DELETE ON public.worker_credentials FROM authenticated;
 
 DROP POLICY IF EXISTS bank_own ON public.worker_bank_accounts;
+DROP POLICY IF EXISTS bank_select_own ON public.worker_bank_accounts;
 CREATE POLICY bank_select_own ON public.worker_bank_accounts
   FOR SELECT USING (worker_id = public.current_worker_id());
 REVOKE INSERT, UPDATE, DELETE ON public.worker_bank_accounts FROM authenticated;
 
 DROP POLICY IF EXISTS consents_insert ON public.worker_consents;
 DROP POLICY IF EXISTS consents_select ON public.worker_consents;
+DROP POLICY IF EXISTS consents_select_own ON public.worker_consents;
 CREATE POLICY consents_select_own ON public.worker_consents
   FOR SELECT USING (worker_id = public.current_worker_id());
 REVOKE INSERT, UPDATE, DELETE ON public.worker_consents FROM authenticated;
 
 DROP POLICY IF EXISTS "location_prefs: 본인 전체" ON public.worker_location_prefs;
+DROP POLICY IF EXISTS location_prefs_select_own ON public.worker_location_prefs;
 CREATE POLICY location_prefs_select_own ON public.worker_location_prefs
   FOR SELECT USING (worker_id = auth.uid());
+DROP POLICY IF EXISTS location_prefs_insert_own ON public.worker_location_prefs;
 CREATE POLICY location_prefs_insert_own ON public.worker_location_prefs
   FOR INSERT WITH CHECK (worker_id = auth.uid());
+DROP POLICY IF EXISTS location_prefs_update_own ON public.worker_location_prefs;
 CREATE POLICY location_prefs_update_own ON public.worker_location_prefs
   FOR UPDATE USING (worker_id = auth.uid()) WITH CHECK (worker_id = auth.uid());
+DROP POLICY IF EXISTS location_prefs_delete_own ON public.worker_location_prefs;
 CREATE POLICY location_prefs_delete_own ON public.worker_location_prefs
   FOR DELETE USING (worker_id = auth.uid());
 
 DROP POLICY IF EXISTS push_subscriptions_own ON public.push_subscriptions;
+DROP POLICY IF EXISTS push_subscriptions_select_own ON public.push_subscriptions;
 CREATE POLICY push_subscriptions_select_own ON public.push_subscriptions
   FOR SELECT USING (worker_id = auth.uid());
+DROP POLICY IF EXISTS push_subscriptions_insert_own ON public.push_subscriptions;
 CREATE POLICY push_subscriptions_insert_own ON public.push_subscriptions
   FOR INSERT WITH CHECK (worker_id = auth.uid());
+DROP POLICY IF EXISTS push_subscriptions_update_own ON public.push_subscriptions;
 CREATE POLICY push_subscriptions_update_own ON public.push_subscriptions
   FOR UPDATE USING (worker_id = auth.uid()) WITH CHECK (worker_id = auth.uid());
+DROP POLICY IF EXISTS push_subscriptions_delete_own ON public.push_subscriptions;
 CREATE POLICY push_subscriptions_delete_own ON public.push_subscriptions
   FOR DELETE USING (worker_id = auth.uid());
 
 DROP POLICY IF EXISTS applications_worker ON public.shift_applications;
 DROP POLICY IF EXISTS applications_facility_read ON public.shift_applications;
+DROP POLICY IF EXISTS applications_select_worker ON public.shift_applications;
 CREATE POLICY applications_select_worker ON public.shift_applications
   FOR SELECT USING (worker_id = public.current_worker_id());
+DROP POLICY IF EXISTS applications_select_facility ON public.shift_applications;
 CREATE POLICY applications_select_facility ON public.shift_applications
   FOR SELECT USING (
     EXISTS (
@@ -684,8 +722,10 @@ CREATE POLICY applications_select_facility ON public.shift_applications
 REVOKE INSERT, UPDATE, DELETE ON public.shift_applications FROM authenticated;
 
 DROP POLICY IF EXISTS attendances_worker ON public.shift_attendances;
+DROP POLICY IF EXISTS attendances_select_worker ON public.shift_attendances;
 CREATE POLICY attendances_select_worker ON public.shift_attendances
   FOR SELECT USING (worker_id = public.current_worker_id());
+DROP POLICY IF EXISTS attendances_select_facility ON public.shift_attendances;
 CREATE POLICY attendances_select_facility ON public.shift_attendances
   FOR SELECT USING (
     EXISTS (
@@ -697,31 +737,39 @@ REVOKE INSERT, UPDATE, DELETE ON public.shift_attendances FROM authenticated;
 
 DROP POLICY IF EXISTS org_admin_wage_calculations ON public.wage_calculations;
 DROP POLICY IF EXISTS worker_read_wage_calculations ON public.wage_calculations;
+DROP POLICY IF EXISTS wage_calculations_select_worker ON public.wage_calculations;
 CREATE POLICY wage_calculations_select_worker ON public.wage_calculations
   FOR SELECT USING (worker_id = public.current_worker_id());
+DROP POLICY IF EXISTS wage_calculations_select_facility ON public.wage_calculations;
 CREATE POLICY wage_calculations_select_facility ON public.wage_calculations
   FOR SELECT USING (public.facility_access_role(org_id) IS NOT NULL);
 REVOKE INSERT, UPDATE, DELETE ON public.wage_calculations FROM authenticated;
 
 DROP POLICY IF EXISTS org_admin_payroll_ledger ON public.payroll_ledger;
 DROP POLICY IF EXISTS worker_read_payroll_ledger ON public.payroll_ledger;
+DROP POLICY IF EXISTS payroll_ledger_select_worker ON public.payroll_ledger;
 CREATE POLICY payroll_ledger_select_worker ON public.payroll_ledger
   FOR SELECT USING (worker_id = public.current_worker_id());
+DROP POLICY IF EXISTS payroll_ledger_select_facility ON public.payroll_ledger;
 CREATE POLICY payroll_ledger_select_facility ON public.payroll_ledger
   FOR SELECT USING (public.facility_access_role(org_id) IS NOT NULL);
 REVOKE INSERT, UPDATE, DELETE ON public.payroll_ledger FROM authenticated;
 
 DROP POLICY IF EXISTS org_admin_payslips ON public.payslips;
 DROP POLICY IF EXISTS worker_read_payslips ON public.payslips;
+DROP POLICY IF EXISTS payslips_select_worker ON public.payslips;
 CREATE POLICY payslips_select_worker ON public.payslips
   FOR SELECT USING (worker_id = public.current_worker_id());
+DROP POLICY IF EXISTS payslips_select_facility ON public.payslips;
 CREATE POLICY payslips_select_facility ON public.payslips
   FOR SELECT USING (public.facility_access_role(org_id) IS NOT NULL);
 REVOKE INSERT, UPDATE, DELETE ON public.payslips FROM authenticated;
 
 DROP POLICY IF EXISTS settlements_worker_read ON public.settlements;
+DROP POLICY IF EXISTS settlements_select_worker ON public.settlements;
 CREATE POLICY settlements_select_worker ON public.settlements
   FOR SELECT USING (worker_id = public.current_worker_id());
+DROP POLICY IF EXISTS settlements_select_facility ON public.settlements;
 CREATE POLICY settlements_select_facility ON public.settlements
   FOR SELECT USING (
     EXISTS (

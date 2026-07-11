@@ -18,24 +18,29 @@ REVOKE INSERT, UPDATE, DELETE ON public.notification_outbox FROM anon, authentic
 
 -- Replace old FOR ALL policies with read-only, facility-scoped policies.
 DROP POLICY IF EXISTS org_admin_memberships ON public.memberships;
+DROP POLICY IF EXISTS memberships_select_facility ON public.memberships;
 CREATE POLICY memberships_select_facility ON public.memberships
   FOR SELECT USING (public.facility_access_role(org_id) IS NOT NULL);
 
 DROP POLICY IF EXISTS org_admin_subscriptions ON public.subscriptions;
+DROP POLICY IF EXISTS subscriptions_select_facility ON public.subscriptions;
 CREATE POLICY subscriptions_select_facility ON public.subscriptions
   FOR SELECT USING (public.facility_access_role(org_id) IS NOT NULL);
 
 DROP POLICY IF EXISTS org_admin_entitlements ON public.entitlements;
+DROP POLICY IF EXISTS entitlements_select_facility ON public.entitlements;
 CREATE POLICY entitlements_select_facility ON public.entitlements
   FOR SELECT USING (public.facility_access_role(org_id) IS NOT NULL);
 
 -- Keep worker-facing financial tables read-only; all mutations go through the
 -- transaction-safe RPCs in 20260710232000_p0_payment_credit_push.sql.
 DROP POLICY IF EXISTS wcl_own_select ON public.worker_credit_ledger;
+DROP POLICY IF EXISTS worker_credit_ledger_select_own ON public.worker_credit_ledger;
 CREATE POLICY worker_credit_ledger_select_own ON public.worker_credit_ledger
   FOR SELECT USING (worker_id = public.current_worker_id());
 
 DROP POLICY IF EXISTS cpr_own_select ON public.credit_payout_requests;
+DROP POLICY IF EXISTS credit_payout_requests_select_own ON public.credit_payout_requests;
 CREATE POLICY credit_payout_requests_select_own ON public.credit_payout_requests
   FOR SELECT USING (worker_id = public.current_worker_id());
 
