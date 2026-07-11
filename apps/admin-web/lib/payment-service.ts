@@ -47,6 +47,60 @@ export async function createPaymentOrder(invoiceId: string) {
     .select('id,invoice_number,total_amount,status').eq('id', invoiceId)
     .eq('facility_id', context.facilityId).in('status', ['issued','overdue']).maybeSingle();
   if (invoiceError || !invoice) throw new Error('결제 가능한 서비스 청구서를 찾을 수 없어요.');
+
+  const { data: existing, error: existingError } = await sb
+    .from('payment_orders')
+    .select('id,order_id,order_name,amount,service_invoice_id,status,requested_by,provider_payment_key')
+    .eq('service_invoice_id', invoice.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingError) throw new Error('기존 결제 주문을 확인하지 못했어요.');
+  if (existing) {
+    if (existing.status === 'ready' && existing.requested_by === context.user.id) {
+      return {
+        orderId: existing.order_id as string,
+        orderName: existing.order_name as string,
+        amount: existing.amount as number,
+        invoiceId: existing.service_invoice_id as string,
+      };
+    }
+    if (existing.status === 'paid') throw new Error('이미 결제 완료된 청구서예요.');
+    if (['failed','cancelled','partial_cancelled'].includes(existing.status)) {
+      if (existing.provider_payment_key) {
+        throw new Error('이전 결제 결과를 확인 중이에요. 중복 결제 방지를 위해 잠시 후 다시 확인해 주세요.');
+      }
+      const { data: retry, error: retryError } = await sb
+        .from('payment_orders')
+        .update({
+          status: 'ready',
+          requested_by: context.user.id,
+          idempotency_key: `confirm:${randomUUID()}`,
+          provider_status: null,
+          provider_payload: null,
+          failure_code: null,
+          failure_message: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .in('status', ['failed','cancelled','partial_cancelled'])
+        .is('provider_payment_key', null)
+        .select('order_id,order_name,amount,service_invoice_id')
+        .maybeSingle();
+      if (retryError || !retry) throw new Error('결제 재시도 상태를 준비하지 못했어요. 다시 확인해 주세요.');
+      return {
+        orderId: retry.order_id as string,
+        orderName: retry.order_name as string,
+        amount: retry.amount as number,
+        invoiceId: retry.service_invoice_id as string,
+      };
+    }
+    if (existing.requested_by !== context.user.id) {
+      throw new Error('다른 관리자가 이 청구서의 결제를 진행 중이에요.');
+    }
+    throw new Error('결제 승인 상태를 확인 중이에요. 잠시 후 다시 확인해 주세요.');
+  }
+
   const orderId = `atman_${Date.now()}_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   const idempotencyKey = `confirm:${randomUUID()}`;
   const orderName = `잇닿 SaaS 이용료 ${invoice.invoice_number}`;
@@ -70,6 +124,23 @@ export async function createPaymentOrder(invoiceId: string) {
     .select('order_id, order_name, amount, service_invoice_id')
     .single();
 
+  if (error?.code === '23505') {
+    const { data: raced } = await sb
+      .from('payment_orders')
+      .select('order_id,order_name,amount,service_invoice_id,status,requested_by')
+      .eq('service_invoice_id', invoice.id)
+      .maybeSingle();
+    if (raced?.status === 'ready' && raced.requested_by === context.user.id) {
+      return {
+        orderId: raced.order_id as string,
+        orderName: raced.order_name as string,
+        amount: raced.amount as number,
+        invoiceId: raced.service_invoice_id as string,
+      };
+    }
+    if (raced?.status === 'paid') throw new Error('이미 결제 완료된 청구서예요.');
+    throw new Error('다른 요청이 이 청구서의 결제를 처리하고 있어요. 잠시 후 다시 확인해 주세요.');
+  }
   if (error || !data) throw new Error(error?.message || '결제 주문 생성에 실패했어요.');
   return {
     orderId: data.order_id as string,
