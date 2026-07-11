@@ -389,11 +389,16 @@ DECLARE
   v_app public.shift_applications%ROWTYPE;
   v_facility_id uuid;
 BEGIN
-  SELECT a, s.facility_id INTO v_app, v_facility_id
+  SELECT a.* INTO v_app
   FROM public.shift_applications AS a
-  JOIN public.shifts AS s ON s.id = a.shift_id
   WHERE a.id = p_application_id
-  FOR UPDATE OF a;
+  FOR UPDATE;
+
+  IF FOUND THEN
+    SELECT s.facility_id INTO v_facility_id
+    FROM public.shifts AS s
+    WHERE s.id = v_app.shift_id;
+  END IF;
 
   IF NOT FOUND OR v_app.status <> 'applied' THEN
     RAISE EXCEPTION '거절할 수 없는 지원이에요';
