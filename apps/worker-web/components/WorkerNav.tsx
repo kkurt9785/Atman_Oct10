@@ -14,18 +14,19 @@ const TABS = [
 export function WorkerNav() {
   const path = usePathname();
   return (
-    <nav className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white border-t border-line flex z-30">
+    <nav aria-label="주요 메뉴" className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white border-t border-line flex z-30">
       {TABS.map((t) => {
         const active = path.startsWith(t.href);
         return (
           <Link
             key={t.href}
             href={t.href}
+            aria-current={active ? 'page' : undefined}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-3 min-h-[56px] ${
               active ? 'text-primary' : 'text-tertiary'
             }`}
           >
-            <span className="text-2xl leading-none">{t.icon}</span>
+            <span aria-hidden="true" className="text-2xl leading-none">{t.icon}</span>
             <span className="text-[11px] font-semibold">{t.label}</span>
           </Link>
         );

@@ -14,7 +14,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
   }, []);
-  const showNav = path.startsWith('/home') || path.startsWith('/shifts') || path.startsWith('/applications') || path.startsWith('/settings');
+  const showNav = path.startsWith('/home') || path.startsWith('/shifts') || path.startsWith('/applications') || path.startsWith('/earnings') || path.startsWith('/settings');
   return (
     <>
       <div className={showNav ? 'pb-[56px]' : ''}>{children}</div>

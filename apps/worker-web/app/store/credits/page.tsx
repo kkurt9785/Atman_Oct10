@@ -32,18 +32,19 @@ export default function EarningsPage() {
   const router = useRouter();
   const [rows, setRows] = useState<PaymentRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true); setError('');
+    setLoading(true); setLoadError('');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.replace('/'); return; }
     const { data, error: queryError } = await supabase
       .from('wage_payment_instructions')
       .select('id,gross_amount,net_amount,deduction_status,due_date,status,created_at,dispute_reason,shifts(shift_date,start_time,end_time,facilities(name))')
       .order('created_at', { ascending: false });
-    if (queryError) setError('지급 현황을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+    if (queryError) setLoadError('지급 현황을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
     setRows((data ?? []) as unknown as PaymentRow[]);
     setLoading(false);
   }, [router]);
@@ -53,11 +54,11 @@ export default function EarningsPage() {
   async function act(id: string, action: 'confirm' | 'dispute') {
     const reason = action === 'dispute' ? window.prompt('병원 급여 담당자가 확인할 내용을 5자 이상 입력해 주세요.') : null;
     if (action === 'dispute' && (!reason || reason.trim().length < 5)) return;
-    setBusyId(id); setError('');
+    setBusyId(id); setActionError('');
     const { error: actionError } = await supabase.rpc('update_wage_payment_status', {
       p_instruction_id: id, p_action: action, p_payment_reference: null, p_dispute_reason: reason,
     });
-    if (actionError) setError(actionError.message.replace(/^.*: /, ''));
+    if (actionError) setActionError(actionError.message.replace(/^.*: /, ''));
     else await load();
     setBusyId(null);
   }
@@ -70,7 +71,7 @@ export default function EarningsPage() {
       <button onClick={() => router.back()} className="text-[14px] text-sub mb-4">← 돌아가기</button>
       <p className="text-[12px] font-bold text-primary mb-1">병원 직접 지급</p>
       <h1 className="text-[26px] font-extrabold text-ink">급여 지급 현황</h1>
-      <p className="text-[13px] text-sub mt-2 leading-5">잇닿은 근무시간과 지급 정보를 관리하고, 임금은 채용 병원이 등록한 계좌로 직접 지급합니다.</p>
+      <p className="text-[13px] text-sub mt-2 leading-5">잇닿은 근무시간과 지급 정보를 관리하고, 임금은 채용 병원이 워커가 등록한 본인 명의 계좌로 직접 지급합니다.</p>
     </header>
 
     <section className="grid grid-cols-2 gap-3 px-5 -mt-1 py-5">
@@ -78,9 +79,10 @@ export default function EarningsPage() {
       <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-[12px] text-sub">지급 완료</p><p className="text-[20px] font-extrabold text-primary mt-1">{won(paid)}</p></div>
     </section>
 
-    {error && <p role="alert" className="mx-5 mb-3 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-bold text-red-600">{error}</p>}
+    {actionError && <p role="alert" className="mx-5 mb-3 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-bold text-red-600">{actionError}</p>}
     <section className="px-5">
       {loading ? <div className="bg-white rounded-2xl p-8 text-center text-[13px] text-sub">지급 내역을 불러오는 중...</div>
+      : loadError ? <div role="alert" className="bg-white rounded-2xl border border-red-200 p-8 text-center"><p className="font-bold text-red-600">지급 현황을 불러오지 못했어요</p><p className="text-[12px] text-sub mt-2">{loadError}</p><button type="button" onClick={() => void load()} className="mt-4 h-10 px-4 rounded-xl bg-ink text-white text-[13px] font-bold">다시 불러오기</button></div>
       : rows.length === 0 ? <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2">근무 체크아웃이 완료되면 병원 지급 요청이 여기에 표시돼요.</p></div>
       : <div className="space-y-3">{rows.map((row) => {
         const shift = row.shifts; const state = STATUS[row.status] ?? STATUS.draft;
