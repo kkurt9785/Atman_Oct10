@@ -85,7 +85,7 @@ export function ApplicantCard({
                 <span className="text-[12px] text-sub">{km(applicant.distanceMeters)}</span>
               )}
               {applicant.matchScore != null && (
-                <span className="text-[12px] text-sub">매칭 {Math.round(applicant.matchScore)}점</span>
+                <span className="text-[12px] text-sub">적합도 {Math.round(applicant.matchScore)}점</span>
               )}
             </div>
           </div>

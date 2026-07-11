@@ -24,7 +24,7 @@ export function ExpiredShiftBanner({ shifts }: { shifts: ShiftRow[] }) {
         <span className="text-xl flex-shrink-0">⚠️</span>
         <div className="flex-1 min-w-0">
           <p className="text-body font-bold text-ink">
-            매칭 못 된 시프트 {shifts.length}건
+            채용 없이 마감된 공고 {shifts.length}건
           </p>
           <p className="text-label text-sub">수정해서 다시 올릴까요?</p>
         </div>
