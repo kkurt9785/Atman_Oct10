@@ -3,6 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '@/lib/admin-auth';
+import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 import { userClient } from '@/lib/supabase';
 
 export async function acceptApplication(
@@ -18,6 +19,8 @@ export async function acceptApplication(
     p_application_id: applicationId,
   });
   if (error) throw new Error(error.message || '지원 수락에 실패했어요.');
+
+  nudgeNotificationDispatch();
 
   revalidatePath('/applications');
   revalidatePath('/');

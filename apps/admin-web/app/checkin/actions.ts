@@ -3,6 +3,7 @@
 
 import { requireAdminContext } from '@/lib/admin-auth';
 import { userClient } from '@/lib/supabase';
+import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 
 export type CheckinResult =
   | {
@@ -58,6 +59,8 @@ export async function recordCheckin(
       p_lat: coords?.lat ?? null,
       p_lng: coords?.lng ?? null,
     });
+
+  nudgeNotificationDispatch();
 
     if (error) {
       return { ok: false, message: error.message || 'QR 처리에 실패했어요.' };

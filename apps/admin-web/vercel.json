@@ -6,11 +6,11 @@
     },
     {
       "path": "/api/cron/dispatch-notifications",
-      "schedule": "*/5 * * * *"
+      "schedule": "10 15 * * *"
     },
     {
       "path": "/api/cron/reconcile-payments",
-      "schedule": "*/10 * * * *"
+      "schedule": "20 15 * * *"
     }
   ]
 }
