@@ -57,7 +57,7 @@ export default async function ShiftsPage() {
 
   return (
     <main className="px-4 pb-24">
-      <div className="flex items-center justify-between px-1 mt-2 mb-5">
+      <div className="flex items-center justify-between px-1 mt-2 mb-2">
         <h1 className="text-display font-extrabold text-ink">시프트</h1>
         <Link
           href="/shifts/new"
@@ -66,6 +66,9 @@ export default async function ShiftsPage() {
           <span className="text-xl leading-none">+</span>
           <span>새 시프트</span>
         </Link>
+      </div>
+      <div className="flex justify-end mb-4 px-1">
+        <Link href="/operations" className="text-label font-bold text-primary">반복 일정·미충원 관리 →</Link>
       </div>
 
       <ExpiredShiftBanner shifts={expiredShifts} />

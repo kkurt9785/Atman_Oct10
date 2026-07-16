@@ -32,3 +32,11 @@ export async function cancelApplication(applicationId: string): Promise<boolean>
   });
   return !error && data === true;
 }
+
+export async function respondToInvitation(applicationId: string, accept: boolean): Promise<boolean> {
+  const { data, error } = await supabase.rpc('respond_to_shift_invitation', {
+    p_application_id: applicationId,
+    p_accept: accept,
+  });
+  return !error && data === true;
+}

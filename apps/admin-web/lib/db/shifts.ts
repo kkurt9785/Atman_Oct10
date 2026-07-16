@@ -19,6 +19,15 @@ export type ShiftRow = {
 };
 
 export type NewShift = Omit<ShiftRow, 'id' | 'is_overnight' | 'status' | 'created_at'>;
+export type ShiftCreateInput = NewShift & {
+  audience?: 'public' | 'invited';
+  invited_worker_id?: string | null;
+  template_id?: string | null;
+  generation_batch_id?: string | null;
+  template_slot?: number | null;
+  replacement_for_shift_id?: string | null;
+  is_replacement?: boolean;
+};
 
 const SELECT_COLS = 'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, status, created_at';
 
@@ -62,7 +71,7 @@ export async function getExpiredOpenShifts(): Promise<ShiftRow[]> {
   return (data as ShiftRow[]) ?? [];
 }
 
-export async function createShift(payload: NewShift): Promise<string> {
+export async function createShift(payload: ShiftCreateInput): Promise<string> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
   if (!sb || !facilityId) throw new Error('인증 필요');

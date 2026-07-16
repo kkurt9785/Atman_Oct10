@@ -71,7 +71,17 @@
 | 만료 미매칭 배너 → 다시 올리기 | ✅ | |
 | 워커 승인/거절 | 🟡 | 플랫폼 `super` 역할만 전체 면허 심사, 시설 관리자는 지원자 범위만 열람 |
 
-### 3.3 QR 체크인/체크아웃 (`/checkin`)
+### 3.3 자체 인력풀·운영 자동화
+| 항목 | 상태 | 비고 |
+|---|---|---|
+| 병원 자체 인력풀 (`/workforce`) | ✅ | 지원 수락·근무 이력 기반 자동 등록, 최근 근무·누적시간·자격 만료 표시 |
+| 반복근무 직접 요청 | ✅ | 공개 공고와 분리된 워커 지정 초대, 워커 수락 후 병원 최종 확정 |
+| 반복 시프트 템플릿 (`/operations`) | ✅ | 요일·시간·직군·필요 인원·시급 저장, 2/4/8주 인원별 일괄 생성 및 중복 방지 |
+| 운영 경고·긴급 대체 | ✅ | 48시간 내 미충원 알림 재전송, 출근 30분 경과 노쇼 대체 공고, 자격 만료·지급 대기 표시 |
+| 월 예상 인건비 | ✅ | 당월 취소 제외 전체 시프트 예정액 합산 |
+| 지급 검토 CSV | ✅ | 소유자·슈퍼 권한 전용, 계좌번호 끝 4자리만 포함 |
+
+### 3.4 QR 체크인/체크아웃 (`/checkin`)
 관리자 기기 카메라로 워커 QR 스캔 → 체크인/아웃 토글
 
 | 항목 | 상태 | 비고 |
@@ -82,13 +92,13 @@
 | 크레딧 자동 차감 | ✅ | `consume_attendance_qr` 단일 트랜잭션에서 임금·수수료·크레딧·근태·원장 갱신 |
 | 서버 1회용 QR 토큰 | ✅ | 무작위 bearer token, DB에는 해시만 저장, 60초 TTL, `FOR UPDATE` 소비 |
 
-### 3.4 근태·급여
+### 3.5 근태·급여
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | 근태 보기 (`/timesheet`) | ✅ | |
 | 급여명세 (`/payroll`) | ✅ | wage_calculations 기반, 세후 계산. 포괄임금 금지(2026) 대응 항목별 산출 |
 
-### 3.5 멤버십·크레딧 (`/membership`)
+### 3.6 멤버십·크레딧 (`/membership`)
 | 항목 | 상태 | 비고 |
 |---|---|---|
 | 크레딧 티어 | ✅ | 50만~1,000만, Toss 3.4% 수수료 반영 흑자 구조 (마진 2~3.6%) |
@@ -99,7 +109,7 @@
 
 | 영역 | 내용 |
 |---|---|
-| 핵심 테이블 | `workers`, `facilities`, `shifts`, `shift_applications`, `shift_attendances`, `wage_calculations`, `credit_ledger`, `worker_bank_accounts`, `worker_location_prefs`, `facility_admin_access`, `profiles` |
+| 핵심 테이블 | `workers`, `facilities`, `shifts`, `shift_applications`, `shift_attendances`, `wage_calculations`, `wage_payment_instructions`, `facility_worker_pool`, `shift_templates`, `worker_location_prefs`, `facility_admin_access`, `profiles` |
 | 위치 | PostGIS `geography(POINT,4326)` — 워커 활동중심/병원 위치/체크인 위치, GIST 인덱스 |
 | RPC | `get_nearby_open_shifts_secure`, 지원·수락·QR·정산·결제·환급 RPC |
 | 보안 | 사용자 경로는 JWT/RLS/RPC, service_role은 결제·outbox 등 서버 전용, 민감 Storage private, 계좌 암호화 키 fail-closed |

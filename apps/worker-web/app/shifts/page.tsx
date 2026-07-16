@@ -198,6 +198,7 @@ export default function ShiftsPage() {
           .from('shifts')
           .select('id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text )')
           .eq('status', 'open')
+          .eq('audience', 'public')
           .gte('shift_date', dateKST())
           .order('shift_date', { ascending: true })
           .order('start_time', { ascending: true });

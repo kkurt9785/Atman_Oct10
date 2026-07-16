@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { QRModal } from '@/components/shifts/QRModal';
 import { dateKST } from '@/lib/date';
-import { cancelApplication } from '@/lib/shifts';
+import { cancelApplication, respondToInvitation } from '@/lib/shifts';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 
 // ── 타입 ───────────────────────────────────────────────────────
-type ApplicationStatus = 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
+type ApplicationStatus = 'invited' | 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
 
 type Application = {
   id: string;
@@ -32,6 +32,11 @@ type Application = {
 
 // ── 상수 ───────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: string; className: string }> = {
+  invited: {
+    label: '병원 직접 요청',
+    description: '이전에 함께한 병원에서 반복근무를 요청했어요. 수락 여부를 선택해 주세요.',
+    className: 'bg-amber-100 text-amber-700',
+  },
   applied: {
     label: '병원 확인 중',
     description: '지원이 접수됐고 병원에서 확인하고 있어요.',
@@ -65,6 +70,7 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: str
 };
 
 function stepState(app: Application, step: 'applied' | 'accepted' | 'work') {
+  if (app.status === 'invited') return step === 'applied' ? 'current' : 'muted';
   if (['rejected', 'cancelled', 'expired'].includes(app.status)) return 'muted';
   if (step === 'applied') return 'done';
   if (step === 'accepted') return app.status === 'accepted' || app.status === 'completed' ? 'done' : 'current';
@@ -108,10 +114,12 @@ function ApplicationCard({
   app,
   onCancel,
   onQR,
+  onInvitation,
 }: {
   app: Application;
   onCancel: (id: string) => void;
   onQR: (app: Application) => void;
+  onInvitation: (id: string, accept: boolean) => void;
 }) {
   const { label, description, className } = STATUS_CONFIG[app.status];
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
@@ -145,6 +153,13 @@ function ApplicationCard({
       <p className="text-[14px] text-sub line-clamp-2 mb-3">{app.shift.description}</p>
       <p className="text-[13px] text-sub bg-bg rounded-xl px-3 py-2 mb-3">{description}</p>
       <StatusSteps app={app} />
+
+      {app.status === 'invited' && (
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <button onClick={() => onInvitation(app.id, false)} className="h-12 rounded-xl border border-line text-[14px] font-bold text-sub">이번에는 어려워요</button>
+          <button onClick={() => onInvitation(app.id, true)} className="h-12 rounded-xl bg-primary text-white text-[14px] font-extrabold">근무 요청 수락</button>
+        </div>
+      )}
 
       <div className="flex items-center justify-between pt-3 border-t border-line">
         <div>
@@ -274,6 +289,14 @@ export default function ApplicationsPage() {
     }
   }
 
+  async function handleInvitation(applicationId: string, accept: boolean) {
+    const ok = await respondToInvitation(applicationId, accept);
+    if (!ok) { alert('요청 상태를 변경하지 못했어요. 다시 시도해 주세요.'); return; }
+    setApps((prev) => prev.map((app) => app.id === applicationId
+      ? { ...app, status: accept ? 'applied' as const : 'cancelled' as const }
+      : app));
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -315,7 +338,7 @@ export default function ApplicationsPage() {
           </div>
         ) : (
           apps.map((a) => (
-            <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onQR={setQrTarget} />
+            <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onQR={setQrTarget} onInvitation={handleInvitation} />
           ))
         )}
 

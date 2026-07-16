@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createShiftAction } from '@/lib/actions/shifts';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
@@ -27,6 +27,14 @@ export default function NewShiftPage() {
   const [description, setDescription] = useState('');
   const [department, setDepartment] = useState('');
   const [notes, setNotes] = useState('');
+  const [invitedWorker, setInvitedWorker] = useState<{ id: string; name: string } | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('workerId');
+    const name = params.get('workerName');
+    if (id && name) setInvitedWorker({ id, name });
+  }, []);
 
   const estimatedPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage) ?? 0;
   const isOvernight = startTime && endTime
@@ -56,6 +64,7 @@ export default function NewShiftPage() {
 
     const formData = new FormData(e.currentTarget);
     formData.set('required_role', role);
+    if (invitedWorker) formData.set('invited_worker_id', invitedWorker.id);
 
     startTransition(async () => {
       try {
@@ -85,6 +94,13 @@ export default function NewShiftPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {invitedWorker && (
+          <section className="bg-primary/10 border border-primary/20 rounded-2xl p-5">
+            <p className="text-label font-bold text-primary">자체 인력풀 반복근무 요청</p>
+            <p className="text-title font-extrabold text-ink mt-1">{invitedWorker.name} 님에게만 전송</p>
+            <p className="text-label text-sub mt-2 leading-5">공개 공고에 노출되지 않으며, 워커가 요청을 확인하고 지원하면 병원이 최종 수락합니다.</p>
+          </section>
+        )}
         {/* 필요 자격 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
           <p className="text-label font-bold text-sub mb-3">필요 자격 *</p>
@@ -236,7 +252,7 @@ export default function NewShiftPage() {
           disabled={isPending || estimatedPay === 0}
           className="flex items-center justify-center min-h-tap rounded-xl bg-primary text-white text-body font-bold w-full disabled:opacity-50 active:opacity-90 transition-opacity"
         >
-          {isPending ? '등록 중...' : '시프트 등록하기'}
+          {isPending ? '등록 중...' : invitedWorker ? '반복근무 요청 보내기' : '시프트 등록하기'}
         </button>
       </form>
     </main>
