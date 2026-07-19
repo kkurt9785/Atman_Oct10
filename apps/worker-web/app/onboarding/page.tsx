@@ -26,6 +26,7 @@ function OnboardingInner() {
   const [role, setRole] = useState<'rn' | 'na' | null>(null);
   const [areas, setAreas] = useState<AreaPref[]>([]);
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [licenseNumber, setLicenseNumber] = useState('');
   const [basicInfo, setBasicInfo] = useState<BasicInfoValue | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -68,7 +69,22 @@ function OnboardingInner() {
         p_consents: terms.consents,
       });
       if (rpcError) throw new Error(rpcError.message.replace(/^.*?: /, ''));
-      setStep(licenseFile ? 'review' : 'approval');
+
+      // 면허 번호 입력 시: 온보딩 완료 직후 프로필에 반영 (나의 정보와 동일 경로).
+      // 실패해도 가입 자체는 유효 — 번호는 나의 정보에서 재등록 가능하므로 흐름을 막지 않는다.
+      if (licenseNumber) {
+        await supabase.rpc('update_my_worker_profile', {
+          p_license_number: licenseNumber,
+          p_license_path: uploadedPath,
+          p_experience_years: null,
+          p_last_workplace: null,
+          p_department_tags: [],
+        }).then(({ error: profileError }) => {
+          if (profileError) console.warn('면허 번호 저장 실패(나의 정보에서 재등록 가능):', profileError.message);
+        });
+      }
+
+      setStep(licenseFile || licenseNumber ? 'review' : 'approval');
     } catch (error) {
       if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
       setSubmitError(error instanceof Error ? error.message : '가입 정보 저장에 실패했어요.');
@@ -83,7 +99,7 @@ function OnboardingInner() {
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep('area'); }} />}
       {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('license'); }} />}
-      {step === 'license' && <LicenseUpload onNext={(file) => { setLicenseFile(file); setStep('info'); }} onSkip={() => { setLicenseFile(null); setStep('info'); }} />}
+      {step === 'license' && <LicenseUpload onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} submitting={submitting} submitError={submitError} />}
       {step === 'review' && <ReviewPending onHome={() => router.replace('/home')} />}
