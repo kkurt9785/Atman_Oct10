@@ -124,7 +124,7 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
 
-      <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-[24px] z-50 max-h-[85vh] overflow-y-auto">
+      <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-[24px] z-50 max-h-[85vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
         {/* 핸들 */}
         <div className="sticky top-0 bg-white pt-4 pb-3 px-6">
           <div className="w-10 h-1 bg-line rounded-full mx-auto mb-4" />

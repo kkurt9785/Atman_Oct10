@@ -46,7 +46,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
       />
 
       {/* 바텀시트 */}
-      <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-[24px] z-50 px-6 pb-10 pt-5">
+      <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-[24px] z-50 px-6 pt-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
         {/* 핸들 */}
         <div className="w-10 h-1 bg-line rounded-full mx-auto mb-6" />
 

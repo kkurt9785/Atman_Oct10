@@ -67,7 +67,7 @@ export function InstallBanner() {
   if (mode === 'hidden') return null;
 
   return (
-    <div className="fixed bottom-[64px] inset-x-3 z-40 max-w-app mx-auto bg-ink text-white rounded-2xl px-4 py-3 shadow-lg flex items-center gap-3">
+    <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] inset-x-3 z-40 max-w-app mx-auto bg-ink text-white rounded-2xl px-4 py-3 shadow-lg flex items-center gap-3">
       <img src="/icon-192.png" alt="" className="w-9 h-9 rounded-xl flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-[13px] font-bold">앱처럼 설치하고 알림 받기</p>

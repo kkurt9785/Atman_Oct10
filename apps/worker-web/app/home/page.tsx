@@ -265,10 +265,26 @@ export default function HomePage() {
     setShifts(mapRows((data ?? []) as Record<string, unknown>[]));
   }, []);
 
-  function selectBasis(b: 'gps' | string) {
-    if (b === basis) return;
+  async function selectBasis(b: 'gps' | string) {
+    // 지역 칩은 같은 칩 재클릭 시 no-op, GPS 칩은 재클릭 = 위치 새로고침으로 동작
+    if (b === basis && b !== 'gps') return;
+    const prev = basis;
     setBasis(b);
-    fetchShifts(pos, b);
+    if (b === 'gps') {
+      // 누를 때마다 위치를 다시 조회 — 이동 후에도 신선한 좌표를 쓰고,
+      // 최초에 권한을 거부한 사용자에게는 이 시점에 다시 요청된다.
+      const fresh = await getPosition();
+      if (fresh) setPos(fresh);
+      const next = fresh ?? pos;
+      if (!next) {
+        alert('위치를 가져올 수 없어요. 브라우저 설정에서 위치 권한을 허용한 뒤 다시 눌러주세요.');
+        setBasis(prev === 'gps' ? areas[0] ?? 'gps' : prev);
+        return;
+      }
+      fetchShifts(next, b);
+    } else {
+      fetchShifts(pos, b);
+    }
   }
 
   useEffect(() => {
