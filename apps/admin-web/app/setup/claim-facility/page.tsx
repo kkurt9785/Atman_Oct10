@@ -111,17 +111,15 @@ export default function ClaimFacilityPage() {
           </ul>
         )}
 
-        {/* 에러 */}
-        {error && (
-          <p className="text-center text-[14px] text-warn">{error}</p>
-        )}
-
         {/* 초대 코드 + 연결 버튼 */}
         {selected && (
           <div className="fixed bottom-0 inset-x-0 p-4 bg-white border-t border-line space-y-3">
             <p className="text-[13px] text-sub text-center">
               <span className="font-semibold text-ink">{selected.name}</span>으로 연결할게요
             </p>
+            {error && (
+              <p className="text-center text-[14px] font-semibold text-warn">{error}</p>
+            )}
             <input
               type="text"
               value={inviteCode}
@@ -136,6 +134,11 @@ export default function ClaimFacilityPage() {
             >
               {isPending ? '연결 중...' : '내 병원으로 연결하기'}
             </button>
+            {inviteCode.trim().length < 4 && (
+              <p className="text-center text-[12px] text-sub">
+                잇닿에서 받은 초대 코드를 입력하면 버튼이 활성화돼요
+              </p>
+            )}
           </div>
         )}
       </div>
