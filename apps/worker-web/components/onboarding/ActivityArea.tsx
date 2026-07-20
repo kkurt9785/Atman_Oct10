@@ -7,16 +7,11 @@ type Area = { label: string; radius: number; lat?: number; lng?: number };
 // 활성 병원이 있는 지역만 선택지로 노출 (SUGGESTIONS) — 병원 확보 시 추가
 // 아래 legacy 키는 기존 가입자의 저장된 지역 좌표 복원용으로만 유지
 const AREA_COORDS: Record<string, { lat: number; lng: number }> = {
-  // 서비스 지역 — 수원 전역
+  // 서비스 지역 — 수원 전역 4구 + 광주 광산구
   '수원 장안구':  { lat: 37.3037, lng: 127.0106 },
   '수원 권선구':  { lat: 37.2574, lng: 127.0286 },
   '수원 팔달구':  { lat: 37.2636, lng: 127.0305 },
   '수원 영통구':  { lat: 37.2905, lng: 127.0574 },
-  // 서비스 지역 — 광주 전역
-  '광주 동구':    { lat: 35.1461, lng: 126.9231 },
-  '광주 서구':    { lat: 35.1520, lng: 126.8895 },
-  '광주 남구':    { lat: 35.1328, lng: 126.9026 },
-  '광주 북구':    { lat: 35.1740, lng: 126.9120 },
   '광주 광산구':  { lat: 35.1795, lng: 126.8121 },
   // legacy — 기존 저장된 지역 설정 호환용 (선택지에는 미노출)
   '경기 수원시':  { lat: 37.2636, lng: 127.0286 },
@@ -50,10 +45,7 @@ const RadiusSlider = ({ value, onChange }: { value: number; onChange: (v: number
 );
 
 // 활성 병원이 있는 지역만 선택지로 노출 — 병원 확보 시 여기에 추가
-const SUGGESTIONS = [
-  '수원 장안구', '수원 권선구', '수원 팔달구', '수원 영통구',
-  '광주 동구', '광주 서구', '광주 남구', '광주 북구', '광주 광산구',
-];
+const SUGGESTIONS = ['수원 장안구', '수원 권선구', '수원 팔달구', '수원 영통구', '광주 광산구'];
 
 export type AreaPref = { label: string; radius_km: number; lat?: number; lng?: number };
 
