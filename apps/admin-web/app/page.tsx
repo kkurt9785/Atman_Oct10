@@ -1,21 +1,41 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Card, SectionTitle, BigStat, ActionTile, StatusBadge } from '@/components/ui';
+import { Card, SectionTitle, BigStat, StatusBadge } from '@/components/ui';
+import { QuickMenu } from '@/components/home/QuickMenu';
 import { getShop } from '@/lib/db/shop';
 import { getStaff, getSummary } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
+import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
 import { won, hours } from '@/lib/format';
 
 export default async function Home() {
-  const [shop, staff, pendingCount] = await Promise.all([
+  const [shop, staff, pendingCount, ops, alerts] = await Promise.all([
     getShop(),
     getStaff(),
     getPendingCount(),
+    getOperationsSummary(),
+    getOperationsAlerts(),
   ]);
 
   if (!shop) redirect('/setup/claim-facility');
 
   const summary = await getSummary(staff);
+  const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
+
+  // 오늘 챙길 일 — 값이 있을 때만 노출 (평온한 날엔 조치 섹션 자체가 사라짐)
+  const todos = [
+    { key: 'pending', label: '지원 대기', count: pendingCount, href: '/applications', tone: 'primary' as const },
+    { key: 'noshow', label: '노쇼 확인', count: noShowCount, href: '/operations', tone: 'danger' as const },
+    { key: 'unfilled', label: '48시간 내 미충원', count: ops.urgentUnfilledCount, href: '/operations', tone: 'warn' as const },
+    { key: 'credential', label: '자격 만료 임박', count: ops.expiringCredentialCount, href: '/workforce', tone: 'warn' as const },
+    { key: 'wage', label: '지급 처리 대기', count: ops.pendingWageCount, href: '/payroll', tone: 'warn' as const },
+  ].filter((t) => t.count > 0);
+
+  const toneClass = {
+    primary: 'text-primary',
+    danger: 'text-red-600',
+    warn: 'text-warn',
+  };
 
   return (
     <main className="px-4">
@@ -24,6 +44,7 @@ export default async function Home() {
         <h1 className="text-display font-extrabold text-ink mt-1">원장님, 안녕하세요 👋</h1>
       </div>
 
+      {/* ① 이번 달 현황 */}
       <Card className="shadow-sm">
         <p className="text-label text-sub mb-3">이번 달 현황</p>
         <div className="flex justify-between items-end">
@@ -39,54 +60,42 @@ export default async function Home() {
         </div>
       </Card>
 
-      <Card className="mt-4 shadow-sm border border-primary/20">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-label font-bold text-sub">급여 운영</p>
-            <p className="text-title font-extrabold text-ink mt-1">병원 직접 지급 방식</p>
+      {/* ② 오늘 챙길 일 — 있을 때만 */}
+      {todos.length > 0 && (
+        <Card className="mt-4 border border-primary/20 p-0 overflow-hidden">
+          <p className="text-label font-bold text-primary px-5 pt-4 pb-2">⚡ 오늘 챙길 일</p>
+          <div className="divide-y divide-line">
+            {todos.map((t) => (
+              <Link key={t.key} href={t.href} className="flex items-center justify-between px-5 py-3.5 active:bg-bg">
+                <span className="text-body text-ink">{t.label}</span>
+                <span className="flex items-center gap-1.5">
+                  <b className={`text-body ${toneClass[t.tone]}`}>{t.count}건</b>
+                  <span className="text-sub">→</span>
+                </span>
+              </Link>
+            ))}
           </div>
-          <span className="text-label font-bold px-3 py-1 rounded-full bg-success/15 text-success">SaaS 분리</span>
-        </div>
-        <p className="text-label text-sub mt-3 leading-5">워커 임금은 병원이 직접 지급하고, 잇닿 이용료는 지점·공고·근태 사용량 기준의 별도 청구서로 관리합니다.</p>
-        <div className="mt-3 pt-3 border-t border-line flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-label text-sub">이번 달 요금제와 사용량을 확인하세요.</p>
-          </div>
-          <Link
-            href="/membership"
-            className="h-10 px-4 rounded-xl bg-primary text-white text-label font-bold flex items-center justify-center flex-shrink-0"
-          >
-            요금·청구 보기
-          </Link>
-        </div>
-      </Card>
-
-      {pendingCount > 0 && (
-        <Link href="/applications">
-          <div className="mt-4 bg-primary/10 border border-primary/20 rounded-2xl px-5 py-4 flex items-center justify-between active:opacity-80">
-            <div>
-              <p className="text-label font-bold text-primary">⚡ 처리 필요</p>
-              <p className="text-body font-bold text-ink mt-0.5">지원 대기 {pendingCount}건</p>
-            </div>
-            <span className="text-sub text-xl">→</span>
-          </div>
-        </Link>
+        </Card>
       )}
 
+      {/* ③④ 빠른 메뉴 (자주 쓰는 4 + 더보기 접기) */}
       <SectionTitle>빠른 메뉴</SectionTitle>
-      <div className="grid grid-cols-2 gap-3">
-        <ActionTile icon="📋" label="시프트 등록" href="/shifts/new" />
-        <ActionTile icon="🤝" label="병원 인력풀" href="/workforce" />
-        <ActionTile icon="⚙️" label="운영 자동화" href="/operations" />
-        <ActionTile icon="🔲" label="QR 체크인" href="/checkin" />
-        <ActionTile icon="🕐" label="근태 보기" href="/timesheet" />
-        <ActionTile icon="📄" label="급여명세서 발급" href="/payroll" />
-        <ActionTile icon="💬" label="워커 채팅" href="/chats" />
-        <ActionTile icon="🧾" label="요금제·청구" href="/membership" />
-        <ActionTile icon="🏥" label="병원 프로필" href="/settings" />
-        <ActionTile icon="🧑‍⚕️" label="직원·면허 심사" href="/staff" />
-      </div>
+      <QuickMenu
+        primary={[
+          { icon: '📋', label: '시프트 등록', href: '/shifts/new' },
+          { icon: '🔲', label: 'QR 체크인', href: '/checkin' },
+          { icon: '🤝', label: '병원 인력풀', href: '/workforce' },
+          { icon: '⚙️', label: '운영 자동화', href: '/operations' },
+        ]}
+        more={[
+          { icon: '🕐', label: '근태 보기', href: '/timesheet' },
+          { icon: '💬', label: '워커 채팅', href: '/chats' },
+          { icon: '🧑‍⚕️', label: '직원·면허 심사', href: '/staff', badge: pendingCount },
+          { icon: '🏥', label: '병원 프로필', href: '/settings' },
+        ]}
+      />
 
+      {/* ⑤ 오늘 근무 */}
       <SectionTitle>오늘 근무</SectionTitle>
       {staff.length === 0 ? (
         <Card className="py-8 text-center">
@@ -106,6 +115,17 @@ export default async function Home() {
           ))}
         </Card>
       )}
+
+      {/* ⑥ SaaS 안내 — 최하단 한 줄 링크로 축소 */}
+      <Link
+        href="/membership"
+        className="mt-6 mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-bg active:opacity-80"
+      >
+        <span className="text-label text-sub">
+          워커 임금은 병원 직접 지급 · 잇닿 이용료는 <b className="text-ink">별도 청구서</b>
+        </span>
+        <span className="text-label font-bold text-primary flex-shrink-0 ml-2">요금·청구 →</span>
+      </Link>
     </main>
   );
 }
