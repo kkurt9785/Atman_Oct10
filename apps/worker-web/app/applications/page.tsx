@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { QRModal } from '@/components/shifts/QRModal';
@@ -201,22 +202,22 @@ function ApplicationCard({
               </p>
             </div>
           )}
-          <a
+          <Link
             href={`/chat/${app.id}`}
             className="mt-2 w-full h-11 border border-primary/30 rounded-btn text-[14px] font-semibold text-primary flex items-center justify-center gap-1.5 active:bg-primary/5"
           >
             💬 병원 채팅
-          </a>
+          </Link>
         </>
       )}
 
       {app.status === 'completed' && (
-        <a
+        <Link
           href={`/chat/${app.id}`}
           className="mt-3 w-full h-11 border border-line rounded-btn text-[14px] font-semibold text-sub flex items-center justify-center gap-1.5 active:bg-bg"
         >
           💬 채팅 기록 보기
-        </a>
+        </Link>
       )}
 
       {app.status === 'applied' && (
@@ -238,6 +239,7 @@ export default function ApplicationsPage() {
   const [apps, setApps]     = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [qrTarget, setQrTarget] = useState<Application | null>(null);
+  const [actionNotice, setActionNotice] = useState('');
 
   // 워커 ID + 지원 현황 초기 로드
   useEffect(() => {
@@ -285,13 +287,13 @@ export default function ApplicationsPage() {
     if (ok) {
       setApps((prev) => prev.map((a) => a.id === applicationId ? { ...a, status: 'cancelled' as const } : a));
     } else {
-      alert('취소할 수 없는 지원이에요.');
+      setActionNotice('취소할 수 없는 지원이에요.');
     }
   }
 
   async function handleInvitation(applicationId: string, accept: boolean) {
     const ok = await respondToInvitation(applicationId, accept);
-    if (!ok) { alert('요청 상태를 변경하지 못했어요. 다시 시도해 주세요.'); return; }
+    if (!ok) { setActionNotice('요청 상태를 변경하지 못했어요. 다시 시도해 주세요.'); return; }
     setApps((prev) => prev.map((app) => app.id === applicationId
       ? { ...app, status: accept ? 'applied' as const : 'cancelled' as const }
       : app));
@@ -329,6 +331,10 @@ export default function ApplicationsPage() {
           급여 지급현황 →
         </button>
       </div>
+
+      {actionNotice && (
+        <p role="alert" className="mb-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{actionNotice}</p>
+      )}
 
       {apps.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">

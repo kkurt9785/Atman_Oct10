@@ -1,26 +1,9 @@
 import { getPendingApplications } from '@/lib/db/applications';
 import { ApplicantCard } from './ApplicantCard';
 
-const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+import { formatDate, formatTime } from '@/lib/format';
+
 const ROLE_LABEL: Record<string, string> = { rn: 'RN 간호사', na: 'NA 간호조무사', any: '무관' };
-
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
-  const label = diff === 0 ? '오늘' : diff === 1 ? '내일' : diff === 2 ? '모레' : null;
-  const month = d.getMonth() + 1;
-  const day = d.getDate();
-  const dow = DAYS[d.getDay()];
-  return label ? `${month}/${day} (${dow}) ${label}` : `${month}/${day} (${dow})`;
-}
-
-function formatTime(t: string) {
-  const [h, m] = t.split(':');
-  const hour = parseInt(h);
-  return `${hour < 12 ? '오전' : '오후'} ${hour % 12 || 12}:${m}`;
-}
 
 export default async function ApplicationsPage() {
   const groups = await getPendingApplications();

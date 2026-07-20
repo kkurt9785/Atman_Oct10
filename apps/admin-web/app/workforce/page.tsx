@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { getWorkforcePool } from '@/lib/db/workforce';
-import { hours } from '@/lib/mock';
+import { hours } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
 
 const ROLE_LABEL = { rn: '간호사 RN', na: '간호조무사 NA' } as const;

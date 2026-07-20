@@ -3,7 +3,7 @@ import { getAdminContext } from '@/lib/admin-auth';
 import { getStaff } from '@/lib/db/staff';
 import { getPendingWorkers } from '@/lib/db/workers';
 import { WorkerApprovalCard } from './WorkerApprovalCard';
-import { hours } from '@/lib/mock';
+import { hours } from '@/lib/format';
 
 export default async function StaffPage() {
   const context = await getAdminContext();

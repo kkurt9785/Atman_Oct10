@@ -20,9 +20,8 @@ async function confirm(searchParams: { paymentKey?: string; orderId?: string; am
     console.error('[membership/success] payment confirmation failed', error);
     return {
       ok: false,
-      message: error instanceof Error
-        ? error.message
-        : '결제 상태를 확인하지 못했어요. 결제 내역을 확인한 뒤 운영팀에 문의해 주세요.',
+      // 기술 에러 원문은 로그로만 — 사용자에겐 항상 한국어 안내
+      message: '결제 상태를 확인하지 못했어요. 카드가 결제됐다면 이중 청구되지 않으니, 청구서 상태를 확인한 뒤 운영팀에 문의해 주세요.',
     };
   }
 }

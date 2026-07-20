@@ -21,6 +21,7 @@ export default function SettingsPage() {
   const [profileFilled, setProfileFilled] = useState(0);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [pushNotice, setPushNotice] = useState('');
   const [showPwaGuide, setShowPwaGuide] = useState(false);
 
   useEffect(() => {
@@ -88,11 +89,11 @@ export default function SettingsPage() {
           }
           setPushEnabled(true);
         } else {
-          alert('알림 권한을 허용해 주세요.');
+          setPushNotice('브라우저 설정에서 알림 권한을 허용해 주세요.');
         }
       }
     } catch (toggleError) {
-      alert(toggleError instanceof Error ? toggleError.message : '알림 설정을 저장하지 못했어요.');
+      setPushNotice('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setPushLoading(false);
     }
@@ -108,6 +109,9 @@ export default function SettingsPage() {
 
   return (
     <main className="px-4 pb-10">
+      {pushNotice && (
+        <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{pushNotice}</p>
+      )}
       <div className="px-1 mt-2 mb-6">
         <h1 className="text-[24px] font-extrabold text-ink">내 정보</h1>
       </div>
@@ -179,6 +183,9 @@ export default function SettingsPage() {
       {/* 시프트 알림 */}
       <button
         onClick={handlePushToggle}
+        role="switch"
+        aria-checked={pushEnabled}
+        aria-label="새 시프트 알림"
         disabled={pushLoading}
         className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
       >

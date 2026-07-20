@@ -136,6 +136,14 @@ export default function CheckinPage() {
 
   return (
     <main className="min-h-screen bg-black flex flex-col items-center justify-center px-4">
+      {/* 풀스크린 화면의 유일한 탈출구 — 항상 노출 */}
+      <a
+        href="/"
+        aria-label="체크인 닫기"
+        className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full bg-white/15 text-white text-[20px] flex items-center justify-center active:bg-white/30"
+      >
+        ✕
+      </a>
       {state === 'scanning' && (
         <>
           <p className="text-white text-[17px] font-bold mb-6">일회용 QR 스캔</p>

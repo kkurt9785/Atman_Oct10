@@ -1,6 +1,6 @@
 import { Card, SectionTitle } from '@/components/ui';
 import { getStaff, getSummary } from '@/lib/db/staff';
-import { hours } from '@/lib/mock';
+import { hours } from '@/lib/format';
 
 function fmtTime(iso: string | null | undefined) {
   if (!iso) return null;

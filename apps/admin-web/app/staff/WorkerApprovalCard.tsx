@@ -10,27 +10,19 @@ export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
   const [isPending, startTransition] = useTransition();
   const [photoOpen, setPhotoOpen] = useState(false);
   const [done, setDone] = useState<'approved' | 'rejected' | null>(null);
+  const [arming, setArming] = useState<'approve' | 'reject' | null>(null);
+  const [actionError, setActionError] = useState('');
 
-  function handleApprove() {
-    if (!confirm(`${worker.name}님을 승인할까요?`)) return;
+  function run(kind: 'approve' | 'reject') {
+    setActionError('');
     startTransition(async () => {
       try {
-        await approveWorkerAction(worker.id);
-        setDone('approved');
+        if (kind === 'approve') { await approveWorkerAction(worker.id); setDone('approved'); }
+        else { await rejectWorkerAction(worker.id); setDone('rejected'); }
       } catch {
-        alert('승인 처리에 실패했습니다. 새로고침 후 다시 시도해주세요.');
-      }
-    });
-  }
-
-  function handleReject() {
-    if (!confirm(`${worker.name}님을 거절할까요?`)) return;
-    startTransition(async () => {
-      try {
-        await rejectWorkerAction(worker.id);
-        setDone('rejected');
-      } catch {
-        alert('거절 처리에 실패했습니다. 새로고침 후 다시 시도해주세요.');
+        setActionError(kind === 'approve' ? '승인 처리에 실패했어요. 잠시 후 다시 시도해 주세요.' : '거절 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      } finally {
+        setArming(null);
       }
     });
   }
@@ -71,24 +63,48 @@ export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
             </div>
           </div>
 
-          {/* 승인/거절 버튼 */}
+          {/* 승인/거절 버튼 — 2단계 확인 */}
           <div className="flex flex-col gap-2 flex-shrink-0">
-            <button
-              onClick={handleApprove}
-              disabled={isPending}
-              className="text-label font-bold px-4 py-2 rounded-xl bg-success/15 text-success active:opacity-70 disabled:opacity-40"
-            >
-              {isPending ? '처리 중' : '승인'}
-            </button>
-            <button
-              onClick={handleReject}
-              disabled={isPending}
-              className="text-label font-bold px-4 py-2 rounded-xl bg-line text-sub active:opacity-70 disabled:opacity-40"
-            >
-              {isPending ? '처리 중' : '거절'}
-            </button>
+            {arming === null ? (
+              <>
+                <button
+                  onClick={() => setArming('approve')}
+                  disabled={isPending}
+                  className="text-label font-bold px-4 py-2 rounded-xl bg-success/15 text-success active:opacity-70 disabled:opacity-40"
+                >
+                  승인
+                </button>
+                <button
+                  onClick={() => setArming('reject')}
+                  disabled={isPending}
+                  className="text-label font-bold px-4 py-2 rounded-xl bg-line text-sub active:opacity-70 disabled:opacity-40"
+                >
+                  거절
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => run(arming)}
+                  disabled={isPending}
+                  className={`text-label font-bold px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40 ${arming === 'approve' ? 'bg-success text-white' : 'bg-red-50 text-red-600'}`}
+                >
+                  {isPending ? '처리 중' : arming === 'approve' ? `${worker.name}님 승인 확정` : `${worker.name}님 거절 확정`}
+                </button>
+                <button
+                  onClick={() => setArming(null)}
+                  disabled={isPending}
+                  className="text-label font-bold px-4 py-2 rounded-xl border border-line text-sub"
+                >
+                  취소
+                </button>
+              </>
+            )}
           </div>
         </div>
+        {actionError && (
+          <p role="alert" className="mt-2 rounded-xl bg-red-50 text-red-600 text-[13px] font-bold px-3 py-2">{actionError}</p>
+        )}
       </div>
 
       {/* 면허 사진 풀스크린 */}

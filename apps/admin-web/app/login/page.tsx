@@ -70,7 +70,7 @@ function LoginInner() {
     <div className="flex flex-col min-h-screen px-6">
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
         <span className="text-[32px] font-extrabold text-primary">잇닿</span>
-        <span className="text-[15px] text-sub">사장님 관리 콘솔</span>
+        <span className="text-[15px] text-sub">병원 관리 콘솔</span>
       </div>
 
       {error === 'unauthorized' && (

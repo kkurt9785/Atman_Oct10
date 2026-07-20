@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createShiftAction } from '@/lib/actions/shifts';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
-import { won } from '@/lib/billing';
+import { won } from '@/lib/format';
 
 type Role = 'rn' | 'na' | 'any';
 
@@ -60,7 +60,7 @@ export default function NewShiftPage() {
     if (!shiftDate) { setError('날짜를 선택해주세요.'); return; }
     if (!startTime || !endTime) { setError('시작·종료 시간을 입력해주세요.'); return; }
     if (!description.trim()) { setError('업무 설명을 입력해주세요.'); return; }
-    if (!hourlyWage || hourlyWage < MIN_HOURLY_WAGE_2026) { setError('시급은 최저시급(9,860원) 이상이어야 해요.'); return; }
+    if (!hourlyWage || hourlyWage < MIN_HOURLY_WAGE_2026) { setError('시급은 2026년 최저시급(10,320원) 이상이어야 해요.'); return; }
 
     const formData = new FormData(e.currentTarget);
     formData.set('required_role', role);
@@ -183,7 +183,7 @@ export default function NewShiftPage() {
               />
             </div>
             {hourlyWage > 0 && hourlyWage < MIN_HOURLY_WAGE_2026 && (
-              <p className="text-label text-warn mt-1">2026년 최저시급(9,860원) 이상이어야 해요</p>
+              <p className="text-label text-warn mt-1">2026년 최저시급(10,320원) 이상이어야 해요</p>
             )}
           </div>
 

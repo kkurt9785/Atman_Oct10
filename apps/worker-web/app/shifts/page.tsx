@@ -179,6 +179,7 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
+  const [reviewPending, setReviewPending] = useState(false);
   const [selected, setSelected] = useState<Shift | null>(null);
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [facilityInfo, setFacilityInfo] = useState<{ id: string; name: string } | null>(null);
@@ -215,6 +216,7 @@ export default function ShiftsPage() {
         .maybeSingle();
       if (!worker || worker.verification_status !== 'approved') {
         setShifts([]);
+        setReviewPending(Boolean(worker));
         setLoading(false);
         return;
       }
@@ -295,7 +297,10 @@ export default function ShiftsPage() {
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <span className="text-5xl">🔍</span>
-          <p className="text-[17px] font-bold text-ink">조건에 맞는 시프트가 없어요</p>
+          <p className="text-[17px] font-bold text-ink">{reviewPending ? '면허 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
+          {reviewPending && (
+            <p className="text-[13px] text-sub text-center leading-5">심사가 끝나면 알림으로 알려드리고,<br />이 화면에 지원 가능한 시프트가 열려요.</p>
+          )}
           <p className="text-[14px] text-sub text-center">
             필터를 넓히면 더 많은 공고를 볼 수 있어요
           </p>

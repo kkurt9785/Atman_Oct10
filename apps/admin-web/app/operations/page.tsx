@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Card } from '@/components/ui';
-import { won } from '@/lib/billing';
+import { won } from '@/lib/format';
 import { todayKST } from '@/lib/date';
 import { getOperationsAlerts, getOperationsSummary, getShiftTemplates } from '@/lib/db/operations';
 import { createShiftTemplateAction, deactivateShiftTemplateAction, generateRecurringShiftsAction, requestUrgentReplacementAction } from './actions';

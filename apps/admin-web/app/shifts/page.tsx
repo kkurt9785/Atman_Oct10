@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { getShifts, getExpiredOpenShifts, ShiftRow } from '@/lib/db/shifts';
 import { Card } from '@/components/ui';
-import { won } from '@/lib/mock';
+import { won, formatDate } from '@/lib/format';
 import { CancelButton } from './CancelButton';
 import { ExpiredShiftBanner } from './ExpiredShiftBanner';
 
@@ -30,7 +30,7 @@ function ShiftCard({ s }: { s: ShiftRow }) {
     <Card className="mb-3 shadow-sm">
       <div className="flex items-start justify-between mb-2">
         <div className="min-w-0 flex-1">
-          <p className="text-label text-sub">{s.shift_date} · {ROLE_LABEL[s.required_role]}</p>
+          <p className="text-label text-sub">{formatDate(s.shift_date)} · {ROLE_LABEL[s.required_role]}</p>
           <p className="text-title font-bold text-ink mt-0.5">{timeRange}</p>
         </div>
         <div className="flex items-center gap-2 ml-3 flex-shrink-0">

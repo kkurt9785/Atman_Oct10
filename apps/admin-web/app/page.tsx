@@ -4,7 +4,7 @@ import { Card, SectionTitle, BigStat, ActionTile, StatusBadge } from '@/componen
 import { getShop } from '@/lib/db/shop';
 import { getStaff, getSummary } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
-import { won, hours } from '@/lib/mock';
+import { won, hours } from '@/lib/format';
 
 export default async function Home() {
   const [shop, staff, pendingCount] = await Promise.all([
@@ -21,7 +21,7 @@ export default async function Home() {
     <main className="px-4">
       <div className="px-1 mt-2 mb-4">
         <p className="text-body text-sub">{shop.name}</p>
-        <h1 className="text-display font-extrabold text-ink mt-1">사장님, 안녕하세요 👋</h1>
+        <h1 className="text-display font-extrabold text-ink mt-1">원장님, 안녕하세요 👋</h1>
       </div>
 
       <Card className="shadow-sm">
@@ -84,6 +84,7 @@ export default async function Home() {
         <ActionTile icon="💬" label="워커 채팅" href="/chats" />
         <ActionTile icon="🧾" label="요금제·청구" href="/membership" />
         <ActionTile icon="🏥" label="병원 프로필" href="/settings" />
+        <ActionTile icon="🧑‍⚕️" label="직원·면허 심사" href="/staff" />
       </div>
 
       <SectionTitle>오늘 근무</SectionTitle>

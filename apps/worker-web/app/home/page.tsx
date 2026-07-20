@@ -220,6 +220,8 @@ export default function HomePage() {
   // 매칭 기준 선택 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [basis, setBasis] = useState<'gps' | string>('gps');
+  const [locNotice, setLocNotice] = useState('');
+  const [reviewPending, setReviewPending] = useState(false);
   const approvedRef = useRef(false);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
@@ -277,12 +279,14 @@ export default function HomePage() {
       if (fresh) setPos(fresh);
       const next = fresh ?? pos;
       if (!next) {
-        alert('위치를 가져올 수 없어요. 브라우저 설정에서 위치 권한을 허용한 뒤 다시 눌러주세요.');
+        setLocNotice('위치를 가져올 수 없어요. 브라우저 설정에서 위치 권한을 허용한 뒤 다시 눌러주세요.');
         setBasis(prev === 'gps' ? areas[0] ?? 'gps' : prev);
         return;
       }
+      setLocNotice('');
       fetchShifts(next, b);
     } else {
+      setLocNotice('');
       fetchShifts(pos, b);
     }
   }
@@ -314,6 +318,7 @@ export default function HomePage() {
       setAreas(areaLabels);
 
       approvedRef.current = workerRow?.verification_status === 'approved';
+      setReviewPending(Boolean(workerRow) && workerRow?.verification_status !== 'approved');
 
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;
@@ -395,12 +400,14 @@ export default function HomePage() {
           </div>
           <Link href="/earnings" className="flex-shrink-0 ml-3 mt-1">
             <div className="flex flex-col items-center bg-primary/8 border border-primary/20 px-3.5 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
-              <span className="text-[10px] font-semibold text-primary tracking-tight">급여 현황</span>
-              <span className="text-[17px] font-extrabold text-primary leading-tight">₩</span>
-              <span className="text-[10px] text-primary/60 mt-0.5">확인 →</span>
+              <span className="text-[19px] leading-tight">💰</span>
+              <span className="text-[11px] font-bold text-primary mt-0.5">급여 확인</span>
             </div>
           </Link>
         </div>
+        {locNotice && (
+          <p role="alert" className="mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{locNotice}</p>
+        )}
         {(pos || areas.length > 0) && (
           <div className="flex gap-1.5 mt-3 flex-wrap">
             {pos && (
@@ -500,7 +507,10 @@ export default function HomePage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <span className="text-5xl">🔍</span>
-            <p className="text-[15px] font-bold text-ink">조건에 맞는 시프트가 없어요</p>
+            <p className="text-[15px] font-bold text-ink">{reviewPending ? '면허 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
+            {reviewPending && (
+              <p className="text-[13px] text-sub text-center leading-5">심사가 끝나면 알림으로 알려드려요.</p>
+            )}
             <button onClick={resetFilters} className="text-[14px] text-primary font-semibold">
               필터 초기화
             </button>

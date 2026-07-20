@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { acceptApplication, rejectApplication } from './actions';
 import type { Applicant } from '@/lib/db/applications';
-import { won } from '@/lib/billing';
+import { won } from '@/lib/format';
 
 const ROLE_LABEL: Record<string, string> = { rn: 'RN', na: 'NA' };
 const ROLE_COLOR: Record<string, string> = {
@@ -29,6 +29,7 @@ export function ApplicantCard({
   const [loading, setLoading] = useState<'accept' | 'reject' | null>(null);
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   async function openAcceptConfirm() {
     setConfirmOpen(true);
@@ -36,10 +37,11 @@ export function ApplicantCard({
 
   async function handleAccept() {
     setLoading('accept');
+    setActionError('');
     try {
       await acceptApplication(applicant.applicationId, shiftId, applicant.workerId);
     } catch {
-      alert('수락 처리에 실패했어요. 새로고침 후 다시 시도해주세요.');
+      setActionError('수락 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(null);
     }
@@ -47,10 +49,11 @@ export function ApplicantCard({
 
   async function handleReject() {
     setLoading('reject');
+    setActionError('');
     try {
       await rejectApplication(applicant.applicationId);
     } catch {
-      alert('거절 처리에 실패했어요. 새로고침 후 다시 시도해주세요.');
+      setActionError('거절 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(null);
     }
@@ -61,6 +64,9 @@ export function ApplicantCard({
 
   return (
     <div className="py-4 px-5">
+      {actionError && (
+        <p role="alert" className="mb-2 rounded-xl bg-red-50 text-red-600 text-[13px] font-bold px-3 py-2">{actionError}</p>
+      )}
       {/* 상단: 이름 + 역할 + 거리 + 버튼 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
@@ -69,15 +75,15 @@ export function ApplicantCard({
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-[15px] font-bold text-ink">{applicant.name}</span>
               {applicant.isDemo && (
-                <span className="text-[10px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                <span className="text-[12px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                   데모
                 </span>
               )}
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ROLE_COLOR[applicant.role] ?? 'bg-line text-sub'}`}>
+              <span className={`text-[13px] font-bold px-2 py-0.5 rounded-full ${ROLE_COLOR[applicant.role] ?? 'bg-line text-sub'}`}>
                 {ROLE_LABEL[applicant.role] ?? applicant.role}
               </span>
               {applicant.verificationStatus === 'approved' && (
-                <span className="text-[11px] text-success font-semibold">✓인증</span>
+                <span className="text-[13px] text-success font-semibold">✓인증</span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -115,7 +121,7 @@ export function ApplicantCard({
           {/* 면허증 */}
           {hasLicense && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-sub w-12 flex-shrink-0">면허증</span>
+              <span className="text-[13px] text-sub w-12 flex-shrink-0">면허증</span>
               {applicant.licensePhotoUrl ? (
                 <>
                   <button
@@ -148,7 +154,7 @@ export function ApplicantCard({
           {/* 경력 + 최근 근무지 */}
           {(applicant.experienceYears || applicant.lastWorkplace) && (
             <div className="flex items-start gap-2">
-              <span className="text-[11px] text-sub w-12 flex-shrink-0 pt-0.5">경력</span>
+              <span className="text-[13px] text-sub w-12 flex-shrink-0 pt-0.5">경력</span>
               <span className="text-[12px] text-ink">
                 {[applicant.experienceYears, applicant.lastWorkplace].filter(Boolean).join(' · ')}
               </span>
@@ -158,10 +164,10 @@ export function ApplicantCard({
           {/* 부서 태그 */}
           {applicant.departmentTags && applicant.departmentTags.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-sub w-12 flex-shrink-0">부서</span>
+              <span className="text-[13px] text-sub w-12 flex-shrink-0">부서</span>
               <div className="flex flex-wrap gap-1">
                 {applicant.departmentTags.map((tag) => (
-                  <span key={tag} className="text-[11px] font-semibold bg-bg text-sub px-2 py-0.5 rounded-full">
+                  <span key={tag} className="text-[13px] font-semibold bg-bg text-sub px-2 py-0.5 rounded-full">
                     {tag}
                   </span>
                 ))}

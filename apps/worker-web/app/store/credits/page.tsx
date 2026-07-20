@@ -35,6 +35,8 @@ export default function EarningsPage() {
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [disputeTarget, setDisputeTarget] = useState<string | null>(null);
+  const [disputeReason, setDisputeReason] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -51,8 +53,7 @@ export default function EarningsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
-  async function act(id: string, action: 'confirm' | 'dispute') {
-    const reason = action === 'dispute' ? window.prompt('병원 급여 담당자가 확인할 내용을 5자 이상 입력해 주세요.') : null;
+  async function act(id: string, action: 'confirm' | 'dispute', reason: string | null = null) {
     if (action === 'dispute' && (!reason || reason.trim().length < 5)) return;
     setBusyId(id); setActionError('');
     const { error: actionError } = await supabase.rpc('update_wage_payment_status', {
@@ -90,11 +91,46 @@ export default function EarningsPage() {
           <div className="flex items-start justify-between gap-3"><div><p className="text-[15px] font-extrabold text-ink">{shift?.facilities?.name ?? '채용 병원'}</p><p className="text-[12px] text-sub mt-1">{shift?.shift_date ?? new Date(row.created_at).toLocaleDateString('ko-KR')} · {shift?.start_time?.slice(0,5)}–{shift?.end_time?.slice(0,5)}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>
           <div className="mt-4 rounded-xl bg-bg p-3 space-y-2 text-[12px]"><div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>{won(row.gross_amount)}</b></div><div className="flex justify-between"><span className="text-sub">공제</span><b>{row.deduction_status === 'unconfirmed' ? '병원 확인 예정' : '병원 확인'}</b></div><div className="flex justify-between border-t border-line pt-2"><span className="font-bold">지급 예정액</span><b className="text-primary">{won(row.net_amount)}</b></div>{row.due_date && <div className="flex justify-between"><span className="text-sub">지급 예정일</span><b>{row.due_date}</b></div>}</div>
           {row.status === 'paid' && <button disabled={busyId===row.id} onClick={() => void act(row.id,'confirm')} className="mt-3 w-full h-11 rounded-xl bg-primary text-white text-[13px] font-extrabold disabled:opacity-50">내 계좌 입금 확인</button>}
-          {['approved','exported','paid'].includes(row.status) && <button disabled={busyId===row.id} onClick={() => void act(row.id,'dispute')} className="mt-2 w-full py-2 text-[12px] font-bold text-sub disabled:opacity-50">금액·입금 문제 확인 요청</button>}
+          {['approved','exported','paid'].includes(row.status) && <button disabled={busyId===row.id} onClick={() => { setDisputeTarget(row.id); setDisputeReason(''); }} className="mt-2 w-full py-2 text-[12px] font-bold text-sub disabled:opacity-50">금액·입금 문제 확인 요청</button>}
           {row.dispute_reason && <p className="mt-2 rounded-lg bg-red-50 p-2 text-[11px] text-red-600">요청 내용: {row.dispute_reason}</p>}
         </article>;
       })}</div>}
     </section>
     <p className="px-5 mt-5 text-[11px] leading-5 text-tertiary">표시 금액은 병원의 최종 공제 판단 전 예상액일 수 있습니다. 잇닿은 임금을 수취하거나 재지급하지 않습니다.</p>
-  </main>;
+  
+    {/* 이의제기 바텀시트 — window.prompt 대체 */}
+    {disputeTarget && (
+      <>
+        <div className="fixed inset-0 bg-black/40 z-40" onClick={() => busyId === null && setDisputeTarget(null)} />
+        <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-[24px] z-50 px-6 pt-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
+          <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
+          <p className="text-[17px] font-bold text-ink">금액·입금 문제 확인 요청</p>
+          <p className="text-[13px] text-sub mt-1 leading-5">병원 급여 담당자가 확인할 내용을 구체적으로 적어주세요. (5자 이상)</p>
+          <textarea
+            value={disputeReason}
+            onChange={(e) => setDisputeReason(e.target.value)}
+            rows={3}
+            placeholder="예: 7/18 야간 근무 시간이 실제와 달라요"
+            className="mt-4 w-full rounded-xl border border-line px-4 py-3 text-[15px] outline-none focus:border-primary resize-none"
+          />
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <button
+              onClick={() => setDisputeTarget(null)}
+              disabled={busyId !== null}
+              className="h-12 rounded-xl border border-line text-[14px] font-bold text-sub"
+            >
+              닫기
+            </button>
+            <button
+              onClick={async () => { await act(disputeTarget, 'dispute', disputeReason); setDisputeTarget(null); }}
+              disabled={busyId !== null || disputeReason.trim().length < 5}
+              className="h-12 rounded-xl bg-primary text-white text-[14px] font-extrabold disabled:opacity-50"
+            >
+              {busyId ? '접수 중...' : '확인 요청 보내기'}
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+</main>;
 }

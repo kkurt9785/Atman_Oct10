@@ -93,8 +93,22 @@ function OnboardingInner() {
     }
   }
 
+  const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', area: 'role', license: 'area', info: 'license', bank: 'info' };
+  const prevStep = PREV[step];
+
   return (
     <main className="min-h-screen bg-white">
+      {/* 단계 이동 중 오입력 복구용 뒤로가기 */}
+      {prevStep && !submitting && (
+        <button
+          type="button"
+          aria-label="이전 단계로"
+          onClick={() => setStep(prevStep)}
+          className="fixed top-4 left-4 z-40 w-10 h-10 rounded-full bg-bg text-ink text-[18px] flex items-center justify-center active:opacity-70"
+        >
+          ←
+        </button>
+      )}
       {step === 'splash' && <Splash />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep('area'); }} />}
