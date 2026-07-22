@@ -60,9 +60,10 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
   if (!sb || !facilityId) return [];
   const now = new Date();
   const today = todayKST(now);
+  const alertStart = addDays(today, -1);
   const urgentEnd = addDays(today, 2);
-  const { data: shifts } = await sb.from('shifts').select('id,shift_date,start_time,department,status,is_replacement')
-    .eq('facility_id', facilityId).gte('shift_date', today).lte('shift_date', urgentEnd)
+  const { data: shifts } = await sb.from('shifts').select('id,shift_date,start_time,end_time,is_overnight,department,status,is_replacement')
+    .eq('facility_id', facilityId).gte('shift_date', alertStart).lte('shift_date', urgentEnd)
     .in('status', ['open','matched']).order('shift_date').order('start_time');
   if (!shifts?.length) return [];
   const ids = shifts.map((row: any) => row.id);
@@ -75,11 +76,12 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
   const nowMs = now.getTime();
   const alerts: OperationsAlert[] = [];
   for (const shift of shifts as any[]) {
-    if (shift.status === 'open' && !appByShift.has(shift.id)) {
+    if (shift.shift_date < today && !shift.is_overnight) continue;
+    const startMs = Date.parse(`${shift.shift_date}T${shift.start_time}+09:00`);
+    if (shift.status === 'open' && startMs >= nowMs && !appByShift.has(shift.id)) {
       alerts.push({ shiftId: shift.id, kind: 'unfilled', shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
       continue;
     }
-    const startMs = Date.parse(`${shift.shift_date}T${shift.start_time}+09:00`);
     if (shift.status === 'matched' && !checkedIn.has(shift.id) && nowMs >= startMs + 30 * 60_000) {
       alerts.push({ shiftId: shift.id, kind: 'no_show', shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
     }

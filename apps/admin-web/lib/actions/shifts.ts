@@ -5,6 +5,8 @@ import { createShift } from '../db/shifts';
 import { adminClient } from '../supabase';
 import { requireAdminContext } from '../admin-auth';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
+import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '../billing-gates';
+import { todayKST } from '../date';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', any: '간호인력' };
 
@@ -30,6 +32,7 @@ export async function createShiftAction(formData: FormData) {
   let invitedWorker: { id: string; auth_user_id: string | null; name: string; role: string } | null = null;
   if (invitedWorkerId) {
     if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+    await requirePlanFeature(sb, context.facilityId, 'repeat_invite');
     const { data: poolMember } = await sb.from('facility_worker_pool')
       .select('worker_id,status,workers(id,auth_user_id,name,role,verification_status,deleted_at)')
       .eq('facility_id', context.facilityId).eq('worker_id', invitedWorkerId).eq('status', 'active').maybeSingle();
@@ -52,12 +55,35 @@ export async function createShiftAction(formData: FormData) {
     invited_worker_id: invitedWorker?.id ?? null,
   });
 
-  if (invitedWorker && sb) {
+  if (!sb) {
+    throw new Error('서버 설정을 확인해 주세요.');
+  }
+  const monthKey = todayKST().slice(0, 7);
+  const postingUsageKey = `job_posting:${context.facilityId}:${shiftId}`;
+  const inviteUsageKey = invitedWorker
+    ? `repeat_invite_worker:${context.facilityId}:${monthKey}:${invitedWorker.id}`
+    : null;
+  let inviteUsageCreated = false;
+  try {
+    await consumePlanUsage(sb, context.facilityId, 'job_posting_slot', 1, postingUsageKey);
+    if (inviteUsageKey) {
+      inviteUsageCreated = await consumePlanUsage(sb, context.facilityId, 'active_worker', 1, inviteUsageKey);
+    }
+  } catch (error) {
+    await sb.from('shifts').delete().eq('id', shiftId).eq('facility_id', context.facilityId);
+    await releasePlanUsage(sb, postingUsageKey);
+    if (inviteUsageKey && inviteUsageCreated) await releasePlanUsage(sb, inviteUsageKey);
+    throw error;
+  }
+
+  if (invitedWorker) {
     const { error: applicationError } = await sb.from('shift_applications').insert({
       shift_id: shiftId, worker_id: invitedWorker.id, status: 'invited',
     });
     if (applicationError) {
       await sb.from('shifts').delete().eq('id', shiftId).eq('facility_id', context.facilityId);
+      await releasePlanUsage(sb, postingUsageKey);
+      if (inviteUsageKey && inviteUsageCreated) await releasePlanUsage(sb, inviteUsageKey);
       throw new Error('반복근무 요청을 만들지 못했어요. 다시 시도해 주세요.');
     }
   }
