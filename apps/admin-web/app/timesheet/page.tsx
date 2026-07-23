@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Card, SectionTitle } from '@/components/ui';
 import { getClinicStaff } from '@/lib/db/clinic-workforce';
 import { getStaff } from '@/lib/db/staff';
-import { decideEarlyCheckoutAction, recordStaffAttendanceAction } from '@/lib/actions/clinic-workforce';
+import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 
 const STATUS:Record<string,{label:string;style:string}> = {
   scheduled:{label:'출근 예정',style:'bg-primary/10 text-primary'}, working:{label:'근무 중',style:'bg-success/15 text-success'},
@@ -30,11 +30,11 @@ export default async function TimesheetPage(){
       <div className="space-y-3">{staff.map((s)=>{const state=STATUS[s.attendanceStatus]??STATUS.scheduled; return <Card key={s.id} className="p-4 shadow-card">
         <div className="flex justify-between gap-3"><div><p className="font-bold">{s.name}</p><p className="text-label text-sub">{s.department??'부서 미지정'} · {s.defaultStart.slice(0,5)}~{s.defaultEnd.slice(0,5)}</p></div><span className={`h-fit text-[11px] font-bold px-2.5 py-1 rounded-full ${state.style}`}>{state.label}</span></div>
         <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-label text-sub">출근 <b className="text-ink">{fmt(s.checkInAt)}</b><span className="mx-2">→</span>퇴근 <b className="text-ink">{fmt(s.checkOutAt)}</b></div>
-        {s.attendanceStatus==='checkout_pending'&&<div className="mt-3 rounded-xl border border-warn/30 bg-warn/5 p-3"><p className="text-[12px] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(s.checkoutRequestedAt)}</p><div className="grid grid-cols-2 gap-2 mt-2"><form action={decideEarlyCheckoutAction}><input type="hidden" name="staff_id" value={s.id}/><input type="hidden" name="decision" value="rejected"/><button className="w-full h-9 rounded-lg border border-line bg-white text-[12px] font-bold">반려</button></form><form action={decideEarlyCheckoutAction}><input type="hidden" name="staff_id" value={s.id}/><input type="hidden" name="decision" value="approved"/><button className="w-full h-9 rounded-lg bg-primary text-white text-[12px] font-bold">퇴근 승인</button></form></div></div>}
+        {s.attendanceStatus==='checkout_pending'&&<div className="mt-3 rounded-xl border border-warn/30 bg-warn/5 p-3"><p className="text-[12px] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(s.checkoutRequestedAt)}{s.workDate!==new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10)?' · 전날 야간근무':''}</p><div className="grid grid-cols-2 gap-2 mt-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:s.id,work_date:s.workDate,decision:'rejected'}}><button className="w-full h-9 rounded-lg border border-line bg-white text-[12px] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:s.id,work_date:s.workDate,decision:'approved'}}><button className="w-full h-9 rounded-lg bg-primary text-white text-[12px] font-bold">퇴근 승인</button></WorkforceActionForm></div></div>}
         <div className="grid grid-cols-3 gap-2 mt-3">
-          <form action={recordStaffAttendanceAction}><input type="hidden" name="staff_id" value={s.id}/><input type="hidden" name="event" value="check_in"/><button disabled={Boolean(s.checkInAt)} className="w-full h-10 rounded-lg bg-primary text-white text-[12px] font-bold disabled:opacity-30">출근 처리</button></form>
-          <form action={recordStaffAttendanceAction}><input type="hidden" name="staff_id" value={s.id}/><input type="hidden" name="event" value="check_out"/><button disabled={!s.checkInAt||Boolean(s.checkOutAt)} className="w-full h-10 rounded-lg bg-ink text-white text-[12px] font-bold disabled:opacity-30">퇴근 처리</button></form>
-          <form action={recordStaffAttendanceAction}><input type="hidden" name="staff_id" value={s.id}/><input type="hidden" name="event" value="absent"/><button className="w-full h-10 rounded-lg border border-line text-[12px] font-bold">결근 표시</button></form>
+          <WorkforceActionForm kind="attendance" values={{staff_id:s.id,work_date:s.workDate,event:'check_in'}}><button disabled={Boolean(s.checkInAt)} className="w-full h-10 rounded-lg bg-primary text-white text-[12px] font-bold disabled:opacity-30">출근 처리</button></WorkforceActionForm>
+          <WorkforceActionForm kind="attendance" values={{staff_id:s.id,work_date:s.workDate,event:'check_out'}}><button disabled={!s.checkInAt||Boolean(s.checkOutAt)} className="w-full h-10 rounded-lg bg-ink text-white text-[12px] font-bold disabled:opacity-30">퇴근 처리</button></WorkforceActionForm>
+          <WorkforceActionForm kind="attendance" values={{staff_id:s.id,work_date:s.workDate,event:'absent'}}><button disabled={Boolean(s.checkInAt)} className="w-full h-10 rounded-lg border border-line text-[12px] font-bold disabled:opacity-30">결근 표시</button></WorkforceActionForm>
         </div>
       </Card>})}</div>}
 

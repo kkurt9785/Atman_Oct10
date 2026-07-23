@@ -1,10 +1,11 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
-import { todayKST } from '../date';
+import { todayKST, yesterdayKST } from '../date';
 
 export type ClinicStaff = {
   id: string;
   workerId: string | null;
+  phone: string | null;
   name: string;
   role: string;
   department: string | null;
@@ -19,7 +20,10 @@ export type ClinicStaff = {
   checkInAt: string | null;
   checkOutAt: string | null;
   checkoutRequestedAt: string | null;
+  workDate: string;
   leaveMinutes: number;
+  inviteToken: string | null;
+  inviteExpiresAt: string | null;
 };
 
 export async function getClinicStaff(): Promise<ClinicStaff[]> {
@@ -30,26 +34,44 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   const year = Number(today.slice(0, 4));
   const [{ data: staff }, { data: attendance }, { data: balances }, { data: leaves }] = await Promise.all([
     sb.from('facility_staff').select('*').eq('facility_id', facilityId).neq('status', 'ended').order('name'),
-    sb.from('staff_attendances').select('*').eq('facility_id', facilityId).eq('work_date', today),
+    sb.from('staff_attendances').select('*').eq('facility_id', facilityId).gte('work_date', yesterdayKST()).lte('work_date', today),
     sb.from('staff_leave_balances').select('staff_id,granted_minutes,used_minutes')
       .eq('facility_id', facilityId).eq('leave_year', year),
     sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId)
       .eq('status', 'approved').lte('start_date', today).gte('end_date', today),
   ]);
-  const attendanceMap = new Map((attendance ?? []).map((row: any) => [row.staff_id, row]));
+  const staffIds = (staff ?? []).map((row:any)=>row.id);
+  const { data: invites } = staffIds.length ? await sb.from('facility_staff_invites')
+    .select('staff_id,token,expires_at').eq('facility_id',facilityId).eq('status','pending')
+    .gt('expires_at',new Date().toISOString()).in('staff_id',staffIds).order('created_at',{ascending:false}) : {data:[]};
+  const currentHour = Number(new Date(Date.now()+9*60*60*1000).toISOString().slice(11,13));
+  const attendanceMap = new Map<string,any>();
+  for (const row of (attendance ?? []) as any[]) {
+    const existing=attendanceMap.get(row.staff_id);
+    if(row.work_date===today || !existing){
+      if(row.work_date===today || (
+        row.scheduled_end <= row.scheduled_start
+        && (currentHour < 12 || !row.check_out_at)
+      )) attendanceMap.set(row.staff_id,row);
+    }
+  }
   const balanceMap = new Map((balances ?? []).map((row: any) => [row.staff_id, Math.max(0, row.granted_minutes - row.used_minutes)]));
+  const inviteMap = new Map((invites ?? []).map((row:any)=>[row.staff_id,row]));
   const leaveSet = new Set((leaves ?? []).map((row: any) => row.staff_id));
   return ((staff ?? []) as any[]).map((row) => {
     const att: any = attendanceMap.get(row.id);
+    const invite:any=inviteMap.get(row.id);
     return {
-      id: row.id, workerId: row.worker_id, name: row.name, role: row.role, department: row.department,
+      id: row.id, workerId: row.worker_id, phone: row.phone, name: row.name, role: row.role, department: row.department,
       source: row.source, engagementType: row.engagement_type,
       contractStart: row.contract_start, contractEnd: row.contract_end,
       defaultStart: row.default_start_time, defaultEnd: row.default_end_time,
       status: row.status, attendanceStatus: att?.status ?? (row.status === 'leave' || leaveSet.has(row.id) ? 'leave' : 'scheduled'),
       checkInAt: att?.check_in_at ?? null, checkOutAt: att?.check_out_at ?? null,
       checkoutRequestedAt: att?.checkout_requested_at ?? null,
+      workDate: att?.work_date ?? today,
       leaveMinutes: Number(balanceMap.get(row.id) ?? 0),
+      inviteToken: invite?.token ?? null, inviteExpiresAt: invite?.expires_at ?? null,
     };
   });
 }

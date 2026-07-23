@@ -50,7 +50,13 @@ function CallbackInner() {
           .single();
 
         if (profile?.onboarding_done) {
-          router.replace('/home');
+          const next=window.localStorage.getItem('atman_auth_next');
+          if(next?.startsWith('/')){
+            window.localStorage.removeItem('atman_auth_next');
+            router.replace(next);
+          }else{
+            router.replace('/home');
+          }
         } else {
           router.replace('/onboarding?step=terms');
         }

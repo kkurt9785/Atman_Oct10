@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
 type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; facilities:{name:string}|Array<{name:string}> };
-type Result = { action:'check_in'|'check_out'; status:'approved'|'pending'; facility_name:string };
+type Result = { action:'check_in'|'check_out'; status:'approved'|'pending'; facility_name:string; staff_id:string; work_date:string };
 type Leave = { id:string; leave_type:string; start_date:string; end_date:string; requested_minutes:number; status:string };
 const TYPES = [
   ['annual','연차 · 종일'],['half_day','반차 · 4시간'],['quarter_day','반반차 · 2시간'],
@@ -46,10 +46,7 @@ function WorkplaceContent() {
       else {
         const next=attendance as Result;
         setResult(next);
-        const matched=linked.find(item=>{
-          const fac=Array.isArray(item.facilities)?item.facilities[0]?.name:item.facilities?.name;
-          return fac===next.facility_name;
-        });
+        const matched=linked.find(item=>item.id===next.staff_id);
         if(matched)setSelectedStaffId(matched.id);
       }
     }

@@ -30,6 +30,15 @@ function OnboardingInner() {
   const [basicInfo, setBasicInfo] = useState<BasicInfoValue | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const finishOnboarding=()=>{
+    const next=window.localStorage.getItem('atman_auth_next');
+    if(next?.startsWith('/')){
+      window.localStorage.removeItem('atman_auth_next');
+      router.replace(next);
+    }else{
+      router.replace('/home');
+    }
+  };
 
   async function handleSubmit(bank: BankAccountValue) {
     if (submitting) return;
@@ -116,8 +125,8 @@ function OnboardingInner() {
       {step === 'license' && <LicenseUpload onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} submitting={submitting} submitError={submitError} />}
-      {step === 'review' && <ReviewPending onHome={() => router.replace('/home')} />}
-      {step === 'approval' && <Approval onStart={() => router.replace('/shifts')} onBrowse={() => router.replace('/shifts')} />}
+      {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
+      {step === 'approval' && <Approval onStart={finishOnboarding} onBrowse={finishOnboarding} />}
     </main>
   );
 }

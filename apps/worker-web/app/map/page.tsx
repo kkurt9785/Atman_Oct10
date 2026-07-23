@@ -13,6 +13,7 @@ declare global {
 
 type Point = { shift_id:string; lat:number; lng:number };
 type Position = { lat:number; lng:number };
+type PointGroup = { lat:number; lng:number; shifts:Shift[] };
 
 function getPosition():Promise<Position|null>{
   return new Promise((resolve)=>{
@@ -32,6 +33,7 @@ export default function ShiftMapPage(){
   const [points,setPoints]=useState<Point[]>([]);
   const [position,setPosition]=useState<Position|null>(null);
   const [selected,setSelected]=useState<Shift|null>(null);
+  const [selectedGroup,setSelectedGroup]=useState<Shift[]>([]);
   const [applyTarget,setApplyTarget]=useState<Shift|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
@@ -73,11 +75,21 @@ export default function ShiftMapPage(){
           const content='<div style="width:18px;height:18px;border:4px solid white;border-radius:50%;background:#3182F6;box-shadow:0 1px 5px #555"></div>';
           new window.kakao.maps.CustomOverlay({map,position:new window.kakao.maps.LatLng(position.lat,position.lng),content,yAnchor:.5,xAnchor:.5});
         }
+        const groups=new Map<string,PointGroup>();
         points.forEach(point=>{
           const shift=shifts.find(s=>s.id===point.shift_id);
           if(!shift)return;
-          const marker=new window.kakao.maps.Marker({map,position:new window.kakao.maps.LatLng(point.lat,point.lng)});
-          window.kakao.maps.event.addListener(marker,'click',()=>setSelected(shift));
+          const key=`${point.lat.toFixed(6)},${point.lng.toFixed(6)}`;
+          const group=groups.get(key)??{lat:point.lat,lng:point.lng,shifts:[]};
+          group.shifts.push(shift);
+          groups.set(key,group);
+        });
+        groups.forEach(group=>{
+          const marker=new window.kakao.maps.Marker({map,position:new window.kakao.maps.LatLng(group.lat,group.lng)});
+          window.kakao.maps.event.addListener(marker,'click',()=>{
+            setSelectedGroup(group.shifts);
+            setSelected(group.shifts[0]??null);
+          });
         });
       });
     };
@@ -104,7 +116,7 @@ export default function ShiftMapPage(){
       <div className="absolute left-4 top-4 rounded-full bg-white/95 shadow px-3 py-2 text-[12px] font-bold">공고 {shifts.length}건</div>
     </div>
     {error&&<p role="alert" className="mx-4 mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-[13px] font-bold">{error}</p>}
-    {selected&&<section className="fixed bottom-[72px] inset-x-4 mx-auto max-w-[440px] z-20 bg-white rounded-2xl shadow-xl p-4"><button onClick={()=>setSelected(null)} className="absolute right-4 top-3 text-sub">✕</button><p className="text-[12px] text-primary font-bold">{dateLabel(selected.shift_date)} · {timeLabel(selected)}</p><h2 className="text-[17px] font-extrabold mt-1 pr-6">{facilityName(selected)}</h2><p className="text-[13px] text-sub mt-1">{selected.department??'부서 협의'} · 약 {selected.distance_km?.toFixed(1)??'-'}km</p><div className="flex items-center justify-between mt-3 pt-3 border-t border-line"><b className="text-[18px]">₩{selected.estimated_total_pay.toLocaleString('ko-KR')}</b><button onClick={()=>setApplyTarget(selected)} className="h-11 px-5 rounded-xl bg-primary text-white font-bold">지원하기</button></div></section>}
-    {applyTarget&&<ApplySheet shift={applyTarget} onClose={()=>setApplyTarget(null)} onApplied={()=>{setShifts(v=>v.filter(s=>s.id!==applyTarget.id));setPoints(v=>v.filter(p=>p.shift_id!==applyTarget.id));setApplyTarget(null);setSelected(null);}}/>}
+    {selected&&<section className="fixed bottom-[72px] inset-x-4 mx-auto max-w-[440px] z-20 bg-white rounded-2xl shadow-xl p-4"><button onClick={()=>{setSelected(null);setSelectedGroup([]);}} className="absolute right-4 top-3 text-sub">✕</button><p className="text-[12px] text-primary font-bold">{dateLabel(selected.shift_date)} · {timeLabel(selected)}</p><h2 className="text-[17px] font-extrabold mt-1 pr-6">{facilityName(selected)}</h2>{selectedGroup.length>1&&<label className="block mt-3 text-[12px] font-bold text-sub">이 병원의 공고 {selectedGroup.length}건<select value={selected.id} onChange={event=>setSelected(selectedGroup.find(shift=>shift.id===event.target.value)??selected)} className="mt-1 h-10 w-full rounded-xl border border-line bg-white px-3 text-ink">{selectedGroup.map(shift=><option key={shift.id} value={shift.id}>{dateLabel(shift.shift_date)} · {timeLabel(shift)} · {shift.department??'부서 협의'}</option>)}</select></label>}<p className="text-[13px] text-sub mt-2">{selected.department??'부서 협의'} · 약 {selected.distance_km?.toFixed(1)??'-'}km</p><div className="flex items-center justify-between mt-3 pt-3 border-t border-line"><b className="text-[18px]">₩{selected.estimated_total_pay.toLocaleString('ko-KR')}</b><button onClick={()=>setApplyTarget(selected)} className="h-11 px-5 rounded-xl bg-primary text-white font-bold">지원하기</button></div></section>}
+    {applyTarget&&<ApplySheet shift={applyTarget} onClose={()=>setApplyTarget(null)} onApplied={()=>{setShifts(v=>v.filter(s=>s.id!==applyTarget.id));setPoints(v=>v.filter(p=>p.shift_id!==applyTarget.id));setApplyTarget(null);setSelected(null);setSelectedGroup([]);}}/>}
   </main>;
 }

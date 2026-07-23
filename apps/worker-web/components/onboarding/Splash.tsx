@@ -50,7 +50,13 @@ export function Splash() {
       return;
     }
 
-    window.location.href = '/home';
+    const next=window.localStorage.getItem('atman_auth_next');
+    if(next?.startsWith('/')){
+      window.localStorage.removeItem('atman_auth_next');
+      window.location.href=next;
+    }else{
+      window.location.href='/home';
+    }
   }
 
   return (
