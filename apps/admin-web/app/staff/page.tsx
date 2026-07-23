@@ -26,9 +26,10 @@ export default async function StaffPage() {
 
   return <main className="px-4 pb-28">
     <div className="mt-3 mb-4 px-1">
-      <Link href="/" className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-xl pr-3 text-label font-bold text-sub" aria-label="홈으로 돌아가기"><span className="text-[20px] text-ink">←</span> 홈</Link>
-      <p className="text-label font-bold text-primary">기존 직원 + 신규 채용인력</p>
-      <h1 className="text-display font-extrabold text-ink">직원 관리</h1>
+      <div className="flex items-center gap-3">
+        <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-white text-[21px] text-ink shadow-sm active:bg-bg" aria-label="홈으로 돌아가기">←</Link>
+        <div><p className="text-label font-bold text-primary">기존 직원 + 신규 채용인력</p><h1 className="text-display font-extrabold text-ink">직원 관리</h1></div>
+      </div>
       <p className="text-label text-sub mt-1">직원 10명 이하 병원도 설정 없이 바로 시작할 수 있어요.</p>
     </div>
 
