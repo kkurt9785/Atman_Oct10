@@ -7,6 +7,7 @@ import { getPendingWorkers } from '@/lib/db/workers';
 import { WorkerApprovalCard } from './WorkerApprovalCard';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { CopyInviteButton } from './CopyInviteButton';
+import { StaffRegistrationForm } from './StaffRegistrationForm';
 
 const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', coordinator:'코디네이터', admin:'행정', other:'기타' };
 const TYPE: Record<string,string> = { regular:'상시 직원', fixed_term:'기간제', temporary:'임시 계약', daily:'단기 근무' };
@@ -24,6 +25,7 @@ export default async function StaffPage() {
 
   return <main className="px-4 pb-28">
     <div className="mt-3 mb-4 px-1">
+      <Link href="/" className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-xl pr-3 text-label font-bold text-sub" aria-label="홈으로 돌아가기"><span className="text-[20px] text-ink">←</span> 홈</Link>
       <p className="text-label font-bold text-primary">기존 직원 + 신규 채용인력</p>
       <h1 className="text-display font-extrabold text-ink">직원 관리</h1>
       <p className="text-label text-sub mt-1">직원 10명 이하 병원도 설정 없이 바로 시작할 수 있어요.</p>
@@ -44,20 +46,7 @@ export default async function StaffPage() {
       <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between">
         <span className="font-bold text-body">＋ 기존 직원 직접 등록</span><span className="text-sub group-open:rotate-180">⌄</span>
       </summary>
-      <WorkforceActionForm kind="add_staff" resetOnSuccess successMessage="직원을 등록했어요." className="px-5 pb-5 grid grid-cols-2 gap-3">
-        <label className="col-span-2 text-label text-sub">이름<input name="name" required maxLength={80} className="mt-1 w-full h-12 rounded-xl border border-line px-3 text-body text-ink" placeholder="예: 김지영"/></label>
-        <label className="text-label text-sub">직종<select name="role" className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"><option value="rn">간호사</option><option value="na">간호조무사</option><option value="coordinator">코디네이터</option><option value="admin">행정</option><option value="other">기타</option></select></label>
-        <label className="text-label text-sub">근무 형태<select name="engagement_type" className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"><option value="regular">상시 직원</option><option value="fixed_term">기간제 계약</option><option value="temporary">임시 계약</option><option value="daily">단기 근무</option></select></label>
-        <label className="text-label text-sub">부서<input name="department" className="mt-1 w-full h-12 rounded-xl border border-line px-3" placeholder="예: 외래"/></label>
-        <label className="text-label text-sub">연락처<input name="phone" inputMode="tel" className="mt-1 w-full h-12 rounded-xl border border-line px-3" placeholder="선택"/></label>
-        <label className="text-label text-sub">계약 시작<input name="contract_start" type="date" className="mt-1 w-full h-12 rounded-xl border border-line px-2"/></label>
-        <label className="text-label text-sub">계약 종료<input name="contract_end" type="date" className="mt-1 w-full h-12 rounded-xl border border-line px-2"/></label>
-        <label className="text-label text-sub">기본 출근<input name="default_start_time" type="time" defaultValue="09:00" className="mt-1 w-full h-12 rounded-xl border border-line px-2"/></label>
-        <label className="text-label text-sub">기본 퇴근<input name="default_end_time" type="time" defaultValue="18:00" className="mt-1 w-full h-12 rounded-xl border border-line px-2"/></label>
-        <fieldset className="col-span-2"><legend className="text-label text-sub mb-2">기본 근무요일</legend><div className="flex gap-2 flex-wrap">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-2 text-[12px]"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5}/>{label}</label>)}</div></fieldset>
-        <input type="hidden" name="default_break_minutes" value="60"/>
-        <button className="col-span-2 h-12 rounded-xl bg-ink text-white font-bold">직원 등록</button>
-      </WorkforceActionForm>
+      <StaffRegistrationForm/>
     </details>
 
     <SectionTitle>관리 중인 직원</SectionTitle>

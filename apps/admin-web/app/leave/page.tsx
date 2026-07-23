@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { getClinicLeaveRequests, getClinicStaff } from '@/lib/db/clinic-workforce';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
@@ -10,7 +11,7 @@ export default async function LeavePage(){
   const [staff,requests]=await Promise.all([getClinicStaff(),getClinicLeaveRequests()]);
   const total=staff.reduce((sum,s)=>sum+s.leaveMinutes,0);
   return <main className="px-4 pb-28">
-    <div className="mt-3 px-1"><p className="text-label font-bold text-primary">직원 신청 → 관리자 승인</p><h1 className="text-display font-extrabold">휴가</h1><p className="text-label text-sub mt-1">직원이 신청하면 확인 후 승인하고, 승인 시에만 잔여시간이 차감돼요.</p></div>
+    <div className="mt-3 px-1"><Link href="/staff" className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-xl pr-3 text-label font-bold text-sub" aria-label="직원 관리로 돌아가기"><span className="text-[20px] text-ink">←</span> 직원 관리</Link><p className="text-label font-bold text-primary">직원 신청 → 관리자 승인</p><h1 className="text-display font-extrabold">휴가 관리</h1><p className="text-label text-sub mt-1">직원이 신청하면 확인 후 승인하고, 승인 시에만 잔여시간이 차감돼요.</p></div>
     <Card className="mt-4 bg-primary text-white"><p className="text-label text-white/70">전체 직원 잔여 휴가</p><p className="text-money font-extrabold mt-1">{days(total)}일</p><p className="text-[11px] text-white/70 mt-2">병원이 입력한 부여시간 기준</p></Card>
     <details className="mt-3 bg-primary/5 border border-primary/15 rounded-2xl group">
       <summary className="list-none px-5 py-4 flex justify-between cursor-pointer"><b className="text-primary">잔여 휴가 설정</b><span className="text-sub">⌄</span></summary>

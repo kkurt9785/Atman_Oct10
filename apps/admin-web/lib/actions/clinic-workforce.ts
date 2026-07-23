@@ -21,6 +21,7 @@ export async function addClinicStaffAction(form: FormData) {
   const normalizedPhone = phone?.replace(/\D/g,'') ?? '';
   if (!name || !['rn','na','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
+  if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
   if (phone && normalizedPhone.length < 10) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
   await requireStaffCapacity(sb, context.facilityId);
   const { data: linkedWorker } = phone
