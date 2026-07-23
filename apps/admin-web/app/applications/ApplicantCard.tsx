@@ -1,5 +1,6 @@
 'use client';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { acceptApplication, rejectApplication } from './actions';
 import type { Applicant } from '@/lib/db/applications';
 import { won } from '@/lib/format';
@@ -26,6 +27,7 @@ export function ApplicantCard({
   estimatedPay: number;
   disabled: boolean;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState<'accept' | 'reject' | null>(null);
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -40,8 +42,10 @@ export function ApplicantCard({
     setActionError('');
     try {
       await acceptApplication(applicant.applicationId, shiftId, applicant.workerId);
-    } catch {
-      setActionError('수락 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      setConfirmOpen(false);
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '수락 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(null);
     }
@@ -52,8 +56,9 @@ export function ApplicantCard({
     setActionError('');
     try {
       await rejectApplication(applicant.applicationId);
-    } catch {
-      setActionError('거절 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      router.refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '거절 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(null);
     }

@@ -23,11 +23,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  useEffect(()=>{
-    if(isPublic)return;
-    ['/','/shifts','/applications','/staff','/timesheet','/leave','/payroll'].forEach(path=>router.prefetch(path));
-  },[isPublic,router]);
-
   async function handleLogout() {
     await fetch('/api/admin-session', { method: 'DELETE' }).catch(() => undefined);
     await supabase.auth.signOut();

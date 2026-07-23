@@ -34,7 +34,7 @@ export default async function StaffPage() {
     </div>
 
     <div className="grid grid-cols-3 gap-2">
-      {[['관리 직원',`${clinicStaff.length}명`],['계약·단기',`${contractCount}명`],['오늘 지원 승인',`${shiftStaff.length}명`]].map(([label,value])=>
+      {[['관리 직원',`${clinicStaff.length}명`],['계약·단기',`${contractCount}명`],['오늘 확정 인력',`${shiftStaff.length}명`]].map(([label,value])=>
         <Card key={label} className="p-3 shadow-sm"><p className="text-[11px] text-sub">{label}</p><p className="text-title font-extrabold mt-1">{value}</p></Card>
       )}
     </div>
