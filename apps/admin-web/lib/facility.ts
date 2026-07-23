@@ -73,14 +73,14 @@ export async function listAccessibleFacilities() {
   const [{ data: owned }, { data: delegated }] = await Promise.all([
     sb
       .from('facilities')
-      .select('id, name, facility_type, address_text')
+      .select('id, name, facility_type, address_text, is_demo')
       .eq('admin_user_id', session.user.id)
       .eq('is_active', true)
       .is('deleted_at', null)
       .order('name'),
     sb
       .from('facility_admin_access')
-      .select('access_role, facilities ( id, name, facility_type, address_text, is_active, deleted_at )')
+      .select('access_role, facilities ( id, name, facility_type, address_text, is_demo, is_active, deleted_at )')
       .eq('user_id', session.user.id)
       .order('access_role'),
   ]);

@@ -18,7 +18,13 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({})) as { facilityId?: string };
   const facilities = await listAccessibleFacilities();
-  const facilityId = body.facilityId ?? (facilities[0]?.id as string | undefined) ?? null;
+  const showcase = session.user.email?.endsWith('@demo.atman.co.kr')
+    ? facilities.find((facility) => facility.name === 'W여성병원' && facility.is_demo === true)
+    : undefined;
+  const facilityId = body.facilityId
+    ?? (showcase?.id as string | undefined)
+    ?? (facilities[0]?.id as string | undefined)
+    ?? null;
 
   if (!facilityId) return NextResponse.json({ facilityId: null });
   if (!facilities.some((facility) => facility.id === facilityId)) {
