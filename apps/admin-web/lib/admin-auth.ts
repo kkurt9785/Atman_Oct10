@@ -3,6 +3,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 import { cookies } from 'next/headers';
 import type { User } from '@supabase/supabase-js';
+import { cache } from 'react';
 import { adminClient, getUserFromToken, userClient } from './supabase';
 import { FACILITY_COOKIE } from './constants';
 
@@ -100,7 +101,7 @@ export async function clearAdminCookies(): Promise<void> {
   jar.delete(FACILITY_COOKIE);
 }
 
-export async function getAdminSession(): Promise<AdminSession | null> {
+export const getAdminSession=cache(async (): Promise<AdminSession | null> => {
   const jar = await cookies();
   const accessToken = jar.get(ADMIN_SESSION_COOKIE)?.value;
   if (!accessToken) return null;
@@ -108,7 +109,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
   const user = await getUserFromToken(accessToken);
   if (!user || !(await isAdminUser(accessToken, user.id))) return null;
   return { accessToken, user };
-}
+});
 
 export async function setFacilityContextCookie(
   facilityId: string,
@@ -129,10 +130,10 @@ export async function setFacilityContextCookie(
   });
 }
 
-export async function getFacilityAccessRole(
+export const getFacilityAccessRole=cache(async (
   userId: string,
   facilityId: string,
-): Promise<AdminAccessRole | null> {
+): Promise<AdminAccessRole | null> => {
   const sb = adminClient();
   if (!sb) return null;
 
@@ -156,9 +157,9 @@ export async function getFacilityAccessRole(
   if (owned) return 'owner';
   const role = delegated?.access_role;
   return role === 'operator' || role === 'sales' || role === 'super' ? role : null;
-}
+});
 
-export async function getAdminContext(): Promise<AdminContext | null> {
+export const getAdminContext=cache(async (): Promise<AdminContext | null> => {
   const session = await getAdminSession();
   if (!session) return null;
 
@@ -174,7 +175,7 @@ export async function getAdminContext(): Promise<AdminContext | null> {
     facilityId: payload.facilityId,
     accessRole,
   };
-}
+});
 
 export async function requireAdminSession(): Promise<AdminSession> {
   const session = await getAdminSession();

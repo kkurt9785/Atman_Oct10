@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { cache } from 'react';
 import { adminClient, userClient } from './supabase';
 import {
   getAdminContext,
@@ -10,9 +11,9 @@ import {
   setFacilityContextCookie,
 } from './admin-auth';
 
-export async function getCurrentFacilityId(): Promise<string | null> {
+export const getCurrentFacilityId=cache(async (): Promise<string | null> => {
   return (await getAdminContext())?.facilityId ?? null;
-}
+});
 
 export async function setFacilityCookie(facilityId: string): Promise<void> {
   const session = await requireAdminSession();

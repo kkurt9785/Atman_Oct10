@@ -13,6 +13,8 @@ const FULLSCREEN_PREFIX = ['/checkin'];
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const isPublic = PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
+  const isFullscreen = FULLSCREEN_PREFIX.some((p) => pathname.startsWith(p));
 
   // PWA: 설치 가능 조건 충족을 위해 앱 로드 시 SW 등록
   useEffect(() => {
@@ -21,15 +23,16 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  useEffect(()=>{
+    if(isPublic)return;
+    ['/','/shifts','/applications','/staff','/timesheet','/leave','/payroll'].forEach(path=>router.prefetch(path));
+  },[isPublic,router]);
+
   async function handleLogout() {
     await fetch('/api/admin-session', { method: 'DELETE' }).catch(() => undefined);
     await supabase.auth.signOut();
     router.replace('/login');
   }
-  const isPublic = PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
-
-  const isFullscreen = FULLSCREEN_PREFIX.some((p) => pathname.startsWith(p));
-
   if (isPublic) {
     return (
       <div className="mx-auto max-w-app min-h-screen bg-bg">
