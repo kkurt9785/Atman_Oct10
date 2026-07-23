@@ -94,13 +94,22 @@ export async function addStaffLeaveAction(form: FormData) {
     decided_by: context.user.id, decided_at: new Date().toISOString(),
   }).select('id').single();
   if (error) throw new Error('휴가를 등록하지 못했어요.');
+  const deductsBalance = ['annual','half_day','quarter_day','hourly'].includes(leaveType);
+  if (!deductsBalance) {
+    revalidatePath('/leave'); revalidatePath('/timesheet');
+    return;
+  }
   const year = Number(startDate.slice(0, 4));
   const { data: balance } = await sb.from('staff_leave_balances').select('used_minutes,granted_minutes')
     .eq('staff_id', staffId).eq('leave_year', year).maybeSingle();
+  if (!balance || Number(balance.granted_minutes) - Number(balance.used_minutes) < minutes) {
+    await sb.from('staff_leave_requests').delete().eq('id', created.id);
+    throw new Error('잔여 휴가가 부족해 등록할 수 없어요.');
+  }
   const { error: balanceError } = await sb.from('staff_leave_balances').upsert({
     facility_id: context.facilityId, staff_id: staffId, leave_year: year,
-    granted_minutes: balance?.granted_minutes ?? 0,
-    used_minutes: (balance?.used_minutes ?? 0) + minutes, updated_at: new Date().toISOString(),
+    granted_minutes: balance.granted_minutes,
+    used_minutes: balance.used_minutes + minutes, updated_at: new Date().toISOString(),
   }, { onConflict: 'staff_id,leave_year' });
   if (balanceError) {
     await sb.from('staff_leave_requests').delete().eq('id', created.id);

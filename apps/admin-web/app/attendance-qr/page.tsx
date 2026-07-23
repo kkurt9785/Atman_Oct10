@@ -5,7 +5,8 @@ import { PrintButton } from './PrintButton';
 
 export default async function AttendanceQrPage(){
   const token=await getFacilityAttendanceQr();
-  const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL ?? 'http://localhost:3003';
+  const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL
+    ?? (process.env.NODE_ENV === 'production' ? 'https://itdot.co.kr' : 'http://localhost:3003');
   const qrSrc=token?`${workerOrigin}/workplace/qr?token=${encodeURIComponent(token)}`:null;
   return <main className="px-4 pb-28">
     <div className="mt-3 px-1"><p className="text-label font-bold text-primary">직원용 고정 QR</p><h1 className="text-display font-extrabold">출퇴근 QR</h1><p className="text-label text-sub mt-1">접수대나 직원 공간에 비치하면 직원이 휴대폰 기본 카메라로 스캔해요.</p></div>

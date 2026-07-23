@@ -15,8 +15,9 @@ const TYPES = [
 function WorkplaceContent() {
   const params = useSearchParams();
   const token = params.get('token');
-  const [staff,setStaff]=useState<Staff|null>(null);
-  const [loading,setLoading]=useState(Boolean(token));
+  const [staffList,setStaffList]=useState<Staff[]>([]);
+  const [selectedStaffId,setSelectedStaffId]=useState('');
+  const [loading,setLoading]=useState(true);
   const [message,setMessage]=useState('');
   const [result,setResult]=useState<Result|null>(null);
   const [leaveType,setLeaveType]=useState('annual');
@@ -26,17 +27,10 @@ function WorkplaceContent() {
   useEffect(()=>{ void (async()=>{
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){ window.location.href=`/?next=${encodeURIComponent(`/workplace${token?`?token=${token}`:''}`)}`; return; }
-    const {data}=await supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,facilities(name)').neq('status','ended').limit(1).maybeSingle();
-    setStaff(data as Staff|null);
-    if(data?.id){
-      const year=new Date().getFullYear();
-      const [{data:balance},{data:requests}]=await Promise.all([
-        supabase.from('staff_leave_balances').select('granted_minutes,used_minutes').eq('staff_id',data.id).eq('leave_year',year).maybeSingle(),
-        supabase.from('staff_leave_requests').select('id,leave_type,start_date,end_date,requested_minutes,status').eq('staff_id',data.id).order('created_at',{ascending:false}).limit(5),
-      ]);
-      setLeaveMinutes(Math.max(0,Number(balance?.granted_minutes??0)-Number(balance?.used_minutes??0)));
-      setLeaves((requests??[]) as Leave[]);
-    }
+    const {data}=await supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,facilities(name)').neq('status','ended').order('created_at',{ascending:false});
+    const linked=(data??[]) as Staff[];
+    setStaffList(linked);
+    setSelectedStaffId(linked[0]?.id??'');
     if(token){
       let coords:{latitude:number;longitude:number}|null=null;
       try {
@@ -49,7 +43,15 @@ function WorkplaceContent() {
       }
       const {data:attendance,error}=await supabase.rpc('record_staff_qr_attendance',{p_token:token,p_lat:coords.latitude,p_lng:coords.longitude});
       if(error) setMessage(error.message.replace(/^.*?: /,''));
-      else setResult(attendance as Result);
+      else {
+        const next=attendance as Result;
+        setResult(next);
+        const matched=linked.find(item=>{
+          const fac=Array.isArray(item.facilities)?item.facilities[0]?.name:item.facilities?.name;
+          return fac===next.facility_name;
+        });
+        if(matched)setSelectedStaffId(matched.id);
+      }
     }
     setLoading(false);
   })();},[token]);
@@ -57,7 +59,8 @@ function WorkplaceContent() {
   async function requestLeave(formData:FormData){
     setMessage('');
     const type=String(formData.get('leave_type'));
-    const {error}=await supabase.rpc('submit_staff_leave_request',{
+    const {error}=await supabase.rpc('submit_staff_leave_request_v2',{
+      p_staff_id:selectedStaffId,
       p_leave_type:type,p_start_date:String(formData.get('start_date')),
       p_end_date:String(formData.get('end_date')||formData.get('start_date')),
       p_hourly_minutes:type==='hourly'?Number(formData.get('hourly_minutes')):null,
@@ -67,6 +70,18 @@ function WorkplaceContent() {
     if(!error) window.setTimeout(()=>window.location.reload(),700);
   }
 
+  useEffect(()=>{void (async()=>{
+    if(!selectedStaffId){setLeaveMinutes(0);setLeaves([]);return;}
+    const year=new Date().getFullYear();
+    const [{data:balance},{data:requests}]=await Promise.all([
+      supabase.from('staff_leave_balances').select('granted_minutes,used_minutes').eq('staff_id',selectedStaffId).eq('leave_year',year).maybeSingle(),
+      supabase.from('staff_leave_requests').select('id,leave_type,start_date,end_date,requested_minutes,status').eq('staff_id',selectedStaffId).order('created_at',{ascending:false}).limit(5),
+    ]);
+    setLeaveMinutes(Math.max(0,Number(balance?.granted_minutes??0)-Number(balance?.used_minutes??0)));
+    setLeaves((requests??[]) as Leave[]);
+  })();},[selectedStaffId]);
+
+  const staff=staffList.find(item=>item.id===selectedStaffId)??staffList[0]??null;
   const facility=staff ? (Array.isArray(staff.facilities)?staff.facilities[0]?.name:staff.facilities?.name) : '';
   return <main className="min-h-screen bg-bg px-4 pt-6 pb-28">
     <p className="text-[13px] font-bold text-primary">내 직장</p><h1 className="text-[26px] font-extrabold text-ink mt-1">출퇴근·휴가</h1>
@@ -74,6 +89,7 @@ function WorkplaceContent() {
       !staff?<div className="mt-6 bg-white rounded-2xl p-8 text-center"><b>연결된 병원 직원 정보가 없어요</b><p className="text-[13px] text-sub mt-2">병원 관리자에게 잇닿 계정 연결을 요청해 주세요.</p></div>:
       <>
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
+          {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=Array.isArray(item.facilities)?item.facilities[0]?.name:item.facilities?.name;return <option key={item.id} value={item.id}>{name??'병원'} · {item.name}</option>;})}</select></label>}
           {result&&<div className={`mt-4 rounded-xl p-4 ${result.status==='pending'?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}><b>{result.action==='check_in'?'출근이 기록됐어요':result.status==='pending'?'조기 퇴근 승인을 요청했어요':'퇴근이 기록됐어요'}</b><p className="text-[12px] mt-1">{result.status==='pending'?'예정 퇴근시간 전이라 관리자 승인 후 확정됩니다.':'병원 근태 기록에 바로 반영됐습니다.'}</p></div>}
           {!token&&<p className="mt-4 rounded-xl bg-bg p-3 text-[13px] text-sub">병원에 비치된 QR을 휴대폰 기본 카메라로 스캔하면 출퇴근이 기록돼요.</p>}
         </section>
