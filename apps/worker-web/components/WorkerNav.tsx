@@ -16,7 +16,7 @@ export function WorkerNav() {
   return (
     <nav aria-label="주요 메뉴" className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white border-t border-line flex z-30 pb-[env(safe-area-inset-bottom)]">
       {TABS.map((t) => {
-        const active = path.startsWith(t.href);
+        const active = path.startsWith(t.href) || (t.href === '/shifts' && path.startsWith('/map'));
         return (
           <Link
             key={t.href}

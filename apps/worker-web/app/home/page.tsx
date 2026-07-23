@@ -398,12 +398,20 @@ export default function HomePage() {
               }
             </h1>
           </div>
-          <Link href="/earnings" className="flex-shrink-0 ml-3 mt-1">
+          <div className="flex-shrink-0 ml-3 mt-1 flex gap-2">
+          <Link href="/workplace">
+            <div className="flex flex-col items-center bg-success/10 border border-success/20 px-3 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
+              <span className="text-[19px] leading-tight">🕘</span>
+              <span className="text-[11px] font-bold text-success mt-0.5">내 직장</span>
+            </div>
+          </Link>
+          <Link href="/earnings">
             <div className="flex flex-col items-center bg-primary/8 border border-primary/20 px-3.5 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
               <span className="text-[19px] leading-tight">💰</span>
               <span className="text-[11px] font-bold text-primary mt-0.5">급여 확인</span>
             </div>
           </Link>
+          </div>
         </div>
         {locNotice && (
           <p role="alert" className="mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{locNotice}</p>

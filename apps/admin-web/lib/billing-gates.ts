@@ -8,12 +8,13 @@ type FacilityPlan = {
   code: string;
   name: string;
   features: Record<string, unknown>;
+  includedAttendanceSlots: number;
 };
 
 async function getFacilityPlan(sb: SupabaseClient, facilityId: string): Promise<FacilityPlan> {
   const { data: subscription, error: subscriptionError } = await sb
     .from('facility_subscriptions')
-    .select('plan_code,trial_ends_at,service_plans(code,name,features)')
+    .select('plan_code,trial_ends_at,service_plans(code,name,features,included_attendance_slots)')
     .eq('facility_id', facilityId)
     .in('status', ['active', 'past_due', 'pending'])
     .or(`trial_ends_at.is.null,trial_ends_at.gte.${todayKST()}`)
@@ -25,16 +26,25 @@ async function getFacilityPlan(sb: SupabaseClient, facilityId: string): Promise<
   const joined = Array.isArray((subscription as any)?.service_plans)
     ? (subscription as any).service_plans[0]
     : (subscription as any)?.service_plans;
-  if (joined) return { code: joined.code, name: joined.name, features: joined.features ?? {} };
+  if (joined) return { code: joined.code, name: joined.name, features: joined.features ?? {}, includedAttendanceSlots: joined.included_attendance_slots ?? 0 };
 
   const { data: free, error: freeError } = await sb
     .from('service_plans')
-    .select('code,name,features')
+    .select('code,name,features,included_attendance_slots')
     .eq('code', 'free')
     .eq('is_active', true)
     .single();
   if (freeError || !free) throw new Error('기본 요금제 정보를 확인하지 못했어요.');
-  return { code: free.code, name: free.name, features: free.features ?? {} };
+  return { code: free.code, name: free.name, features: free.features ?? {}, includedAttendanceSlots: free.included_attendance_slots ?? 0 };
+}
+
+export async function requireStaffCapacity(sb: SupabaseClient, facilityId: string): Promise<void> {
+  const plan = await getFacilityPlan(sb, facilityId);
+  const { count, error } = await sb.from('facility_staff').select('id', { count: 'exact', head: true })
+    .eq('facility_id', facilityId).neq('status', 'ended');
+  if (error) throw new Error('직원 사용량을 확인하지 못했어요.');
+  if ((count ?? 0) < plan.includedAttendanceSlots) return;
+  throw new Error(`${plan.name} 요금제는 직원 ${plan.includedAttendanceSlots}명까지 관리할 수 있어요.`);
 }
 
 export async function requirePlanFeature(

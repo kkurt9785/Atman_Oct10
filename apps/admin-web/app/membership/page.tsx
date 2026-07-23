@@ -12,10 +12,11 @@ const UNLIMITED = 999999;
 const cap = (n:number)=> n>=UNLIMITED ? '무제한' : `${n}`;
 // 병원 관리자가 실제 운영 범위와 업그레이드 가치를 바로 비교할 수 있는 핵심 혜택.
 const PLAN_PERKS:Record<string,string[]> = {
-  free:['공고 월 3건','근무 인력 자동 축적','관리자 1명','기본 자격 확인·근태·채팅'],
-  basic:['공고 월 15건','월 반복초대 대상 20명','관리자 2명','기본 자격 확인·급여지시'],
-  pro:['공고 무제한','월 반복초대 대상 60명','관리자 5명','자격 만료관리·운영자동화·분석'],
-  enterprise:['공고·반복초대 무제한','관리자 15명 · 병원 3곳','자격·운영 통합관리','API·감사로그·전담지원'],
+  free:['공고 월 3건','직원 근태 3명','관리자 1명','기본 자격 확인·채팅'],
+  clinic:['직원 최대 10명','간편 출퇴근·휴가','공고 월 3건','관리자 1명'],
+  basic:['직원 근태 20명','공고 월 15건','월 반복초대 대상 20명','관리자 2명'],
+  pro:['직원 근태 60명','공고 무제한','월 반복초대 대상 60명','자격 만료관리·운영자동화'],
+  enterprise:['직원 근태·공고·반복초대 무제한','관리자 15명 · 병원 3곳','자격·운영 통합관리','API·감사로그·전담지원'],
 };
 type Invoice={id:string;invoice_number:string;period_start:string;period_end:string;total_amount:number;status:string;due_date:string|null};
 

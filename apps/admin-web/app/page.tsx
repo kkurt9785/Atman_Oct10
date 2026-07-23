@@ -83,14 +83,17 @@ export default async function Home() {
       <QuickMenu
         primary={[
           { icon: '📋', label: '시프트 등록', href: '/shifts/new' },
+          { icon: '🕐', label: '오늘 근태', href: '/timesheet' },
+          { icon: '🧑‍⚕️', label: '직원 관리', href: '/staff' },
+          { icon: '🌿', label: '휴가 관리', href: '/leave' },
+        ]}
+        more={[
           { icon: '🔲', label: 'QR 체크인', href: '/checkin' },
           { icon: '🤝', label: '병원 인력풀', href: '/workforce' },
           { icon: '⚙️', label: '운영 자동화', href: '/operations' },
-        ]}
-        more={[
-          { icon: '🕐', label: '근태 보기', href: '/timesheet' },
           { icon: '💬', label: '워커 채팅', href: '/chats' },
-          { icon: '🧑‍⚕️', label: '직원·면허 심사', href: '/staff', badge: pendingCount },
+          { icon: '₩', label: '급여 자료', href: '/payroll' },
+          { icon: '🧾', label: '요금·청구', href: '/membership' },
           { icon: '🏥', label: '병원 프로필', href: '/settings' },
         ]}
       />

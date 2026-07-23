@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
@@ -277,7 +278,8 @@ export default function ShiftsPage() {
   return (
     <div className="px-4 pb-10">
       {/* 헤더 */}
-      <div className="pt-14 pb-6">
+      <div className="pt-14 pb-6 flex items-end justify-between gap-3">
+        <div>
         <p className="text-[14px] text-sub mb-1">내 조건에 맞는 시프트</p>
         <h1 className="text-[28px] font-extrabold text-ink leading-tight">
           시프트 {filtered.length}건
@@ -287,6 +289,8 @@ export default function ShiftsPage() {
             둘러보기는 바로 가능해요. 지원할 때 1분 가입과 인증을 진행합니다.
           </p>
         )}
+        </div>
+        {!isGuest&&<Link href="/map" className="h-11 px-4 rounded-xl bg-primary/10 text-primary flex items-center text-[13px] font-bold whitespace-nowrap">🗺 지도 보기</Link>}
       </div>
 
       <div className="flex flex-col gap-2 mb-5">
