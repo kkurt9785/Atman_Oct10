@@ -9,6 +9,47 @@ export type WagePaymentRow = {
 
 export type WagePaymentResult = { rows: WagePaymentRow[]; error: string | null };
 
+export type StaffWagePaymentRow = {
+  staffId:string; workerName:string; engagementType:string; periodMonth:string;
+  payBasis:string|null; payRate:number|null; workedMinutes:number; workedDays:number;
+  grossAmount:number; netAmount:number; status:string;
+};
+
+export async function getStaffWagePayments():Promise<StaffWagePaymentRow[]>{
+  const facilityId=await getCurrentFacilityId();
+  const sb=adminClient();
+  if(!sb||!facilityId)return [];
+  const now=new Date(Date.now()+9*60*60*1000);
+  const periodMonth=`${now.toISOString().slice(0,7)}-01`;
+  const nextMonth=new Date(`${periodMonth}T00:00:00Z`);
+  nextMonth.setUTCMonth(nextMonth.getUTCMonth()+1);
+  const endDate=new Date(nextMonth.getTime()-86_400_000).toISOString().slice(0,10);
+  const [{data:staff},{data:attendance},{data:payments}]=await Promise.all([
+    sb.from('facility_staff').select('id,name,engagement_type,pay_basis,pay_rate,default_break_minutes').eq('facility_id',facilityId).neq('status','ended').order('name'),
+    sb.from('staff_attendances').select('staff_id,check_in_at,check_out_at,break_minutes,status').eq('facility_id',facilityId).gte('work_date',periodMonth).lte('work_date',endDate).eq('status','completed'),
+    sb.from('staff_wage_payments').select('staff_id,worked_minutes,worked_days,gross_amount,net_amount,status').eq('facility_id',facilityId).eq('period_month',periodMonth),
+  ]);
+  const attendanceMap=new Map<string,{minutes:number;days:number}>();
+  for(const row of (attendance??[]) as any[]){
+    if(!row.check_in_at||!row.check_out_at)continue;
+    const current=attendanceMap.get(row.staff_id)??{minutes:0,days:0};
+    const raw=Math.max(0,Math.round((new Date(row.check_out_at).getTime()-new Date(row.check_in_at).getTime())/60000)-Number(row.break_minutes??0));
+    current.minutes+=raw;current.days+=1;attendanceMap.set(row.staff_id,current);
+  }
+  const paymentMap=new Map((payments??[]).map((row:any)=>[row.staff_id,row]));
+  return ((staff??[]) as any[]).map(row=>{
+    const work=attendanceMap.get(row.id)??{minutes:0,days:0};
+    const saved:any=paymentMap.get(row.id);
+    const rate=Number(row.pay_rate)||null;
+    const calculated=!rate?0:row.pay_basis==='monthly'?rate:row.pay_basis==='daily'?work.days*rate:Math.round(work.minutes/60*rate);
+    const frozen=saved&&saved.status!=='draft';
+    return {staffId:row.id,workerName:row.name,engagementType:row.engagement_type,periodMonth,
+      payBasis:row.pay_basis,payRate:rate,workedMinutes:frozen?saved.worked_minutes:work.minutes,
+      workedDays:frozen?saved.worked_days:work.days,grossAmount:frozen?saved.gross_amount:calculated,
+      netAmount:frozen?saved.net_amount:calculated,status:!rate?'config_required':saved?.status??'draft'};
+  });
+}
+
 export async function getWagePayments(): Promise<WagePaymentResult> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();

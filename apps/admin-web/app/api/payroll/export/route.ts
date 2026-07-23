@@ -1,5 +1,6 @@
 import { getAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
+import { getStaffWagePayments } from '@/lib/db/payroll';
 
 function csvCell(value: unknown) {
   return `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -17,13 +18,19 @@ export async function GET() {
     .select('id,status,due_date,gross_amount,net_amount,deduction_status,bank_name_snapshot,account_last4_snapshot,paid_at,workers(name),shifts(shift_date,start_time,end_time)')
     .eq('facility_id', context.facilityId).order('created_at', { ascending: false }).limit(1000);
   if (error) return new Response('지급 자료를 불러오지 못했습니다.', { status: 500 });
-  const header = ['지급요청ID','근무일','근무시간','워커','세전예상액','지급예정액','공제확인','지급상태','지급예정일','은행','계좌끝4자리','지급완료일'];
+  const header = ['구분','지급요청ID','급여기간·근무일','근무시간','대상자','세전예상액','지급예정액','공제확인','지급상태','지급예정일','은행','계좌끝4자리','지급완료일'];
   const rows = ((data ?? []) as any[]).map((row) => [
-    row.id, row.shifts?.shift_date, `${row.shifts?.start_time?.slice(0,5) ?? ''}~${row.shifts?.end_time?.slice(0,5) ?? ''}`,
+    '매칭 워커', row.id, row.shifts?.shift_date, `${row.shifts?.start_time?.slice(0,5) ?? ''}~${row.shifts?.end_time?.slice(0,5) ?? ''}`,
     row.workers?.name ?? '워커', row.gross_amount, row.net_amount, row.deduction_status, row.status,
     row.due_date, row.bank_name_snapshot, row.account_last4_snapshot, row.paid_at,
   ]);
-  const csv = `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+  const staffRows=await getStaffWagePayments();
+  const managedRows=staffRows.map(row=>[
+    '병원 등록 직원',`${row.staffId}:${row.periodMonth}`,row.periodMonth.slice(0,7),
+    `${Math.floor(row.workedMinutes/60)}시간 ${row.workedMinutes%60}분`,row.workerName,
+    row.grossAmount,row.netAmount,'미확정 · 병원 확인 필요',row.status,'','','','',
+  ]);
+  const csv = `\uFEFF${[header, ...managedRows,...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
   const date = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
   return new Response(csv, {
     headers: {

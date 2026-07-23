@@ -49,6 +49,7 @@ function ContractRangePicker(){
 
 export function StaffRegistrationForm(){
   const [engagementType,setEngagementType]=useState('');
+  const [payBasis,setPayBasis]=useState('monthly');
   const needsContract=engagementType&&engagementType!=='regular';
 
   return <WorkforceActionForm kind="add_staff" resetOnSuccess successMessage="직원을 등록했어요." className="px-5 pb-6">
@@ -81,6 +82,15 @@ export function StaffRegistrationForm(){
       <label className="text-label font-medium text-sub">기본 출근<input name="default_start_time" type="time" defaultValue="09:00" className={inputClass}/></label>
       <label className="text-label font-medium text-sub">기본 퇴근<input name="default_end_time" type="time" defaultValue="18:00" className={inputClass}/></label>
       <fieldset className="col-span-2"><legend className="text-label font-medium text-sub mb-3">기본 근무요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-line bg-white text-[12px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
+    </section>
+    <section className="mt-8 border-t border-line pt-6">
+      <h3 className="text-[13px] font-extrabold text-ink">급여 기준</h3>
+      <p className="mt-1 text-[12px] leading-5 text-sub">근태 기록과 연결해 급여 지급관리에서 세전 예상액을 계산합니다.</p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" value={payBasis} onChange={event=>setPayBasis(event.target.value)} className={inputClass}><option value="monthly">월급</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
+        <label className="text-label font-medium text-sub">{payBasis==='monthly'?'세전 월급':payBasis==='hourly'?'시급':'일급'}<input name="pay_rate" type="number" min="1" step={payBasis==='monthly'?'10000':'100'} required className={inputClass} placeholder={payBasis==='monthly'?'예: 3000000':payBasis==='hourly'?'예: 15000':'예: 150000'}/></label>
+      </div>
+      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 병원이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
     <input type="hidden" name="default_break_minutes" value="60"/>
     <button className="mt-7 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">직원 등록하기</button>

@@ -19,8 +19,11 @@ export async function addClinicStaffAction(form: FormData) {
   const contractEnd = text(form, 'contract_end') || null;
   const phone = text(form, 'phone') || null;
   const normalizedPhone = phone?.replace(/\D/g,'') ?? '';
+  const payBasis = text(form,'pay_basis');
+  const payRate = Number(text(form,'pay_rate'));
   if (!name || !['rn','na','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
+  if (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
   if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
   if (phone && normalizedPhone.length < 10) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
   await requireStaffCapacity(sb, context.facilityId);
@@ -35,6 +38,7 @@ export async function addClinicStaffAction(form: FormData) {
     default_start_time: text(form, 'default_start_time') || '09:00',
     default_end_time: text(form, 'default_end_time') || '18:00',
     default_break_minutes: Number(text(form, 'default_break_minutes')) || 60,
+    pay_basis: payBasis, pay_rate: payRate,
     work_weekdays: workWeekdays.length ? workWeekdays : [1,2,3,4,5],
     created_by: context.user.id,
   }).select('id,worker_id').single();
@@ -217,14 +221,28 @@ export async function createStaffInviteAction(form:FormData){
   revalidatePath('/staff');
 }
 
-export type WorkforceActionKind='add_staff'|'attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'rotate_qr'|'convert_worker'|'create_invite';
+export async function setStaffPayAction(form:FormData){
+  const context=await requireAdminContext(['owner','operator','super']);
+  const sb=adminClient();
+  if(!sb)throw new Error('서버 설정을 확인해 주세요.');
+  const staffId=text(form,'staff_id');
+  const payBasis=text(form,'pay_basis');
+  const payRate=Number(text(form,'pay_rate'));
+  if(!['monthly','hourly','daily'].includes(payBasis)||!Number.isInteger(payRate)||payRate<=0)throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
+  const {error}=await sb.from('facility_staff').update({pay_basis:payBasis,pay_rate:payRate,updated_at:new Date().toISOString()})
+    .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
+  if(error)throw new Error('급여 기준을 저장하지 못했어요.');
+  revalidatePath('/staff');revalidatePath('/payroll');
+}
+
+export type WorkforceActionKind='add_staff'|'attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay';
 export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string}>{
   try{
     const actions:Record<WorkforceActionKind,(data:FormData)=>Promise<unknown>>={
       add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,add_leave:addStaffLeaveAction,
       set_balance:setStaffLeaveBalanceAction,decide_leave:decideStaffLeaveAction,
       early_checkout:decideEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
-      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,
+      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,set_staff_pay:setStaffPayAction,
     };
     await actions[kind](form);
     return {ok:true};
