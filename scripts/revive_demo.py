@@ -182,7 +182,14 @@ for rn, w in open_workers:
 status, _ = req("POST", "/rest/v1/shift_applications", open_apps)
 print(f"7. 모집 시프트 {len(created_open)} + 지원 {len(open_apps)}: {status}")
 
-# ── 8. 최종 요약 ─────────────────────────────────────────────────────────────
+# ── 8. 병원 근태관리 데모 직원·휴가·오늘 기록 재생성 ────────────────────────
+status, workforce = req("POST", "/rest/v1/rpc/refresh_demo_clinic_workforce", {})
+if status != 200:
+    print(f"FAIL workforce demo refresh: {status} {workforce}")
+    sys.exit(1)
+print(f"8. 근태관리 데모: {workforce}")
+
+# ── 9. 최종 요약 ─────────────────────────────────────────────────────────────
 for label, path in [
     ("오늘 확정(in_progress)", f"/rest/v1/shifts?notes=like.DEMO-SHOWCASE-MATCHED-*&shift_date=eq.{TODAY}&select=id"),
     ("오늘 모집(open)", f"/rest/v1/shifts?notes=like.DEMO-SHOWCASE-OPEN-*&shift_date=eq.{TODAY}&select=id"),

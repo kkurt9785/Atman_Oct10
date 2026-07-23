@@ -4,6 +4,7 @@ import { todayKST } from '../date';
 
 export type ClinicStaff = {
   id: string;
+  workerId: string | null;
   name: string;
   role: string;
   department: string | null;
@@ -41,7 +42,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   return ((staff ?? []) as any[]).map((row) => {
     const att: any = attendanceMap.get(row.id);
     return {
-      id: row.id, name: row.name, role: row.role, department: row.department,
+      id: row.id, workerId: row.worker_id, name: row.name, role: row.role, department: row.department,
       source: row.source, engagementType: row.engagement_type,
       contractStart: row.contract_start, contractEnd: row.contract_end,
       defaultStart: row.default_start_time, defaultEnd: row.default_end_time,
