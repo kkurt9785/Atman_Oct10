@@ -13,19 +13,20 @@ export type StaffWagePaymentRow = {
   staffId:string; workerName:string; engagementType:string; periodMonth:string;
   payBasis:string|null; payRate:number|null; workedMinutes:number; workedDays:number;
   grossAmount:number; netAmount:number; status:string;
+  bankName:string|null;accountLast4:string|null;
 };
 
-export async function getStaffWagePayments():Promise<StaffWagePaymentRow[]>{
+export async function getStaffWagePayments(requestedMonth?:string):Promise<StaffWagePaymentRow[]>{
   const facilityId=await getCurrentFacilityId();
   const sb=adminClient();
   if(!sb||!facilityId)return [];
   const now=new Date(Date.now()+9*60*60*1000);
-  const periodMonth=`${now.toISOString().slice(0,7)}-01`;
+  const periodMonth=/^\d{4}-\d{2}$/.test(requestedMonth??'')?`${requestedMonth}-01`:`${now.toISOString().slice(0,7)}-01`;
   const nextMonth=new Date(`${periodMonth}T00:00:00Z`);
   nextMonth.setUTCMonth(nextMonth.getUTCMonth()+1);
   const endDate=new Date(nextMonth.getTime()-86_400_000).toISOString().slice(0,10);
   const [{data:staff},{data:attendance},{data:payments}]=await Promise.all([
-    sb.from('facility_staff').select('id,name,engagement_type,pay_basis,pay_rate,default_break_minutes').eq('facility_id',facilityId).neq('status','ended').order('name'),
+    sb.from('facility_staff').select('id,name,engagement_type,pay_basis,pay_rate,default_break_minutes,bank_name,account_last4').eq('facility_id',facilityId).neq('status','ended').order('name'),
     sb.from('staff_attendances').select('staff_id,check_in_at,check_out_at,break_minutes,status').eq('facility_id',facilityId).gte('work_date',periodMonth).lte('work_date',endDate).eq('status','completed'),
     sb.from('staff_wage_payments').select('staff_id,worked_minutes,worked_days,gross_amount,net_amount,status').eq('facility_id',facilityId).eq('period_month',periodMonth),
   ]);
@@ -46,8 +47,28 @@ export async function getStaffWagePayments():Promise<StaffWagePaymentRow[]>{
     return {staffId:row.id,workerName:row.name,engagementType:row.engagement_type,periodMonth,
       payBasis:row.pay_basis,payRate:rate,workedMinutes:frozen?saved.worked_minutes:work.minutes,
       workedDays:frozen?saved.worked_days:work.days,grossAmount:frozen?saved.gross_amount:calculated,
-      netAmount:frozen?saved.net_amount:calculated,status:!rate?'config_required':saved?.status??'draft'};
+      netAmount:frozen?saved.net_amount:calculated,status:!rate?'config_required':saved?.status??'draft',
+      bankName:row.bank_name??null,accountLast4:row.account_last4??null};
   });
+}
+
+export async function getUnifiedWorkforceSummary(){
+  const facilityId=await getCurrentFacilityId();
+  const sb=adminClient();
+  if(!sb||!facilityId)return {totalMinutes:0,estimatedPay:0,workingNow:0};
+  const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+  const monthStart=`${today.slice(0,7)}-01`;
+  const [managed,{data:shiftWages},{count:managedWorking},{count:shiftWorking}]=await Promise.all([
+    getStaffWagePayments(),
+    sb.from('wage_calculations').select('worked_minutes,gross').eq('org_id',facilityId).gte('calculated_at',`${monthStart}T00:00:00+09:00`),
+    sb.from('staff_attendances').select('id',{count:'exact',head:true}).eq('facility_id',facilityId).eq('work_date',today).in('status',['working','late','checkout_pending']),
+    sb.from('shift_attendances').select('id,shifts!inner(facility_id,shift_date)',{count:'exact',head:true}).eq('shifts.facility_id',facilityId).eq('shifts.shift_date',today).not('check_in_at','is',null).is('check_out_at',null),
+  ]);
+  return {
+    totalMinutes:managed.reduce((sum,row)=>sum+row.workedMinutes,0)+(shiftWages??[]).reduce((sum:number,row:any)=>sum+Number(row.worked_minutes??0),0),
+    estimatedPay:managed.reduce((sum,row)=>sum+row.grossAmount,0)+(shiftWages??[]).reduce((sum:number,row:any)=>sum+Number(row.gross??0),0),
+    workingNow:(managedWorking??0)+(shiftWorking??0),
+  };
 }
 
 export async function getWagePayments(): Promise<WagePaymentResult> {

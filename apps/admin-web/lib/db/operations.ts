@@ -98,11 +98,12 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
   const monthEnd = lastDayOfMonth(today);
   const urgentEnd = addDays(today, 2);
 
-  const [{ data: shifts }, { data: urgent }, { data: pool }, { count: pendingWageCount }] = await Promise.all([
+  const [{ data: shifts }, { data: urgent }, { data: pool }, { count: pendingWageCount }, { count: pendingStaffWageCount }] = await Promise.all([
     sb.from('shifts').select('estimated_total_pay,status').eq('facility_id', facilityId).gte('shift_date', monthStart).lte('shift_date', monthEnd).neq('status', 'cancelled'),
     sb.from('shifts').select('id').eq('facility_id', facilityId).eq('status', 'open').gte('shift_date', today).lte('shift_date', urgentEnd),
     sb.from('facility_worker_pool').select('worker_id').eq('facility_id', facilityId).eq('status', 'active'),
     sb.from('wage_payment_instructions').select('id', { count: 'exact', head: true }).eq('facility_id', facilityId).in('status', ['draft','approved','exported','disputed']),
+    sb.from('staff_wage_payments').select('id',{count:'exact',head:true}).eq('facility_id',facilityId).in('status',['draft','approved','exported']),
   ]);
 
   const urgentIds = (urgent ?? []).map((row: any) => row.id);
@@ -127,6 +128,6 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
     openShiftCount: (shifts ?? []).filter((row: any) => row.status === 'open').length,
     urgentUnfilledCount,
     expiringCredentialCount,
-    pendingWageCount: pendingWageCount ?? 0,
+    pendingWageCount: (pendingWageCount ?? 0)+(pendingStaffWageCount??0),
   };
 }

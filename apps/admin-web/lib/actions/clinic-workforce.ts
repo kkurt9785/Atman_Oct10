@@ -21,9 +21,12 @@ export async function addClinicStaffAction(form: FormData) {
   const normalizedPhone = phone?.replace(/\D/g,'') ?? '';
   const payBasis = text(form,'pay_basis');
   const payRate = Number(text(form,'pay_rate'));
+  const bankName=text(form,'bank_name')||null;
+  const accountLast4=text(form,'account_last4')||null;
   if (!name || !['rn','na','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
   if (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
+  if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
   if (phone && normalizedPhone.length < 10) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
   await requireStaffCapacity(sb, context.facilityId);
@@ -38,7 +41,7 @@ export async function addClinicStaffAction(form: FormData) {
     default_start_time: text(form, 'default_start_time') || '09:00',
     default_end_time: text(form, 'default_end_time') || '18:00',
     default_break_minutes: Number(text(form, 'default_break_minutes')) || 60,
-    pay_basis: payBasis, pay_rate: payRate,
+    pay_basis: payBasis, pay_rate: payRate, bank_name:bankName, account_last4:accountLast4,
     work_weekdays: workWeekdays.length ? workWeekdays : [1,2,3,4,5],
     created_by: context.user.id,
   }).select('id,worker_id').single();
@@ -228,8 +231,11 @@ export async function setStaffPayAction(form:FormData){
   const staffId=text(form,'staff_id');
   const payBasis=text(form,'pay_basis');
   const payRate=Number(text(form,'pay_rate'));
+  const bankName=text(form,'bank_name')||null;
+  const accountLast4=text(form,'account_last4')||null;
   if(!['monthly','hourly','daily'].includes(payBasis)||!Number.isInteger(payRate)||payRate<=0)throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
-  const {error}=await sb.from('facility_staff').update({pay_basis:payBasis,pay_rate:payRate,updated_at:new Date().toISOString()})
+  if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
+  const {error}=await sb.from('facility_staff').update({pay_basis:payBasis,pay_rate:payRate,bank_name:bankName,account_last4:accountLast4,updated_at:new Date().toISOString()})
     .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
   if(error)throw new Error('급여 기준을 저장하지 못했어요.');
   revalidatePath('/staff');revalidatePath('/payroll');

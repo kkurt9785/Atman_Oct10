@@ -5,13 +5,19 @@ import { getStaffWagePayments, getWagePayments } from '@/lib/db/payroll';
 import { won, formatDate } from '@/lib/format';
 import { updatePaymentStatus, updateStaffPaymentStatus } from './actions';
 import { getAdminContext } from '@/lib/admin-auth';
+import Link from 'next/link';
 
 const STATUS: Record<string,string> = { draft:'검토 전',approved:'지급 승인',exported:'이체 준비',paid:'지급 완료',worker_confirmed:'입금 확인',disputed:'확인 요청',cancelled:'취소' };
 const ENGAGEMENT:Record<string,string>={regular:'상시 직원',fixed_term:'기간제',temporary:'임시 계약',daily:'단기 근무'};
 const PAY:Record<string,string>={monthly:'월급',hourly:'시급',daily:'일급'};
 
-export default async function PayrollPage() {
-  const [shop, paymentResult, staffRows, context] = await Promise.all([getShop(), getWagePayments(), getStaffWagePayments(), getAdminContext()]);
+function moveMonth(month:string,delta:number){const date=new Date(`${month}-01T00:00:00Z`);date.setUTCMonth(date.getUTCMonth()+delta);return date.toISOString().slice(0,7);}
+
+export default async function PayrollPage({searchParams}:{searchParams:Promise<{month?:string}>}) {
+  const params=await searchParams;
+  const currentMonth=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7);
+  const selectedMonth=/^\d{4}-\d{2}$/.test(params.month??'')?params.month!:currentMonth;
+  const [shop, paymentResult, staffRows, context] = await Promise.all([getShop(), getWagePayments(), getStaffWagePayments(selectedMonth), getAdminContext()]);
   if (!shop) redirect('/setup/claim-facility');
   const { rows, error } = paymentResult;
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super';
@@ -22,7 +28,7 @@ export default async function PayrollPage() {
     <div className="grid grid-cols-2 gap-3 mb-5"><Card><p className="text-label text-sub">지급 예정</p><p className="text-title font-extrabold mt-1">{won(pending)}</p></Card><Card><p className="text-label text-sub">지급 완료</p><p className="text-title font-extrabold text-primary mt-1">{won(completed)}</p></Card></div>
     <Card className="bg-blue-50 border border-blue-100 mb-5"><p className="text-body font-bold text-ink">지급 흐름</p><p className="text-label text-sub mt-2 leading-5">근무 완료 → 금액 검토 → 지급 승인 → 이체 준비 → 병원 지급 완료 → 워커 입금 확인</p><p className="text-[13px] text-sub mt-2">3.3% 공제는 자동 적용하지 않습니다. 고용·세무 분류를 확인한 뒤 병원이 결정하세요.</p></Card>
     {!canManage&&<Card className="bg-amber-50 border border-amber-200 mb-4"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">지급 승인과 완료 처리는 병원 소유자 또는 급여 승인 담당자에게 요청해 주세요.</p></Card>}
-    <div className="mb-3 mt-6 flex items-end justify-between px-1"><div><p className="text-[12px] font-bold text-primary">병원 등록 인력</p><h2 className="text-title font-extrabold">직원 급여</h2></div><span className="text-[12px] text-sub">{new Date().getMonth()+1}월 기준</span></div>
+    <div className="mb-3 mt-6 flex items-end justify-between px-1"><div><p className="text-[12px] font-bold text-primary">병원 등록 인력</p><h2 className="text-title font-extrabold">직원 급여</h2></div><div className="flex items-center gap-1 rounded-xl bg-white p-1 shadow-sm"><Link href={`/payroll?month=${moveMonth(selectedMonth,-1)}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" aria-label="이전 달">‹</Link><span className="min-w-16 text-center text-[12px] font-bold">{Number(selectedMonth.slice(5,7))}월</span><Link href={`/payroll?month=${moveMonth(selectedMonth,1)}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" aria-label="다음 달">›</Link></div></div>
     {staffRows.length===0?<Card className="py-8 text-center"><p className="font-bold">등록된 직원이 없어요</p><a href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</a></Card>:<div className="space-y-3">{staffRows.map(row=><Card key={row.staffId}>
       <div className="flex justify-between gap-3"><div><div className="flex items-center gap-2"><p className="text-body font-extrabold">{row.workerName}</p><span className="rounded bg-primary/5 px-1.5 py-0.5 text-[10px] font-bold text-primary">{ENGAGEMENT[row.engagementType]??'등록 직원'}</span></div><p className="mt-1 text-label text-sub">{row.payBasis?`${PAY[row.payBasis]} ${row.payRate?.toLocaleString('ko-KR')}원`:'급여 기준 미설정'}</p></div><span className="h-fit rounded-full bg-bg px-2.5 py-1 text-[12px] font-bold">{row.status==='config_required'?'설정 필요':STATUS[row.status]??row.status}</span></div>
       {row.status==='config_required'?<a href="/staff" className="mt-4 flex h-11 items-center justify-center rounded-xl bg-amber-50 text-label font-bold text-amber-700">직원관리에서 급여 기준 설정</a>:<>
@@ -32,7 +38,7 @@ export default async function PayrollPage() {
         {canManage&&row.status==='exported'&&<form action={updateStaffPaymentStatus} className="mt-3"><input type="hidden" name="staff_id" value={row.staffId}/><input type="hidden" name="period_month" value={row.periodMonth}/><button name="action" value="mark_paid" className="h-11 w-full rounded-xl bg-success text-label font-extrabold text-white">병원 지급 완료 표시</button></form>}
       </>}
     </Card>)}</div>}
-    <div className="mb-3 mt-7 px-1"><p className="text-[12px] font-bold text-primary">공고 시급 자동 연동</p><h2 className="text-title font-extrabold">매칭 워커 지급</h2></div>
+    <div className="mb-3 mt-7 px-1"><p className="text-[12px] font-bold text-primary">공고 시급 자동 연동</p><h2 className="text-title font-extrabold">공고 지원 인력 지급</h2></div>
     {error ? <Card className="py-8 text-center border border-red-200"><p role="alert" className="font-bold text-red-600">급여 정보를 불러오지 못했어요</p><p className="text-label text-sub mt-2">{error}</p><a href="/payroll" className="inline-flex mt-4 px-4 h-10 items-center rounded-xl bg-ink text-white text-label font-bold">다시 불러오기</a></Card>
     : rows.length===0 ? <Card className="py-10 text-center"><p className="font-bold">지급 요청이 없어요</p><p className="text-label text-sub mt-1">체크아웃 완료 후 자동으로 생성됩니다.</p></Card>
     : <div className="space-y-3">{rows.map(row => <Card key={row.id} className={row.status==='disputed'?'border border-red-200':''}>

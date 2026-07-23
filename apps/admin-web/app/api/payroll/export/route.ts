@@ -28,7 +28,7 @@ export async function GET() {
   const managedRows=staffRows.map(row=>[
     '병원 등록 직원',`${row.staffId}:${row.periodMonth}`,row.periodMonth.slice(0,7),
     `${Math.floor(row.workedMinutes/60)}시간 ${row.workedMinutes%60}분`,row.workerName,
-    row.grossAmount,row.netAmount,'미확정 · 병원 확인 필요',row.status,'','','','',
+    row.grossAmount,row.netAmount,'미확정 · 병원 확인 필요',row.status,'',row.bankName,row.accountLast4,'',
   ]);
   const csv = `\uFEFF${[header, ...managedRows,...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
   const date = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });

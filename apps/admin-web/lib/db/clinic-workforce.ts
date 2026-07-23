@@ -26,6 +26,8 @@ export type ClinicStaff = {
   inviteExpiresAt: string | null;
   payBasis: 'monthly'|'hourly'|'daily'|null;
   payRate: number|null;
+  bankName:string|null;
+  accountLast4:string|null;
 };
 
 export async function getClinicStaff(): Promise<ClinicStaff[]> {
@@ -75,6 +77,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       leaveMinutes: Number(balanceMap.get(row.id) ?? 0),
       inviteToken: invite?.token ?? null, inviteExpiresAt: invite?.expires_at ?? null,
       payBasis: row.pay_basis ?? null, payRate: row.pay_rate == null ? null : Number(row.pay_rate),
+      bankName:row.bank_name??null,accountLast4:row.account_last4??null,
     };
   });
 }

@@ -217,7 +217,7 @@ export default function HomePage() {
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
 
-  // 매칭 기준 선택 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
+  // 공고 탐색 기준 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [basis, setBasis] = useState<'gps' | string>('gps');
   const [locNotice, setLocNotice] = useState('');

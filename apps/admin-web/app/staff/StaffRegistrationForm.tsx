@@ -90,6 +90,7 @@ export function StaffRegistrationForm(){
         <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" value={payBasis} onChange={event=>setPayBasis(event.target.value)} className={inputClass}><option value="monthly">월급</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
         <label className="text-label font-medium text-sub">{payBasis==='monthly'?'세전 월급':payBasis==='hourly'?'시급':'일급'}<input name="pay_rate" type="number" min="1" step={payBasis==='monthly'?'10000':'100'} required className={inputClass} placeholder={payBasis==='monthly'?'예: 3000000':payBasis==='hourly'?'예: 15000':'예: 150000'}/></label>
       </div>
+      <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-label font-medium text-sub">지급 은행<input name="bank_name" maxLength={40} className={inputClass} placeholder="예: 국민은행"/></label><label className="text-label font-medium text-sub">계좌 끝 4자리<input name="account_last4" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} className={inputClass} placeholder="1234"/></label></div>
       <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 병원이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
     <input type="hidden" name="default_break_minutes" value="60"/>

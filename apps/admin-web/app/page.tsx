@@ -3,15 +3,19 @@ import { redirect } from 'next/navigation';
 import { Card, SectionTitle, BigStat, StatusBadge } from '@/components/ui';
 import { QuickMenu } from '@/components/home/QuickMenu';
 import { getShop } from '@/lib/db/shop';
-import { getStaff, getSummary } from '@/lib/db/staff';
+import { getStaff } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
 import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
 import { won, hours } from '@/lib/format';
+import { getUnifiedWorkforceSummary } from '@/lib/db/payroll';
+import { getClinicStaff } from '@/lib/db/clinic-workforce';
 
 export default async function Home() {
-  const [shop, staff, pendingCount, ops, alerts] = await Promise.all([
+  const [shop, staff, clinicStaff, workforceSummary, pendingCount, ops, alerts] = await Promise.all([
     getShop(),
     getStaff(),
+    getClinicStaff(),
+    getUnifiedWorkforceSummary(),
     getPendingCount(),
     getOperationsSummary(),
     getOperationsAlerts(),
@@ -19,7 +23,7 @@ export default async function Home() {
 
   if (!shop) redirect('/setup/claim-facility');
 
-  const summary = await getSummary(staff);
+  const summary = workforceSummary;
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
 
   // 오늘 챙길 일 — 값이 있을 때만 노출 (평온한 날엔 조치 섹션 자체가 사라짐)
@@ -100,14 +104,20 @@ export default async function Home() {
 
       {/* ⑤ 오늘 근무 */}
       <SectionTitle>오늘 근무</SectionTitle>
-      {staff.length === 0 ? (
+      {staff.length === 0&&clinicStaff.length===0 ? (
         <Card className="py-8 text-center">
           <p className="text-body font-bold text-ink">오늘 근무가 없어요</p>
-          <p className="text-label text-sub mt-1">채용확정된 근무가 생기면 표시됩니다.</p>
+          <p className="text-label text-sub mt-1">등록 직원 또는 지원 승인 근무가 생기면 표시됩니다.</p>
         </Card>
       ) : (
         <Card className="divide-y divide-line p-0">
-          {staff.map((s) => (
+          {clinicStaff.map((s) => (
+            <div key={`managed-${s.id}`} className="flex items-center justify-between px-5 py-4">
+              <div><p className="text-body font-bold text-ink">{s.name}</p><p className="text-label text-sub">{s.department??'부서 미지정'} · 병원 등록 직원</p></div>
+              <StatusBadge status={s.attendanceStatus==='working'||s.attendanceStatus==='late'||s.attendanceStatus==='checkout_pending'?'근무중':s.attendanceStatus==='completed'?'퇴근':s.attendanceStatus==='absent'?'결근':'예정'} />
+            </div>
+          ))}
+          {staff.filter((shift)=>!clinicStaff.some((managed)=>managed.workerId===shift.id)).map((s) => (
             <div key={s.id} className="flex items-center justify-between px-5 py-4">
               <div>
                 <p className="text-body font-bold text-ink">{s.name}</p>

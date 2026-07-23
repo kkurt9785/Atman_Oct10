@@ -18,7 +18,7 @@ export function Approval({ onStart, onBrowse }: { onStart: () => void; onBrowse:
       <div className="bg-white rounded-card shadow-card p-5 mb-6">
         <p className="text-[17px] font-bold text-ink mb-3">시작하기 전에 확인해 주세요</p>
         <ul className="space-y-3 text-[14px] text-sub">
-          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>면허 서류를 제출한 경우 운영자 심사가 끝난 뒤 최종 매칭될 수 있어요.</span></li>
+          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>면허 서류 상태는 병원이 지원자를 검토할 때 참고할 수 있어요.</span></li>
           <li className="flex gap-2"><span aria-hidden="true">✓</span><span>근무 전 시프트 시간, 위치, 급여 조건을 다시 확인해 주세요.</span></li>
           <li className="flex gap-2"><span aria-hidden="true">✓</span><span>출퇴근 QR은 근무 당일 발급되며 60초 동안 한 번만 사용할 수 있어요.</span></li>
         </ul>
