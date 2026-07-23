@@ -4,6 +4,48 @@ import { useState } from 'react';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 
 const inputClass='mt-2 w-full h-12 rounded-xl border border-line bg-white px-3 text-body text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/10';
+const toDateKey=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+const formatDate=(value:string)=>value?`${Number(value.slice(5,7))}월 ${Number(value.slice(8,10))}일`:'';
+
+function ContractRangePicker(){
+  const today=new Date();
+  const [open,setOpen]=useState(false);
+  const [month,setMonth]=useState(new Date(today.getFullYear(),today.getMonth(),1));
+  const [start,setStart]=useState('');
+  const [end,setEnd]=useState('');
+  const firstDay=new Date(month.getFullYear(),month.getMonth(),1);
+  const gridStart=new Date(month.getFullYear(),month.getMonth(),1-firstDay.getDay());
+  const days=Array.from({length:42},(_,index)=>new Date(gridStart.getFullYear(),gridStart.getMonth(),gridStart.getDate()+index));
+
+  function selectDate(value:string){
+    if(!start||end||value<start){setStart(value);setEnd('');return;}
+    setEnd(value);
+  }
+
+  return <div className="mt-4">
+    <label className="text-label font-medium text-sub">계약기간</label>
+    <input type="hidden" name="contract_start" value={start}/>
+    <input type="hidden" name="contract_end" value={end}/>
+    <button type="button" onClick={()=>setOpen(value=>!value)} className={`mt-2 flex min-h-14 w-full items-center justify-between rounded-xl border bg-white px-4 text-left ${open?'border-primary ring-2 ring-primary/10':'border-line'}`}>
+      <span><span className={`block text-[14px] font-bold ${start?'text-ink':'text-tertiary'}`}>{start?(end?`${formatDate(start)}  →  ${formatDate(end)}`:`${formatDate(start)}  →  종료일 선택`):'시작일과 종료일을 선택해 주세요'}</span>{start&&end&&<span className="mt-0.5 block text-[11px] text-sub">{start} ~ {end}</span>}</span>
+      <span aria-hidden className="text-[18px]">▣</span>
+    </button>
+    {open&&<div className="mt-3 rounded-2xl border border-line bg-white p-4 shadow-card">
+      <div className="flex items-center justify-between">
+        <button type="button" aria-label="이전 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))} className="h-10 w-10 rounded-full text-[20px] active:bg-bg">‹</button>
+        <b className="text-[15px]">{month.getFullYear()}년 {month.getMonth()+1}월</b>
+        <button type="button" aria-label="다음 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))} className="h-10 w-10 rounded-full text-[20px] active:bg-bg">›</button>
+      </div>
+      <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[12px] font-bold text-primary">{!start?'계약 시작일을 선택하세요':!end?'이제 계약 종료일을 선택하세요':'계약기간 선택 완료'}</p>
+      <div className="mt-3 grid grid-cols-7 text-center text-[11px] font-bold text-sub">{['일','월','화','수','목','금','토'].map(day=><span key={day} className="py-2">{day}</span>)}</div>
+      <div className="grid grid-cols-7">{days.map(date=>{const key=toDateKey(date);const current=date.getMonth()===month.getMonth();const selected=key===start||key===end;const between=start&&end&&key>start&&key<end;return <button type="button" key={key} onClick={()=>selectDate(key)} className={`h-11 text-[13px] font-semibold ${!current?'text-tertiary/40':'text-ink'} ${between?'bg-primary/5 text-primary':''} ${selected?'rounded-xl bg-primary text-white':''}`}>{date.getDate()}</button>;})}</div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button type="button" onClick={()=>{setStart('');setEnd('');}} className="h-11 rounded-xl bg-bg text-[13px] font-bold text-sub">다시 선택</button>
+        <button type="button" disabled={!start||!end} onClick={()=>setOpen(false)} className="h-11 rounded-xl bg-ink text-[13px] font-bold text-white disabled:opacity-30">기간 적용</button>
+      </div>
+    </div>}
+  </div>;
+}
 
 export function StaffRegistrationForm(){
   const [engagementType,setEngagementType]=useState('');
@@ -31,10 +73,7 @@ export function StaffRegistrationForm(){
         </select>
       </label>
       {engagementType==='regular'&&<p className="mt-3 rounded-xl bg-white px-3 py-3 text-[12px] leading-5 text-sub">상시 직원은 계약 종료일을 입력하지 않아도 됩니다.</p>}
-      {needsContract&&<div className="mt-4 grid grid-cols-2 gap-3">
-        <label className="text-label font-medium text-sub">계약 시작<input name="contract_start" required type="date" className={inputClass}/></label>
-        <label className="text-label font-medium text-sub">계약 종료<input name="contract_end" required type="date" className={inputClass}/></label>
-      </div>}
+      {needsContract&&<ContractRangePicker/>}
     </section>
 
     <section className="mt-8 grid grid-cols-2 gap-x-3 gap-y-5 border-t border-line pt-6">
