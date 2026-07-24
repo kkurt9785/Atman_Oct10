@@ -4,6 +4,8 @@ import { todayKST } from '../date';
 
 export type StaffRow = {
   id: string;
+  shiftId:string;
+  applicationId:string|null;
   name: string;
   job: string;
   todayStatus: '근무중' | '퇴근' | '예정' | '결근';
@@ -12,6 +14,10 @@ export type StaffRow = {
   isDemo: boolean;
   checkInAt?: string | null;
   checkOutAt?: string | null;
+  checkInMethod?:string|null;
+  checkOutMethod?:string|null;
+  checkInDistanceM?:number|null;
+  checkOutDistanceM?:number|null;
 };
 
 export type SummaryInfo = {
@@ -55,16 +61,18 @@ export async function getStaff(): Promise<StaffRow[]> {
     { data: workers },
     { data: attendances },
     { data: wages },
+    { data: applications },
   ] = await Promise.all([
     sb.from('workers').select('id, name, role, is_demo').in('id', workerIds),
     sb.from('shift_attendances')
-      .select('shift_id, worker_id, check_in_at, check_out_at')
+      .select('shift_id, worker_id, check_in_at, check_out_at,check_in_method,check_out_method,check_in_distance_m,check_out_distance_m')
       .in('shift_id', shiftIds),
     sb.from('wage_calculations')            // ← payroll_ledger 대신 wage_calculations
       .select('worker_id, worked_minutes')
       .eq('org_id', facilityId)
       .gte('calculated_at', `${monthStart}T00:00:00`)
       .in('worker_id', workerIds),
+    sb.from('shift_applications').select('id,shift_id,worker_id').in('shift_id',shiftIds).eq('status','accepted'),
   ]);
 
   // 인덱싱
@@ -78,6 +86,8 @@ export async function getStaff(): Promise<StaffRow[]> {
 
   const workerMap: Record<string, any> = {};
   for (const w of (workers ?? []) as any[]) workerMap[w.id] = w;
+  const appByShift:Record<string,any>={};
+  for(const app of (applications??[]) as any[])appByShift[app.shift_id]=app;
 
   const rows = (todayShifts as any[])
     .map((shift) => {
@@ -91,6 +101,8 @@ export async function getStaff(): Promise<StaffRow[]> {
 
       return {
         id:           worker.id,
+        shiftId:shift.id,
+        applicationId:appByShift[shift.id]?.id??null,
         name:         worker.name,
         job:          roleLabel(worker.role),
         todayStatus,
@@ -99,6 +111,8 @@ export async function getStaff(): Promise<StaffRow[]> {
         isDemo:        worker.is_demo === true,
         checkInAt:    att?.check_in_at  ?? null,
         checkOutAt:   att?.check_out_at ?? null,
+        checkInMethod:att?.check_in_method??null,checkOutMethod:att?.check_out_method??null,
+        checkInDistanceM:att?.check_in_distance_m??null,checkOutDistanceM:att?.check_out_distance_m??null,
       } satisfies StaffRow;
     })
     .filter(Boolean) as StaffRow[];

@@ -3,10 +3,13 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { AttendanceActionButton } from '@/components/attendance/AttendanceActionButton';
 
 type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; facilities:{name:string}|Array<{name:string}> };
 type Result = { action:'check_in'|'check_out'; status:'approved'|'pending'; facility_name:string; staff_id:string; work_date:string };
 type Leave = { id:string; leave_type:string; start_date:string; end_date:string; requested_minutes:number; status:string };
+type AttendanceState={staff_id:string;check_in_at:string|null;check_out_at:string|null;work_date:string};
+type ShiftTarget={id:string;checked_in_at:string|null;checked_out_at:string|null;shifts:{shift_date:string;start_time:string;end_time:string;facilities:{name:string}|Array<{name:string}>}|Array<{shift_date:string;start_time:string;end_time:string;facilities:{name:string}|Array<{name:string}>}>};
 const TYPES = [
   ['annual','연차 · 종일'],['half_day','반차 · 4시간'],['quarter_day','반반차 · 2시간'],
   ['hourly','시간차'],['sick','병가'],['other','기타'],
@@ -15,6 +18,7 @@ const TYPES = [
 function WorkplaceContent() {
   const params = useSearchParams();
   const token = params.get('token');
+  const attendanceToken=params.get('attendanceToken');
   const [staffList,setStaffList]=useState<Staff[]>([]);
   const [selectedStaffId,setSelectedStaffId]=useState('');
   const [loading,setLoading]=useState(true);
@@ -23,6 +27,8 @@ function WorkplaceContent() {
   const [leaveType,setLeaveType]=useState('annual');
   const [leaves,setLeaves]=useState<Leave[]>([]);
   const [leaveMinutes,setLeaveMinutes]=useState(0);
+  const [attendance,setAttendance]=useState<Record<string,AttendanceState>>({});
+  const [shiftTarget,setShiftTarget]=useState<ShiftTarget|null>(null);
 
   useEffect(()=>{ void (async()=>{
     const {data:{user}}=await supabase.auth.getUser();
@@ -31,6 +37,23 @@ function WorkplaceContent() {
     const linked=(data??[]) as Staff[];
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id??'');
+    if(linked.length){
+      const since=new Date(Date.now()+9*60*60*1000-86_400_000).toISOString().slice(0,10);
+      const {data:records}=await supabase.from('staff_attendances').select('staff_id,check_in_at,check_out_at,work_date').in('staff_id',linked.map(item=>item.id)).gte('work_date',since).order('work_date',{ascending:false});
+      const map:Record<string,AttendanceState>={};
+      for(const row of (records??[]) as AttendanceState[])if(!map[row.staff_id])map[row.staff_id]=row;
+      setAttendance(map);
+    }
+    if(attendanceToken){
+      const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+      const {data:worker}=await supabase.from('workers').select('id').eq('auth_user_id',user.id).maybeSingle();
+      if(worker){
+        const {data:application}=await supabase.from('shift_applications')
+          .select('id,checked_in_at,checked_out_at,shifts!inner(shift_date,start_time,end_time,facilities(name))')
+          .eq('worker_id',worker.id).eq('status','accepted').eq('shifts.shift_date',today).limit(1).maybeSingle();
+        if(application)setShiftTarget(application as unknown as ShiftTarget);
+      }
+    }
     if(token){
       let coords:{latitude:number;longitude:number}|null=null;
       try {
@@ -80,15 +103,20 @@ function WorkplaceContent() {
 
   const staff=staffList.find(item=>item.id===selectedStaffId)??staffList[0]??null;
   const facility=staff ? (Array.isArray(staff.facilities)?staff.facilities[0]?.name:staff.facilities?.name) : '';
+  const currentAttendance=staff?attendance[staff.id]:null;
   return <main className="min-h-screen bg-bg px-4 pt-6 pb-28">
     <p className="text-[13px] font-bold text-primary">내 직장</p><h1 className="text-[26px] font-extrabold text-ink mt-1">출퇴근·휴가</h1>
     {loading?<div className="mt-6 bg-white rounded-2xl p-8 text-center text-sub">근태를 확인하고 있어요...</div>:
+      !staff&&shiftTarget?(()=>{const shift=Array.isArray(shiftTarget.shifts)?shiftTarget.shifts[0]:shiftTarget.shifts;const name=Array.isArray(shift.facilities)?shift.facilities[0]?.name:shift.facilities?.name;return <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><p className="text-[13px] font-bold text-primary">오늘 확정된 단기근무</p><h2 className="mt-1 text-[18px] font-extrabold">{name}</h2><p className="mt-1 text-[13px] text-sub">{shift.shift_date} · {shift.start_time.slice(0,5)}~{shift.end_time.slice(0,5)}</p>{!shiftTarget.checked_out_at?<AttendanceActionButton targetType="shift" targetId={shiftTarget.id} action={shiftTarget.checked_in_at?'check_out':'check_in'} qrToken={attendanceToken}/>:<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">근무가 완료됐어요.</p>}</section>})():
       !staff?<div className="mt-6 bg-white rounded-2xl p-8 text-center"><b>연결된 병원 직원 정보가 없어요</b><p className="text-[13px] text-sub mt-2">병원 관리자에게 잇닿 계정 연결을 요청해 주세요.</p></div>:
       <>
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
           {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=Array.isArray(item.facilities)?item.facilities[0]?.name:item.facilities?.name;return <option key={item.id} value={item.id}>{name??'병원'} · {item.name}</option>;})}</select></label>}
           {result&&<div className={`mt-4 rounded-xl p-4 ${result.status==='pending'?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}><b>{result.action==='check_in'?'출근이 기록됐어요':result.status==='pending'?'조기 퇴근 승인을 요청했어요':'퇴근이 기록됐어요'}</b><p className="text-[12px] mt-1">{result.status==='pending'?'예정 퇴근시간 전이라 관리자 승인 후 확정됩니다.':'병원 근태 기록에 바로 반영됐습니다.'}</p></div>}
           {!token&&<p className="mt-4 rounded-xl bg-bg p-3 text-[13px] text-sub">병원에 비치된 QR을 휴대폰 기본 카메라로 스캔하면 출퇴근이 기록돼요.</p>}
+          {!token&&!currentAttendance?.check_out_at&&<AttendanceActionButton targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken}/>}
+          {currentAttendance?.check_out_at&&<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">오늘 출퇴근이 완료됐어요.</p>}
+          {attendanceToken&&<p className="mt-2 text-center text-[11px] font-bold text-primary">동적 QR을 확인했어요. 위치 확인 후 병원 정책에 맞게 인증합니다.</p>}
         </section>
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><div className="flex justify-between items-start"><div><h2 className="font-extrabold text-[18px]">휴가 신청</h2><p className="text-[12px] text-sub mt-1">승인된 경우에만 잔여 휴가가 차감돼요.</p></div><div className="text-right"><p className="text-[11px] text-sub">잔여</p><b className="text-primary">{leaveMinutes/60}시간</b></div></div>
           <form action={requestLeave} className="grid grid-cols-2 gap-3 mt-4">

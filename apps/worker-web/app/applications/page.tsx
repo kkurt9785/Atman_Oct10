@@ -8,6 +8,7 @@ import { QRModal } from '@/components/shifts/QRModal';
 import { dateKST } from '@/lib/date';
 import { cancelApplication, respondToInvitation } from '@/lib/shifts';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
+import { AttendanceActionButton } from '@/components/attendance/AttendanceActionButton';
 
 // ── 타입 ───────────────────────────────────────────────────────
 type ApplicationStatus = 'invited' | 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
@@ -178,7 +179,8 @@ function ApplicationCard({
               <p className="text-[13px] font-semibold text-sub">근무 완료</p>
             </div>
           ) : isCheckedIn ? (
-            <div className="mt-3 p-3 bg-primary/8 rounded-xl flex items-center justify-between">
+            <div className="mt-3 p-3 bg-primary/8 rounded-xl">
+              <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <p className="text-[13px] font-semibold text-primary">근무 중</p>
@@ -186,14 +188,11 @@ function ApplicationCard({
               <button onClick={() => onQR(app)} className="text-[12px] font-bold text-primary underline">
                 QR 체크아웃
               </button>
+              </div>
+              <AttendanceActionButton targetType="shift" targetId={app.id} action="check_out"/>
             </div>
           ) : isToday ? (
-            <button
-              onClick={() => onQR(app)}
-              className="mt-3 w-full h-12 bg-[#E5FAF4] text-success text-[15px] font-bold rounded-xl flex items-center justify-center gap-2 active:opacity-80"
-            >
-              🔲 QR 체크인
-            </button>
+            <div><AttendanceActionButton targetType="shift" targetId={app.id} action="check_in"/><button onClick={() => onQR(app)} className="mt-2 h-11 w-full rounded-xl border border-line text-[13px] font-bold text-sub">기존 QR 방식 사용</button></div>
           ) : (
             <div className="mt-3 p-3 bg-bg rounded-xl flex items-center gap-2">
               <span className="text-success">✅</span>

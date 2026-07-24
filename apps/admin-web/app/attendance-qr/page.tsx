@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getFacilityAttendanceQr } from '@/lib/db/clinic-workforce';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { PrintButton } from './PrintButton';
+import { DynamicQrPanel } from './DynamicQrPanel';
 
 export default async function AttendanceQrPage(){
   const token=await getFacilityAttendanceQr();
@@ -9,7 +10,9 @@ export default async function AttendanceQrPage(){
     ?? (process.env.NODE_ENV === 'production' ? 'https://itdot.co.kr' : 'http://localhost:3003');
   const qrSrc=token?`${workerOrigin}/workplace/qr?token=${encodeURIComponent(token)}`:null;
   return <main className="px-4 pb-28">
-    <div className="mt-3 px-1"><p className="text-label font-bold text-primary">직원용 고정 QR</p><h1 className="text-display font-extrabold">출퇴근 QR</h1><p className="text-label text-sub mt-1">접수대나 직원 공간에 비치하면 직원이 휴대폰 기본 카메라로 스캔해요.</p></div>
+    <div className="mt-3 px-1"><p className="text-label font-bold text-primary">GPS 보완 인증</p><h1 className="text-display font-extrabold">출퇴근 QR</h1><p className="text-label text-sub mt-1">동적 QR은 복합·fallback 인증에 사용하고 기존 고정 QR도 유지합니다.</p></div>
+    <DynamicQrPanel workerOrigin={workerOrigin}/>
+    <p className="mt-6 px-1 text-[12px] font-bold text-sub">기존 직원용 고정 QR</p>
     <section className="mt-5 rounded-3xl bg-white shadow-card p-5 text-center">
       {qrSrc?<iframe title="직원 출퇴근 QR" src={qrSrc} className="w-full h-[320px] border-0 bg-white"/>:<p className="py-20 text-sub">QR을 만들지 못했어요.</p>}
       <p className="text-title font-extrabold">잇닿 직원 출퇴근</p>

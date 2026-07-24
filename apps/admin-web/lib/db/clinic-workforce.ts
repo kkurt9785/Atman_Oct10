@@ -28,6 +28,13 @@ export type ClinicStaff = {
   payRate: number|null;
   bankName:string|null;
   accountLast4:string|null;
+  checkInMethod:string|null;
+  checkOutMethod:string|null;
+  checkInDistanceM:number|null;
+  checkOutDistanceM:number|null;
+  lateMinutes:number;
+  earlyLeaveMinutes:number;
+  adminApproved:boolean;
 };
 
 export async function getClinicStaff(): Promise<ClinicStaff[]> {
@@ -78,8 +85,24 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       inviteToken: invite?.token ?? null, inviteExpiresAt: invite?.expires_at ?? null,
       payBasis: row.pay_basis ?? null, payRate: row.pay_rate == null ? null : Number(row.pay_rate),
       bankName:row.bank_name??null,accountLast4:row.account_last4??null,
+      checkInMethod:att?.check_in_method??null,checkOutMethod:att?.check_out_method??null,
+      checkInDistanceM:att?.check_in_distance_m??null,checkOutDistanceM:att?.check_out_distance_m??null,
+      lateMinutes:Number(att?.late_minutes??0),earlyLeaveMinutes:Number(att?.early_leave_minutes??0),
+      adminApproved:Boolean(att?.approved_by),
     };
   });
+}
+
+export async function getTodayAttendanceFailures(){
+  const facilityId=await getCurrentFacilityId();
+  const sb=adminClient();
+  if(!sb||!facilityId)return [];
+  const today=todayKST();
+  const {data}=await sb.from('attendance_auth_logs')
+    .select('id,staff_id,application_id,target_type,action,authentication_method,distance_meters,gps_accuracy_meters,failure_reason,detail,created_at')
+    .eq('facility_id',facilityId).eq('result','FAIL')
+    .gte('created_at',`${today}T00:00:00+09:00`).order('created_at',{ascending:false}).limit(20);
+  return data??[];
 }
 
 export async function getFacilityAttendanceQr(): Promise<string | null> {

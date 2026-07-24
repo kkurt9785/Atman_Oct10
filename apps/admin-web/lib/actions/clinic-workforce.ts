@@ -80,19 +80,68 @@ export async function recordStaffAttendanceAction(form: FormData) {
     facility_id: context.facilityId, staff_id: staffId, work_date: requestedDate,
     scheduled_start: staff.default_start_time, scheduled_end: staff.default_end_time,
     corrected_by: context.user.id, correction_reason: '병원 관리자 간편 근태 처리', updated_at: now,
+    approved_by:context.user.id,approved_at:now,
   };
   if(event==='check_in'&&attendance?.check_in_at) throw new Error('이미 출근 처리된 직원이에요.');
   if(event==='check_out'&&(!attendance?.check_in_at||attendance?.check_out_at)) throw new Error('출근 기록이 없거나 이미 퇴근 처리됐어요.');
   if(event==='absent'&&attendance?.check_in_at) throw new Error('출근한 직원은 결근 처리할 수 없어요.');
-  if (event === 'check_in') Object.assign(base, { check_in_at: now, status: 'working' });
-  if (event === 'check_out') Object.assign(base, { check_out_at: now, status: 'completed' });
+  if (event === 'check_in') Object.assign(base, { check_in_at: now, status: 'working',check_in_method:'ADMIN',check_in_status:'SUCCESS' });
+  if (event === 'check_out') Object.assign(base, { check_out_at: now, status: 'completed',check_out_method:'ADMIN',check_out_status:'SUCCESS' });
   if (event === 'absent') Object.assign(base, { status: 'absent' });
   const query=event==='check_out'
     ? sb.from('staff_attendances').update(base).eq('id',attendance!.id)
     : sb.from('staff_attendances').upsert(base, { onConflict: 'staff_id,work_date' });
   const { error } = await query;
   if (error) throw new Error('근태를 저장하지 못했어요.');
+  if(event!=='absent')await sb.from('attendance_auth_logs').insert({
+    user_id:context.user.id,staff_id:staffId,facility_id:context.facilityId,target_type:'staff',
+    action:event,authentication_method:'ADMIN',result:'SUCCESS',detail:'병원 관리자 수동 처리',
+  });
   revalidatePath('/timesheet'); revalidatePath('/staff'); revalidatePath('/');
+}
+
+export async function recordShiftAdminAttendanceAction(form:FormData){
+  const context=await requireAdminContext(['owner','operator','super']);
+  const sb=adminClient();
+  if(!sb)throw new Error('서버 설정을 확인해 주세요.');
+  const applicationId=text(form,'application_id');
+  const event=text(form,'event');
+  if(!applicationId||!['check_in','check_out'].includes(event))throw new Error('단기인력 근태 요청이 올바르지 않아요.');
+  const {data:application}=await sb.from('shift_applications')
+    .select('id,worker_id,shift_id,status,shifts!inner(facility_id,shift_date)')
+    .eq('id',applicationId).eq('shifts.facility_id',context.facilityId).maybeSingle();
+  if(!application||!['accepted','completed'].includes(application.status))throw new Error('이 병원에 확정된 단기인력이 아니에요.');
+  const {data:existing}=await sb.from('shift_attendances').select('id,check_in_at,check_out_at')
+    .eq('application_id',applicationId).maybeSingle();
+  const now=new Date().toISOString();
+  let attendanceId=existing?.id??null;
+  if(event==='check_in'){
+    if(existing?.check_in_at)throw new Error('이미 출근 처리된 단기인력이에요.');
+    const {data,error}=await sb.from('shift_attendances').insert({
+      shift_id:application.shift_id,worker_id:application.worker_id,application_id:application.id,
+      check_in_at:now,check_in_method:'ADMIN',check_in_status:'SUCCESS',
+      manual_override_by:context.user.id,manual_override_reason:'관리자 출근 승인',approved_at:now,
+    }).select('id').single();
+    if(error)throw new Error('단기인력 출근을 저장하지 못했어요.');
+    attendanceId=data.id;
+    await sb.from('shift_applications').update({checked_in_at:now}).eq('id',application.id);
+    await sb.from('shifts').update({status:'in_progress',updated_at:now}).eq('id',application.shift_id);
+  }else{
+    if(!existing?.check_in_at||existing.check_out_at)throw new Error('출근 기록이 없거나 이미 퇴근 처리됐어요.');
+    const {error}=await sb.from('shift_attendances').update({
+      check_out_at:now,check_out_method:'ADMIN',check_out_status:'SUCCESS',
+      manual_override_by:context.user.id,manual_override_reason:'관리자 퇴근 승인',approved_at:now,updated_at:now,
+    }).eq('id',existing.id);
+    if(error)throw new Error('단기인력 퇴근을 저장하지 못했어요.');
+    await sb.from('shift_applications').update({checked_out_at:now,status:'completed'}).eq('id',application.id);
+    await sb.from('shifts').update({status:'completed',updated_at:now}).eq('id',application.shift_id);
+  }
+  await sb.from('attendance_auth_logs').insert({
+    user_id:context.user.id,worker_id:application.worker_id,application_id:application.id,
+    facility_id:context.facilityId,shift_attendance_id:attendanceId,target_type:'shift',
+    action:event,authentication_method:'ADMIN',result:'SUCCESS',detail:'병원 관리자 수동 처리',
+  });
+  revalidatePath('/timesheet');revalidatePath('/payroll');revalidatePath('/');
 }
 
 export async function addStaffLeaveAction(form: FormData) {
@@ -196,7 +245,7 @@ export async function decideEarlyCheckoutAction(form: FormData) {
     .eq('work_date', workDate).eq('status', 'checkout_pending').maybeSingle();
   if (!attendance?.checkout_requested_at) throw new Error('처리할 조기 퇴근 요청이 없어요.');
   const patch = decision === 'approved'
-    ? { check_out_at: attendance.checkout_requested_at, status: 'completed', corrected_by: context.user.id, correction_reason: '관리자 조기 퇴근 승인', updated_at: new Date().toISOString() }
+    ? { check_out_at: attendance.checkout_requested_at, status: 'completed', check_out_method:'ADMIN',check_out_status:'SUCCESS',approved_by:context.user.id,approved_at:new Date().toISOString(),corrected_by: context.user.id, correction_reason: '관리자 조기 퇴근 승인', updated_at: new Date().toISOString() }
     : { checkout_requested_at: null, status: 'working', corrected_by: context.user.id, correction_reason: '관리자 조기 퇴근 반려', updated_at: new Date().toISOString() };
   const { error } = await sb.from('staff_attendances').update(patch).eq('id', attendance.id);
   if (error) throw new Error('조기 퇴근 요청을 처리하지 못했어요.');
@@ -241,11 +290,11 @@ export async function setStaffPayAction(form:FormData){
   revalidatePath('/staff');revalidatePath('/payroll');
 }
 
-export type WorkforceActionKind='add_staff'|'attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay';
+export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay';
 export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string}>{
   try{
     const actions:Record<WorkforceActionKind,(data:FormData)=>Promise<unknown>>={
-      add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,add_leave:addStaffLeaveAction,
+      add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,shift_attendance:recordShiftAdminAttendanceAction,add_leave:addStaffLeaveAction,
       set_balance:setStaffLeaveBalanceAction,decide_leave:decideStaffLeaveAction,
       early_checkout:decideEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
       convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,set_staff_pay:setStaffPayAction,
