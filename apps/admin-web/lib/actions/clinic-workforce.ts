@@ -323,6 +323,16 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const workerId = text(form, 'worker_id');
+  // 이 병원과 실제 매칭(수락/완료) 이력이 있는 워커만 전환 가능.
+  // 임의 worker_id로 남의 PII 조회·무단 고용레코드 생성(IDOR)을 서버에서 차단한다.
+  const { data: match } = await sb.from('shift_applications')
+    .select('id, shifts!inner(facility_id)')
+    .eq('worker_id', workerId)
+    .eq('shifts.facility_id', context.facilityId)
+    .in('status', ['accepted', 'completed'])
+    .limit(1)
+    .maybeSingle();
+  if (!match) throw new Error('우리 병원과 매칭된 이력이 있는 워커만 직원으로 전환할 수 있어요.');
   const { data: worker } = await sb.from('workers').select('id,name,phone,role')
     .eq('id', workerId).is('deleted_at', null).maybeSingle();
   if (!worker) throw new Error('전환할 지원자 정보를 찾지 못했어요.');
