@@ -32,7 +32,13 @@ function WorkplaceContent() {
 
   useEffect(()=>{ void (async()=>{
     const {data:{user}}=await supabase.auth.getUser();
-    if(!user){ window.location.href=`/?next=${encodeURIComponent(`/workplace${token?`?token=${token}`:''}`)}`; return; }
+    if(!user){
+      const query=new URLSearchParams();
+      if(token)query.set('token',token);
+      if(attendanceToken)query.set('attendanceToken',attendanceToken);
+      window.location.href=`/?next=${encodeURIComponent(`/workplace${query.size?`?${query}`:''}`)}`;
+      return;
+    }
     const {data}=await supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,facilities(name)').neq('status','ended').order('created_at',{ascending:false});
     const linked=(data??[]) as Staff[];
     setStaffList(linked);
@@ -74,7 +80,7 @@ function WorkplaceContent() {
       }
     }
     setLoading(false);
-  })();},[token]);
+  })();},[token,attendanceToken]);
 
   async function requestLeave(formData:FormData){
     setMessage('');
@@ -113,7 +119,7 @@ function WorkplaceContent() {
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
           {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=Array.isArray(item.facilities)?item.facilities[0]?.name:item.facilities?.name;return <option key={item.id} value={item.id}>{name??'병원'} · {item.name}</option>;})}</select></label>}
           {result&&<div className={`mt-4 rounded-xl p-4 ${result.status==='pending'?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}><b>{result.action==='check_in'?'출근이 기록됐어요':result.status==='pending'?'조기 퇴근 승인을 요청했어요':'퇴근이 기록됐어요'}</b><p className="text-[12px] mt-1">{result.status==='pending'?'예정 퇴근시간 전이라 관리자 승인 후 확정됩니다.':'병원 근태 기록에 바로 반영됐습니다.'}</p></div>}
-          {!token&&<p className="mt-4 rounded-xl bg-bg p-3 text-[13px] text-sub">병원에 비치된 QR을 휴대폰 기본 카메라로 스캔하면 출퇴근이 기록돼요.</p>}
+          {!token&&<div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[12px] font-bold text-primary">{currentAttendance?.check_in_at?'현재 근무 중':'출근 전'}</p><p className="mt-1 text-[13px] text-sub">버튼 한 번으로 병원 위치를 확인해요. 실내에서 위치가 불안정하면 병원의 동적 QR로 인증할 수 있어요.</p></div>}
           {!token&&!currentAttendance?.check_out_at&&<AttendanceActionButton targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken}/>}
           {currentAttendance?.check_out_at&&<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">오늘 출퇴근이 완료됐어요.</p>}
           {attendanceToken&&<p className="mt-2 text-center text-[11px] font-bold text-primary">동적 QR을 확인했어요. 위치 확인 후 병원 정책에 맞게 인증합니다.</p>}

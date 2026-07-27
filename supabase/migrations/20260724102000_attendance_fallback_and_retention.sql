@@ -41,11 +41,15 @@ BEGIN
   v_sql:=replace(v_sql,
     'WHEN p_qr_token IS NULL THEN ''QR_INVALID'' ELSE ''QR_EXPIRED'' END;',
     'WHEN NOT v_qr_exists THEN ''QR_INVALID'' ELSE ''QR_EXPIRED'' END;');
-  IF v_sql=v_before OR v_sql NOT LIKE '%v_qr_exists boolean := false%' OR
+  IF v_sql NOT LIKE '%v_qr_exists boolean := false%' OR
      v_sql NOT LIKE '%v_setting.qr_fallback_enabled THEN v_method:=''QR_FALLBACK''%' THEN
     RAISE EXCEPTION 'record_unified_attendance fallback patch was incomplete';
   END IF;
-  EXECUTE v_sql;
+  -- The base migration may already contain this hotfix on a fresh install.
+  -- Only replace the function when this migration actually changed its body.
+  IF v_sql<>v_before THEN
+    EXECUTE v_sql;
+  END IF;
 END $patch$;
 
 -- Raw attempt coordinates are short-lived. Derived distance/result records are

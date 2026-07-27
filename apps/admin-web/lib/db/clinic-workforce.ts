@@ -102,7 +102,16 @@ export async function getTodayAttendanceFailures(){
     .select('id,staff_id,application_id,target_type,action,authentication_method,distance_meters,gps_accuracy_meters,failure_reason,detail,created_at')
     .eq('facility_id',facilityId).eq('result','FAIL')
     .gte('created_at',`${today}T00:00:00+09:00`).order('created_at',{ascending:false}).limit(20);
-  return data??[];
+  const rows=(data??[]) as any[];
+  const staffIds=[...new Set(rows.map(row=>row.staff_id).filter(Boolean))];
+  const applicationIds=[...new Set(rows.map(row=>row.application_id).filter(Boolean))];
+  const [{data:staff},{data:applications}]=await Promise.all([
+    staffIds.length?sb.from('facility_staff').select('id,name').eq('facility_id',facilityId).in('id',staffIds):Promise.resolve({data:[]}),
+    applicationIds.length?sb.from('shift_applications').select('id,workers(name)').in('id',applicationIds):Promise.resolve({data:[]}),
+  ]);
+  const staffNames=new Map((staff??[]).map((row:any)=>[row.id,row.name]));
+  const workerNames=new Map((applications??[]).map((row:any)=>[row.id,Array.isArray(row.workers)?row.workers[0]?.name:row.workers?.name]));
+  return rows.map(row=>({...row,worker_name:row.staff_id?staffNames.get(row.staff_id):workerNames.get(row.application_id)}));
 }
 
 export async function getFacilityAttendanceQr(): Promise<string | null> {
