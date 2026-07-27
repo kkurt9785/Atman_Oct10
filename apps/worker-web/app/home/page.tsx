@@ -458,6 +458,17 @@ export default function HomePage() {
         </Link>
       </div>
 
+      <Link href="/rewards" className="mx-5 mb-4 block rounded-2xl border border-primary/20 bg-primary/8 p-4 active:opacity-80">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-primary">런칭 리워드</p>
+            <p className="mt-0.5 text-[16px] font-extrabold text-ink">프로필 인증부터 첫 근무까지</p>
+            <p className="mt-1 text-[12px] text-sub">커피 5천원 · 첫 근무 완료 2만원</p>
+          </div>
+          <span className="shrink-0 text-[13px] font-extrabold text-primary">내 진행 보기 →</span>
+        </div>
+      </Link>
+
       {/* 프로필 미완성 배너 */}
       {showProfileBanner && (
         <div className="mx-5 mb-4 bg-primary/8 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">

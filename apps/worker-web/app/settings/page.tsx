@@ -180,6 +180,19 @@ export default function SettingsPage() {
         </div>
       </Link>
 
+      <Link href="/rewards">
+        <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-[15px] font-bold text-ink">잇닿 리워드·친구 초대</p>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">런칭</span>
+            </div>
+            <p className="mt-1.5 text-[13px] text-tertiary">첫 근무 진행과 초대 현황을 확인해요</p>
+          </div>
+          <span className="text-tertiary ml-3">›</span>
+        </div>
+      </Link>
+
       {/* 시프트 알림 */}
       <button
         onClick={handlePushToggle}
