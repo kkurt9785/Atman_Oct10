@@ -8,7 +8,7 @@ import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '@/lib/billing-gates';
 import { todayKST } from '@/lib/date';
 
-const VALID_ROLES = ['rn', 'na', 'any'];
+const VALID_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff', 'any'];
 
 function formText(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim();
@@ -90,7 +90,7 @@ export async function generateRecurringShiftsAction(formData: FormData) {
     throw error;
   }
 
-  const roleFilter = template.required_role === 'any' ? ['rn', 'na'] : [template.required_role];
+  const roleFilter = template.required_role === 'any' ? ['rn', 'na', 'pharmacist', 'pharmacy_staff'] : [template.required_role];
   const { data: workers } = await sb.from('workers').select('auth_user_id').in('role', roleFilter)
     .eq('verification_status', 'approved').is('deleted_at', null);
   const outbox = (workers ?? []).filter((worker: any) => worker.auth_user_id).map((worker: any) => ({
@@ -159,7 +159,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
       }
     }
   }
-  const roles = target.required_role === 'any' ? ['rn','na'] : [target.required_role];
+  const roles = target.required_role === 'any' ? ['rn','na','pharmacist','pharmacy_staff'] : [target.required_role];
   const { data: workers } = await sb.from('workers').select('auth_user_id').in('role', roles).eq('verification_status', 'approved').is('deleted_at', null);
   const hourKey = new Date().toISOString().slice(0, 13);
   const outbox = (workers ?? []).filter((worker: any) => worker.auth_user_id).map((worker: any) => ({

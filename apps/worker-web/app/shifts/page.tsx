@@ -7,6 +7,7 @@ import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { FacilitySheet } from '@/components/shifts/FacilitySheet';
 import { dateKST } from '@/lib/date';
 import { areaLabel, dateLabel, facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
+import { SHIFT_ROLE_LABEL, type ShiftRole } from '@/lib/roles';
 
 export type Shift = {
   id: string;
@@ -15,7 +16,7 @@ export type Shift = {
   start_time: string;
   end_time: string;
   is_overnight: boolean;
-  required_role: 'rn' | 'na' | 'any';
+  required_role: ShiftRole;
   hourly_wage: number;
   estimated_total_pay: number;
   description: string;
@@ -25,12 +26,6 @@ export type Shift = {
   distance_km?: number | null;
   distance_m?: number | null;
   distance_meters?: number | null;
-};
-
-const ROLE_LABEL: Record<string, string> = {
-  rn: '간호사 (RN)',
-  na: '간호조무사 (NA)',
-  any: '무관',
 };
 
 type DateFilter = 'today' | 'week' | 'all';
@@ -117,7 +112,7 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
       <div className="flex items-center justify-between mb-3">
         <span className="text-[13px] font-semibold text-sub">{dateLabel(shift.shift_date)}</span>
         <span className="text-[12px] font-bold text-primary bg-primary-light px-2.5 py-1 rounded-full">
-          {ROLE_LABEL[shift.required_role]}
+          {SHIFT_ROLE_LABEL[shift.required_role]}
         </span>
       </div>
 

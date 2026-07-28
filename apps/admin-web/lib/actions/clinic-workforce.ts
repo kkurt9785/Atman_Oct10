@@ -23,7 +23,7 @@ export async function addClinicStaffAction(form: FormData) {
   const payRate = Number(text(form,'pay_rate'));
   const bankName=text(form,'bank_name')||null;
   const accountLast4=text(form,'account_last4')||null;
-  if (!name || !['rn','na','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
+  if (!name || !['rn','na','pharmacist','pharmacy_staff','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
   if (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
@@ -340,7 +340,7 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
     .eq('facility_id', context.facilityId).eq('worker_id', worker.id).maybeSingle();
   if (existing) return;
   await requireStaffCapacity(sb, context.facilityId);
-  const role = worker.role === 'rn' || worker.role === 'na' ? worker.role : 'other';
+  const role = ['rn','na','pharmacist','pharmacy_staff'].includes(worker.role) ? worker.role : 'other';
   const { error } = await sb.from('facility_staff').insert({
     facility_id: context.facilityId, worker_id: worker.id, name: worker.name,
     phone: worker.phone ?? null, role, source: 'atman', engagement_type: 'temporary',

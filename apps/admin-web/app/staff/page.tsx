@@ -9,7 +9,7 @@ import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { CopyInviteButton } from './CopyInviteButton';
 import { StaffRegistrationForm } from './StaffRegistrationForm';
 
-const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', coordinator:'코디네이터', admin:'행정', other:'기타' };
+const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', pharmacist:'약사', pharmacy_staff:'약국 전산·사무직', coordinator:'코디네이터', admin:'행정', other:'기타' };
 const TYPE: Record<string,string> = { regular:'상시 직원', fixed_term:'기간제', temporary:'임시 계약', daily:'단기 근무' };
 const SOURCE: Record<string,string> = { direct:'직접 등록', atman:'잇닿 채용', imported:'가져오기' };
 const PAY:Record<string,string>={monthly:'월급',hourly:'시급',daily:'일급'};

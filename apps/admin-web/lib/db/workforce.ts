@@ -6,7 +6,7 @@ export type WorkforceMember = {
   poolId: string;
   workerId: string;
   name: string;
-  role: 'rn' | 'na';
+  role: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff';
   status: 'active' | 'paused' | 'do_not_invite';
   lastWorkedAt: string | null;
   completedShiftCount: number;
@@ -21,6 +21,7 @@ export type WorkforceMember = {
 const CREDENTIAL_LABEL: Record<string, string> = {
   nursing_license: '간호사 면허',
   na_certificate: '간호조무사 자격',
+  pharmacist_license: '약사 면허',
   health_check: '건강진단서',
   cpr_cert: 'CPR/BLS',
   tuberculosis_test: '결핵검사',
@@ -86,4 +87,3 @@ export async function getWorkforcePool(): Promise<WorkforceMember[]> {
       } satisfies WorkforceMember;
     });
 }
-

@@ -10,6 +10,7 @@ import {
   getExistingSubscription,
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
+import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 
 const PROFILE_TOTAL = 4;
 
@@ -104,7 +105,7 @@ export default function SettingsPage() {
     router.replace('/onboarding');
   }
 
-  const roleLabel = role === 'rn' ? '간호사 RN' : role === 'na' ? '간호조무사 NA' : '';
+  const roleLabel = WORKER_ROLE_LABEL[role as WorkerRole] ?? '';
   const profileDone = profileFilled >= PROFILE_TOTAL;
 
   return (

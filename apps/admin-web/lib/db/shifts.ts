@@ -8,7 +8,7 @@ export type ShiftRow = {
   start_time: string;
   end_time: string;
   is_overnight: boolean;
-  required_role: 'rn' | 'na' | 'any';
+  required_role: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
   hourly_wage: number;
   estimated_total_pay: number;
   description: string;

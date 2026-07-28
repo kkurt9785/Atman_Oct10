@@ -18,6 +18,8 @@ const DEPT_TAGS = [
   '외래', '소아과', '정신과', '신생아실',
   '요양원', '요양병원', '재활병원', '의원·클리닉',
 ];
+const PHARMACIST_TAGS = ['조제실', '대체약사', '병원약국', '문전약국', '주말근무', '야간약국'];
+const PHARMACY_STAFF_TAGS = ['전산·접수', '서류관리', '재고관리', '매대관리', '고객 안내', '사무보조'];
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -33,15 +35,17 @@ export default function ProfileEditPage() {
   const [deptTags,       setDeptTags]       = useState<string[]>([]);
   const [saving,         setSaving]         = useState(false);
   const [error,          setError]          = useState<string | null>(null);
+  const [role,           setRole]           = useState('');
 
   // Private bucket stores an object path. Preview uses a short-lived signed URL.
   useEffect(() => {
     let active = true;
     async function load() {
       const { data, error: loadError } = await supabase.from('workers')
-        .select('license_number, license_photo_url, experience_years, last_workplace, department_tags')
+        .select('role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
         .maybeSingle();
       if (!active || loadError || !data) return;
+      setRole(data.role ?? '');
       if (data.license_photo_url) {
         setLicenseMode('photo');
         setLicensePhotoPath(data.license_photo_url);
@@ -81,8 +85,8 @@ export default function ProfileEditPage() {
 
   async function handleSave() {
     setError(null);
-    if (licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해주세요.'); return; }
-    if (licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해주세요.'); return; }
+    if (role !== 'pharmacy_staff' && licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해주세요.'); return; }
+    if (role !== 'pharmacy_staff' && licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해주세요.'); return; }
     if (!experience) { setError('경력을 선택해주세요.'); return; }
     if (!lastWorkplace.trim()) { setError('최근 근무지를 입력해주세요.'); return; }
     if (deptTags.length === 0) { setError('부서 태그를 최소 1개 선택해주세요.'); return; }
@@ -112,8 +116,8 @@ export default function ProfileEditPage() {
       }
 
       const { error: updateError } = await supabase.rpc('update_my_worker_profile', {
-        p_license_number: licenseMode === 'text' ? licenseNumber.trim() : null,
-        p_license_path: nextPath,
+        p_license_number: role !== 'pharmacy_staff' && licenseMode === 'text' ? licenseNumber.trim() : null,
+        p_license_path: role !== 'pharmacy_staff' ? nextPath : null,
         p_experience_years: experience,
         p_last_workplace: lastWorkplace.trim(),
         p_department_tags: deptTags,
@@ -149,7 +153,7 @@ export default function ProfileEditPage() {
 
       <div className="flex flex-col gap-5">
         {/* 면허증 */}
-        <section className="bg-white rounded-2xl p-5 shadow-sm">
+        {role !== 'pharmacy_staff' && <section className="bg-white rounded-2xl p-5 shadow-sm">
           <p className="text-[13px] font-bold text-sub mb-3">면허증 *</p>
 
           {/* 탭 토글 */}
@@ -215,7 +219,7 @@ export default function ProfileEditPage() {
               <span className="text-[15px] text-sub whitespace-nowrap">호</span>
             </div>
           )}
-        </section>
+        </section>}
 
         {/* 경력 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
@@ -243,7 +247,7 @@ export default function ProfileEditPage() {
           <p className="text-[13px] font-bold text-sub mb-3">최근 근무지 *</p>
           <input
             type="text"
-            placeholder="예: ○○병원 중환자실"
+            placeholder={role === 'pharmacist' ? '예: ○○약국 대체약사' : role === 'pharmacy_staff' ? '예: ○○약국 전산·접수' : '예: ○○병원 중환자실'}
             value={lastWorkplace}
             onChange={(e) => setLastWorkplace(e.target.value)}
             className="w-full bg-bg rounded-xl px-4 py-3.5 text-[15px] text-ink placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-primary"
@@ -255,7 +259,7 @@ export default function ProfileEditPage() {
           <p className="text-[13px] font-bold text-sub mb-1">주요 부서 <span className="font-normal">(복수 선택)</span> *</p>
           <p className="text-[11px] text-tertiary mb-3">경험 있는 부서를 모두 선택해주세요</p>
           <div className="flex flex-wrap gap-2">
-            {DEPT_TAGS.map((tag) => (
+            {(role === 'pharmacist' ? PHARMACIST_TAGS : role === 'pharmacy_staff' ? PHARMACY_STAFF_TAGS : DEPT_TAGS).map((tag) => (
               <button
                 key={tag}
                 type="button"

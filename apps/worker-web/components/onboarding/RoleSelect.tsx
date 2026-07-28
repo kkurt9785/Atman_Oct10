@@ -2,9 +2,10 @@
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import type { WorkerRole } from '@/lib/roles';
 
 const ROLES: Array<{
-  id: 'rn' | 'na';
+  id: WorkerRole;
   title: string;
   desc: string;
   icon: ReactNode;
@@ -31,10 +32,22 @@ const ROLES: Array<{
       </svg>
     ),
   },
+  {
+    id: 'pharmacist',
+    title: '약사',
+    desc: '약사 면허 소지자 · 대체·계약·주말 근무',
+    icon: <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-[16px]" aria-hidden>⚕</span>,
+  },
+  {
+    id: 'pharmacy_staff',
+    title: '약국 전산·사무직',
+    desc: '전산 입력 보조·서류·재고·매대·고객 안내',
+    icon: <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-50 text-[16px]" aria-hidden>⌨</span>,
+  },
 ];
 
-export function RoleSelect({ onNext }: { onNext: (role: 'rn' | 'na') => void }) {
-  const [selected, setSelected] = useState<'rn' | 'na' | null>(null);
+export function RoleSelect({ onNext }: { onNext: (role: WorkerRole) => void }) {
+  const [selected, setSelected] = useState<WorkerRole | null>(null);
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
@@ -60,6 +73,9 @@ export function RoleSelect({ onNext }: { onNext: (role: 'rn' | 'na') => void }) 
             </div>
           </button>
         ))}
+        <p className="rounded-xl bg-amber-50 px-4 py-3 text-[12px] leading-5 text-amber-800">
+          약국 전산·사무직은 조제·의약품 판매·복약지도 등 약사 면허 업무를 수행하지 않습니다.
+        </p>
       </div>
 
       <Button onClick={() => selected && onNext(selected)} disabled={!selected}>다음 단계</Button>

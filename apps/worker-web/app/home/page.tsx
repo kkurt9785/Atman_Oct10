@@ -8,6 +8,7 @@ import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
 import { dateKST } from '@/lib/date';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
+import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 
 type ShiftWithFacility = Shift & {
   facilities: { name: string; address_text?: string | null } | null;
@@ -51,6 +52,20 @@ const DEPT_CHIPS_NA: { value: DeptFilter; label: string }[] = [
   { value: '의원·클리닉', label: '의원·클리닉' },
   { value: '재활병원', label: '재활병원' },
   { value: '한의원',   label: '한의원' },
+];
+const DEPT_CHIPS_PHARMACIST: { value: DeptFilter; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: '조제실', label: '조제실' },
+  { value: '대체약사', label: '대체약사' },
+  { value: '주말근무', label: '주말근무' },
+  { value: '야간약국', label: '야간약국' },
+];
+const DEPT_CHIPS_PHARMACY_STAFF: { value: DeptFilter; label: string }[] = [
+  { value: 'all', label: '전체' },
+  { value: '전산·접수', label: '전산·접수' },
+  { value: '재고관리', label: '재고관리' },
+  { value: '사무보조', label: '사무보조' },
+  { value: '매대관리', label: '매대관리' },
 ];
 
 // ─── 필터 함수 ─────────────────────────────────────────────────
@@ -209,7 +224,7 @@ function getPosition(timeoutMs = 3500): Promise<{ lat: number; lng: number } | n
 export default function HomePage() {
   const router = useRouter();
   const [name,    setName]    = useState('');
-  const [role,    setRole]    = useState<'rn' | 'na'>('rn');
+  const [role,    setRole]    = useState<WorkerRole>('rn');
   const [areas,   setAreas]   = useState<string[]>([]);
   const [shifts,  setShifts]  = useState<ShiftWithFacility[]>([]);
   const [loading, setLoading] = useState(true);
@@ -312,7 +327,7 @@ export default function HomePage() {
           .maybeSingle(),
       ]);
 
-      const userRole = (workerRow?.role as 'rn' | 'na') ?? 'rn';
+      const userRole = (workerRow?.role as WorkerRole) ?? 'rn';
       const areaLabels = ((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label);
       setRole(userRole);
       setAreas(areaLabels);
@@ -347,8 +362,11 @@ export default function HomePage() {
     load();
   }, [router, fetchShifts]);
 
-  const deptChips = role === 'rn' ? DEPT_CHIPS_RN : DEPT_CHIPS_NA;
-  const roleLabel = role === 'rn' ? '간호사' : '간호조무사';
+  const deptChips = role === 'rn' ? DEPT_CHIPS_RN
+    : role === 'na' ? DEPT_CHIPS_NA
+    : role === 'pharmacist' ? DEPT_CHIPS_PHARMACIST
+    : DEPT_CHIPS_PHARMACY_STAFF;
+  const roleLabel = WORKER_ROLE_LABEL[role];
 
   const roleShifts = shifts.filter((s) => !applied.has(s.id));
   const filtered   = roleShifts.filter(

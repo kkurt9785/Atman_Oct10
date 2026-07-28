@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react';
 import { approveWorkerAction, rejectWorkerAction } from '@/lib/actions/workers';
 import type { PendingWorker } from '@/lib/db/workers';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사 RN', na: '간호조무사 NA' };
+const ROLE_LABEL: Record<string, string> = { rn: '간호사 RN', na: '간호조무사 NA', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
 
 export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
   const [isPending, startTransition] = useTransition();

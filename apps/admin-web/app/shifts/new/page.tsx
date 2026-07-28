@@ -6,12 +6,14 @@ import { createShiftAction } from '@/lib/actions/shifts';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
 import { won } from '@/lib/format';
 
-type Role = 'rn' | 'na' | 'any';
+type Role = 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
 
 const ROLES: { value: Role; label: string }[] = [
   { value: 'rn', label: '간호사 (RN)' },
   { value: 'na', label: '간호조무사 (NA)' },
-  { value: 'any', label: '무관' },
+  { value: 'pharmacist', label: '약사' },
+  { value: 'pharmacy_staff', label: '약국 전산·사무직' },
+  { value: 'any', label: '자격 무관' },
 ];
 
 export default function NewShiftPage() {
@@ -104,13 +106,13 @@ export default function NewShiftPage() {
         {/* 필요 자격 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
           <p className="text-label font-bold text-sub mb-3">필요 자격 *</p>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             {ROLES.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setRole(value)}
-                className={`flex-1 py-3 rounded-xl text-body font-bold transition-colors ${
+                className={`min-h-12 px-2 py-3 rounded-xl text-[13px] font-bold transition-colors ${
                   role === value
                     ? 'bg-primary text-white'
                     : 'bg-bg text-sub'
@@ -120,6 +122,11 @@ export default function NewShiftPage() {
               </button>
             ))}
           </div>
+          {role === 'pharmacy_staff' && (
+            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-800">
+              전산 입력 보조·서류·재고·매대·고객 안내만 등록할 수 있어요. 조제·판매·복약지도는 약사 공고로 등록해 주세요.
+            </p>
+          )}
         </section>
 
         {/* 일정 */}
@@ -209,7 +216,9 @@ export default function NewShiftPage() {
                 name="description"
                 required
                 rows={3}
-                placeholder="예: 3층 일반병동 야간 간호 지원, 투약 및 활력징후 측정"
+                placeholder={role === 'pharmacist' ? '예: 토요일 대체약사, 처방 조제·복약지도'
+                  : role === 'pharmacy_staff' ? '예: 처방전 전산 입력 보조, 서류·재고·매대 정리'
+                  : '예: 3층 일반병동 야간 간호 지원, 투약 및 활력징후 측정'}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink placeholder:text-sub resize-none focus:outline-none focus:ring-2 focus:ring-primary"
@@ -220,7 +229,7 @@ export default function NewShiftPage() {
               <input
                 type="text"
                 name="department"
-                placeholder="예: 일반병동, 중환자실, 응급실"
+                placeholder={role === 'pharmacist' || role === 'pharmacy_staff' ? '예: 조제실, 전산·접수, 재고관리' : '예: 일반병동, 중환자실, 응급실'}
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink placeholder:text-sub focus:outline-none focus:ring-2 focus:ring-primary"

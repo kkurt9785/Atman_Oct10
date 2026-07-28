@@ -5,7 +5,7 @@ import { createLicenseSignedUrl } from '../license-storage';
 export type PendingWorker = {
   id: string;
   name: string;
-  role: 'rn' | 'na';
+  role: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff';
   phone: string | null;
   licenseNumber: string | null;
   licensePhotoUrl: string | null;

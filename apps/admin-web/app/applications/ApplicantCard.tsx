@@ -5,7 +5,7 @@ import { acceptApplication, rejectApplication } from './actions';
 import type { Applicant } from '@/lib/db/applications';
 import { won } from '@/lib/format';
 
-const ROLE_LABEL: Record<string, string> = { rn: 'RN', na: 'NA' };
+const ROLE_LABEL: Record<string, string> = { rn: 'RN', na: 'NA', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
 const ROLE_COLOR: Record<string, string> = {
   rn: 'bg-primary/10 text-primary',
   na: 'bg-teal-50 text-teal-600',

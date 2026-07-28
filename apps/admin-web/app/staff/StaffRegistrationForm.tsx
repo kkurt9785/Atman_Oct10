@@ -56,7 +56,7 @@ export function StaffRegistrationForm(){
     <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
       <h3 className="col-span-2 text-[13px] font-extrabold text-ink">기본 정보</h3>
       <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
-      <label className="text-label font-medium text-sub">직종<select name="role" className={inputClass}><option value="rn">간호사</option><option value="na">간호조무사</option><option value="coordinator">코디네이터</option><option value="admin">행정</option><option value="other">기타</option></select></label>
+      <label className="text-label font-medium text-sub">직종<select name="role" className={inputClass}><option value="rn">간호사</option><option value="na">간호조무사</option><option value="pharmacist">약사</option><option value="pharmacy_staff">약국 전산·사무직</option><option value="coordinator">코디네이터</option><option value="admin">행정</option><option value="other">기타</option></select></label>
       <label className="text-label font-medium text-sub">부서<input name="department" className={inputClass} placeholder="예: 외래"/></label>
       <label className="col-span-2 text-label font-medium text-sub">연락처 <span className="font-normal text-tertiary">· 직원 계정 초대에 사용</span><input name="phone" inputMode="tel" className={inputClass} placeholder="010-0000-0000"/></label>
     </section>

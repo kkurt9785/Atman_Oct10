@@ -30,6 +30,8 @@ function roleLabel(role: string | null): string {
   switch (role) {
     case 'rn':  return 'RN (정규직 간호사)';
     case 'na':  return 'NA (간호조무사)';
+    case 'pharmacist': return '약사';
+    case 'pharmacy_staff': return '약국 전산·사무직';
     case 'cna': return 'CNA';
     default:    return role ?? '스태프';
   }

@@ -10,6 +10,7 @@ const TYPE_LABEL: Record<string, string> = {
   small_hospital:   '병원·의원',
   nursing_home:     '요양원',
   home_health:      '방문간호',
+  pharmacy:         '약국',
 };
 
 type Facility = {
@@ -56,8 +57,8 @@ export default function ClaimFacilityPage() {
         {/* 헤더 */}
         <div className="text-center space-y-2">
           <div className="text-4xl">🏥</div>
-          <h1 className="text-[22px] font-bold text-ink">내 병원 찾기</h1>
-          <p className="text-[14px] text-sub">병원명을 검색해서 내 병원을 연결해주세요</p>
+          <h1 className="text-[22px] font-bold text-ink">내 사업장 찾기</h1>
+          <p className="text-[14px] text-sub">병원·의원·약국명을 검색해서 사업장을 연결해주세요</p>
         </div>
 
         {/* 검색 */}
@@ -67,7 +68,7 @@ export default function ClaimFacilityPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="병원명 입력 (예: 수원요양, W여성)"
+            placeholder="사업장명 입력 (예: W여성, 수원약국)"
             className="flex-1 border border-line rounded-xl px-4 py-3 text-[15px] outline-none focus:border-primary"
           />
           <button
@@ -82,7 +83,7 @@ export default function ClaimFacilityPage() {
         {searched && results.length === 0 && (
           <p className="text-center text-[14px] text-sub">
             검색 결과가 없어요.{' '}
-            <span className="text-primary">담당자에게 병원 등록을 요청해주세요.</span>
+            <span className="text-primary">담당자에게 사업장 등록을 요청해주세요.</span>
           </p>
         )}
 
@@ -115,7 +116,7 @@ export default function ClaimFacilityPage() {
         {selected && (
           <div className="fixed bottom-0 inset-x-0 p-4 bg-white border-t border-line space-y-3">
             <p className="text-[13px] text-sub text-center">
-              <span className="font-semibold text-ink">{selected.name}</span>으로 연결할게요
+              <span className="font-semibold text-ink">{selected.name}</span>에 연결할게요
             </p>
             {error && (
               <p className="text-center text-[14px] font-semibold text-warn">{error}</p>

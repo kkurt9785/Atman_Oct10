@@ -4,7 +4,7 @@ import { getWorkforcePool } from '@/lib/db/workforce';
 import { hours } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
 
-const ROLE_LABEL = { rn: '간호사 RN', na: '간호조무사 NA' } as const;
+const ROLE_LABEL: Record<string,string> = { rn: '간호사 RN', na: '간호조무사 NA', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
 const CREDENTIAL_STYLE = {
   valid: 'bg-success/15 text-success',
   expiring: 'bg-amber-100 text-amber-700',

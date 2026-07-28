@@ -12,6 +12,7 @@ import { BasicInfo, type BasicInfoValue } from '@/components/onboarding/BasicInf
 import { BankAccount, type BankAccountValue } from '@/components/onboarding/BankAccount';
 import { ReviewPending } from '@/components/onboarding/ReviewPending';
 import { Approval } from '@/components/onboarding/Approval';
+import type { WorkerRole } from '@/lib/roles';
 
 type Step = 'splash' | 'terms' | 'role' | 'area' | 'license' | 'info' | 'bank' | 'review' | 'approval';
 const VALID_STEPS = new Set<Step>(['splash','terms','role','area','license','info','bank','review','approval']);
@@ -23,7 +24,7 @@ function OnboardingInner() {
   const param = searchParams.get('step') as Step | null;
   const [step, setStep] = useState<Step>(param && VALID_STEPS.has(param) ? param : 'splash');
   const [terms, setTerms] = useState<TermsValue | null>(null);
-  const [role, setRole] = useState<'rn' | 'na' | null>(null);
+  const [role, setRole] = useState<WorkerRole | null>(null);
   const [areas, setAreas] = useState<AreaPref[]>([]);
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [licenseNumber, setLicenseNumber] = useState('');

@@ -6,7 +6,7 @@ import { getOperationsAlerts, getOperationsSummary, getShiftTemplates } from '@/
 import { createShiftTemplateAction, deactivateShiftTemplateAction, generateRecurringShiftsAction, requestUrgentReplacementAction } from './actions';
 import { getAdminContext } from '@/lib/admin-auth';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', any: '자격 무관' };
+const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
 
 export default async function OperationsPage() {
@@ -86,7 +86,7 @@ export default async function OperationsPage() {
         <summary className="cursor-pointer text-body font-extrabold text-ink">+ 새 반복 템플릿 만들기</summary>
         <form action={createShiftTemplateAction} className="space-y-4 mt-5">
           <input name="name" required maxLength={80} placeholder="예: 3병동 월·수·금 야간" className="w-full h-12 rounded-xl bg-bg px-4 text-body"/>
-          <div className="grid grid-cols-3 gap-2"><select name="required_role" className="h-12 rounded-xl bg-bg px-3"><option value="rn">간호사 RN</option><option value="na">간호조무사 NA</option><option value="any">자격 무관</option></select><input type="number" name="required_headcount" min="1" max="20" defaultValue="1" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/><input type="number" name="hourly_wage" min="10320" step="100" defaultValue="15000" required aria-label="시급" className="h-12 rounded-xl bg-bg px-3"/></div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><select name="required_role" className="h-12 rounded-xl bg-bg px-3"><option value="rn">간호사 RN</option><option value="na">간호조무사 NA</option><option value="pharmacist">약사</option><option value="pharmacy_staff">약국 전산·사무직</option><option value="any">자격 무관</option></select><input type="number" name="required_headcount" min="1" max="20" defaultValue="1" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/><input type="number" name="hourly_wage" min="10320" step="100" defaultValue="15000" required aria-label="시급" className="h-12 rounded-xl bg-bg px-3"/></div>
           <div className="grid grid-cols-2 gap-2"><input type="time" name="start_time" defaultValue="22:00" required className="h-12 rounded-xl bg-bg px-3"/><input type="time" name="end_time" defaultValue="06:00" required className="h-12 rounded-xl bg-bg px-3"/></div>
           <div className="flex justify-between gap-1">{Object.entries(DAY_LABEL).map(([day,label]) => <label key={day} className="flex-1"><input type="checkbox" name="weekdays" value={day} className="sr-only peer"/><span className="h-10 rounded-xl bg-bg text-sub peer-checked:bg-primary peer-checked:text-white flex items-center justify-center text-label font-bold">{label}</span></label>)}</div>
           <input name="department" placeholder="부서 (선택)" className="w-full h-12 rounded-xl bg-bg px-4"/>

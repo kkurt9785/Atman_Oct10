@@ -30,6 +30,7 @@ const FACILITY_TYPE_LABEL: Record<string, string> = {
   clinic:          '의원',
   nursing_home:    '요양원',
   home_health:     '방문간호',
+  pharmacy:        '약국',
 };
 
 function Stars({ rating }: { rating: number }) {

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import type { ShiftRow } from '@/lib/db/shifts';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', any: '무관' };
+const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '무관' };
 
 function formatDate(dateStr: string) {
   const [, m, d] = dateStr.split('-');

@@ -8,27 +8,44 @@ import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '../billing-gates';
 import { todayKST } from '../date';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', any: '간호인력' };
+const ALL_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff'] as const;
+const ROLE_LABEL: Record<string, string> = {
+  rn: '간호사', na: '간호조무사', pharmacist: '약사',
+  pharmacy_staff: '약국 전산·사무직', any: '자격 무관 인력',
+};
+const PHARMACY_STAFF_LICENSED_TASK = /(조제|복약\s*지도|복약지도|의약품\s*(판매|조제)|처방\s*(검토|감사)|최종\s*(검수|확인))/;
 
 export async function createShiftAction(formData: FormData) {
   const shiftDate = String(formData.get('shift_date') ?? '');
   const startTime = String(formData.get('start_time') ?? '');
   const endTime = String(formData.get('end_time') ?? '');
   const hourlyWage = Number.parseInt(String(formData.get('hourly_wage') ?? ''), 10);
-  const requiredRole = String(formData.get('required_role') ?? '') as 'rn' | 'na' | 'any';
+  const requiredRole = String(formData.get('required_role') ?? '') as 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
   const description = String(formData.get('description') ?? '').trim();
   const department = String(formData.get('department') ?? '').trim() || null;
   const notes = String(formData.get('notes') ?? '').trim() || null;
   const invitedWorkerId = String(formData.get('invited_worker_id') ?? '').trim() || null;
 
   if (!shiftDate || !startTime || !endTime || !requiredRole || !description) throw new Error('필수 항목을 모두 입력해 주세요.');
-  if (!['rn','na','any'].includes(requiredRole)) throw new Error('필요 자격이 올바르지 않습니다.');
+  if (![...ALL_ROLES,'any'].includes(requiredRole)) throw new Error('필요 자격이 올바르지 않습니다.');
+  if (requiredRole === 'pharmacy_staff' && PHARMACY_STAFF_LICENSED_TASK.test([description, department, notes].filter(Boolean).join(' '))) {
+    throw new Error('약국 전산·사무직 공고에는 조제·복약지도·의약품 판매 등 약사 면허 업무를 포함할 수 없어요.');
+  }
   if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026) throw new Error('시급은 2026년 최저시급 이상이어야 합니다.');
   const estimatedTotalPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage);
   if (estimatedTotalPay == null) throw new Error('근무 시간을 확인해 주세요.');
 
   const context = await requireAdminContext(['owner','operator','super']);
   const sb = adminClient();
+  if (sb) {
+    const { data: facility } = await sb.from('facilities').select('facility_type').eq('id', context.facilityId).maybeSingle();
+    if (requiredRole === 'pharmacy_staff' && facility?.facility_type !== 'pharmacy') {
+      throw new Error('약국 전산·사무직 공고는 약국 사업장에서만 등록할 수 있어요.');
+    }
+    if (facility?.facility_type === 'pharmacy' && requiredRole === 'any') {
+      throw new Error('약국 공고는 면허 업무 구분을 위해 약사 또는 약국 전산·사무직을 선택해 주세요.');
+    }
+  }
   let invitedWorker: { id: string; auth_user_id: string | null; name: string; role: string } | null = null;
   if (invitedWorkerId) {
     if (!sb) throw new Error('서버 설정을 확인해 주세요.');
@@ -95,7 +112,7 @@ export async function createShiftAction(formData: FormData) {
       if (invitedWorker) {
         workers = [{ auth_user_id: invitedWorker.auth_user_id }];
       } else {
-        const roleFilter = requiredRole === 'any' ? ['rn','na'] : [requiredRole];
+        const roleFilter = requiredRole === 'any' ? [...ALL_ROLES] : [requiredRole];
         const { data, error: workerError } = await sb.from('workers').select('auth_user_id')
           .in('role', roleFilter).eq('verification_status', 'approved').is('deleted_at', null);
         if (workerError) throw workerError;

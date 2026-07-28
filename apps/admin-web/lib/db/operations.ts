@@ -5,7 +5,7 @@ import { todayKST } from '../date';
 export type ShiftTemplateRow = {
   id: string;
   name: string;
-  requiredRole: 'rn' | 'na' | 'any';
+  requiredRole: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
   weekdays: number[];
   startTime: string;
   endTime: string;

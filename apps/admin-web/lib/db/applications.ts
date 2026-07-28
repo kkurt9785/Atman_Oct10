@@ -6,7 +6,7 @@ export type Applicant = {
   applicationId: string;
   workerId: string;
   name: string;
-  role: 'rn' | 'na';
+  role: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff';
   verificationStatus: string;
   distanceMeters: number | null;
   matchScore: number | null;
