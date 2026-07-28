@@ -22,6 +22,7 @@ export default async function TimesheetPage(){
       <Link href="/attendance-qr" className="flex h-11 items-center justify-center rounded-xl bg-primary text-label font-bold text-white">동적 QR</Link>
       <Link href="/leave" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">휴가 관리</Link>
     </div>
+    <Link href="/attendance-history" className="mt-3 flex h-11 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-label font-bold text-primary">지난 근태·월 마감 보기 →</Link>
     <AttendanceDashboard staff={staff} matched={matched} failures={failures}/>
     <p className="mt-4 px-1 text-[11px] leading-5 text-sub">병원 관리자가 입력·승인한 운영 기록입니다. 법정 휴가와 임금의 최종 판단은 병원의 계약 및 취업규칙을 기준으로 확인해 주세요.</p>
   </main>;

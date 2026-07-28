@@ -19,6 +19,9 @@ export async function updatePaymentStatus(formData: FormData) {
     const shiftDate=Array.isArray(shift)?shift[0]?.shift_date:shift?.shift_date;
     const currentMonth=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7);
     if(!shiftDate||shiftDate.slice(0,7)>=currentMonth)throw new Error('급여 승인은 마감된 이전 달 근무부터 가능해요.');
+    const {data:closure}=await admin.from('attendance_period_closures').select('status')
+      .eq('facility_id',context.facilityId).eq('period_month',`${shiftDate.slice(0,7)}-01`).maybeSingle();
+    if(closure?.status!=='closed')throw new Error('근태 내역에서 해당 월을 먼저 마감해 주세요.');
     if(!instruction.bank_name_snapshot||!/^\d{4}$/.test(instruction.account_last4_snapshot??''))throw new Error('워커의 지급 은행과 계좌 끝 4자리를 먼저 확인해 주세요.');
   }
   const sb = userClient(context.accessToken);
@@ -65,6 +68,9 @@ export async function updateStaffPaymentStatus(formData:FormData){
   if(action==='approve'){
     const currentMonth=`${new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7)}-01`;
     if(periodMonth>=currentMonth)throw new Error('급여 승인은 마감된 이전 달부터 가능해요.');
+    const {data:closure}=await sb.from('attendance_period_closures').select('status')
+      .eq('facility_id',context.facilityId).eq('period_month',periodMonth).maybeSingle();
+    if(closure?.status!=='closed')throw new Error('근태 내역에서 해당 월을 먼저 마감해 주세요.');
     if(!staff.bank_name||!/^\d{4}$/.test(staff.account_last4??''))throw new Error('지급 은행과 계좌 끝 4자리를 먼저 등록해 주세요.');
   }
   const needsProration=staff.pay_basis==='monthly'&&Boolean(
