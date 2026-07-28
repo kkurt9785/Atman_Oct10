@@ -21,8 +21,8 @@ export function BankAccount({ onNext, submitting, submitError }: { onNext: (valu
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
       <p className="text-[13px] font-medium text-tertiary mb-2">가입 정보 2/2</p>
-      <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">병원 임금 지급 계좌</h1>
-      <p className="text-[15px] text-sub mb-8">근무 완료 후 병원이 직접 임금을 지급할 본인 명의 계좌예요.</p>
+      <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">임금 지급 계좌</h1>
+      <p className="text-[15px] text-sub mb-8">근무 완료 후 채용 사업장이 직접 임금을 지급할 본인 명의 계좌예요.</p>
       <div className="relative mb-4">
         <label id="bank-label" className="block text-[13px] font-bold text-ink mb-2">은행</label>
         <button type="button" aria-labelledby="bank-label bank-value" aria-haspopup="listbox" aria-expanded={showDropdown} aria-controls="bank-options" onClick={() => setShowDropdown((value) => !value)} className="w-full h-[52px] flex items-center justify-between px-4 bg-white rounded-card border border-line">
@@ -33,7 +33,7 @@ export function BankAccount({ onNext, submitting, submitError }: { onNext: (valu
       <label htmlFor="account-number" className="text-[13px] font-bold text-ink mb-2">계좌번호</label>
       <input id="account-number" type="tel" inputMode="numeric" autoComplete="off" aria-describedby="account-help" placeholder="숫자만 입력" value={account} onChange={(e) => setAccount(e.target.value.replace(/\D/g, '').slice(0, 20))} className="w-full h-[52px] px-4 bg-white rounded-card border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-2" />
       <div className="bg-primary/5 border border-primary/15 rounded-xl p-3 mb-10">
-        <p id="account-help" className="text-[13px] text-sub leading-5">잇닿은 근무시간과 지급 정보를 관리하며, 임금은 채용 병원이 직접 지급합니다. 계좌번호는 서버에서 암호화해요.</p>
+        <p id="account-help" className="text-[13px] text-sub leading-5">잇닿은 근무시간과 지급 정보를 관리하며, 임금은 채용 사업장이 직접 지급합니다. 계좌번호는 서버에서 암호화해요.</p>
       </div>
       <div className="mt-auto">
         {submitError && <p role="alert" className="text-[13px] font-bold text-red-600 text-center mb-3">{submitError}</p>}

@@ -8,6 +8,7 @@ import { WorkerApprovalCard } from './WorkerApprovalCard';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { CopyInviteButton } from './CopyInviteButton';
 import { StaffRegistrationForm } from './StaffRegistrationForm';
+import { getShop } from '@/lib/db/shop';
 
 const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', pharmacist:'약사', pharmacy_staff:'약국 전산·사무직', coordinator:'코디네이터', admin:'행정', other:'기타' };
 const TYPE: Record<string,string> = { regular:'상시 직원', fixed_term:'기간제', temporary:'임시 계약', daily:'단기 근무' };
@@ -17,9 +18,10 @@ const PAY:Record<string,string>={monthly:'월급',hourly:'시급',daily:'일급'
 export default async function StaffPage() {
   const context = await getAdminContext();
   const canReviewWorkers = context?.accessRole === 'super';
-  const [clinicStaff, shiftStaff, pending] = await Promise.all([
-    getClinicStaff(), getStaff(), canReviewWorkers ? getPendingWorkers() : Promise.resolve([]),
+  const [clinicStaff, shiftStaff, pending,shop] = await Promise.all([
+    getClinicStaff(), getStaff(), canReviewWorkers ? getPendingWorkers() : Promise.resolve([]),getShop(),
   ]);
+  const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
   const contractCount = clinicStaff.filter((s)=>['fixed_term','temporary','daily'].includes(s.engagementType)).length;
   const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL
     ?? (process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');
@@ -30,7 +32,7 @@ export default async function StaffPage() {
         <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-white text-[21px] text-ink shadow-sm active:bg-bg" aria-label="홈으로 돌아가기">←</Link>
         <div><p className="text-label font-bold text-primary">기존 직원 + 신규 채용인력</p><h1 className="text-display font-extrabold text-ink">직원 관리</h1></div>
       </div>
-      <p className="text-label text-sub mt-1">직원 10명 이하 병원도 설정 없이 바로 시작할 수 있어요.</p>
+      <p className="text-label text-sub mt-1">직원 10명 이하 {facilityWord}도 설정 없이 바로 시작할 수 있어요.</p>
     </div>
 
     <div className="grid grid-cols-3 gap-2">
@@ -48,7 +50,7 @@ export default async function StaffPage() {
       <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between">
         <span className="font-bold text-body">＋ 기존 직원 직접 등록</span><span className="text-sub group-open:rotate-180">⌄</span>
       </summary>
-      <StaffRegistrationForm/>
+      <StaffRegistrationForm facilityType={shop?.facilityType}/>
     </details>
 
     <SectionTitle>관리 중인 직원</SectionTitle>

@@ -35,18 +35,18 @@ type Application = {
 // ── 상수 ───────────────────────────────────────────────────────
 const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: string; className: string }> = {
   invited: {
-    label: '병원 직접 요청',
-    description: '이전에 함께한 병원에서 반복근무를 요청했어요. 수락 여부를 선택해 주세요.',
+    label: '반복근무 요청',
+    description: '이전에 함께한 사업장에서 다시 근무를 요청했어요. 수락 여부를 선택해 주세요.',
     className: 'bg-amber-100 text-amber-700',
   },
   applied: {
-    label: '병원 확인 중',
-    description: '지원이 접수됐고 병원에서 확인하고 있어요.',
+    label: '사업장 확인 중',
+    description: '지원이 접수됐고 사업장에서 확인하고 있어요.',
     className: 'bg-primary/10 text-primary',
   },
   accepted: {
-    label: '병원 채용확정',
-    description: '병원이 수락했어요. 근무 당일 QR 체크인을 준비해 주세요.',
+    label: '채용 확정',
+    description: '사업장이 수락했어요. 근무 당일 원터치 출근을 준비해 주세요.',
     className: 'bg-[#E5FAF4] text-success',
   },
   rejected: {
@@ -205,7 +205,7 @@ function ApplicationCard({
             href={`/chat/${app.id}`}
             className="mt-2 w-full h-11 border border-primary/30 rounded-btn text-[14px] font-semibold text-primary flex items-center justify-center gap-1.5 active:bg-primary/5"
           >
-            💬 병원 채팅
+            💬 사업장 채팅
           </Link>
         </>
       )}

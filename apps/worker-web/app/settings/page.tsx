@@ -45,7 +45,7 @@ export default function SettingsPage() {
 
       if (workerProf) {
         const filled = [
-          workerProf.license_number || workerProf.license_photo_url,
+          workerProf.role==='pharmacy_staff'?true:(workerProf.license_number || workerProf.license_photo_url),
           workerProf.experience_years,
           workerProf.last_workplace,
           (workerProf.department_tags as string[] | null)?.length,
@@ -146,7 +146,7 @@ export default function SettingsPage() {
                 </span>
               )}
             </div>
-            <p className="text-[13px] text-tertiary">병원 HR 담당자에게 보이는 정보예요</p>
+            <p className="text-[13px] text-tertiary">지원한 사업장 담당자에게 보이는 정보예요</p>
             {!profileDone && (
               <div className="mt-2 h-1.5 bg-bg rounded-full overflow-hidden">
                 <div

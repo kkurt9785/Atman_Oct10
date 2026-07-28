@@ -24,6 +24,10 @@ export async function addClinicStaffAction(form: FormData) {
   const bankName=text(form,'bank_name')||null;
   const accountLast4=text(form,'account_last4')||null;
   if (!name || !['rn','na','pharmacist','pharmacy_staff','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
+  const { data: facility } = await sb.from('facilities').select('facility_type').eq('id',context.facilityId).maybeSingle();
+  if(facility?.facility_type==='pharmacy'&&!['pharmacist','pharmacy_staff','admin','other'].includes(role)){
+    throw new Error('약국 직원은 약사·약국 전산/사무직·관리 직종으로 등록해 주세요.');
+  }
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
   if (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');

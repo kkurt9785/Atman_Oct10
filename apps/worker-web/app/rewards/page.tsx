@@ -19,6 +19,7 @@ function RewardsContent(){
   const [loading,setLoading]=useState(true);
   const [notice,setNotice]=useState('');
   const [copied,setCopied]=useState(false);
+  const [role,setRole]=useState('');
 
   useEffect(()=>{void (async()=>{
     const ref=params.get('ref');
@@ -35,7 +36,11 @@ function RewardsContent(){
       if(error)setNotice(error.message.replace(/^.*?: /,''));
       else window.localStorage.removeItem('itdat_referral_code');
     }
-    const {data:status,error}=await supabase.rpc('get_my_launch_reward_status');
+    const [{data:status,error},{data:worker}]=await Promise.all([
+      supabase.rpc('get_my_launch_reward_status'),
+      supabase.from('workers').select('role').eq('auth_user_id',user.id).maybeSingle(),
+    ]);
+    setRole(worker?.role??'');
     if(error)setNotice('리워드 현황을 불러오지 못했어요.');
     else setData(status as Status);
     setLoading(false);
@@ -44,7 +49,7 @@ function RewardsContent(){
   async function share(){
     if(!data?.code)return;
     const url=`${window.location.origin}/rewards?ref=${data.code}`;
-    const text='잇닿에서 간호 시프트를 확인해 보세요. 프로필 인증과 첫 근무 완료 혜택이 있어요.';
+    const text='잇닿에서 병원·약국 의료인력 시프트를 확인해 보세요. 프로필 인증과 첫 근무 완료 혜택이 있어요.';
     if(navigator.share){
       try{await navigator.share({title:'잇닿 워커 초대',text,url});return;}catch{/* copy fallback */}
     }
@@ -56,9 +61,9 @@ function RewardsContent(){
   if(!data?.ok)return <main className="min-h-screen bg-bg px-5 pt-12"><div className="rounded-2xl bg-white p-8 text-center"><b>{data?.message??'리워드를 확인할 수 없어요.'}</b></div></main>;
 
   const steps=[
-    {label:'프로필·면허 인증',description:'활동지역과 면허 심사를 완료해요',done:data.milestones.profileVerified,reward:'커피 5천원'},
+    {label:role==='pharmacy_staff'?'프로필 인증':'프로필·면허 인증',description:role==='pharmacy_staff'?'활동지역과 본인·경력 확인을 완료해요':'활동지역과 면허 심사를 완료해요',done:data.milestones.profileVerified,reward:'커피 5천원'},
     {label:'첫 시프트 지원',description:'원하는 공고를 직접 선택해 지원해요',done:data.milestones.firstApplied,reward:null},
-    {label:'첫 근무 완료',description:'출퇴근과 병원 근태 확정까지 완료해요',done:data.milestones.firstShiftCompleted,reward:'2만원'},
+    {label:'첫 근무 완료',description:'출퇴근과 사업장 근태 확정까지 완료해요',done:data.milestones.firstShiftCompleted,reward:'2만원'},
   ];
   const qualified=data.rewards.reduce((sum,row)=>row.status!=='cancelled'?sum+row.amount:sum,0);
 
@@ -101,7 +106,7 @@ function RewardsContent(){
 
     <details className="mx-5 mt-5 rounded-2xl border border-line bg-white p-4 text-[12px] text-sub">
       <summary className="cursor-pointer font-bold text-ink">지급 조건 확인</summary>
-      <ul className="mt-3 list-disc space-y-1.5 pl-4 leading-5"><li>신규 가입·휴대전화 등록·면허 심사 완료가 필요해요.</li><li>첫 근무는 정상 체크아웃과 병원 근태 확정 후 인정돼요.</li><li>취소·노쇼·분쟁 기록은 검토 또는 지급 제외될 수 있어요.</li><li>캠페인 예산 소진 시 사전 안내 후 종료될 수 있어요.</li></ul>
+      <ul className="mt-3 list-disc space-y-1.5 pl-4 leading-5"><li>신규 가입·휴대전화 등록과 직군별 프로필 확인이 필요해요.</li><li>첫 근무는 정상 체크아웃과 사업장 근태 확정 후 인정돼요.</li><li>취소·노쇼·분쟁 기록은 검토 또는 지급 제외될 수 있어요.</li><li>캠페인 예산 소진 시 사전 안내 후 종료될 수 있어요.</li></ul>
     </details>
   </main>;
 }

@@ -92,7 +92,7 @@ export default function WorkerChatPage() {
       <div className="bg-white px-5 pt-12 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
         <button onClick={() => router.back()} className="text-ink text-[20px] leading-none -ml-1 p-1">←</button>
         <div className="flex-1">
-          <h1 className="text-[16px] font-extrabold text-ink">병원 채팅</h1>
+          <h1 className="text-[16px] font-extrabold text-ink">사업장 채팅</h1>
           <p className="text-[11px] text-tertiary">근무 종료 24시간 후 잠겨요 · 기록 보관</p>
         </div>
       </div>

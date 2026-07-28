@@ -337,7 +337,8 @@ export default function HomePage() {
 
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;
-        const incomplete = !((w.license_number || w.license_photo_url) && w.experience_years && w.last_workplace && (w.department_tags as string[] | null)?.length);
+        const credentialReady = w.role==='pharmacy_staff'||w.license_number||w.license_photo_url;
+        const incomplete = !(credentialReady && w.experience_years && w.last_workplace && (w.department_tags as string[] | null)?.length);
         setShowProfileBanner(incomplete);
       }
 
@@ -493,7 +494,7 @@ export default function HomePage() {
           <span className="text-2xl flex-shrink-0">📋</span>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-bold text-ink">프로필 카드를 완성해보세요</p>
-            <p className="text-[12px] text-sub mt-0.5">병원 HR에게 더 좋은 첫인상을 남길 수 있어요</p>
+            <p className="text-[12px] text-sub mt-0.5">지원할 사업장에 더 좋은 첫인상을 남길 수 있어요</p>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <Link href="/settings/profile" className="text-[12px] font-bold text-primary whitespace-nowrap">

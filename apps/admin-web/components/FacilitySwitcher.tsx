@@ -60,7 +60,7 @@ export function FacilitySwitcher() {
       value={selected}
       onChange={(event) => void handleChange(event.target.value)}
       className="max-w-[150px] rounded-lg border border-line bg-white px-2 py-1 text-[12px] font-semibold text-ink"
-      aria-label="병원 선택"
+      aria-label="사업장 선택"
     >
       {facilities.map((facility) => (
         <option key={facility.id} value={facility.id}>{facility.name}</option>

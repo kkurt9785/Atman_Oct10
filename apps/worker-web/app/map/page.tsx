@@ -55,7 +55,7 @@ export default function ShiftMapPage(){
     setShifts(mapped);
     if(mapped.length){
       const {data:coords,error:pointError}=await supabase.rpc('get_shift_map_points_secure',{p_shift_ids:mapped.slice(0,100).map(s=>s.id)});
-      if(pointError)setError('병원 위치를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      if(pointError)setError('사업장 위치를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
       else setPoints((coords??[]) as Point[]);
     }
     setLoading(false);
@@ -108,7 +108,7 @@ export default function ShiftMapPage(){
   }
 
   return <main className="min-h-screen bg-bg pb-24">
-    <header className="px-5 pt-10 pb-4 bg-white flex items-end justify-between"><div><p className="text-[13px] font-bold text-primary">내 주변 병원</p><h1 className="text-[26px] font-extrabold">공고 지도</h1></div><Link href="/shifts" className="h-10 px-4 rounded-xl border border-line flex items-center text-[13px] font-bold">목록 보기</Link></header>
+    <header className="px-5 pt-10 pb-4 bg-white flex items-end justify-between"><div><p className="text-[13px] font-bold text-primary">내 주변 의료 사업장</p><h1 className="text-[26px] font-extrabold">공고 지도</h1></div><Link href="/shifts" className="h-10 px-4 rounded-xl border border-line flex items-center text-[13px] font-bold">목록 보기</Link></header>
     <div className="relative">
       <div ref={mapEl} className="h-[calc(100vh-190px)] min-h-[480px] bg-[#eef2f5]"/>
       {loading&&<div className="absolute inset-0 bg-white/80 flex items-center justify-center text-sub">지도를 준비하고 있어요...</div>}
@@ -116,7 +116,7 @@ export default function ShiftMapPage(){
       <div className="absolute left-4 top-4 rounded-full bg-white/95 shadow px-3 py-2 text-[12px] font-bold">공고 {shifts.length}건</div>
     </div>
     {error&&<p role="alert" className="mx-4 mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-[13px] font-bold">{error}</p>}
-    {selected&&<section className="fixed bottom-[72px] inset-x-4 mx-auto max-w-[440px] z-20 bg-white rounded-2xl shadow-xl p-4"><button onClick={()=>{setSelected(null);setSelectedGroup([]);}} className="absolute right-4 top-3 text-sub">✕</button><p className="text-[12px] text-primary font-bold">{dateLabel(selected.shift_date)} · {timeLabel(selected)}</p><h2 className="text-[17px] font-extrabold mt-1 pr-6">{facilityName(selected)}</h2>{selectedGroup.length>1&&<label className="block mt-3 text-[12px] font-bold text-sub">이 병원의 공고 {selectedGroup.length}건<select value={selected.id} onChange={event=>setSelected(selectedGroup.find(shift=>shift.id===event.target.value)??selected)} className="mt-1 h-10 w-full rounded-xl border border-line bg-white px-3 text-ink">{selectedGroup.map(shift=><option key={shift.id} value={shift.id}>{dateLabel(shift.shift_date)} · {timeLabel(shift)} · {shift.department??'부서 협의'}</option>)}</select></label>}<p className="text-[13px] text-sub mt-2">{selected.department??'부서 협의'} · 약 {selected.distance_km?.toFixed(1)??'-'}km</p><div className="flex items-center justify-between mt-3 pt-3 border-t border-line"><b className="text-[18px]">₩{selected.estimated_total_pay.toLocaleString('ko-KR')}</b><button onClick={()=>setApplyTarget(selected)} className="h-11 px-5 rounded-xl bg-primary text-white font-bold">지원하기</button></div></section>}
+    {selected&&<section className="fixed bottom-[72px] inset-x-4 mx-auto max-w-[440px] z-20 bg-white rounded-2xl shadow-xl p-4"><button onClick={()=>{setSelected(null);setSelectedGroup([]);}} className="absolute right-4 top-3 text-sub">✕</button><p className="text-[12px] text-primary font-bold">{dateLabel(selected.shift_date)} · {timeLabel(selected)}</p><h2 className="text-[17px] font-extrabold mt-1 pr-6">{facilityName(selected)}</h2>{selectedGroup.length>1&&<label className="block mt-3 text-[12px] font-bold text-sub">이 사업장의 공고 {selectedGroup.length}건<select value={selected.id} onChange={event=>setSelected(selectedGroup.find(shift=>shift.id===event.target.value)??selected)} className="mt-1 h-10 w-full rounded-xl border border-line bg-white px-3 text-ink">{selectedGroup.map(shift=><option key={shift.id} value={shift.id}>{dateLabel(shift.shift_date)} · {timeLabel(shift)} · {shift.department??'업무 협의'}</option>)}</select></label>}<p className="text-[13px] text-sub mt-2">{selected.department??'업무 협의'} · 약 {selected.distance_km?.toFixed(1)??'-'}km</p><div className="flex items-center justify-between mt-3 pt-3 border-t border-line"><b className="text-[18px]">₩{selected.estimated_total_pay.toLocaleString('ko-KR')}</b><button onClick={()=>setApplyTarget(selected)} className="h-11 px-5 rounded-xl bg-primary text-white font-bold">지원하기</button></div></section>}
     {applyTarget&&<ApplySheet shift={applyTarget} onClose={()=>setApplyTarget(null)} onApplied={()=>{setShifts(v=>v.filter(s=>s.id!==applyTarget.id));setPoints(v=>v.filter(p=>p.shift_id!==applyTarget.id));setApplyTarget(null);setSelected(null);setSelectedGroup([]);}}/>}
   </main>;
 }

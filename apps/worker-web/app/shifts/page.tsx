@@ -122,7 +122,7 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
           onClick={(e) => { e.stopPropagation(); onFacility(); }}
           className="shrink-0 ml-2 text-[12px] font-semibold text-primary"
         >
-          병원 보기 &gt;
+          사업장 보기 &gt;
         </button>
       </div>
 

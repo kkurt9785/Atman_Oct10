@@ -122,12 +122,12 @@ function OnboardingInner() {
       {step === 'splash' && <Splash />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep('area'); }} />}
-      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('license'); }} />}
+      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep(role==='pharmacy_staff'?'info':'license'); }} />}
       {step === 'license' && <LicenseUpload onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} submitting={submitting} submitError={submitError} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
-      {step === 'approval' && <Approval onStart={finishOnboarding} onBrowse={finishOnboarding} />}
+      {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}
     </main>
   );
 }

@@ -192,7 +192,7 @@ export function ApplicantCard({
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setConfirmOpen(false)} />
           <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-3xl z-50 px-5 pt-6 pb-10">
             <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
-            <p className="text-[20px] font-extrabold text-ink">병원 채용을 확정할까요?</p>
+            <p className="text-[20px] font-extrabold text-ink">채용을 확정할까요?</p>
             <p className="text-[14px] text-sub mt-1">
               확정 후 워커에게 수락 알림이 전송됩니다.
             </p>
@@ -203,7 +203,7 @@ export function ApplicantCard({
                 <span className="font-bold text-ink">{applicant.name}</span>
               </div>
               <div className="flex justify-between text-[13px]">
-                <span className="text-sub">병원 직접 지급 예상액</span>
+                <span className="text-sub">사업장 직접 지급 예상액</span>
                 <span className="font-bold text-primary">{won(estimatedPay)}</span>
               </div>
             </div>
@@ -215,7 +215,7 @@ export function ApplicantCard({
                   disabled={loading != null}
                   className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl disabled:opacity-50"
                 >
-                  {loading === 'accept' ? '확정 중...' : '병원 채용 확정하기'}
+                  {loading === 'accept' ? '확정 중...' : '채용 확정하기'}
                 </button>
               <button
                 onClick={() => setConfirmOpen(false)}

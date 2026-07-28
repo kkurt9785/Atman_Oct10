@@ -24,6 +24,8 @@ export default async function Home() {
   if (!shop) redirect('/setup/claim-facility');
 
   const summary = workforceSummary;
+  const isPharmacy = shop.facilityType === 'pharmacy';
+  const facilityWord = isPharmacy ? '약국' : '병원';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
 
   // 오늘 챙길 일 — 값이 있을 때만 노출 (평온한 날엔 조치 섹션 자체가 사라짐)
@@ -81,6 +83,12 @@ export default async function Home() {
           </div>
         </Card>
       )}
+      {isPharmacy&&(
+        <Link href="/workforce" className="mt-4 block rounded-2xl border border-primary/20 bg-primary/5 p-5 active:opacity-80">
+          <p className="text-[12px] font-bold text-primary">약국 운영의 핵심</p>
+          <div className="mt-1 flex items-center justify-between gap-3"><div><h2 className="text-[17px] font-extrabold text-ink">함께 일한 약사에게 다시 요청</h2><p className="mt-1 text-[12px] leading-5 text-sub">검증된 대체약사를 인력풀에서 찾아 다음 근무를 바로 요청하세요.</p></div><span className="text-[22px] text-primary">→</span></div>
+        </Link>
+      )}
 
       {/* ③④ 빠른 메뉴 (자주 쓰는 4 + 더보기 접기) */}
       <SectionTitle>빠른 메뉴</SectionTitle>
@@ -93,12 +101,12 @@ export default async function Home() {
         ]}
         more={[
           { icon: '🔲', label: 'QR 체크인', href: '/checkin' },
-          { icon: '🤝', label: '병원 인력풀', href: '/workforce' },
+          { icon: '🤝', label: `${facilityWord} 인력풀`, href: '/workforce' },
           { icon: '⚙️', label: '운영 자동화', href: '/operations' },
           { icon: '💬', label: '워커 채팅', href: '/chats' },
           { icon: '₩', label: '급여 자료', href: '/payroll' },
           { icon: '🧾', label: '요금·청구', href: '/membership' },
-          { icon: '🏥', label: '병원 프로필', href: '/settings' },
+          { icon: isPharmacy ? '💊' : '🏥', label: `${facilityWord} 프로필`, href: '/settings' },
         ]}
       />
 
@@ -113,7 +121,7 @@ export default async function Home() {
         <Card className="divide-y divide-line p-0">
           {clinicStaff.map((s) => (
             <div key={`managed-${s.id}`} className="flex items-center justify-between px-5 py-4">
-              <div><p className="text-body font-bold text-ink">{s.name}</p><p className="text-label text-sub">{s.department??'부서 미지정'} · 병원 등록 직원</p></div>
+              <div><p className="text-body font-bold text-ink">{s.name}</p><p className="text-label text-sub">{s.department??'업무 미지정'} · {facilityWord} 등록 직원</p></div>
               <StatusBadge status={s.attendanceStatus==='working'||s.attendanceStatus==='late'||s.attendanceStatus==='checkout_pending'?'근무중':s.attendanceStatus==='completed'?'퇴근':s.attendanceStatus==='absent'?'결근':'예정'} />
             </div>
           ))}
@@ -135,7 +143,7 @@ export default async function Home() {
         className="mt-6 mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-bg active:opacity-80"
       >
         <span className="text-label text-sub">
-          워커 임금은 병원 직접 지급 · 잇닿 이용료는 <b className="text-ink">별도 청구서</b>
+          워커 임금은 {facilityWord} 직접 지급 · 잇닿 이용료는 <b className="text-ink">별도 청구서</b>
         </span>
         <span className="text-label font-bold text-primary flex-shrink-0 ml-2">요금·청구 →</span>
       </Link>

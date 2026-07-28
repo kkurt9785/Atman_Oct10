@@ -12,6 +12,10 @@ export type FacilityProfile = {
   has_uniform: boolean;
   emr_system: string | null;
   intro: string | null;
+  pharmacy_type: string | null;
+  pharmacy_system: string | null;
+  average_daily_prescriptions: number | null;
+  handover_minutes: number | null;
   attendance_mode: 'gps'|'gps_qr'|'qr'|'admin'|'gps_or_qr';
   gps_radius_meters: number;
   max_gps_accuracy_meters: number;
@@ -29,7 +33,7 @@ export async function getFacilityProfile(): Promise<FacilityProfile | null> {
 
   const [{ data, error },{data:attendance}] = await Promise.all([sb
     .from('facilities')
-    .select('bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro')
+    .select('bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro, pharmacy_type, pharmacy_system, average_daily_prescriptions, handover_minutes')
     .eq('id', context.facilityId)
     .single(),sb.from('facility_attendance_settings').select('*').eq('facility_id',context.facilityId).maybeSingle()]);
 
@@ -61,6 +65,12 @@ export async function saveFacilityProfile(formData: FormData) {
   }
 
   const intro = String(formData.get('intro') ?? '').trim();
+  const prescriptionRaw=String(formData.get('average_daily_prescriptions')??'').trim();
+  const averageDailyPrescriptions=prescriptionRaw?Number.parseInt(prescriptionRaw,10):null;
+  const handoverRaw=String(formData.get('handover_minutes')??'').trim();
+  const handoverMinutes=handoverRaw?Number.parseInt(handoverRaw,10):null;
+  if(averageDailyPrescriptions!==null&&(!Number.isInteger(averageDailyPrescriptions)||averageDailyPrescriptions<0||averageDailyPrescriptions>10000))throw new Error('일평균 처방전 수를 확인해 주세요.');
+  if(handoverMinutes!==null&&(!Number.isInteger(handoverMinutes)||handoverMinutes<0||handoverMinutes>240))throw new Error('인수인계 시간을 확인해 주세요.');
   const patch = {
     bed_count: bedCount,
     main_department: String(formData.get('main_department') ?? '').trim().slice(0, 100) || null,
@@ -69,6 +79,10 @@ export async function saveFacilityProfile(formData: FormData) {
     has_uniform: formData.get('has_uniform') === 'on',
     emr_system: String(formData.get('emr_system') ?? '').trim().slice(0, 100) || null,
     intro: intro.slice(0, 2000) || null,
+    pharmacy_type:String(formData.get('pharmacy_type')??'').trim().slice(0,50)||null,
+    pharmacy_system:String(formData.get('pharmacy_system')??'').trim().slice(0,100)||null,
+    average_daily_prescriptions:averageDailyPrescriptions,
+    handover_minutes:handoverMinutes,
     updated_at: new Date().toISOString(),
   };
 

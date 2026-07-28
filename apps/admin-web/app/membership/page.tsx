@@ -16,7 +16,7 @@ const PLAN_PERKS:Record<string,string[]> = {
   clinic:['직원 최대 10명','간편 출퇴근·휴가','공고 월 3건','관리자 1명'],
   basic:['직원 근태 20명','공고 월 15건','월 반복초대 대상 20명','관리자 2명'],
   pro:['직원 근태 60명','공고 무제한','월 반복초대 대상 60명','자격 만료관리·운영자동화'],
-  enterprise:['직원 근태·공고·반복초대 무제한','관리자 15명 · 병원 3곳','자격·운영 통합관리','API·감사로그·전담지원'],
+  enterprise:['직원 근태·공고·반복초대 무제한','관리자 15명 · 사업장 3곳','자격·운영 통합관리','API·감사로그·전담지원'],
 };
 type Invoice={id:string;invoice_number:string;period_start:string;period_end:string;total_amount:number;status:string;due_date:string|null};
 
@@ -58,10 +58,10 @@ export default async function MembershipPage(){
   const isTrial = Boolean(subscription?.trial_ends_at && !subscription?.trial_converted_at);
   const trialDaysLeft = isTrial ? Math.max(1, Math.ceil((Date.parse(`${subscription.trial_ends_at}T23:59:59+09:00`)-Date.now())/86_400_000)) : 0;
   return <main className="px-4 pb-28">
-    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">임금과 완전히 분리된 요금</p><h1 className="text-display font-extrabold text-ink">요금제·청구</h1><p className="text-label text-sub mt-2 leading-5">잇닿 이용료는 병원 규모(공고·인력풀·관리자) 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.</p></div>
+    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">임금과 완전히 분리된 요금</p><h1 className="text-display font-extrabold text-ink">요금제·청구</h1><p className="text-label text-sub mt-2 leading-5">잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.</p></div>
     {error ? <div className="bg-white rounded-2xl p-8 text-center border border-red-200"><p role="alert" className="text-body font-bold text-red-600">청구 정보를 불러오지 못했어요</p><p className="text-label text-sub mt-2">{error}</p><a href="/membership" className="inline-flex mt-4 px-4 h-10 items-center rounded-xl bg-ink text-white text-label font-bold">다시 불러오기</a></div> : <>
     <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[12px] text-white/70">{isTrial?'무료 체험 중':'현재 구독'}</p><p className="text-[22px] font-extrabold mt-1">{subscription?.service_plans?.name??'Free 파일럿'}</p><p className="text-[12px] text-white/70 mt-2">{isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 Free 자동 전환`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'}`:'월 3건 제한 파일럿'}</p></div>
-    {!canPay&&<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">청구서 결제는 병원 소유자 또는 결제 승인 담당자에게 요청해 주세요.</p></div>}
+    {!canPay&&<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">청구서 결제는 사업장 소유자 또는 결제 승인 담당자에게 요청해 주세요.</p></div>}
     <h2 className="text-title font-extrabold px-1 mb-3">요금제</h2>
     <div className="space-y-3 mb-4">{plans.map(plan=>{
       const isCurrent = subscription?.plan_code===plan.code;
@@ -84,8 +84,8 @@ export default async function MembershipPage(){
       </article>;
     })}</div>
     <div className="mb-7 bg-primary/5 border border-primary/15 rounded-2xl p-4">
-      <p className="text-label font-bold text-primary">💡 임금은 병원이 직접 지급 = 중개 수수료 0원</p>
-      <p className="text-[13px] text-sub leading-5 mt-1">잇닿은 근무 횟수나 임금에 비례한 수수료 대신 정액 이용료를 받습니다. 병원은 지급할 임금과 서비스 비용을 명확하게 구분할 수 있어요.</p>
+      <p className="text-label font-bold text-primary">💡 임금은 사업장이 직접 지급 = 중개 수수료 0원</p>
+      <p className="text-[13px] text-sub leading-5 mt-1">잇닿은 근무 횟수나 임금에 비례한 수수료 대신 정액 이용료를 받습니다. 사업장은 지급할 임금과 서비스 비용을 명확하게 구분할 수 있어요.</p>
     </div>
     <h2 className="text-title font-extrabold px-1 mb-3">이번 달 사용량</h2>
     <div className="bg-white rounded-2xl shadow-card p-4 mb-7">{Object.keys(usageMap).length===0?<p className="text-label text-sub py-4 text-center">이번 달 기록된 초과 사용량이 없어요.</p>:Object.entries(usageMap).map(([key,value])=><div key={key} className="flex justify-between py-2 border-b border-line last:border-0 text-label"><span className="text-sub">{USAGE[key]??'기타 사용량'}</span><b>{String(value)}건</b></div>)}</div>

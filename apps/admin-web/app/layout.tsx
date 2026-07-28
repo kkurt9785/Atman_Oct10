@@ -7,8 +7,8 @@ import { Shell } from '@/components/Shell';
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: '잇닿 병원 관리',
-  description: '직원·근태·급여를 한 번에',
+  title: '잇닿 의료사업장 관리',
+  description: '병원·의원·약국의 직원·근태·급여를 한 번에',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '잇닿 병원 관리',
+    title: '잇닿 사업장 관리',
   },
 };
 

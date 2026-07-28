@@ -12,7 +12,7 @@ function JoinWorkplaceContent(){
   const [message,setMessage]=useState('직원 초대를 확인하고 있어요...');
 
   useEffect(()=>{void (async()=>{
-    if(!token){setStatus('error');setMessage('초대 링크가 올바르지 않아요. 병원에 새 링크를 요청해 주세요.');return;}
+    if(!token){setStatus('error');setMessage('초대 링크가 올바르지 않아요. 사업장에 새 링크를 요청해 주세요.');return;}
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){
       const next=`/workplace/join?token=${encodeURIComponent(token)}`;
@@ -27,7 +27,7 @@ function JoinWorkplaceContent(){
       return;
     }
     setStatus('success');
-    setMessage('병원 직원 계정 연결이 완료됐어요.');
+    setMessage('사업장 직원 계정 연결이 완료됐어요.');
   })();},[token]);
 
   return <main className="min-h-screen bg-bg px-5 pt-16 pb-24">
@@ -37,7 +37,7 @@ function JoinWorkplaceContent(){
       <h1 className="mt-1 text-[24px] font-extrabold">내 직장 초대</h1>
       <p role="status" className="mt-3 text-[14px] leading-6 text-sub">{message}</p>
       {status==='success'&&<Link href="/workplace" className="mt-6 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">출퇴근·휴가 관리 시작하기</Link>}
-      {status==='error'&&<p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">로그인한 계정의 연락처가 병원에 등록된 직원 연락처와 같아야 합니다.</p>}
+      {status==='error'&&<p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">로그인한 계정의 연락처가 사업장에 등록된 직원 연락처와 같아야 합니다.</p>}
     </section>
   </main>;
 }

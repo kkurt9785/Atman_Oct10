@@ -15,6 +15,10 @@ type FacilityDetail = {
   has_uniform: boolean;
   emr_system: string | null;
   intro: string | null;
+  pharmacy_type: string | null;
+  pharmacy_system: string | null;
+  average_daily_prescriptions: number | null;
+  handover_minutes: number | null;
 };
 
 type Stats = {
@@ -71,7 +75,7 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
       const [{ data: fac }, { data: shiftIds }] = await Promise.all([
         supabase
           .from('facilities')
-          .select('id, name, facility_type, address_text, bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro')
+          .select('id, name, facility_type, address_text, bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro, pharmacy_type, pharmacy_system, average_daily_prescriptions, handover_minutes')
           .eq('id', facilityId)
           .single(),
         supabase
@@ -132,7 +136,7 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[13px] text-tertiary mb-0.5">
-                {facility ? FACILITY_TYPE_LABEL[facility.facility_type] ?? '병원' : ''}
+                {facility ? FACILITY_TYPE_LABEL[facility.facility_type] ?? '의료 사업장' : ''}
               </p>
               <h2 className="text-[20px] font-extrabold text-ink">{facilityName}</h2>
             </div>
@@ -151,6 +155,15 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
               {stats.avgRating !== null && (
                 <div className="mb-4">
                   <Stars rating={stats.avgRating} />
+                </div>
+              )}
+
+              {facility?.facility_type==='pharmacy'&&(facility.pharmacy_type||facility.pharmacy_system||facility.average_daily_prescriptions||facility.handover_minutes)&&(
+                <div className="mb-4 grid grid-cols-2 gap-2 rounded-card bg-bg p-4">
+                  {facility.pharmacy_type&&<div><p className="text-[11px] text-tertiary">약국 유형</p><b className="text-[14px]">{facility.pharmacy_type}</b></div>}
+                  {facility.pharmacy_system&&<div><p className="text-[11px] text-tertiary">전산 프로그램</p><b className="text-[14px]">{facility.pharmacy_system}</b></div>}
+                  {facility.average_daily_prescriptions!=null&&<div><p className="text-[11px] text-tertiary">일평균 처방전</p><b className="text-[14px]">약 {facility.average_daily_prescriptions}건</b></div>}
+                  {facility.handover_minutes!=null&&<div><p className="text-[11px] text-tertiary">인수인계</p><b className="text-[14px]">{facility.handover_minutes}분</b></div>}
                 </div>
               )}
 
@@ -195,10 +208,10 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
                 </div>
               )}
 
-              {/* 병원 소개 */}
+              {/* 사업장 소개 */}
               {facility?.intro && (
                 <div className="mb-5">
-                  <p className="text-[13px] font-extrabold text-ink mb-2">💬 병원 소개</p>
+                  <p className="text-[13px] font-extrabold text-ink mb-2">💬 {facility.facility_type==='pharmacy'?'약국':'병원'} 소개</p>
                   <p className="text-[13px] text-sub leading-relaxed">&quot;{facility.intro}&quot;</p>
                 </div>
               )}
@@ -221,7 +234,7 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
                   </div>
                   {stats.reapplyRate !== null && stats.reapplyRate >= 60 && (
                     <p className="mt-3 text-[12px] text-tertiary bg-primary-light rounded-lg px-3 py-2">
-                      이 병원에서 근무한 간호사의 {stats.reapplyRate}%가 다시 지원했어요
+                      이 사업장에서 근무한 워커의 {stats.reapplyRate}%가 다시 지원했어요
                     </p>
                   )}
                 </div>

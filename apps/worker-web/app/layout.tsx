@@ -3,8 +3,8 @@ import './globals.css';
 import { ClientLayout } from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
-  title: '잇닿 — 간호사를 위한 야간 시프트',
-  description: '내 조건에 맞는 의료인력 공고를 찾고, 병원 직접 지급 현황까지 한눈에.',
+  title: '잇닿 — 의료인력을 위한 시프트',
+  description: '간호사·간호조무사·약사·약국 사무직 공고와 사업장 직접 지급 현황을 한눈에.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',

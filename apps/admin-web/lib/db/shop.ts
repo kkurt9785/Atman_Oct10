@@ -3,6 +3,7 @@ import { getCurrentFacilityId } from '../facility';
 
 export type ShopInfo = {
   name: string;
+  facilityType: string;
   plan: 'bundle' | 'gig' | 'hr' | 'free';
   is5Plus: boolean;
 };
@@ -14,7 +15,7 @@ export async function getShop(): Promise<ShopInfo | null> {
 
   const facilityRes = await sb
     .from('facilities')
-    .select('name, is_5plus, plan_code')
+    .select('name, facility_type, is_5plus, plan_code')
     .eq('id', facilityId)
     .single();
 
@@ -23,6 +24,7 @@ export async function getShop(): Promise<ShopInfo | null> {
 
   return {
     name: f.name,
+    facilityType: f.facility_type,
     plan: (f.plan_code as ShopInfo['plan']) ?? 'free',
     is5Plus: f.is_5plus ?? false,
   };

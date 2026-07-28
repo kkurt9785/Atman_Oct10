@@ -47,17 +47,18 @@ function ContractRangePicker(){
   </div>;
 }
 
-export function StaffRegistrationForm(){
+export function StaffRegistrationForm({facilityType='clinic'}:{facilityType?:string}){
   const [engagementType,setEngagementType]=useState('');
   const [payBasis,setPayBasis]=useState('monthly');
   const needsContract=engagementType&&engagementType!=='regular';
+  const isPharmacy=facilityType==='pharmacy';
 
   return <WorkforceActionForm kind="add_staff" resetOnSuccess successMessage="직원을 등록했어요." className="px-5 pb-6">
     <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
       <h3 className="col-span-2 text-[13px] font-extrabold text-ink">기본 정보</h3>
       <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
-      <label className="text-label font-medium text-sub">직종<select name="role" className={inputClass}><option value="rn">간호사</option><option value="na">간호조무사</option><option value="pharmacist">약사</option><option value="pharmacy_staff">약국 전산·사무직</option><option value="coordinator">코디네이터</option><option value="admin">행정</option><option value="other">기타</option></select></label>
-      <label className="text-label font-medium text-sub">부서<input name="department" className={inputClass} placeholder="예: 외래"/></label>
+      <label className="text-label font-medium text-sub">직종<select name="role" className={inputClass}>{isPharmacy?<><option value="pharmacist">약사</option><option value="pharmacy_staff">약국 전산·사무직</option><option value="admin">관리·행정</option><option value="other">기타</option></>:<><option value="rn">간호사</option><option value="na">간호조무사</option><option value="pharmacist">약사</option><option value="coordinator">코디네이터</option><option value="admin">행정</option><option value="other">기타</option></>}</select></label>
+      <label className="text-label font-medium text-sub">{isPharmacy?'담당 업무':'부서'}<input name="department" className={inputClass} placeholder={isPharmacy?'예: 조제실, 전산·접수':'예: 외래'}/></label>
       <label className="col-span-2 text-label font-medium text-sub">연락처 <span className="font-normal text-tertiary">· 직원 계정 초대에 사용</span><input name="phone" inputMode="tel" className={inputClass} placeholder="010-0000-0000"/></label>
     </section>
 
@@ -91,7 +92,7 @@ export function StaffRegistrationForm(){
         <label className="text-label font-medium text-sub">{payBasis==='monthly'?'세전 월급':payBasis==='hourly'?'시급':'일급'}<input name="pay_rate" type="number" min="1" step={payBasis==='monthly'?'10000':'100'} required className={inputClass} placeholder={payBasis==='monthly'?'예: 3000000':payBasis==='hourly'?'예: 15000':'예: 150000'}/></label>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-label font-medium text-sub">지급 은행<input name="bank_name" maxLength={40} className={inputClass} placeholder="예: 국민은행"/></label><label className="text-label font-medium text-sub">계좌 끝 4자리<input name="account_last4" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} className={inputClass} placeholder="1234"/></label></div>
-      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 병원이 노무·세무 기준에 따라 확인해 주세요.</p>
+      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
     <input type="hidden" name="default_break_minutes" value="60"/>
     <button className="mt-7 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">직원 등록하기</button>

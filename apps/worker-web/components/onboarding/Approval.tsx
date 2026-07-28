@@ -1,8 +1,9 @@
 'use client';
 
 import { Button } from '@/components/ui/Button';
+import type { WorkerRole } from '@/lib/roles';
 
-export function Approval({ onStart, onBrowse }: { onStart: () => void; onBrowse: () => void }) {
+export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onStart: () => void; onBrowse: () => void }) {
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
       <div className="flex flex-col items-center mb-8 mt-4">
@@ -18,9 +19,9 @@ export function Approval({ onStart, onBrowse }: { onStart: () => void; onBrowse:
       <div className="bg-white rounded-card shadow-card p-5 mb-6">
         <p className="text-[17px] font-bold text-ink mb-3">시작하기 전에 확인해 주세요</p>
         <ul className="space-y-3 text-[14px] text-sub">
-          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>면허 서류 상태는 병원이 지원자를 검토할 때 참고할 수 있어요.</span></li>
+          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>{role==='pharmacy_staff'?'경력과 활동지역은 지원한 약국 담당자가 검토할 때 참고할 수 있어요.':'면허·자격 서류 상태는 지원한 사업장이 검토할 때 참고할 수 있어요.'}</span></li>
           <li className="flex gap-2"><span aria-hidden="true">✓</span><span>근무 전 시프트 시간, 위치, 급여 조건을 다시 확인해 주세요.</span></li>
-          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>출퇴근 QR은 근무 당일 발급되며 60초 동안 한 번만 사용할 수 있어요.</span></li>
+          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>근무 당일에는 GPS 원터치 출퇴근을 우선 사용하고 필요할 때 60초 QR로 인증해요.</span></li>
         </ul>
       </div>
 
