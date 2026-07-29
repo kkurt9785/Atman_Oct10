@@ -32,7 +32,10 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
   const [shiftDate, setShiftDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [hourlyWage, setHourlyWage] = useState(15000);
+  // 대체약사 시세(3~4만원대)와 병원 직군 시세가 크게 달라 직군별 기본값 분리
+  const defaultWage=(r:Role)=>r==='pharmacist'?35000:r==='pharmacy_staff'?12000:15000;
+  const [hourlyWage, setHourlyWage] = useState(()=>defaultWage(isPharmacy?'pharmacist':'rn'));
+  const [wageTouched, setWageTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [department, setDepartment] = useState('');
   const [notes, setNotes] = useState('');
@@ -53,6 +56,8 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
       setDescription('');
       setDepartment(role==='pharmacist'?'조제실':'전산·접수');
     }
+    if(!wageTouched)setHourlyWage(defaultWage(role));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[role]);
 
   useEffect(() => {
@@ -218,13 +223,16 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
                 required
                 step={1000}
                 value={hourlyWage || ''}
-                placeholder="15000"
-                onChange={(e) => setHourlyWage(parseInt(e.target.value, 10) || 0)}
+                placeholder={String(defaultWage(role))}
+                onChange={(e) => {setWageTouched(true);setHourlyWage(parseInt(e.target.value, 10) || 0);}}
                 className="w-full bg-bg rounded-xl pl-8 pr-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             {hourlyWage > 0 && hourlyWage < MIN_HOURLY_WAGE_2026 && (
               <p className="text-label text-warn mt-1">2026년 최저시급(10,320원) 이상이어야 해요</p>
+            )}
+            {role==='pharmacist' && (
+              <p className="text-label text-sub mt-1">대체약사 시세는 보통 시급 30,000~40,000원이에요</p>
             )}
           </div>
 

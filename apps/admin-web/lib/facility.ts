@@ -61,7 +61,7 @@ export async function searchFacilities(query: string) {
   const { data, error } = await sb.rpc('search_claimable_facilities', {
     p_query: query.trim(),
   });
-  if (error) return [];
+  if (error) throw new Error('사업장 검색에 실패했어요.');
   return data ?? [];
 }
 
