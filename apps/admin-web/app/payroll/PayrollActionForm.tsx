@@ -20,7 +20,7 @@ export function PayrollActionForm({kind,action,values,label,className,needsAmoun
     {Object.entries(values).map(([name,value])=><input key={name} type="hidden" name={name} value={value}/>)}
     <input type="hidden" name="action" value={action}/>
     {needsAmount&&<label className="mb-2 block text-[12px] font-bold text-ink">일할계산 최종 세전액
-      <input name="final_gross_amount" type="number" min="1" step="100" required placeholder="병원이 검토한 최종 금액" className="mt-1 h-11 w-full rounded-xl border border-amber-300 bg-white px-3 text-label"/>
+      <input name="final_gross_amount" type="number" min="1" step="100" required placeholder="사업장이 검토한 최종 금액" className="mt-1 h-11 w-full rounded-xl border border-amber-300 bg-white px-3 text-label"/>
     </label>}
     <button disabled={pending} className={`${className} disabled:opacity-50`}>{pending?'처리 중...':label}</button>
     {error&&<p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-bold text-red-600">{error}</p>}

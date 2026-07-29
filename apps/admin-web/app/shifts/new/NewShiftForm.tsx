@@ -60,6 +60,13 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[role]);
 
+  // 사업장 전환(FacilitySwitcher → router.refresh)으로 prop이 바뀌면 stale 직군 교정
+  // (약국인데 role='rn'이 남아 제출되는 경로 차단)
+  useEffect(()=>{
+    if(isPharmacy&&role!=='pharmacist'&&role!=='pharmacy_staff')setRole('pharmacist');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[isPharmacy]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('workerId');

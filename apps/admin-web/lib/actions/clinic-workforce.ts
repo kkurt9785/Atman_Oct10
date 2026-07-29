@@ -336,7 +336,7 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
     .in('status', ['accepted', 'completed'])
     .limit(1)
     .maybeSingle();
-  if (!match) throw new Error('우리 병원과 매칭된 이력이 있는 워커만 직원으로 전환할 수 있어요.');
+  if (!match) throw new Error('우리 사업장과 매칭된 이력이 있는 워커만 직원으로 전환할 수 있어요.');
   const { data: worker } = await sb.from('workers').select('id,name,phone,role')
     .eq('id', workerId).is('deleted_at', null).maybeSingle();
   if (!worker) throw new Error('전환할 지원자 정보를 찾지 못했어요.');

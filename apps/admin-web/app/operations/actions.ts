@@ -29,6 +29,10 @@ export async function createShiftTemplateAction(formData: FormData) {
   const requiredHeadcount = Math.min(20, Math.max(1, Number.parseInt(formText(formData, 'required_headcount'), 10) || 1));
   const weekdays = formData.getAll('weekdays').map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7);
   if (!name || !VALID_ROLES.includes(requiredRole) || !startTime || !endTime || !description || weekdays.length === 0) throw new Error('템플릿 필수 항목을 확인해 주세요.');
+  const { data: facility } = await sb.from('facilities').select('facility_type').eq('id', context.facilityId).single();
+  if (facility?.facility_type === 'pharmacy' && !['pharmacist', 'pharmacy_staff'].includes(requiredRole)) {
+    throw new Error('약국 템플릿은 약사 또는 약국 전산·사무직만 선택할 수 있어요.');
+  }
   if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026 || calcEstimatedShiftPay(startTime, endTime, hourlyWage) == null) throw new Error('근무시간과 시급을 확인해 주세요.');
   const { error } = await sb.from('shift_templates').insert({
     facility_id: context.facilityId, name, required_role: requiredRole,
