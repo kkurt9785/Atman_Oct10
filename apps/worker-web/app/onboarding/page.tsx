@@ -80,18 +80,14 @@ function OnboardingInner() {
       });
       if (rpcError) throw new Error(rpcError.message.replace(/^.*?: /, ''));
 
-      // 면허 번호 입력 시: 온보딩 완료 직후 프로필에 반영 (나의 정보와 동일 경로).
+      // 면허 번호 입력 시: 번호 전용 RPC로 저장.
+      // (update_my_worker_profile은 경력·근무지·태그 필수라 온보딩 직후 호출은 항상 실패했음 — 감사에서 발견)
       // 실패해도 가입 자체는 유효 — 번호는 나의 정보에서 재등록 가능하므로 흐름을 막지 않는다.
       if (licenseNumber) {
-        await supabase.rpc('update_my_worker_profile', {
-          p_license_number: licenseNumber,
-          p_license_path: uploadedPath,
-          p_experience_years: null,
-          p_last_workplace: null,
-          p_department_tags: [],
-        }).then(({ error: profileError }) => {
-          if (profileError) console.warn('면허 번호 저장 실패(나의 정보에서 재등록 가능):', profileError.message);
-        });
+        await supabase.rpc('set_my_license_number', { p_number: licenseNumber })
+          .then(({ error: profileError }) => {
+            if (profileError) console.warn('면허 번호 저장 실패(나의 정보에서 재등록 가능):', profileError.message);
+          });
       }
 
       setStep(licenseFile || licenseNumber ? 'review' : 'approval');

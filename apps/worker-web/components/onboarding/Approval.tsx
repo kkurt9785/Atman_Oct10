@@ -3,7 +3,11 @@
 import { Button } from '@/components/ui/Button';
 import type { WorkerRole } from '@/lib/roles';
 
+// 이 화면은 면허 미제출 가입자(전산·사무직 포함)만 본다 — 아직 승인 전이라
+// "지원할 수 있어요" 완료형 카피는 거짓 안내가 됨. 다음 단계(프로필/면허)를 정직하게 안내한다.
 export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onStart: () => void; onBrowse: () => void }) {
+  void onStart;
+  const isOfficeStaff = role === 'pharmacy_staff';
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
       <div className="flex flex-col items-center mb-8 mt-4">
@@ -12,8 +16,12 @@ export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onS
             <path d="M10 24L20 34L38 14" stroke="#00C896" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
-        <h1 className="text-[28px] font-bold text-ink letter-tight mb-2 text-center">가입 준비가 완료됐어요</h1>
-        <p className="text-[16px] text-sub text-center break-keep">내 활동 지역의 시프트를 확인하고 지원할 수 있어요.</p>
+        <h1 className="text-[28px] font-bold text-ink letter-tight mb-2 text-center">거의 다 왔어요!</h1>
+        <p className="text-[16px] text-sub text-center break-keep">
+          {isOfficeStaff
+            ? '나의 정보에서 경력과 최근 근무지를 입력하면 바로 활동 승인이 완료돼요.'
+            : '나의 정보에서 면허를 등록하면 심사 후 시프트에 지원할 수 있어요.'}
+        </p>
       </div>
 
       <div className="bg-white rounded-card shadow-card p-5 mb-6">
@@ -26,7 +34,7 @@ export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onS
       </div>
 
       <div className="mt-auto flex flex-col gap-3">
-        <Button onClick={onStart}>내 근처 시프트 보기</Button>
+        <Button href="/settings/profile">{isOfficeStaff ? '프로필 완성하고 승인받기' : '면허 등록하러 가기'}</Button>
         <button onClick={onBrowse} className="text-[15px] font-medium text-sub text-center py-2">홈으로 이동</button>
       </div>
     </div>

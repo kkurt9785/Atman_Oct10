@@ -143,7 +143,7 @@ BEGIN
   ) VALUES (
     v_ph, 'pharmacy_staff', v_today + 2, '14:00', '18:00', 13500, 54000,
     '처방전 전산 입력 보조, 서류 및 재고·매대 정리', '전산·접수',
-    '조제·의약품 판매·복약지도 업무 없음', 'open'
+    '면허 업무 제외 · 주차 가능', 'open'
   );
 
   IF v_worker IS NOT NULL AND v_shift IS NOT NULL THEN
