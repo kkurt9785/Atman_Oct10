@@ -15,6 +15,8 @@ export function FacilitySwitcher() {
   const router = useRouter();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [selected, setSelected] = useState('');
+  const current=facilities.find(facility=>facility.id===selected);
+  const isPharmacy=current?.facility_type==='pharmacy';
 
   useEffect(() => {
     async function load() {
@@ -53,18 +55,28 @@ export function FacilitySwitcher() {
     router.refresh();
   }
 
-  if (facilities.length <= 1) return null;
+  if (!current) return null;
+  if (facilities.length === 1) return (
+    <div className="flex max-w-[175px] items-center gap-2 rounded-xl border border-line bg-white px-2.5 py-1.5">
+      <span aria-hidden className="text-[16px]">{isPharmacy?'💊':'🏥'}</span>
+      <div className="min-w-0"><p className="truncate text-[11px] font-extrabold text-ink">{current.name}</p><p className="text-[9px] font-bold text-sub">{isPharmacy?'약국':'병원·의원'}</p></div>
+    </div>
+  );
 
   return (
-    <select
-      value={selected}
-      onChange={(event) => void handleChange(event.target.value)}
-      className="max-w-[150px] rounded-lg border border-line bg-white px-2 py-1 text-[12px] font-semibold text-ink"
-      aria-label="사업장 선택"
-    >
-      {facilities.map((facility) => (
-        <option key={facility.id} value={facility.id}>{facility.name}</option>
-      ))}
-    </select>
+    <label className="relative flex max-w-[185px] items-center gap-1.5 rounded-xl border border-line bg-white px-2 py-1">
+      <span aria-hidden>{isPharmacy?'💊':'🏥'}</span>
+      <select
+        value={selected}
+        onChange={(event) => void handleChange(event.target.value)}
+        className="min-w-0 flex-1 appearance-none bg-transparent pr-4 text-[11px] font-extrabold text-ink outline-none"
+        aria-label="사업장 선택"
+      >
+        {facilities.map((facility) => (
+          <option key={facility.id} value={facility.id}>{facility.facility_type==='pharmacy'?'💊':'🏥'} {facility.name} · {facility.facility_type==='pharmacy'?'약국':'병원·의원'}</option>
+        ))}
+      </select>
+      <span className="pointer-events-none absolute right-2 text-[10px] text-sub">⌄</span>
+    </label>
   );
 }

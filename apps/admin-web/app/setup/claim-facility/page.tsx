@@ -29,6 +29,8 @@ export default function ClaimFacilityPage() {
   const [searched, setSearched] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
+  const [businessType,setBusinessType]=useState<'medical'|'pharmacy'>('medical');
+  const visibleResults=results.filter(f=>businessType==='pharmacy'?f.facility_type==='pharmacy':f.facility_type!=='pharmacy');
 
   async function handleSearch() {
     if (query.trim().length < 2) return;
@@ -61,6 +63,14 @@ export default function ClaimFacilityPage() {
           <p className="text-[14px] text-sub">병원·의원·약국명을 검색해서 사업장을 연결해주세요</p>
         </div>
 
+        <div>
+          <p className="mb-2 text-[13px] font-bold text-sub">관리할 사업장 유형</p>
+          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm">
+            <button type="button" onClick={()=>{setBusinessType('medical');setSelected(null);}} className={`min-h-16 rounded-xl border px-3 text-left ${businessType==='medical'?'border-primary bg-primary/5':'border-line'}`}><span className="text-[20px]">🏥</span><b className="ml-2 text-[14px]">병원·의원</b></button>
+            <button type="button" onClick={()=>{setBusinessType('pharmacy');setSelected(null);}} className={`min-h-16 rounded-xl border px-3 text-left ${businessType==='pharmacy'?'border-primary bg-primary/5':'border-line'}`}><span className="text-[20px]">💊</span><b className="ml-2 text-[14px]">약국</b></button>
+          </div>
+        </div>
+
         {/* 검색 */}
         <div className="flex gap-2">
           <input
@@ -68,7 +78,7 @@ export default function ClaimFacilityPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="사업장명 입력 (예: W여성, 수원약국)"
+            placeholder={businessType==='pharmacy'?'약국명 입력 (예: 수원온누리)':'병원·의원명 입력 (예: W여성)'}
             className="flex-1 border border-line rounded-xl px-4 py-3 text-[15px] outline-none focus:border-primary"
           />
           <button
@@ -80,16 +90,16 @@ export default function ClaimFacilityPage() {
         </div>
 
         {/* 결과 */}
-        {searched && results.length === 0 && (
+        {searched && visibleResults.length === 0 && (
           <p className="text-center text-[14px] text-sub">
             검색 결과가 없어요.{' '}
             <span className="text-primary">담당자에게 사업장 등록을 요청해주세요.</span>
           </p>
         )}
 
-        {results.length > 0 && (
+        {visibleResults.length > 0 && (
           <ul className="space-y-2">
-            {results.map(f => (
+            {visibleResults.map(f => (
               <li key={f.id}>
                 <button
                   onClick={() => setSelected(f)}
@@ -133,7 +143,7 @@ export default function ClaimFacilityPage() {
               disabled={isPending || inviteCode.trim().length < 4}
               className="w-full py-4 bg-primary text-white rounded-xl font-bold text-[16px] disabled:opacity-50"
             >
-              {isPending ? '연결 중...' : '내 병원으로 연결하기'}
+              {isPending ? '연결 중...' : `내 ${businessType==='pharmacy'?'약국':'병원'}으로 연결하기`}
             </button>
             {inviteCode.trim().length < 4 && (
               <p className="text-center text-[12px] text-sub">

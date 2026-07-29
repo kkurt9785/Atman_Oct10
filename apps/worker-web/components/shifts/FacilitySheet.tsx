@@ -162,7 +162,7 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
                 <div className="mb-4 grid grid-cols-2 gap-2 rounded-card bg-bg p-4">
                   {facility.pharmacy_type&&<div><p className="text-[11px] text-tertiary">약국 유형</p><b className="text-[14px]">{facility.pharmacy_type}</b></div>}
                   {facility.pharmacy_system&&<div><p className="text-[11px] text-tertiary">전산 프로그램</p><b className="text-[14px]">{facility.pharmacy_system}</b></div>}
-                  {facility.average_daily_prescriptions!=null&&<div><p className="text-[11px] text-tertiary">일평균 처방전</p><b className="text-[14px]">약 {facility.average_daily_prescriptions}건</b></div>}
+                  {facility.average_daily_prescriptions!=null&&<div><p className="text-[11px] text-tertiary">일평균 처방전</p><b className="text-[14px]">{facility.average_daily_prescriptions}건</b></div>}
                   {facility.handover_minutes!=null&&<div><p className="text-[11px] text-tertiary">인수인계</p><b className="text-[14px]">{facility.handover_minutes}분</b></div>}
                 </div>
               )}

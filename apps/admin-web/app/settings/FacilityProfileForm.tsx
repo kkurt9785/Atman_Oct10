@@ -96,9 +96,9 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         {isPharmacy&&<div className="grid grid-cols-2 gap-3">
           <label className="col-span-2 text-[13px] text-sub">약국 유형<select name="pharmacy_type" defaultValue={profile?.pharmacy_type??''} className="mt-1.5 h-12 w-full rounded-xl border border-line bg-white px-3"><option value="">선택해 주세요</option><option value="문전약국">문전약국</option><option value="동네약국">동네약국</option><option value="병원약국">병원약국</option><option value="24시간·야간약국">24시간·야간약국</option></select></label>
           <label className="col-span-2 text-[13px] text-sub">약국 전산 프로그램<input name="pharmacy_system" defaultValue={profile?.pharmacy_system??''} placeholder="예: 유팜, PM2000" className="mt-1.5 h-12 w-full rounded-xl border border-line px-4"/></label>
-          <label className="text-[13px] text-sub">일평균 처방전<input name="average_daily_prescriptions" type="number" min="0" max="10000" defaultValue={profile?.average_daily_prescriptions??''} placeholder="예: 120" className="mt-1.5 h-12 w-full rounded-xl border border-line px-3"/></label>
+          <label className="text-[13px] text-sub">일평균 처방전 건수<input name="average_daily_prescriptions" type="number" min="0" max="10000" defaultValue={profile?.average_daily_prescriptions??''} placeholder="예: 120건" className="mt-1.5 h-12 w-full rounded-xl border border-line px-3"/></label>
           <label className="text-[13px] text-sub">인수인계 시간<input name="handover_minutes" type="number" min="0" max="240" step="10" defaultValue={profile?.handover_minutes??''} placeholder="예: 20분" className="mt-1.5 h-12 w-full rounded-xl border border-line px-3"/></label>
-          <p className="col-span-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] leading-5 text-sub">처방량과 전산 프로그램은 대체약사가 업무 난이도를 판단하는 핵심 정보예요.</p>
+          <p className="col-span-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] leading-5 text-sub">최근 평일 기준 실제 일평균 건수를 입력해 주세요. 처방전 건수와 전산 프로그램은 대체약사가 업무 난이도를 판단하는 핵심 정보예요.</p>
         </div>}
       </section>
 

@@ -14,6 +14,7 @@ const cap = (n:number)=> n>=UNLIMITED ? '무제한' : `${n}`;
 const PLAN_PERKS:Record<string,string[]> = {
   free:['공고 월 3건','직원 근태 3명','관리자 1명','기본 자격 확인·채팅'],
   clinic:['직원 최대 10명','간편 출퇴근·휴가','공고 월 3건','관리자 1명'],
+  pharmacy:['약사·전산직 최대 10명','간편 출퇴근·휴가·급여 검토','공고 월 3건','함께 일한 약사 반복근무 요청'],
   basic:['직원 근태 20명','공고 월 15건','월 반복초대 대상 20명','관리자 2명'],
   pro:['직원 근태 60명','공고 무제한','월 반복초대 대상 60명','자격 만료관리·운영자동화'],
   enterprise:['직원 근태·공고·반복초대 무제한','관리자 15명 · 사업장 3곳','자격·운영 통합관리','API·감사로그·전담지원'],
@@ -23,17 +24,19 @@ type Invoice={id:string;invoice_number:string;period_start:string;period_end:str
 async function getBilling(facilityId:string) {
   const sb=adminClient();
   if(!sb) return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'서버 연결 정보를 확인하지 못했어요.'};
-  const [plans,subscription,invoices,usage]=await Promise.all([
+  const [plans,subscription,invoices,usage,facility]=await Promise.all([
     sb.from('service_plans').select('*').eq('is_active',true).order('sort_order'),
     sb.from('facility_subscriptions').select('status,current_period_end,plan_code,trial_started_at,trial_ends_at,trial_converted_at,service_plans(name,monthly_fee)').eq('facility_id',facilityId).in('status',['pending','active','past_due']).or(`trial_ends_at.is.null,trial_ends_at.gte.${todayKST()}`).order('updated_at',{ascending:false}).limit(1).maybeSingle(),
     sb.from('service_invoices').select('id,invoice_number,period_start,period_end,total_amount,status,due_date').eq('facility_id',facilityId).order('created_at',{ascending:false}).limit(12),
     sb.from('service_usage_events').select('usage_type,quantity,metadata').eq('facility_id',facilityId).gte('occurred_at',new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString()),
+    sb.from('facilities').select('facility_type').eq('id',facilityId).maybeSingle(),
   ]);
-  const failed = [plans, subscription, invoices, usage].find((result) => result.error);
+  const failed = [plans, subscription, invoices, usage,facility].find((result) => result.error);
   if (failed?.error) {
     return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'요금제와 청구 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'};
   }
-  const availablePlans = (plans.data??[]) as Plan[];
+  const isPharmacy=facility.data?.facility_type==='pharmacy';
+  const availablePlans = ((plans.data??[]) as Plan[]).filter(plan=>isPharmacy?plan.code!=='clinic':plan.code!=='pharmacy');
   const free = availablePlans.find((plan)=>plan.code==='free');
   const effectiveSubscription = subscription.data ?? (free ? {
     status:'active', current_period_end:null, plan_code:'free', trial_started_at:null,
