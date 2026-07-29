@@ -47,7 +47,7 @@ export default async function Home() {
     <main className="px-4">
       <div className="px-1 mt-2 mb-4">
         <p className="text-body text-sub">{shop.name}</p>
-        <h1 className="text-display font-extrabold text-ink mt-1">원장님, 안녕하세요 👋</h1>
+        <h1 className="text-display font-extrabold text-ink mt-1">{isPharmacy?'약국장님':'원장님'}, 안녕하세요 👋</h1>
       </div>
 
       {/* ① 이번 달 현황 */}

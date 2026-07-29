@@ -1,7 +1,7 @@
 {
-  "name": "잇닿 — 간호사 시프트",
+  "name": "잇닿 — 병원·약국 시프트",
   "short_name": "잇닿",
-  "description": "내 근처 야간 시프트를 간편하게",
+  "description": "내 경력과 지역에 맞는 병원·약국 시프트를 간편하게",
   "start_url": "/home",
   "display": "standalone",
   "background_color": "#ffffff",

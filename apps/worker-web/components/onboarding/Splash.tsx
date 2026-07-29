@@ -62,8 +62,8 @@ export function Splash() {
   return (
     <div className="flex flex-col min-h-screen px-6">
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        <span className="text-[32px] font-bold text-primary letter-tight tracking-[-0.5px]">atman</span>
-        <span className="text-[15px] text-tertiary">간호사를 위한 야간 시프트</span>
+        <span className="text-[32px] font-bold text-primary letter-tight tracking-[-0.5px]">잇닿</span>
+        <span className="text-[15px] text-tertiary">병원·약국 의료인력을 위한 시프트</span>
       </div>
 
       <div className="pb-10 flex flex-col gap-3">

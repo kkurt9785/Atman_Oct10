@@ -18,7 +18,7 @@ export const getCurrentFacilityId=cache(async (): Promise<string | null> => {
 export async function setFacilityCookie(facilityId: string): Promise<void> {
   const session = await requireAdminSession();
   const accessRole = await getFacilityAccessRole(session.user.id, facilityId);
-  if (!accessRole) throw new Error('이 병원에 대한 권한이 없습니다.');
+  if (!accessRole) throw new Error('이 사업장에 대한 권한이 없습니다.');
   await setFacilityContextCookie(facilityId, session.user.id);
 }
 
@@ -37,7 +37,7 @@ export async function claimFacility(
     });
 
     if (error || !data) {
-      return { ok: false, error: error?.message ?? '병원 연결에 실패했어요.' };
+      return { ok: false, error: error?.message ?? '사업장 연결에 실패했어요.' };
     }
 
     await setFacilityContextCookie(facilityId, session.user.id);
@@ -46,7 +46,7 @@ export async function claimFacility(
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error ? error.message : '병원 연결에 실패했어요.',
+      error: error instanceof Error ? error.message : '사업장 연결에 실패했어요.',
     };
   }
 }
@@ -63,6 +63,36 @@ export async function searchFacilities(query: string) {
   });
   if (error) return [];
   return data ?? [];
+}
+
+export async function requestFacilityRegistration(input: {
+  facilityType: string;
+  facilityName: string;
+  addressText: string;
+  contactName: string;
+  contactPhone: string;
+  note?: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const session = await requireAdminSession();
+    const sb = userClient(session.accessToken);
+    if (!sb) return { ok: false, error: '서버 설정 오류' };
+    const { error } = await sb.rpc('submit_facility_registration_request', {
+      p_facility_type: input.facilityType,
+      p_facility_name: input.facilityName,
+      p_address_text: input.addressText,
+      p_contact_name: input.contactName,
+      p_contact_phone: input.contactPhone,
+      p_note: input.note || null,
+    });
+    if (error) return { ok: false, error: error.message.replace(/^.*?: /, '') };
+    return { ok: true };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : '등록 요청을 접수하지 못했어요.',
+    };
+  }
 }
 
 export async function listAccessibleFacilities() {

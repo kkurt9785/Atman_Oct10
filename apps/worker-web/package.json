@@ -2,7 +2,7 @@
   "name": "@itdat/worker-web",
   "version": "0.1.0",
   "private": true,
-  "description": "잇닿 워커(간호사·케어기버) 온보딩 + 시프트 앱",
+  "description": "잇닿 병원·약국 의료인력 온보딩 + 시프트 앱",
   "scripts": {
     "dev": "next dev -p 3003",
     "build": "next build",

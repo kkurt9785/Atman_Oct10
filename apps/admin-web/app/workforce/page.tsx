@@ -3,6 +3,7 @@ import { Card } from '@/components/ui';
 import { getWorkforcePool } from '@/lib/db/workforce';
 import { hours } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
+import { getShop } from '@/lib/db/shop';
 
 const ROLE_LABEL: Record<string,string> = { rn: '간호사 RN', na: '간호조무사 NA', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
 const CREDENTIAL_STYLE = {
@@ -16,16 +17,17 @@ const CREDENTIAL_LABEL = { valid: '자격 유효', expiring: '30일 내 만료',
 export default async function WorkforcePage() {
   const context = await getAdminContext();
   if (!context || context.accessRole === 'sales') {
-    return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">인력 운영 권한이 필요해요</p><p className="text-label text-sub mt-2">병원 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
+    return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">인력 운영 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
-  const members = await getWorkforcePool();
+  const [members,shop] = await Promise.all([getWorkforcePool(),getShop()]);
+  const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
   const active = members.filter((member) => member.status === 'active');
   const needsAttention = members.filter((member) => member.credentialStatus === 'expired' || member.credentialStatus === 'expiring');
 
   return (
     <main className="px-4 pb-28">
       <div className="mt-3 mb-5 px-1">
-        <p className="text-label font-bold text-primary">병원 자체 인력풀</p>
+        <p className="text-label font-bold text-primary">{facilityWord} 자체 인력풀</p>
         <h1 className="text-display font-extrabold text-ink mt-1">검증된 워커를 다시 부르세요</h1>
         <p className="text-label text-sub mt-2 leading-5">지원 수락 또는 근무 이력이 생기면 자동으로 등록됩니다. 공개 공고 없이 특정 워커에게 반복근무를 요청할 수 있어요.</p>
       </div>
@@ -39,7 +41,7 @@ export default async function WorkforcePage() {
       {members.length === 0 ? (
         <Card className="py-10 text-center">
           <p className="text-title font-bold text-ink">아직 자체 인력풀이 없어요</p>
-          <p className="text-label text-sub mt-2 leading-5">공개 시프트의 지원자를 수락하면<br />이 병원의 인력풀에 자동으로 쌓입니다.</p>
+          <p className="text-label text-sub mt-2 leading-5">공개 시프트의 지원자를 수락하면<br />이 {facilityWord}의 인력풀에 자동으로 쌓입니다.</p>
           <Link href="/shifts/new" className="inline-flex mt-5 h-11 px-5 items-center rounded-xl bg-primary text-white text-label font-bold">첫 공고 등록하기</Link>
         </Card>
       ) : (

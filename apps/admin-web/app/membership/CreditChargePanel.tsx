@@ -12,7 +12,7 @@ export default function ServiceInvoicePayButton({ invoiceId, amount }: { invoice
       const response=await fetch('/api/payments/orders',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({invoiceId})});
       const order=await response.json(); if(!response.ok) throw new Error(order.error??'주문 생성 실패');
       if(!window.TossPayments){await new Promise<void>((resolve,reject)=>{const s=document.createElement('script');s.src='https://js.tosspayments.com/v1/payment';s.onload=()=>resolve();s.onerror=()=>reject(new Error('결제창 로드 실패'));document.head.appendChild(s);});}
-      await window.TossPayments!(key).requestPayment('카드',{amount:order.amount,orderId:order.orderId,orderName:order.orderName,customerName:'잇닿 병원 관리자',successUrl:`${location.origin}/membership/success`,failUrl:`${location.origin}/membership/fail?localOrderId=${encodeURIComponent(order.orderId)}`});
+      await window.TossPayments!(key).requestPayment('카드',{amount:order.amount,orderId:order.orderId,orderName:order.orderName,customerName:'잇닿 사업장 관리자',successUrl:`${location.origin}/membership/success`,failUrl:`${location.origin}/membership/fail?localOrderId=${encodeURIComponent(order.orderId)}`});
     } catch(e){setError(e instanceof Error?e.message:'결제창을 열지 못했어요.');setBusy(false);}
   }
   return <div>

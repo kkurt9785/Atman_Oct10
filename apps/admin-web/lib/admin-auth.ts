@@ -188,7 +188,7 @@ export async function requireAdminContext(
 ): Promise<AdminContext> {
   const context = await getAdminContext();
   if (!context || !allowedRoles.includes(context.accessRole)) {
-    throw new Error('이 병원에 대한 권한이 없습니다.');
+    throw new Error('이 사업장에 대한 권한이 없습니다.');
   }
   return context;
 }

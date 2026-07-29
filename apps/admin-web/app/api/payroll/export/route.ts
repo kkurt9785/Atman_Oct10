@@ -31,9 +31,9 @@ export async function GET(request:Request) {
   ]);
   const staffRows=await getStaffWagePayments(month);
   const managedRows=staffRows.map(row=>[
-    '병원 등록 직원',`${row.staffId}:${row.periodMonth}`,row.periodMonth.slice(0,7),
+    '사업장 등록 직원',`${row.staffId}:${row.periodMonth}`,row.periodMonth.slice(0,7),
     `${Math.floor(row.workedMinutes/60)}시간 ${row.workedMinutes%60}분`,row.workerName,
-    row.grossAmount,row.netAmount,'미확정 · 병원 확인 필요',row.status,'',row.bankName,row.accountLast4,'',
+    row.grossAmount,row.netAmount,'미확정 · 사업장 확인 필요',row.status,'',row.bankName,row.accountLast4,'',
   ]);
   const csv = `\uFEFF${[header, ...managedRows,...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
   return new Response(csv, {

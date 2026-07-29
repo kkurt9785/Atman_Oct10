@@ -11,7 +11,7 @@ import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 
 type ShiftWithFacility = Shift & {
-  facilities: { name: string; address_text?: string | null } | null;
+  facilities: { name: string; address_text?: string | null; facility_type?: string | null } | null;
 };
 
 // ─── 필터 타입 ─────────────────────────────────────────────────
@@ -124,12 +124,15 @@ function ShiftCard({
   shift, hot = false, onApply,
 }: { shift: ShiftWithFacility; hot?: boolean; onApply: () => void }) {
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
+  const isPharmacy = shift.facilities?.facility_type === 'pharmacy'
+    || shift.required_role === 'pharmacist'
+    || shift.required_role === 'pharmacy_staff';
 
   return (
     <div className="bg-white rounded-card shadow-card p-5 flex-shrink-0 w-[300px]">
       <div className="flex items-start gap-3 mb-3">
         <div className="w-9 h-9 rounded-xl bg-primary-light flex items-center justify-center flex-shrink-0">
-          <span className="text-[18px]">🏥</span>
+          <span className="text-[18px]">{isPharmacy?'💊':'🏥'}</span>
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-bold text-ink leading-tight truncate">{facilityName(shift)}</p>

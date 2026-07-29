@@ -90,7 +90,7 @@ export async function getUnifiedWorkforceSummary(){
 export async function getWagePayments(requestedMonth?:string): Promise<WagePaymentResult> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return { rows: [], error: '병원 또는 서버 연결 정보를 확인하지 못했어요.' };
+  if (!sb || !facilityId) return { rows: [], error: '사업장 또는 서버 연결 정보를 확인하지 못했어요.' };
   const month=validMonth(requestedMonth)??new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7);
   const next=new Date(`${month}-01T00:00:00Z`);next.setUTCMonth(next.getUTCMonth()+1);
   const end=new Date(next.getTime()-86_400_000).toISOString().slice(0,10);

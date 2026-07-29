@@ -79,7 +79,7 @@ export function AttendanceDashboard({staff,matched,failures}:{staff:ClinicStaff[
           <div className="flex justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><p className="font-bold">{person.name}</p><span className="rounded-md bg-bg px-1.5 py-0.5 text-[10px] font-bold text-sub">{person.employment}</span></div><p className="mt-1 truncate text-label text-sub">{person.subtitle}</p></div><span className={`h-fit shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>
           <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-label text-sub">
             <div>출근 <b className="text-ink">{fmt(person.checkInAt)}</b><span className="mx-2">→</span>퇴근 <b className="text-ink">{fmt(person.checkOutAt)}</b></div>
-            {person.method&&<div className="mt-1 text-[11px]">인증 {AUTH[person.method]??person.method}{person.distance!=null?` · 병원에서 ${person.distance}m`:''}</div>}
+            {person.method&&<div className="mt-1 text-[11px]">인증 {AUTH[person.method]??person.method}{person.distance!=null?` · 사업장에서 ${person.distance}m`:''}</div>}
             {person.status==='completed'&&<div className="mt-1 text-[11px] font-bold text-success">근태 확정 · 급여 검토 가능</div>}
             {staffRow&&(staffRow.lateMinutes>0||staffRow.earlyLeaveMinutes>0)&&<div className="mt-1 text-[11px] text-warn">{staffRow.lateMinutes>0?`지각 ${staffRow.lateMinutes}분`:''}{staffRow.earlyLeaveMinutes>0?` · 조퇴 ${staffRow.earlyLeaveMinutes}분`:''}</div>}
           </div>

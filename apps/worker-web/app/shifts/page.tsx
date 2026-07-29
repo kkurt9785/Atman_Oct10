@@ -22,7 +22,7 @@ export type Shift = {
   description: string;
   department: string | null;
   notes: string | null;
-  facilities?: { name: string; address_text?: string | null } | Array<{ name: string; address_text?: string | null }> | null;
+  facilities?: { name: string; address_text?: string | null; facility_type?: string | null } | Array<{ name: string; address_text?: string | null; facility_type?: string | null }> | null;
   distance_km?: number | null;
   distance_m?: number | null;
   distance_meters?: number | null;
@@ -105,6 +105,10 @@ function groupShifts(shifts: Shift[]) {
 function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () => void; onFacility: () => void }) {
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
   const area = areaLabel(shift);
+  const facility = Array.isArray(shift.facilities) ? shift.facilities[0] : shift.facilities;
+  const isPharmacy = facility?.facility_type === 'pharmacy'
+    || shift.required_role === 'pharmacist'
+    || shift.required_role === 'pharmacy_staff';
 
   return (
     <div className="bg-white rounded-card shadow-card p-5 mb-3">
@@ -117,7 +121,7 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
       </div>
 
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[15px] font-extrabold text-ink truncate">{facilityName(shift)}</p>
+        <p className="text-[15px] font-extrabold text-ink truncate">{isPharmacy?'💊':'🏥'} {facilityName(shift)}</p>
         <button
           onClick={(e) => { e.stopPropagation(); onFacility(); }}
           className="shrink-0 ml-2 text-[12px] font-semibold text-primary"
@@ -193,7 +197,7 @@ export default function ShiftsPage() {
         setIsGuest(true);
         const { data: publicRows, error } = await supabase
           .from('shifts')
-          .select('id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text )')
+          .select('id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text, facility_type )')
           .eq('status', 'open')
           .eq('audience', 'public')
           .gte('shift_date', dateKST())

@@ -83,7 +83,7 @@ export async function recordStaffAttendanceAction(form: FormData) {
   const base: Record<string, unknown> = {
     facility_id: context.facilityId, staff_id: staffId, work_date: requestedDate,
     scheduled_start: staff.default_start_time, scheduled_end: staff.default_end_time,
-    corrected_by: context.user.id, correction_reason: '병원 관리자 간편 근태 처리', updated_at: now,
+    corrected_by: context.user.id, correction_reason: '사업장 관리자 간편 근태 처리', updated_at: now,
     approved_by:context.user.id,approved_at:now,
   };
   if(event==='check_in'&&attendance?.check_in_at) throw new Error('이미 출근 처리된 직원이에요.');
@@ -99,7 +99,7 @@ export async function recordStaffAttendanceAction(form: FormData) {
   if (error) throw new Error('근태를 저장하지 못했어요.');
   if(event!=='absent')await sb.from('attendance_auth_logs').insert({
     user_id:context.user.id,staff_id:staffId,facility_id:context.facilityId,target_type:'staff',
-    action:event,authentication_method:'ADMIN',result:'SUCCESS',detail:'병원 관리자 수동 처리',
+    action:event,authentication_method:'ADMIN',result:'SUCCESS',detail:'사업장 관리자 수동 처리',
   });
   revalidatePath('/timesheet'); revalidatePath('/staff'); revalidatePath('/');
 }
@@ -114,7 +114,7 @@ export async function recordShiftAdminAttendanceAction(form:FormData){
   const {data:application}=await sb.from('shift_applications')
     .select('id,worker_id,shift_id,status,shifts!inner(facility_id,shift_date)')
     .eq('id',applicationId).eq('shifts.facility_id',context.facilityId).maybeSingle();
-  if(!application||!['accepted','completed'].includes(application.status))throw new Error('이 병원에 확정된 단기인력이 아니에요.');
+  if(!application||!['accepted','completed'].includes(application.status))throw new Error('이 사업장에 확정된 단기인력이 아니에요.');
   const {data:existing}=await sb.from('shift_attendances').select('id,check_in_at,check_out_at')
     .eq('application_id',applicationId).maybeSingle();
   const now=new Date().toISOString();
@@ -143,7 +143,7 @@ export async function recordShiftAdminAttendanceAction(form:FormData){
   await sb.from('attendance_auth_logs').insert({
     user_id:context.user.id,worker_id:application.worker_id,application_id:application.id,
     facility_id:context.facilityId,shift_attendance_id:attendanceId,target_type:'shift',
-    action:event,authentication_method:'ADMIN',result:'SUCCESS',detail:'병원 관리자 수동 처리',
+    action:event,authentication_method:'ADMIN',result:'SUCCESS',detail:'사업장 관리자 수동 처리',
   });
   revalidatePath('/timesheet');revalidatePath('/payroll');revalidatePath('/');
 }
@@ -318,7 +318,7 @@ export async function rotateFacilityAttendanceQrAction() {
     facility_id: context.facilityId, token: crypto.randomUUID(), is_active: true,
     rotated_at: new Date().toISOString(), rotated_by: context.user.id,
   }, { onConflict: 'facility_id' });
-  if (error) throw new Error('병원 QR을 갱신하지 못했어요.');
+  if (error) throw new Error('사업장 QR을 갱신하지 못했어요.');
   revalidatePath('/attendance-qr');
 }
 

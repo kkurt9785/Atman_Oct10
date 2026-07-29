@@ -12,7 +12,7 @@ const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '�
 export default async function OperationsPage() {
   const context = await getAdminContext();
   if (!context || context.accessRole === 'sales') {
-    return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">운영 관리 권한이 필요해요</p><p className="text-label text-sub mt-2">병원 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
+    return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">운영 관리 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
   const [summary, templates, operationAlerts] = await Promise.all([getOperationsSummary(), getShiftTemplates(), getOperationsAlerts()]);
   const alerts = summary.urgentUnfilledCount + summary.expiringCredentialCount + summary.pendingWageCount
