@@ -35,7 +35,6 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
   // 대체약사 시세(3~4만원대)와 병원 직군 시세가 크게 달라 직군별 기본값 분리
   const defaultWage=(r:Role)=>r==='pharmacist'?35000:r==='pharmacy_staff'?12000:15000;
   const [hourlyWage, setHourlyWage] = useState(()=>defaultWage(isPharmacy?'pharmacist':'rn'));
-  const [wageTouched, setWageTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [department, setDepartment] = useState('');
   const [notes, setNotes] = useState('');
@@ -56,7 +55,7 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
       setDescription('');
       setDepartment(role==='pharmacist'?'조제실':'전산·접수');
     }
-    if(!wageTouched)setHourlyWage(defaultWage(role));
+    setHourlyWage(defaultWage(role));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[role]);
 
@@ -231,7 +230,7 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
                 step={1000}
                 value={hourlyWage || ''}
                 placeholder={String(defaultWage(role))}
-                onChange={(e) => {setWageTouched(true);setHourlyWage(parseInt(e.target.value, 10) || 0);}}
+                onChange={(e) => setHourlyWage(parseInt(e.target.value, 10) || 0)}
                 className="w-full bg-bg rounded-xl pl-8 pr-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>

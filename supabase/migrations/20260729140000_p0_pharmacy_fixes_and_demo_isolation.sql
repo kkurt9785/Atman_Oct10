@@ -19,6 +19,11 @@ DECLARE
 BEGIN
   IF fn IS NULL THEN RAISE EXCEPTION 'update_my_worker_profile(5-param) not found'; END IF;
   SELECT pg_get_functiondef(fn) INTO def;
+  IF def LIKE '%v_worker_role text := (SELECT role FROM public.workers%'
+     AND def LIKE '%<> ''pharmacy_staff''%' THEN
+    RAISE NOTICE 'patch ① skipped: already applied';
+    RETURN;
+  END IF;
 
   patched := replace(def,
     'v_worker_role text;',
@@ -46,6 +51,10 @@ BEGIN
   ORDER BY p.oid DESC LIMIT 1;
   IF fn IS NULL THEN RAISE EXCEPTION 'complete_worker_onboarding not found'; END IF;
   SELECT pg_get_functiondef(fn) INTO def;
+  IF def LIKE '%public.workers.role IS DISTINCT FROM EXCLUDED.role%' THEN
+    RAISE NOTICE 'patch ② skipped: already applied';
+    RETURN;
+  END IF;
 
   patched := replace(def,
     '    verification_status = CASE
@@ -70,6 +79,10 @@ DECLARE
 BEGIN
   IF fn IS NULL THEN RAISE EXCEPTION 'apply_to_shift not found'; END IF;
   SELECT pg_get_functiondef(fn) INTO def;
+  IF def LIKE '%v_worker.is_demo%' THEN
+    RAISE NOTICE 'patch ③ skipped: already applied';
+    RETURN;
+  END IF;
 
   patched := replace(def,
     'IF v_shift.required_role NOT IN (v_worker.role, ''any'') THEN
@@ -140,6 +153,10 @@ DECLARE
 BEGIN
   IF fn IS NULL THEN RAISE EXCEPTION 'get_my_launch_reward_status not found'; END IF;
   SELECT pg_get_functiondef(fn) INTO def;
+  IF def LIKE '%rf.is_demo%' THEN
+    RAISE NOTICE 'patch ⑥ skipped: already applied';
+    RETURN;
+  END IF;
 
   patched := replace(def,
     'SELECT a.id INTO v_attendance_id FROM public.shift_attendances a

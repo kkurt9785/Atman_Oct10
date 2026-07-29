@@ -13,9 +13,9 @@ function localInput(iso:string|null){if(!iso)return '';const d=new Date(new Date
 export default async function AttendanceHistoryPage({searchParams}:{searchParams:Promise<{month?:string;type?:string;status?:string}>}){
   const p=await searchParams;const current=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
   // 목록은 최근 3개월까지만 — 그 이전 이력은 직원별 근태 페이지에서 조회
-  const minMonth=moveMonth(current,-3);
+  const minMonth=moveMonth(current,-2);
   const requested=/^\d{4}-(0[1-9]|1[0-2])$/.test(p.month??'')?p.month!:current;
-  const month=requested<minMonth?minMonth:requested;
+  const month=requested<minMonth?minMonth:requested>current?current:requested;
   const type=['all','staff','shift'].includes(p.type??'')?p.type!:'all';const status=['all','completed','issue','working'].includes(p.status??'')?p.status!:'all';
   const {rows,closed}=await getAttendanceHistory(month);
   const visible=rows.filter(r=>(type==='all'||r.kind===type)&&(status==='all'||(status==='issue'?['late','absent','checkout_pending'].includes(r.status):r.status===status)));

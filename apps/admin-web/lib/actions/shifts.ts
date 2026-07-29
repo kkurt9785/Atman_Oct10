@@ -42,8 +42,8 @@ export async function createShiftAction(formData: FormData) {
     if (requiredRole === 'pharmacy_staff' && facility?.facility_type !== 'pharmacy') {
       throw new Error('약국 전산·사무직 공고는 약국 사업장에서만 등록할 수 있어요.');
     }
-    if (facility?.facility_type === 'pharmacy' && requiredRole === 'any') {
-      throw new Error('약국 공고는 면허 업무 구분을 위해 약사 또는 약국 전산·사무직을 선택해 주세요.');
+    if (facility?.facility_type === 'pharmacy' && !['pharmacist','pharmacy_staff'].includes(requiredRole)) {
+      throw new Error('약국 공고는 약사 또는 약국 전산·사무직을 선택해 주세요.');
     }
   }
   let invitedWorker: { id: string; auth_user_id: string | null; name: string; role: string } | null = null;

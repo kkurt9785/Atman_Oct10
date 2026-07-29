@@ -13,7 +13,8 @@ function hm(min:number){return `${Math.floor(min/60)}시간 ${min%60}분`;}
 export default async function StaffAttendancePage({params,searchParams}:{params:Promise<{staffId:string}>;searchParams:Promise<{month?:string}>}){
   const {staffId}=await params;const p=await searchParams;
   const current=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
-  const month=/^\d{4}-(0[1-9]|1[0-2])$/.test(p.month??'')?p.month!:current;
+  const requested=/^\d{4}-(0[1-9]|1[0-2])$/.test(p.month??'')?p.month!:current;
+  const month=requested>current?current:requested;
   const {staff,rows,firstWorkDate,summary}=await getStaffAttendanceDetail(staffId,month);
   if(!staff)return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">직원을 찾을 수 없어요</p><Link href="/attendance-history" className="mt-3 inline-block text-label font-bold text-primary">근태 내역으로 →</Link></Card></main>;
   const firstMonth=firstWorkDate?.slice(0,7)??current;
