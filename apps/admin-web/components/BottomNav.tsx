@@ -13,7 +13,7 @@ const TABS = [
 export function BottomNav() {
   const path = usePathname();
   return (
-    <nav aria-label="주요 메뉴" className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white border-t border-line flex">
+    <nav aria-label="주요 메뉴" className="fixed bottom-0 inset-x-0 z-30 mx-auto max-w-app bg-white border-t border-line flex pb-[env(safe-area-inset-bottom)]">
       {TABS.map((t) => {
         const active = t.href === '/' ? path === '/' : path.startsWith(t.href) || (t.href==='/timesheet'&&path.startsWith('/attendance-history'));
         return (

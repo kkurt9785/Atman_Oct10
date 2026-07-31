@@ -103,24 +103,30 @@ export default function ClaimFacilityPage() {
           <p className="text-[14px] text-sub">병원·의원·약국명을 검색해서 사업장을 연결해주세요</p>
         </div>
 
-        {/* 검색 */}
-        <div className="flex gap-2">
+        {/* 검색 — 통합 서치바 (버튼이 바 안에 있어 좁은 화면에서도 안 깨짐) */}
+        <div className="flex items-center gap-1 rounded-2xl border border-line bg-white p-1.5 pl-4 shadow-sm focus-within:border-primary">
           <input
-            type="text"
+            type="search"
+            enterKeyHint="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="사업장명 입력 (예: W여성, 수원온누리)"
-            className="flex-1 border border-line rounded-xl px-4 py-3 text-[15px] outline-none focus:border-primary"
+            placeholder="사업장명 검색"
+            aria-label="사업장명 검색"
+            className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-sub"
           />
           <button
             onClick={handleSearch}
             disabled={searching}
-            className="px-4 py-3 bg-primary text-white rounded-xl text-[15px] font-semibold disabled:opacity-50"
+            aria-label="검색"
+            className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white disabled:opacity-50"
           >
-            {searching?'검색 중':'검색'}
+            {searching
+              ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true"/>
+              : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4"/><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>}
           </button>
         </div>
+        <p className="-mt-4 px-1 text-[12px] text-sub">예: W여성, 수원온누리 — 병원·약국 모두 한 번에 검색돼요</p>
 
         {/* 유형 필터 칩 — 결과를 거르기만 하고, 기본 '전체'라 아무것도 숨기지 않는다 */}
         {searched && results.length > 0 && (
