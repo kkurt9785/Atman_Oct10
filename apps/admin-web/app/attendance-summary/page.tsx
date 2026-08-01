@@ -11,9 +11,11 @@ function isIssue(status:string,earlyLeaveMinutes:number){return ['late','absent'
 export default async function AttendanceSummaryPage({searchParams}:{searchParams:Promise<{month?:string}>}){
   const p=await searchParams;
   const current=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
-  const requested=/^\d{4}-(0[1-9]|1[0-2])$/.test(p.month??'')?p.month!:current;
+  const recentComplete=moveMonth(current,-1);
+  const shop=await getShop();
+  const requested=/^\d{4}-(0[1-9]|1[0-2])$/.test(p.month??'')?p.month!:(shop?.isDemo?recentComplete:current);
   const month=requested>current?current:requested;
-  const [{rows,closed},shop]=await Promise.all([getAttendanceHistory(month),getShop()]);
+  const {rows,closed}=await getAttendanceHistory(month);
   const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
   const people=[...rows.reduce((map,row)=>{
     const key=row.staffId??`shift-${row.name}`;
@@ -35,7 +37,11 @@ export default async function AttendanceSummaryPage({searchParams}:{searchParams
 
   return <main className="px-4 pb-28">
     <div className="mt-3 px-1"><p className="text-label font-bold text-primary">{facilityWord} 월간 현황</p><h1 className="text-display font-extrabold">근태 요약</h1><p className="mt-1 text-label text-sub">먼저 전체 흐름을 보고, 필요한 기록만 상세 확인해요.</p></div>
-    <div className="mt-4 flex items-center justify-between rounded-2xl bg-white p-2 shadow-sm">
+    <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-bg p-1" aria-label="조회 기간 바로가기">
+      <Link href={`/attendance-summary?month=${current}`} className={`flex h-10 items-center justify-center rounded-xl text-[12px] font-bold ${month===current?'bg-white text-primary shadow-sm':'text-sub'}`}>이번 달 · 집계 중</Link>
+      <Link href={`/attendance-summary?month=${recentComplete}`} className={`flex h-10 items-center justify-center rounded-xl text-[12px] font-bold ${month===recentComplete?'bg-white text-primary shadow-sm':'text-sub'}`}>최근 완료 월</Link>
+    </div>
+    <div className="mt-3 flex items-center justify-between rounded-2xl bg-white p-2 shadow-sm">
       {month>minMonth?<Link href={`/attendance-summary?month=${moveMonth(month,-1)}`} className="flex h-9 w-9 items-center justify-center text-xl" aria-label="이전 달">‹</Link>:<span className="flex h-9 w-9 items-center justify-center text-line">‹</span>}
       <div className="text-center"><b className="text-[14px]">{month.replace('-','년 ')}월</b><p className="mt-0.5 text-[10px] font-bold text-sub">{closed?'마감 완료':month===current?'집계 중':'마감 전'}</p></div>
       {month<current?<Link href={`/attendance-summary?month=${moveMonth(month,1)}`} className="flex h-9 w-9 items-center justify-center text-xl" aria-label="다음 달">›</Link>:<span className="flex h-9 w-9 items-center justify-center text-line">›</span>}
