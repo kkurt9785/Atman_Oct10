@@ -28,19 +28,30 @@ function RootInner() {
   }, [router]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
+    <WorkerEntrySkeleton />
+  );
+}
+
+function WorkerEntrySkeleton() {
+  return (
+    <main className="min-h-screen bg-bg px-5 pt-16" aria-busy="true" aria-label="맞춤 시프트를 준비하는 중">
+      <p className="text-[24px] font-extrabold text-primary">잇닿</p>
+      <div className="mt-8 h-4 w-28 animate-pulse rounded-full bg-primary/10" />
+      <div className="mt-3 h-8 w-64 max-w-full animate-pulse rounded-xl bg-line" />
+      <div className="mt-6 h-24 animate-pulse rounded-2xl bg-white shadow-card" />
+      <div className="mt-4 space-y-3">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="h-28 animate-pulse rounded-2xl bg-white shadow-card" />
+        ))}
+      </div>
+      <span className="sr-only">내 조건에 맞는 시프트를 확인하고 있어요.</span>
+    </main>
   );
 }
 
 export default function Root() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
+    <Suspense fallback={<WorkerEntrySkeleton />}>
       <RootInner />
     </Suspense>
   );

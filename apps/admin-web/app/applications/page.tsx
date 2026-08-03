@@ -18,6 +18,16 @@ export default async function ApplicationsPage() {
         </p>
       </div>
 
+      {total > 0 && (
+        <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+          <p className="text-[13px] font-extrabold text-ink">수락하면 운영 흐름에 바로 연결돼요</p>
+          <p className="mt-1 text-[12px] leading-5 text-sub">확정 인력은 직원 관리와 해당 시프트 근태에 반영되고, 근무 완료 후 공고 시급 기준으로 급여 검토까지 이어집니다.</p>
+          <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-primary" aria-label="수락 이후 처리 흐름">
+            <span>지원 수락</span><span aria-hidden>→</span><span>근태</span><span aria-hidden>→</span><span>급여 검토</span>
+          </div>
+        </div>
+      )}
+
       {groups.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <span className="text-5xl">📭</span>

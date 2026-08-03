@@ -113,6 +113,8 @@ export function ApplicantCard({
           <button
             onClick={openAcceptConfirm}
             disabled={disabled || loading != null}
+            aria-label={`${applicant.name} 지원 수락`}
+            data-demo-target="accept-application"
             className="h-9 px-4 rounded-lg bg-primary text-white text-[13px] font-semibold disabled:opacity-40 active:opacity-80"
           >
             수락

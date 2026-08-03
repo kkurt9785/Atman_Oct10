@@ -49,8 +49,23 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="mx-auto min-h-screen max-w-app bg-bg" aria-busy="true" aria-label="관리자 화면을 준비하는 중">
+        <header className="flex h-14 items-center px-5">
+          <span className="text-title font-extrabold text-primary">잇닿</span>
+        </header>
+        <main className="px-4 pb-24">
+          <div className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
+            <div className="h-3 w-24 animate-pulse rounded-full bg-primary/10" />
+            <div className="mt-3 h-7 w-44 animate-pulse rounded-xl bg-line" />
+            <div className="mt-5 h-20 animate-pulse rounded-xl bg-bg" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-2xl bg-white shadow-sm" />
+            ))}
+          </div>
+          <span className="sr-only">관리자 권한을 확인하고 있어요.</span>
+        </main>
       </div>
     );
   }

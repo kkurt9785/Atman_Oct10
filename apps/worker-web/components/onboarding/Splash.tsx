@@ -11,6 +11,8 @@ const DEMO_WORKERS = [
   { email: 'worker-demo-3@demo.atman.co.kr', label: '수원 권선 NA' },
   { email: 'worker-demo-4@demo.atman.co.kr', label: '수원 팔달 RN' },
   { email: 'worker-demo-5@demo.atman.co.kr', label: '수원 영통 NA' },
+  { email: 'worker-demo-pharmacist@demo.atman.co.kr', label: '수원 약사' },
+  { email: 'worker-demo-pharmacy-staff@demo.atman.co.kr', label: '수원 약국 전산직' },
 ];
 
 export function Splash() {
