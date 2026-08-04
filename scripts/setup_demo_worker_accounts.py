@@ -1,6 +1,6 @@
-"""데모 워커 auth 계정 5개 생성 — 워커 앱 풀사이클 시연용.
+"""데모 워커 auth 계정 6개 생성 — 병원·약국 풀사이클 시연용.
 
-worker-web Splash의 데모 로그인 버튼(worker-demo-1~5)이 기대하는 계정을 만들고,
+worker-web Splash의 데모 로그인 버튼(worker-demo-1~6)이 기대하는 계정을 만들고,
 기존 데모 워커(is_demo) 행에 연결한다. QR·체크아웃 시연까지 가능하도록
 활동지역 prefs와 정산 계좌(fail-closed 암호화 경유)까지 세팅한다.
 
@@ -31,13 +31,14 @@ SERVICE = env["SUPABASE_SERVICE_ROLE_KEY"]
 ANON = env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
 PASSWORD = "Atman-demo-2026!"
 
-# Splash.tsx의 DEMO_WORKERS와 일치해야 함. area_prefix로 기존 데모 워커 매칭.
+# Splash.tsx의 DEMO_WORKERS와 일치해야 함. 이미 연결된 계정은 역할을 보존한다.
 ACCOUNTS = [
-    ("worker-demo-1@demo.atman.co.kr", "gwangju_gwangsan", "rn", "광주 광산구", 35.1900, 126.8252),
-    ("worker-demo-2@demo.atman.co.kr", "suwon_jangan",     "rn", "수원 장안구", 37.3037, 127.0106),
-    ("worker-demo-3@demo.atman.co.kr", "suwon_gwonseon",   "na", "수원 권선구", 37.2574, 127.0286),
-    ("worker-demo-4@demo.atman.co.kr", "suwon_paldal",     "rn", "수원 팔달구", 37.2636, 127.0305),
-    ("worker-demo-5@demo.atman.co.kr", "suwon_yeongtong",  "na", "수원 영통구", 37.2905, 127.0574),
+    ("worker-demo-1@demo.atman.co.kr", "gwangju_gwangsan", "rn", "광주 광산구 간호사", 35.1900, 126.8252, None),
+    ("worker-demo-2@demo.atman.co.kr", "suwon_gwonseon", "pharmacy_staff", "수원 권선구 약국 전산직", 37.2574, 127.0286, "demo_pharmacy_staff_2"),
+    ("worker-demo-3@demo.atman.co.kr", "suwon_gwonseon", "na", "수원 권선구 간호조무사", 37.2574, 127.0286, None),
+    ("worker-demo-4@demo.atman.co.kr", "suwon_paldal", "rn", "수원 팔달구 간호사", 37.2636, 127.0305, None),
+    ("worker-demo-5@demo.atman.co.kr", "suwon_yeongtong", "na", "수원 영통구 간호조무사", 37.2905, 127.0574, None),
+    ("worker-demo-6@demo.atman.co.kr", "suwon_gwonseon", "pharmacist", "수원 권선구 약사", 37.2574, 127.0286, "demo_pharmacist_1"),
 ]
 
 
@@ -59,11 +60,11 @@ def req(method, path, body=None, key=SERVICE, bearer=None, prefer=None):
         return e.code, json.loads(e.read() or b"null")
 
 
-for email, area, role, label, lat, lng in ACCOUNTS:
+for email, area, role, label, lat, lng, exact_kakao_id in ACCOUNTS:
     # 1. auth 계정 생성 (존재 시 비번 리셋)
     status, body = req("POST", "/auth/v1/admin/users", {
         "email": email, "password": PASSWORD, "email_confirm": True,
-        "user_metadata": {"profile_nickname": label + (" 간호사" if role == "rn" else " 간호조무사")},
+        "user_metadata": {"profile_nickname": label},
     })
     if status in (200, 201):
         uid = body["id"]
@@ -81,8 +82,12 @@ for email, area, role, label, lat, lng in ACCOUNTS:
         prefer="resolution=merge-duplicates")
 
     # 3. 해당 지역·직군의 기존 데모 워커 1명에 연결 (아직 미연결 행만)
+    worker_filter = (
+        f"kakao_id=eq.{exact_kakao_id}" if exact_kakao_id
+        else f"kakao_id=like.kakao_demo_{area}_*&role=eq.{role}"
+    )
     status, cands = req("GET",
-        f"/rest/v1/workers?kakao_id=like.kakao_demo_{area}_*&role=eq.{role}&auth_user_id=is.null&select=id,kakao_id&order=kakao_id&limit=1")
+        f"/rest/v1/workers?{worker_filter}&auth_user_id=is.null&select=id,kakao_id&order=kakao_id&limit=1")
     already = req("GET", f"/rest/v1/workers?auth_user_id=eq.{uid}&select=id")[1]
     if already:
         worker_id = already[0]["id"]
@@ -116,4 +121,4 @@ for email, area, role, label, lat, lng in ACCOUNTS:
 status, _ = req("PATCH", "/rest/v1/facilities?is_demo=eq.true",
                 {"attendance_geofence_required": False})
 print(f"데모 병원 지오펜스 필수 해제: {status}")
-print("완료 — 워커 앱 데모 로그인: worker-demo-1~5 / " + PASSWORD)
+print("완료 — 워커 앱 데모 로그인: worker-demo-1~6 / " + PASSWORD)

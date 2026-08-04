@@ -57,12 +57,12 @@ function OnboardingInner() {
 
       if (licenseFile) {
         const ext = MIME_EXT[licenseFile.type];
-        if (!ext) throw new Error('지원하지 않는 면허 파일 형식이에요.');
+        if (!ext) throw new Error('지원하지 않는 서류 파일 형식이에요.');
         uploadedPath = `${user.id}/${crypto.randomUUID()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('license-photos').upload(uploadedPath, licenseFile, {
           cacheControl: '3600', upsert: false, contentType: licenseFile.type,
         });
-        if (uploadError) throw new Error(`면허 파일 업로드 실패: ${uploadError.message}`);
+        if (uploadError) throw new Error(`서류 파일 업로드 실패: ${uploadError.message}`);
       }
 
       const { error: rpcError } = await supabase.rpc('complete_worker_onboarding', {

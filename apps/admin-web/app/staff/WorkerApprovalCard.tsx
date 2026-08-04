@@ -12,6 +12,8 @@ export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
   const [done, setDone] = useState<'approved' | 'rejected' | null>(null);
   const [arming, setArming] = useState<'approve' | 'reject' | null>(null);
   const [actionError, setActionError] = useState('');
+  const documentLabel = worker.role === 'pharmacy_staff' ? '이력서' : '면허 서류';
+  const isPdf = Boolean(worker.licensePhotoUrl && /\.pdf(?:\?|$)/i.test(worker.licensePhotoUrl));
 
   function run(kind: 'approve' | 'reject') {
     setActionError('');
@@ -49,16 +51,12 @@ export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
             {/* 면허 정보 */}
             <div className="mt-2">
               {worker.licensePhotoUrl ? (
-                <button
-                  onClick={() => setPhotoOpen(true)}
-                  className="text-label font-bold text-primary underline underline-offset-2"
-                >
-                  면허 사진 보기
-                </button>
+                isPdf ? <a href={worker.licensePhotoUrl} target="_blank" rel="noreferrer" className="text-label font-bold text-primary underline underline-offset-2">{documentLabel} PDF 열기</a> :
+                <button onClick={() => setPhotoOpen(true)} className="text-label font-bold text-primary underline underline-offset-2">{documentLabel} 보기</button>
               ) : worker.licenseNumber ? (
                 <p className="text-label text-sub">면허번호: 제{worker.licenseNumber}호</p>
               ) : (
-                <p className="text-label text-warn">면허 정보 없음</p>
+                <p className="text-label text-warn">{worker.role==='pharmacy_staff'?'이력서 없음':'면허 정보 없음'}</p>
               )}
             </div>
           </div>
@@ -116,7 +114,7 @@ export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={worker.licensePhotoUrl}
-            alt="면허증"
+            alt={documentLabel}
             className="max-w-full max-h-full rounded-xl object-contain"
           />
         </div>
