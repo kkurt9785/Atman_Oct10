@@ -37,6 +37,7 @@ export default function EarningsPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [disputeTarget, setDisputeTarget] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
+  const [confirmedId, setConfirmedId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -60,7 +61,10 @@ export default function EarningsPage() {
       p_instruction_id: id, p_action: action, p_payment_reference: null, p_dispute_reason: reason,
     });
     if (actionError) setActionError(actionError.message.replace(/^.*: /, ''));
-    else await load();
+    else {
+      if(action==='confirm')setConfirmedId(id);
+      await load();
+    }
     setBusyId(null);
   }
 
@@ -91,6 +95,7 @@ export default function EarningsPage() {
           <div className="flex items-start justify-between gap-3"><div><p className="text-[15px] font-extrabold text-ink">{shift?.facilities?.name ?? '채용 사업장'}</p><p className="text-[12px] text-sub mt-1">{shift?.shift_date ?? new Date(row.created_at).toLocaleDateString('ko-KR')} · {shift?.start_time?.slice(0,5)}–{shift?.end_time?.slice(0,5)}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>
           <div className="mt-4 rounded-xl bg-bg p-3 space-y-2 text-[12px]"><div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>{won(row.gross_amount)}</b></div><div className="flex justify-between"><span className="text-sub">공제</span><b>{row.deduction_status === 'unconfirmed' ? '사업장 확인 예정' : '사업장 확인'}</b></div><div className="flex justify-between border-t border-line pt-2"><span className="font-bold">지급 예정액</span><b className="text-primary">{won(row.net_amount)}</b></div>{row.due_date && <div className="flex justify-between"><span className="text-sub">지급 예정일</span><b>{row.due_date}</b></div>}</div>
           {row.status === 'paid' && <button disabled={busyId===row.id} onClick={() => void act(row.id,'confirm')} className="mt-3 w-full h-11 rounded-xl bg-primary text-white text-[13px] font-extrabold disabled:opacity-50">내 계좌 입금 확인</button>}
+          {row.status==='worker_confirmed'&&confirmedId===row.id&&<p role="status" className="mt-3 rounded-xl bg-green-50 px-3 py-3 text-center text-[13px] font-extrabold text-green-700">입금 확인이 완료되었습니다.</p>}
           {['approved','exported','paid'].includes(row.status) && <button disabled={busyId===row.id} onClick={() => { setDisputeTarget(row.id); setDisputeReason(''); }} className="mt-2 w-full py-2 text-[12px] font-bold text-sub disabled:opacity-50">금액·입금 문제 확인 요청</button>}
           {row.dispute_reason && <p className="mt-2 rounded-lg bg-red-50 p-2 text-[11px] text-red-600">요청 내용: {row.dispute_reason}</p>}
         </article>;
