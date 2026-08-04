@@ -15,6 +15,7 @@ const PLAN_PERKS:Record<string,string[]> = {
   free:['공고 월 3건','직원 근태 3명','관리자 1명','기본 자격 확인·채팅'],
   clinic:['직원 최대 10명','간편 출퇴근·휴가','공고 월 3건','관리자 1명'],
   pharmacy:['약사·전산직 최대 10명','간편 출퇴근·휴가·급여 검토','공고 월 3건','함께 일한 약사 반복근무 요청'],
+  pharmacy_plus:['약사·전산직 최대 20명','공고 월 15건 · 반복초대 30명','반복 일정 자동화(토요일 대체약사 등)','관리자 2명 · 자격 만료관리'],
   basic:['직원 근태 20명','공고 월 15건','월 반복초대 대상 20명','관리자 2명'],
   pro:['직원 근태 60명','공고 무제한','월 반복초대 대상 60명','자격 만료관리·운영자동화'],
   enterprise:['직원 근태·공고·반복초대 무제한','관리자 15명 · 사업장 3곳','자격·운영 통합관리','API·감사로그·전담지원'],
@@ -36,7 +37,10 @@ async function getBilling(facilityId:string) {
     return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'요금제와 청구 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'};
   }
   const isPharmacy=facility.data?.facility_type==='pharmacy';
-  const availablePlans = ((plans.data??[]) as Plan[]).filter(plan=>isPharmacy?plan.code!=='clinic':plan.code!=='pharmacy');
+  // 약국은 전용 2단(59,000/99,000)만 — 병원용 basic/pro/enterprise를 약국에 노출하지 않는다
+  const availablePlans = ((plans.data??[]) as Plan[]).filter(plan=>
+    isPharmacy ? ['free','pharmacy','pharmacy_plus'].includes(plan.code)
+               : !['pharmacy','pharmacy_plus'].includes(plan.code));
   const free = availablePlans.find((plan)=>plan.code==='free');
   const effectiveSubscription = subscription.data ?? (free ? {
     status:'active', current_period_end:null, plan_code:'free', trial_started_at:null,
