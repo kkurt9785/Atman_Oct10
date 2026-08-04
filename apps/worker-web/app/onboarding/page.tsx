@@ -16,7 +16,7 @@ import type { WorkerRole } from '@/lib/roles';
 
 type Step = 'splash' | 'terms' | 'role' | 'area' | 'license' | 'info' | 'bank' | 'review' | 'approval';
 const VALID_STEPS = new Set<Step>(['splash','terms','role','area','license','info','bank','review','approval']);
-const MIME_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif' };
+const MIME_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf' };
 
 function OnboardingInner() {
   const router = useRouter();
@@ -90,7 +90,8 @@ function OnboardingInner() {
           });
       }
 
-      setStep(licenseFile || licenseNumber ? 'review' : 'approval');
+      // 전산·사무직은 서류(이력서)와 무관하게 프로필 완성이 승인 경로 → approval 안내 화면으로
+      setStep(role === 'pharmacy_staff' ? 'approval' : licenseFile || licenseNumber ? 'review' : 'approval');
     } catch (error) {
       if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
       setSubmitError(error instanceof Error ? error.message : '가입 정보 저장에 실패했어요.');
@@ -118,8 +119,9 @@ function OnboardingInner() {
       {step === 'splash' && <Splash />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep('area'); }} />}
-      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep(role==='pharmacy_staff'?'info':'license'); }} />}
-      {step === 'license' && <LicenseUpload onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
+      {/* 서류 분기: 약사=면허 필수 · 전산·사무직=이력서 필수 · 간호직=권장(건너뛰기 가능) */}
+      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('license'); }} />}
+      {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} submitting={submitting} submitError={submitError} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}

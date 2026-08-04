@@ -7,13 +7,14 @@
 --   ③ 신규 약국의 30일 체험 = pro 대신 pharmacy_plus (병원은 pro 유지)
 -- ============================================================================
 
--- ① Pharmacy 59,000 (★인기)
+-- ① Pharmacy 59,000 (★인기) + 관리자 좌석 추가 옵션(+월 20,000/석)
 UPDATE public.service_plans
 SET monthly_fee = 59000,
     sort_order = 12,
     features = features || jsonb_build_object(
       'popular', true,
-      'tagline', '약국 운영의 기본 — 근태·휴가·대체약사 반복요청'
+      'tagline', '약국 운영의 기본 — 근태·휴가·대체약사 반복요청',
+      'admin_seat_addon', jsonb_build_object('price', 20000, 'unit', 1)
     )
 WHERE code = 'pharmacy';
 
@@ -23,7 +24,7 @@ INSERT INTO public.service_plans (
   included_active_workers, included_attendance_slots, included_job_posting_slots,
   features, is_active, sort_order
 ) VALUES (
-  'pharmacy_plus', 'Pharmacy Plus', 99000, 1, 2, 30, 20, 15,
+  'pharmacy_plus', 'Pharmacy Plus', 99000, 1, 3, 30, 20, 15,
   jsonb_build_object(
     'popular', false,
     'support', 'standard',
