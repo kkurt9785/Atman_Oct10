@@ -24,8 +24,10 @@ export default function SettingsPage() {
   const [pushLoading, setPushLoading] = useState(false);
   const [pushNotice, setPushNotice] = useState('');
   const [showPwaGuide, setShowPwaGuide] = useState(false);
+  const [locationSaved, setLocationSaved] = useState(false);
 
   useEffect(() => {
+    setLocationSaved(new URLSearchParams(window.location.search).get('locationSaved') === '1');
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/onboarding'); return; }
@@ -110,6 +112,11 @@ export default function SettingsPage() {
 
   return (
     <main className="px-4 pb-10">
+      {locationSaved && (
+        <p role="status" className="mx-4 mt-3 rounded-xl bg-green-50 px-3 py-2 text-[13px] font-bold text-green-700">
+          활동 지역을 저장했어요.
+        </p>
+      )}
       {pushNotice && (
         <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{pushNotice}</p>
       )}

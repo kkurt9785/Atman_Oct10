@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 
 const DEMO_PASSWORD = 'Atman-demo-2026!';
 const DEMO_WORKERS = [
-  { email: 'worker-demo-1@demo.atman.co.kr', label: '광주 RN' },
+  { email: 'worker-demo-1@demo.atman.co.kr', label: 'W여성병원 Demo 1 · RN' },
   { email: 'worker-demo-2@demo.atman.co.kr', label: '수원 장안 RN' },
   { email: 'worker-demo-3@demo.atman.co.kr', label: '수원 권선 NA' },
   { email: 'worker-demo-4@demo.atman.co.kr', label: '수원 팔달 RN' },
@@ -19,7 +19,12 @@ export function Splash() {
   const [loading, setLoading] = useState(false);
   const [demoLoadingEmail, setDemoLoadingEmail] = useState<string | null>(null);
   const [demoError, setDemoError] = useState('');
-  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && process.env.NODE_ENV !== 'production';
+  // 테스트 배포에서도 환경변수 하나로 데모 진입을 열고 닫는다.
+  // 공개 종료 시 NEXT_PUBLIC_ENABLE_DEMO_LOGIN=0으로 즉시 숨길 수 있다.
+  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
+  const visibleDemoWorkers = process.env.NODE_ENV === 'production'
+    ? DEMO_WORKERS.slice(0, 1)
+    : DEMO_WORKERS;
 
   function handleKakaoLogin() {
     // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출
@@ -85,7 +90,7 @@ export function Splash() {
           <div className="rounded-2xl border border-line bg-white p-4">
             <p className="mb-3 text-[13px] font-bold text-ink">시연용 워커 로그인</p>
             <div className="grid grid-cols-1 gap-2">
-              {DEMO_WORKERS.map((worker) => (
+              {visibleDemoWorkers.map((worker) => (
                 <button
                   key={worker.email}
                   type="button"
