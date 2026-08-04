@@ -5,6 +5,7 @@ export type WagePaymentRow = {
   id: string; workerName: string; shiftDate: string; grossAmount: number; netAmount: number;
   deductionStatus: string; dueDate: string | null; status: string; approvedAt: string | null;
   paidAt: string | null; workerConfirmedAt: string | null; disputeReason: string | null;
+  bankName:string|null;accountLast4:string|null;
 };
 
 export type WagePaymentResult = { rows: WagePaymentRow[]; error: string | null };
@@ -95,7 +96,7 @@ export async function getWagePayments(requestedMonth?:string): Promise<WagePayme
   const next=new Date(`${month}-01T00:00:00Z`);next.setUTCMonth(next.getUTCMonth()+1);
   const end=new Date(next.getTime()-86_400_000).toISOString().slice(0,10);
   const { data, error } = await sb.from('wage_payment_instructions')
-    .select('id,gross_amount,net_amount,deduction_status,due_date,status,approved_at,paid_at,worker_confirmed_at,dispute_reason,workers(name),shifts!inner(shift_date)')
+    .select('id,gross_amount,net_amount,deduction_status,due_date,status,approved_at,paid_at,worker_confirmed_at,dispute_reason,bank_name_snapshot,account_last4_snapshot,workers(name),shifts!inner(shift_date)')
     .eq('facility_id', facilityId).gte('shifts.shift_date',`${month}-01`).lte('shifts.shift_date',end)
     .order('created_at', { ascending: false }).limit(100);
   if (error) return { rows: [], error: '급여 지급 요청을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' };
@@ -104,6 +105,7 @@ export async function getWagePayments(requestedMonth?:string): Promise<WagePayme
     grossAmount: row.gross_amount, netAmount: row.net_amount, deductionStatus: row.deduction_status,
     dueDate: row.due_date, status: row.status, approvedAt: row.approved_at, paidAt: row.paid_at,
     workerConfirmedAt: row.worker_confirmed_at, disputeReason: row.dispute_reason,
+    bankName:row.bank_name_snapshot??null,accountLast4:row.account_last4_snapshot??null,
   })), error: null };
 }
 

@@ -284,9 +284,19 @@ export async function setStaffPayAction(form:FormData){
   const staffId=text(form,'staff_id');
   const payBasis=text(form,'pay_basis');
   const payRate=Number(text(form,'pay_rate'));
-  const bankName=text(form,'bank_name')||null;
-  const accountLast4=text(form,'account_last4')||null;
   if(!['monthly','hourly','daily'].includes(payBasis)||!Number.isInteger(payRate)||payRate<=0)throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
+  const {data:staff}=await sb.from('facility_staff').select('worker_id,bank_name,account_last4')
+    .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended').maybeSingle();
+  if(!staff)throw new Error('급여 기준을 설정할 직원을 찾지 못했어요.');
+  let bankName=text(form,'bank_name')||staff.bank_name||null;
+  let accountLast4=text(form,'account_last4')||staff.account_last4||null;
+  if(staff.worker_id){
+    const {data:workerBank}=await sb.from('worker_bank_accounts').select('bank_name,account_number_last4')
+      .eq('worker_id',staff.worker_id).eq('is_primary',true).is('deleted_at',null)
+      .order('created_at',{ascending:false}).limit(1).maybeSingle();
+    bankName=workerBank?.bank_name??bankName;
+    accountLast4=workerBank?.account_number_last4??accountLast4;
+  }
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   const {error}=await sb.from('facility_staff').update({pay_basis:payBasis,pay_rate:payRate,bank_name:bankName,account_last4:accountLast4,updated_at:new Date().toISOString()})
     .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
@@ -330,7 +340,7 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
   // 이 병원과 실제 매칭(수락/완료) 이력이 있는 워커만 전환 가능.
   // 임의 worker_id로 남의 PII 조회·무단 고용레코드 생성(IDOR)을 서버에서 차단한다.
   const { data: match } = await sb.from('shift_applications')
-    .select('id, shifts!inner(facility_id)')
+    .select('id,shift_id, shifts!inner(facility_id,hourly_wage)')
     .eq('worker_id', workerId)
     .eq('shifts.facility_id', context.facilityId)
     .in('status', ['accepted', 'completed'])
@@ -340,9 +350,30 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
   const { data: worker } = await sb.from('workers').select('id,name,phone,role')
     .eq('id', workerId).is('deleted_at', null).maybeSingle();
   if (!worker) throw new Error('전환할 지원자 정보를 찾지 못했어요.');
-  const { data: existing } = await sb.from('facility_staff').select('id')
+  const shift = Array.isArray((match as any).shifts) ? (match as any).shifts[0] : (match as any).shifts;
+  const { data: bank } = await sb.from('worker_bank_accounts')
+    .select('bank_name,account_number_last4')
+    .eq('worker_id',worker.id).eq('is_primary',true).is('deleted_at',null)
+    .order('created_at',{ascending:false}).limit(1).maybeSingle();
+  const linkedPay = {
+    pay_basis: 'hourly',
+    pay_rate: Number(shift?.hourly_wage) || null,
+    bank_name: bank?.bank_name ?? null,
+    account_last4: bank?.account_number_last4 ?? null,
+  };
+  const { data: existing } = await sb.from('facility_staff').select('id,pay_basis,pay_rate,bank_name,account_last4')
     .eq('facility_id', context.facilityId).eq('worker_id', worker.id).maybeSingle();
-  if (existing) return;
+  if (existing) {
+    await sb.from('facility_staff').update({
+      pay_basis:existing.pay_basis??linkedPay.pay_basis,
+      pay_rate:existing.pay_rate??linkedPay.pay_rate,
+      bank_name:existing.bank_name??linkedPay.bank_name,
+      account_last4:existing.account_last4??linkedPay.account_last4,
+      updated_at:new Date().toISOString(),
+    }).eq('id',existing.id).eq('facility_id',context.facilityId);
+    revalidatePath('/staff'); revalidatePath('/payroll');
+    return;
+  }
   await requireStaffCapacity(sb, context.facilityId);
   const role = ['rn','na','pharmacist','pharmacy_staff'].includes(worker.role) ? worker.role : 'other';
   const { error } = await sb.from('facility_staff').insert({
@@ -350,7 +381,7 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
     phone: worker.phone ?? null, role, source: 'atman', engagement_type: 'temporary',
     default_start_time: text(form, 'default_start_time') || '09:00',
     default_end_time: text(form, 'default_end_time') || '18:00',
-    default_break_minutes: 60, created_by: context.user.id,
+    default_break_minutes: 60, ...linkedPay, created_by: context.user.id,
   });
   if (error) throw new Error('직원으로 전환하지 못했어요.');
   revalidatePath('/staff'); revalidatePath('/timesheet');
