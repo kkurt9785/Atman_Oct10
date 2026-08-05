@@ -40,7 +40,7 @@ export default function ShiftMapPage(){
 
   useEffect(()=>{void (async()=>{
     const {data:{user}}=await supabase.auth.getUser();
-    if(!user){window.location.href='/?next=/map';return;}
+    if(!user){window.localStorage.setItem('atman_auth_next','/map');window.location.href='/';return;}
     const pos=await getPosition();
     setPosition(pos);
     const {data:rows,error:shiftError}=await supabase.rpc('get_nearby_open_shifts_secure',{

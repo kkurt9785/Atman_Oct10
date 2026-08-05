@@ -7,7 +7,8 @@ const STATUS:Record<string,string>={scheduled:'예정',working:'근무 중',chec
 const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기',shift:'공고 시프트'};
 const AUTH:Record<string,string>={GPS:'위치',GPS_QR:'위치+QR',QR:'QR',QR_FALLBACK:'QR 보완',ADMIN:'관리자',qr:'기존 QR',button:'원터치'};
 function moveMonth(month:string,delta:number){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+delta);return d.toISOString().slice(0,7);}
-function dt(iso:string|null){if(!iso)return '—';return new Date(iso).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false});}
+// 서버 컴포넌트에서 렌더되므로 timeZone 필수 — Vercel(UTC)에서 9시간 어긋남 방지
+function dt(iso:string|null){if(!iso)return '—';return new Date(iso).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});}
 function localInput(iso:string|null){if(!iso)return '';const d=new Date(new Date(iso).getTime()+9*3600000);return d.toISOString().slice(0,16);}
 
 export default async function AttendanceHistoryPage({searchParams}:{searchParams:Promise<{month?:string;type?:string;status?:string}>}){

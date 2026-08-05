@@ -15,7 +15,7 @@ export default async function TimesheetPage(){
   const currentMonth=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
   const recentComplete=new Date(`${currentMonth}-01T00:00:00Z`);recentComplete.setUTCMonth(recentComplete.getUTCMonth()-1);
   const summaryHref=shop?.isDemo?`/attendance-summary?month=${recentComplete.toISOString().slice(0,7)}`:'/attendance-summary';
-  const today=new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short'});
+  const today=new Date().toLocaleDateString('ko-KR',{month:'long',day:'numeric',weekday:'short',timeZone:'Asia/Seoul'});
 
   return <main className="px-4 pb-28">
     <div className="mt-3 px-1">

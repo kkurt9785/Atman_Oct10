@@ -153,13 +153,14 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         <label className="mt-4 flex items-center gap-2 text-[13px] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>GPS 실패 시 동적 QR fallback 허용</label>
       </section>
 
-      {error && <p className="text-center text-[14px] text-warn mb-4">{error}</p>}
-      {saved && <p className="text-center text-[14px] text-success mb-4">저장됐어요 ✓</p>}
+      {error && <p role="alert" className="text-center text-[14px] text-warn mb-4">{error}</p>}
+      {saved && <p role="status" className="text-center text-[14px] text-success mb-4">저장됐어요 ✓</p>}
 
+      {/* BottomNav(z-30, ~56px+safe-area) 위에 떠야 한다 — z-40 + 하단 오프셋 */}
       <button
         type="submit"
         disabled={isPending}
-        className="fixed bottom-0 inset-x-0 mx-auto max-w-app m-4 h-14 bg-primary text-white text-[17px] font-bold rounded-xl shadow-btn disabled:opacity-60"
+        className="fixed bottom-[calc(60px+env(safe-area-inset-bottom))] inset-x-0 z-40 mx-auto max-w-app m-4 h-14 bg-primary text-white text-[17px] font-bold rounded-xl shadow-lg disabled:opacity-60"
       >
         {isPending ? '저장 중...' : '저장하기'}
       </button>

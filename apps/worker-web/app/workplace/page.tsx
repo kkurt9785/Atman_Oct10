@@ -37,7 +37,9 @@ function WorkplaceContent() {
       const query=new URLSearchParams();
       if(token)query.set('token',token);
       if(attendanceToken)query.set('attendanceToken',attendanceToken);
-      window.location.href=`/?next=${encodeURIComponent(`/workplace${query.size?`?${query}`:''}`)}`;
+      // 로그인 후 복귀는 atman_auth_next(localStorage) 패턴 — ?next= 파라미터는 읽는 곳이 없다
+      window.localStorage.setItem('atman_auth_next',`/workplace${query.size?`?${query}`:''}`);
+      window.location.href='/';
       return;
     }
     const {data}=await supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,facilities(name)').neq('status','ended').order('created_at',{ascending:false});
@@ -47,9 +49,11 @@ function WorkplaceContent() {
     if(linked.length){
       const kstNow=new Date(Date.now()+9*60*60*1000);
       const since=new Date(Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),1)).toISOString().slice(0,10);
+      const todayStr=kstNow.toISOString().slice(0,10);
       const {data:records}=await supabase.from('staff_attendances').select('staff_id,check_in_at,check_out_at,work_date,status,break_minutes').in('staff_id',linked.map(item=>item.id)).gte('work_date',since).order('work_date',{ascending:false});
       const map:Record<string,AttendanceState>={};
-      for(const row of (records??[]) as AttendanceState[])if(!map[row.staff_id])map[row.staff_id]=row;
+      // "오늘" 상태는 오늘 기록만 — 어제 퇴근 기록이 오늘 출근 버튼을 가리면 안 된다
+      for(const row of (records??[]) as AttendanceState[])if(!map[row.staff_id]&&row.work_date===todayStr)map[row.staff_id]=row;
       setAttendance(map);
     }
     if(attendanceToken){

@@ -8,7 +8,7 @@ import { FacilitySwitcher } from './FacilitySwitcher';
 import { supabase } from '@/lib/supabase-browser';
 
 const PUBLIC_PREFIX = ['/login', '/auth/', '/setup/'];
-const FULLSCREEN_PREFIX = ['/checkin'];
+const FULLSCREEN_PREFIX = ['/checkin', '/chats/'];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
