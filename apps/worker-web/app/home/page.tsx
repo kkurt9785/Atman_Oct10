@@ -243,7 +243,7 @@ export default function HomePage() {
   const [reviewPending, setReviewPending] = useState(false);
   const approvedRef = useRef(false);
 
-  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all'); // 기본 '전체' — 오늘 공고 0건이어도 첫 화면이 비지 않게
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [wageFilter, setWageFilter] = useState<WageFilter>('all');
   const [deptFilter, setDeptFilter] = useState<DeptFilter>('all');

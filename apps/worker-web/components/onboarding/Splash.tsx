@@ -21,9 +21,8 @@ export function Splash() {
   // 테스트 배포에서도 환경변수 하나로 데모 진입을 열고 닫는다.
   // 공개 종료 시 NEXT_PUBLIC_ENABLE_DEMO_LOGIN=0으로 즉시 숨길 수 있다.
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
-  const visibleDemoWorkers = process.env.NODE_ENV === 'production'
-    ? DEMO_WORKERS.slice(0, 1)
-    : DEMO_WORKERS;
+  // 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 플래그 하나로만 제어 (출시 시 0으로)
+  const visibleDemoWorkers = DEMO_WORKERS;
 
   function handleKakaoLogin() {
     // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출

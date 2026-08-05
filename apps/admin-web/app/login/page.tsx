@@ -20,8 +20,8 @@ function LoginInner() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
-  const showDemoLogin =
-    process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && process.env.NODE_ENV !== 'production';
+  // 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 플래그 하나로만 제어 (출시 시 0으로 — 체크리스트 2번)
+  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
   function handleKakaoLogin() {
     setLoading(true);
@@ -93,7 +93,7 @@ function LoginInner() {
 
         {showDemoLogin && (
           <div className="mt-2 pt-4 border-t border-line">
-            <p className="text-[12px] text-tertiary text-center mb-2">시연용 데모 계정 (로컬 전용)</p>
+            <p className="text-[12px] text-tertiary text-center mb-2">시연용 데모 계정</p>
             <div className="flex flex-col gap-2">
               {DEMO_ACCOUNTS.map((account) => (
                 <button
