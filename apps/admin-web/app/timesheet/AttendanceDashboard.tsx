@@ -66,7 +66,7 @@ export function AttendanceDashboard({staff,matched,failures}:{staff:ClinicStaff[
     <div className="mt-6 flex items-end justify-between gap-3 px-1">
       <div><p className="text-[12px] font-bold text-primary">통합 인력</p><h2 className="text-title font-extrabold">오늘 근무자</h2></div>
       <div className="flex gap-1 rounded-xl bg-white p-1 shadow-sm">
-        {([['all','전체'],['working','근무 중'],['issue','확인'],['completed','퇴근']] as const).map(([key,label])=><button key={key} onClick={()=>setFilter(key)} className={`h-8 rounded-lg px-2.5 text-[11px] font-bold ${filter===key?'bg-ink text-white':'text-sub'}`}>{label}</button>)}
+        {([['all','전체'],['working','근무 중'],['issue','확인'],['completed','퇴근']] as const).map(([key,label])=><button key={key} onClick={()=>setFilter(key)} className={`h-10 rounded-lg px-2.5 text-[11px] font-bold ${filter===key?'bg-ink text-white':'text-sub'}`}>{label}</button>)}
       </div>
     </div>
 

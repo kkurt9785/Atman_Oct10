@@ -3,7 +3,7 @@
 
 export const won = (value: number) => `${Math.round(value).toLocaleString('ko-KR')}원`;
 
-export const hours = (min: number) => `${Math.floor(min / 60)}시간`;
+export const hours = (min: number) => `${Math.floor(min / 60)}시간${min % 60 ? ` ${min % 60}분` : ''}`;
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 

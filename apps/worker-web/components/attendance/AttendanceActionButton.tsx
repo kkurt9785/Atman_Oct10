@@ -26,7 +26,7 @@ export function AttendanceActionButton({targetType,targetId,action,qrToken,onSuc
       p_lat:coords?.latitude??null,p_lng:coords?.longitude??null,
       p_accuracy:coords?.accuracy??null,p_qr_token:qrToken??null,
     });
-    const next=(data??{ok:false,message:error?.message??'출퇴근 인증에 실패했어요.'}) as Result;
+    const next=(data??{ok:false,message:error?.message?.replace(/^.*?: /,'')??'출퇴근 인증에 실패했어요.'}) as Result;
     setResult(next);setLoading(false);
     if(next.ok)onSuccess?.();
   }

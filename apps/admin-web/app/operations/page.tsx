@@ -10,7 +10,15 @@ import { getShop } from '@/lib/db/shop';
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
 
-export default async function OperationsPage() {
+const NOTICE: Record<string, string> = {
+  template_saved: '반복 템플릿을 저장했어요.',
+  generated: '반복 시프트를 생성했어요. 공고 목록에서 확인하세요.',
+  urgent_sent: '긴급 알림을 보냈어요.',
+  template_off: '템플릿 사용을 중지했어요.',
+};
+
+export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
+  const notice = NOTICE[(await searchParams).notice ?? ''];
   const context = await getAdminContext();
   if (!context || context.accessRole === 'sales') {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">운영 관리 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
@@ -24,6 +32,7 @@ export default async function OperationsPage() {
     + operationAlerts.filter((alert) => alert.kind === 'no_show').length;
   return (
     <main className="px-4 pb-28">
+      {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[13px] font-bold text-success">{notice}</p>}
       <div className="mt-3 mb-5 px-1">
         <p className="text-label font-bold text-primary">운영 자동화</p>
         <h1 className="text-display font-extrabold text-ink mt-1">이번 달 인력 운영</h1>

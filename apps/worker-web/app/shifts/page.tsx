@@ -300,7 +300,7 @@ export default function ShiftsPage() {
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <span className="text-5xl">🔍</span>
-          <p className="text-[17px] font-bold text-ink">{reviewPending ? '면허 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
+          <p className="text-[17px] font-bold text-ink">{reviewPending ? '가입 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
           {reviewPending && (
             <p className="text-[13px] text-sub text-center leading-5">심사가 끝나면 알림으로 알려드리고,<br />이 화면에 지원 가능한 시프트가 열려요.</p>
           )}

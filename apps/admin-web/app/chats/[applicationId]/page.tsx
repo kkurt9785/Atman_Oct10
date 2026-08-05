@@ -87,7 +87,7 @@ export default function AdminChatPage() {
   return (
     <div className="flex flex-col h-screen bg-bg">
       <div className="bg-white px-5 pt-4 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
-        <button onClick={() => router.back()} className="text-ink text-[20px] leading-none -ml-1 p-1">←</button>
+        <button onClick={() => router.back()} aria-label="뒤로 가기" className="text-ink text-[20px] leading-none -ml-2 flex h-11 w-11 items-center justify-center">←</button>
         <div className="flex-1">
           <h1 className="text-[16px] font-extrabold text-ink">워커 채팅</h1>
           <p className="text-[11px] text-tertiary">개인 연락처 공유 대신 채팅을 이용해 주세요 · 기록 보관</p>

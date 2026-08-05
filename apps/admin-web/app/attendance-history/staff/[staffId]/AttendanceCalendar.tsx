@@ -18,7 +18,7 @@ const DAY_STYLE: Record<string, string> = {
 };
 const LEGEND: [string, string][] = [
   ['bg-primary', '완료'], ['bg-primary/15', '근무 중'], ['bg-amber-400', '지각'],
-  ['bg-red-500', '결근'], ['bg-emerald-400', '휴가'],
+  ['bg-amber-100', '승인 대기'], ['bg-red-500', '결근'], ['bg-emerald-400', '휴가'], ['bg-bg', '예정'],
 ];
 
 function dt(iso: string | null) { if (!iso) return '—'; return new Date(iso).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }); }
@@ -61,7 +61,7 @@ export function AttendanceCalendar({ month, rows, today }: { month: string; rows
                 disabled={!record}
                 aria-label={`${date}${record ? ` ${STATUS_LABEL[record.status] ?? record.status}` : ''}`}
                 aria-pressed={isSelected}
-                className="flex items-center justify-center py-0.5"
+                className="flex min-h-11 items-center justify-center py-0.5"
               >
                 <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-bold ${style} ${isSelected ? 'ring-2 ring-ink' : isToday ? 'ring-1 ring-line' : ''}`}>
                   {Number(date.slice(8))}

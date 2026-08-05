@@ -111,7 +111,7 @@ export default function SettingsPage() {
   const profileDone = profileFilled >= PROFILE_TOTAL;
 
   return (
-    <main className="px-4 pb-10">
+    <main className="px-4 pb-10 pt-[env(safe-area-inset-top)]">
       {locationSaved && (
         <p role="status" className="mx-4 mt-3 rounded-xl bg-green-50 px-3 py-2 text-[13px] font-bold text-green-700">
           활동 지역을 저장했어요.

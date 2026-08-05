@@ -97,14 +97,14 @@ export default function ProfileEditPage() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error('로그인이 만료됐어요.');
 
-      let nextPath = licenseMode === 'photo' ? licensePhotoPath : null;
-      if (licenseMode === 'photo' && licenseFile) {
+      let nextPath = licenseMode === 'photo' || role === 'pharmacy_staff' ? licensePhotoPath : null;
+      if ((licenseMode === 'photo' || role === 'pharmacy_staff') && licenseFile) {
         const extByType: Record<string, string> = {
           'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
-          'image/heic': 'heic', 'image/heif': 'heif',
+          'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf',
         };
         const ext = extByType[licenseFile.type];
-        if (!ext) throw new Error('지원하지 않는 면허 파일 형식이에요.');
+        if (!ext) throw new Error('지원하지 않는 파일 형식이에요.');
         uploadedPath = `${user.id}/${crypto.randomUUID()}.${ext}`;
         const { error: uploadError } = await supabase.storage.from('license-photos').upload(uploadedPath, licenseFile, {
           upsert: false,
@@ -117,7 +117,7 @@ export default function ProfileEditPage() {
 
       const { error: updateError } = await supabase.rpc('update_my_worker_profile', {
         p_license_number: role !== 'pharmacy_staff' && licenseMode === 'text' ? licenseNumber.trim() : null,
-        p_license_path: role !== 'pharmacy_staff' ? nextPath : null,
+        p_license_path: nextPath,
         p_experience_years: experience,
         p_last_workplace: lastWorkplace.trim(),
         p_department_tags: deptTags,
@@ -138,7 +138,7 @@ export default function ProfileEditPage() {
   }
 
   return (
-    <main className="px-4 pb-32">
+    <main className="px-4 pb-32 pt-[env(safe-area-inset-top)]">
       {/* 헤더 */}
       <div className="flex items-center gap-3 mt-2 mb-6 px-1">
         <button
@@ -154,11 +154,11 @@ export default function ProfileEditPage() {
 
       <div className="flex flex-col gap-5">
         {/* 면허증 */}
-        {role !== 'pharmacy_staff' && <section className="bg-white rounded-2xl p-5 shadow-sm">
-          <p className="text-[13px] font-bold text-sub mb-3">면허증 *</p>
+        <section className="bg-white rounded-2xl p-5 shadow-sm">
+          <p className="text-[13px] font-bold text-sub mb-3">{role === 'pharmacy_staff' ? '이력서' : '면허증 *'}</p>
 
-          {/* 탭 토글 */}
-          <div className="flex bg-bg rounded-xl p-1 mb-4">
+          {/* 탭 토글 — 이력서(전산·사무직)는 파일 업로드만 */}
+          {role !== 'pharmacy_staff' && <div className="flex bg-bg rounded-xl p-1 mb-4">
             {(['photo', 'text'] as LicenseMode[]).map((m) => (
               <button
                 key={m}
@@ -171,20 +171,25 @@ export default function ProfileEditPage() {
                 {m === 'photo' ? '📷  사진 업로드' : '✏️  번호 입력'}
               </button>
             ))}
-          </div>
+          </div>}
 
-          {licenseMode === 'photo' ? (
+          {licenseMode === 'photo' || role === 'pharmacy_staff' ? (
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               className="w-full"
             >
-              {licensePreview ? (
+              {licensePreview && (licenseFile?.type === 'application/pdf' || licensePhotoPath?.endsWith('.pdf')) ? (
+                <div className="flex w-full items-center gap-3 rounded-xl border border-line bg-bg px-4 py-4">
+                  <span className="text-3xl" aria-hidden="true">📄</span>
+                  <span className="flex-1 text-left"><b className="block text-[13px] text-ink">PDF 문서 등록됨</b><span className="text-[11px] text-sub">탭하여 변경</span></span>
+                </div>
+              ) : licensePreview ? (
                 <div className="relative w-full rounded-xl overflow-hidden border border-line">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={licensePreview}
-                    alt="면허증 미리보기"
+                    alt={role === 'pharmacy_staff' ? '이력서 미리보기' : '면허증 미리보기'}
                     className="w-full object-cover max-h-52"
                   />
                   <span className="absolute bottom-2 right-2 text-[11px] font-semibold bg-black/50 text-white px-2 py-1 rounded-full">
@@ -194,14 +199,14 @@ export default function ProfileEditPage() {
               ) : (
                 <div className="w-full h-36 rounded-xl border-2 border-dashed border-line flex flex-col items-center justify-center gap-2 bg-bg active:bg-line/50">
                   <span className="text-3xl">📋</span>
-                  <p className="text-[13px] font-semibold text-sub">면허증 사진 업로드</p>
-                  <p className="text-[11px] text-tertiary">JPG, PNG, HEIC 가능</p>
+                  <p className="text-[13px] font-semibold text-sub">{role === 'pharmacy_staff' ? '이력서 업로드' : '면허증 사진 업로드'}</p>
+                  <p className="text-[11px] text-tertiary">PDF, JPG, PNG, HEIC 가능</p>
                 </div>
               )}
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
                 className="hidden"
                 onChange={handleFileChange}
               />
@@ -220,7 +225,7 @@ export default function ProfileEditPage() {
               <span className="text-[15px] text-sub whitespace-nowrap">호</span>
             </div>
           )}
-        </section>}
+        </section>
 
         {/* 경력 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">

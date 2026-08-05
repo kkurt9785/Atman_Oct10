@@ -27,9 +27,9 @@ export default async function StaffAttendancePage({params,searchParams}:{params:
       <p className="mt-1 text-label text-sub">{staff.department??'부서 미지정'}{staff.defaultStart?` · 근무 ${staff.defaultStart.slice(0,5)}~${staff.defaultEnd?.slice(0,5)??''}`:''}{firstWorkDate?` · 첫 기록 ${firstWorkDate}`:''}</p>
     </div>
     <div className="mt-4 flex items-center justify-between rounded-2xl bg-white p-2 shadow-sm">
-      {hasPrev?<Link href={`/attendance-history/staff/${staffId}?month=${moveMonth(month,-1)}`} className="flex h-9 w-9 items-center justify-center text-xl">‹</Link>:<span className="flex h-9 w-9 items-center justify-center text-xl text-line">‹</span>}
-      <b className="text-[14px]">{month.replace('-','년 ')}월</b>
-      {hasNext?<Link href={`/attendance-history/staff/${staffId}?month=${moveMonth(month,1)}`} className="flex h-9 w-9 items-center justify-center text-xl">›</Link>:<span className="flex h-9 w-9 items-center justify-center text-xl text-line">›</span>}
+      {hasPrev?<Link href={`/attendance-history/staff/${staffId}?month=${moveMonth(month,-1)}`} className="flex h-11 w-11 items-center justify-center text-xl">‹</Link>:<span className="flex h-11 w-11 items-center justify-center text-xl text-line">‹</span>}
+      <b className="text-[14px]">{month.slice(0,4)}년 {Number(month.slice(5,7))}월</b>
+      {hasNext?<Link href={`/attendance-history/staff/${staffId}?month=${moveMonth(month,1)}`} className="flex h-11 w-11 items-center justify-center text-xl">›</Link>:<span className="flex h-11 w-11 items-center justify-center text-xl text-line">›</span>}
     </div>
     <div className="mt-3 grid grid-cols-3 gap-2">
       <Card className="p-3"><p className="text-[11px] text-sub">근무일</p><b className="mt-1 block text-title">{summary.workDays}일</b></Card>

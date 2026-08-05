@@ -110,7 +110,7 @@ export default function ClaimFacilityPage() {
             enterKeyHint="search"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSearch()}
             placeholder="사업장명 검색"
             aria-label="사업장명 검색"
             className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-sub"
@@ -193,7 +193,7 @@ export default function ClaimFacilityPage() {
 
         {/* 초대 코드 + 연결 버튼 */}
         {selected && (
-          <div className="fixed bottom-0 inset-x-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-line space-y-3">
+          <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-line space-y-3">
             <p className="text-[13px] text-sub text-center">
               <span className="font-semibold text-ink">{selected.name}</span>
               <span className="ml-1 rounded-full bg-surface px-2 py-0.5 text-[11px]">{TYPE_LABEL[selected.facility_type]??selected.facility_type}</span>에 연결할게요

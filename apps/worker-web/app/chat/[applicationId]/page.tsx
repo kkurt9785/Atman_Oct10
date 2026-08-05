@@ -87,7 +87,7 @@ export default function WorkerChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-bg">
+    <div className="flex flex-col h-dvh bg-bg">
       {/* 헤더 */}
       <div className="bg-white px-5 pt-12 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
         <button onClick={() => router.back()} className="text-ink text-[20px] leading-none -ml-1 p-1">←</button>

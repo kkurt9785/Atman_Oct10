@@ -311,6 +311,9 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
         >
           {isPending ? '등록 중...' : invitedWorker ? '반복근무 요청 보내기' : '시프트 등록하기'}
         </button>
+        {!isPending && estimatedPay === 0 && (
+          <p className="text-label text-sub text-center -mt-2">근무 날짜·시간·시급을 입력하면 등록할 수 있어요</p>
+        )}
       </form>
     </main>
   );

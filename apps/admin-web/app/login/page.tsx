@@ -75,7 +75,7 @@ function LoginInner() {
 
       {error === 'unauthorized' && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
-          <p className="text-[13px] text-red-600 text-center">등록된 관리자 계정이 아닙니다.<br />담당자에게 문의해주세요.</p>
+          <p role="alert" className="text-[13px] text-red-600 text-center">등록된 관리자 계정이 아닙니다.<br />담당자에게 문의해주세요.</p>
         </div>
       )}
 
@@ -107,7 +107,7 @@ function LoginInner() {
               ))}
             </div>
             {demoError && (
-              <p className="text-[12px] font-bold text-red-500 text-center mt-2">{demoError}</p>
+              <p role="alert" className="text-[12px] font-bold text-red-500 text-center mt-2">{demoError}</p>
             )}
           </div>
         )}

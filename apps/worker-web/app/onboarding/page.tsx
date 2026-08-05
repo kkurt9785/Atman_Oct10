@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Splash } from '@/components/onboarding/Splash';
@@ -100,6 +100,12 @@ function OnboardingInner() {
     }
   }
 
+  // ?step= 딥링크로 선행 상태 없이 진입하면 백지가 되므로 스플래시로 되돌린다
+  useEffect(() => {
+    const needsTerms: Step[] = ['role', 'area', 'license', 'info', 'bank'];
+    if (needsTerms.includes(step) && !terms) setStep('splash');
+  }, [step, terms]);
+
   const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', area: 'role', license: 'area', info: 'license', bank: 'info' };
   const prevStep = PREV[step];
 
@@ -111,7 +117,7 @@ function OnboardingInner() {
           type="button"
           aria-label="이전 단계로"
           onClick={() => setStep(prevStep)}
-          className="fixed top-4 left-4 z-40 w-10 h-10 rounded-full bg-bg text-ink text-[18px] flex items-center justify-center active:opacity-70"
+          className="fixed top-[calc(env(safe-area-inset-top)+8px)] left-4 z-40 w-10 h-10 rounded-full bg-bg text-ink text-[18px] flex items-center justify-center active:opacity-70"
         >
           ←
         </button>

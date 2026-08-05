@@ -17,7 +17,6 @@ function Toggle({ name, label, defaultChecked }: { name: string; label: string; 
           className="sr-only"
         />
         <div
-          onClick={() => setOn(!on)}
           className={`w-12 h-7 rounded-full transition-colors ${on ? 'bg-primary' : 'bg-line'}`}
         >
           <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform ${on ? 'translate-x-6' : 'translate-x-1'}`} />

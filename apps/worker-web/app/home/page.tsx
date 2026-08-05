@@ -96,7 +96,8 @@ function matchesWage(shift: Shift, f: WageFilter) {
 }
 function matchesDept(shift: Shift, f: DeptFilter) {
   if (f === 'all') return true;
-  return shift.department === f;
+  // 부서는 자유 텍스트라 정확일치는 죽은 필터가 됨 — 부서·업무설명 부분일치로 매칭
+  return (shift.department ?? '').includes(f) || (shift.description ?? '').includes(f);
 }
 
 // ─── 서브 컴포넌트 ─────────────────────────────────────────────
@@ -548,7 +549,7 @@ export default function HomePage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <span className="text-5xl">🔍</span>
-            <p className="text-[15px] font-bold text-ink">{reviewPending ? '면허 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
+            <p className="text-[15px] font-bold text-ink">{reviewPending ? (role==='pharmacy_staff'?'프로필 확인 중이에요':'면허 심사 중이에요') : '조건에 맞는 시프트가 없어요'}</p>
             {reviewPending && (
               <p className="text-[13px] text-sub text-center leading-5">심사가 끝나면 알림으로 알려드려요.</p>
             )}

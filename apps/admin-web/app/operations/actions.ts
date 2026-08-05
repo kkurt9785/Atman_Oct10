@@ -2,6 +2,7 @@
 
 import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
@@ -41,6 +42,7 @@ export async function createShiftTemplateAction(formData: FormData) {
   });
   if (error) throw new Error('반복 일정 템플릿을 저장하지 못했어요.');
   revalidatePath('/operations');
+  redirect('/operations?notice=template_saved');
 }
 
 export async function generateRecurringShiftsAction(formData: FormData) {
@@ -106,6 +108,7 @@ export async function generateRecurringShiftsAction(formData: FormData) {
   if (outbox.length) await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
   revalidatePath('/operations');
   revalidatePath('/shifts');
+  redirect('/operations?notice=generated');
 }
 
 export async function requestUrgentReplacementAction(formData: FormData) {
@@ -176,6 +179,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
   if (outbox.length) await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
   revalidatePath('/operations');
   revalidatePath('/shifts');
+  redirect('/operations?notice=urgent_sent');
 }
 
 export async function deactivateShiftTemplateAction(formData: FormData) {
@@ -187,4 +191,5 @@ export async function deactivateShiftTemplateAction(formData: FormData) {
     .eq('id', id).eq('facility_id', context.facilityId);
   if (error) throw new Error('템플릿을 중지하지 못했어요.');
   revalidatePath('/operations');
+  redirect('/operations?notice=template_off');
 }

@@ -183,7 +183,7 @@ export default function CheckinPage() {
           <p className="text-[14px] text-sub">{result.shiftDate} · {result.startTime.slice(0, 5)}</p>
           {result.action === 'checkout' && typeof result.gross === 'number' && (
             <div className="mt-4 w-full rounded-2xl bg-bg p-4 text-[13px] space-y-2">
-              <div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>₩{result.gross.toLocaleString('ko-KR')}</b></div>
+              <div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>{result.gross.toLocaleString('ko-KR')}원</b></div>
               <div className="flex justify-between"><span className="text-sub">공제 상태</span><b>사업장 확인 예정</b></div>
               <div className="flex justify-between border-t border-line pt-2"><span className="text-ink font-bold">지급 방식</span><b className="text-primary">사업장 직접 지급</b></div>
             </div>

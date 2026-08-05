@@ -233,8 +233,8 @@ function CartSheet({
             <span className="text-primary">₩{total.toLocaleString('ko-KR')}</span>
           </div>
 
-          <button className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-btn shadow-btn mb-safe active:opacity-80">
-            결제하기
+          <button disabled className="w-full h-14 bg-line text-sub text-[16px] font-extrabold rounded-btn mb-safe cursor-not-allowed">
+            결제 준비 중 — 곧 열려요
           </button>
         </div>
       </div>
