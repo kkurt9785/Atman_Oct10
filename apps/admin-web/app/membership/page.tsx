@@ -2,24 +2,13 @@ import { won, formatDate } from '@/lib/format';
 const SUB_STATUS: Record<string,string> = { pending:'개시 대기', active:'이용 중', past_due:'결제 지연' };
 import { adminClient } from '@/lib/supabase';
 import ServiceInvoicePayButton from './CreditChargePanel';
+import { PlanCards } from './PlanCards';
 import { getAdminContext } from '@/lib/admin-auth';
 import { redirect } from 'next/navigation';
 import { todayKST } from '@/lib/date';
 
 type Plan={code:string;name:string;monthly_fee:number;included_facilities:number;included_admin_seats:number;included_active_workers:number;included_attendance_slots:number;included_job_posting_slots:number;features:Record<string,unknown>};
 
-const UNLIMITED = 999999;
-const cap = (n:number)=> n>=UNLIMITED ? '무제한' : `${n}`;
-// 병원 관리자가 실제 운영 범위와 업그레이드 가치를 바로 비교할 수 있는 핵심 혜택.
-const PLAN_PERKS:Record<string,string[]> = {
-  free:['공고 월 3건','직원 근태 3명','관리자 1명','기본 자격 확인·채팅'],
-  clinic:['직원 최대 10명','간편 출퇴근·휴가','공고 월 3건','관리자 1명'],
-  pharmacy:['약사·전산직 최대 10명','간편 출퇴근·휴가·급여 검토','공고 월 3건','함께 일한 약사 반복근무 요청','옵션: 관리자 1명 추가 +월 20,000원'],
-  pharmacy_plus:['약사·전산직 최대 20명','공고 월 15건 · 반복초대 30명','반복 일정 자동화(토요일 대체약사 등)','관리자 3명 · 자격 만료관리'],
-  basic:['직원 근태 20명','공고 월 15건','월 반복초대 대상 20명','관리자 2명'],
-  pro:['직원 근태 60명','공고 무제한','월 반복초대 대상 60명','자격 만료관리·운영자동화'],
-  enterprise:['직원 근태·공고·반복초대 무제한','관리자 15명 · 사업장 3곳','자격·운영 통합관리','API·감사로그·전담지원'],
-};
 type Invoice={id:string;invoice_number:string;period_start:string;period_end:string;total_amount:number;status:string;due_date:string|null};
 
 async function getBilling(facilityId:string) {
@@ -70,26 +59,7 @@ export default async function MembershipPage(){
     <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[12px] text-white/70">{isTrial?'무료 체험 중':'현재 구독'}</p><p className="text-[22px] font-extrabold mt-1">{subscription?.service_plans?.name??'Free 파일럿'}</p><p className="text-[12px] text-white/70 mt-2">{isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 Free 자동 전환`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'}`:'월 3건 제한 파일럿'}</p></div>
     {!canPay&&<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">청구서 결제는 사업장 소유자 또는 결제 승인 담당자에게 요청해 주세요.</p></div>}
     <h2 className="text-title font-extrabold px-1 mb-3">요금제</h2>
-    <div className="space-y-3 mb-4">{plans.map(plan=>{
-      const isCurrent = subscription?.plan_code===plan.code;
-      const popular = plan.features?.popular === true;
-      const perks = PLAN_PERKS[plan.code] ?? [`공고 ${cap(plan.included_job_posting_slots)}건`,`인력풀 ${cap(plan.included_active_workers)}명`,`관리자 ${plan.included_admin_seats}명`];
-      return <article key={plan.code} className={`bg-white rounded-2xl p-5 ${popular?'ring-2 ring-primary shadow-lg':'shadow-card'} ${isCurrent?'ring-2 ring-success':''}`}>
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-title font-extrabold">{plan.name}</p>
-            {popular&&<span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-primary text-white">★ 인기</span>}
-            {isCurrent&&<span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-success/15 text-success">이용 중</span>}
-          </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-[22px] font-extrabold text-ink leading-none">{plan.monthly_fee===0?'무료':`${won(plan.monthly_fee)}${plan.code==='enterprise'?'부터':''}`}</p>
-            {plan.monthly_fee>0&&<p className="text-[11px] text-tertiary mt-0.5">월 · 부가세 별도</p>}
-          </div>
-        </div>
-        {typeof plan.features?.tagline==='string'&&<p className="text-[13px] text-sub mt-1.5">{plan.features.tagline as string}</p>}
-        <ul className="mt-3 space-y-1.5">{perks.map((perk,i)=><li key={i} className="flex items-center gap-2 text-[13px] text-ink"><span className={popular?'text-primary':'text-sub'}>✓</span>{perk}</li>)}</ul>
-      </article>;
-    })}</div>
+    <PlanCards plans={plans} currentPlanCode={subscription?.plan_code}/>
     <div className="mb-7 bg-primary/5 border border-primary/15 rounded-2xl p-4">
       <p className="text-label font-bold text-primary">💡 임금은 사업장이 직접 지급 = 중개 수수료 0원</p>
       <p className="text-[13px] text-sub leading-5 mt-1">잇닿은 근무 횟수나 임금에 비례한 수수료 대신 정액 이용료를 받습니다. 사업장은 지급할 임금과 서비스 비용을 명확하게 구분할 수 있어요.</p>
