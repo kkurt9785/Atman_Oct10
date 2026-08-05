@@ -116,7 +116,7 @@ export default function EarningsPage() {
             onChange={(e) => setDisputeReason(e.target.value)}
             rows={3}
             placeholder="예: 7/18 야간 근무 시간이 실제와 달라요"
-            className="mt-4 w-full rounded-xl border border-line px-4 py-3 text-[15px] outline-none focus:border-primary resize-none"
+            className="mt-4 w-full rounded-xl border border-line px-4 py-3 text-[16px] outline-none focus:border-primary resize-none"
           />
           <div className="grid grid-cols-2 gap-2 mt-4">
             <button

@@ -9,10 +9,16 @@ export default {
         primary: '#3182F6',     // 토스 블루
         ink: '#191F28',         // 본문 (고대비)
         sub: '#4E5968',         // 보조 텍스트
+        tertiary: '#8B95A1',    // 3차 텍스트 (사용처 다수인데 미정의로 무스타일이었음)
         line: '#E5E8EB',
         bg: '#F2F4F6',
+        surface: '#FFFFFF',     // sticky 헤더 등 불투명 표면
         success: '#00C471',
         warn: '#FF6B6B',
+      },
+      boxShadow: {
+        card: '0 1px 3px rgba(25,31,40,0.08)',
+        btn: '0 4px 12px rgba(49,130,246,0.25)',
       },
       fontSize: {
         // rem 기반 → 큰글씨 토글(root 16→20px) 시 전체 ×1.25 확대

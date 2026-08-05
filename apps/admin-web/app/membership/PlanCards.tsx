@@ -52,9 +52,12 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
         ))}
       </div>
       {cycle !== 'monthly' && (
-        <p className="mb-3 px-1 text-[11px] text-sub">
-          {meta.months}개월 선결제 · 부가세 별도 · 중도해지 시 이용 개월은 할인 전 정상가로 정산 후 잔액 환불
-        </p>
+        <div className="mb-3 rounded-xl bg-primary/5 border border-primary/15 px-3 py-2.5">
+          <p className="text-[11px] leading-4 text-sub">
+            {meta.months}개월 선결제 · 부가세 별도 · 중도해지 시 이용 개월은 할인 전 정상가로 정산 후 잔액 환불
+          </p>
+          <a href="#invoices" className="mt-1 inline-block text-[12px] font-bold text-primary">전환을 원하시면 다음 청구서에 반영을 요청하세요 →</a>
+        </div>
       )}
       <div className="space-y-3 mb-4">
         {plans.map((plan) => {
@@ -63,7 +66,8 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
           const perks =
             PLAN_PERKS[plan.code] ??
             [`공고 ${cap(plan.included_job_posting_slots ?? 0)}건`, `인력풀 ${cap(plan.included_active_workers ?? 0)}명`, `관리자 ${plan.included_admin_seats ?? 1}명`];
-          const discountable = cycle !== 'monthly' && plan.monthly_fee > 0 && plan.code !== 'enterprise' && Boolean((plan.features as any)?.cycle_discounts);
+          // 이용 중인 플랜은 실제 청구 기준가(월간)를 고정 표시 — 할인가를 얹으면 현재 결제액이 바뀐 것처럼 읽힌다
+          const discountable = cycle !== 'monthly' && !isCurrent && plan.monthly_fee > 0 && plan.code !== 'enterprise' && Boolean((plan.features as any)?.cycle_discounts);
           const total = discountable ? Math.round(plan.monthly_fee * meta.months * (1 - meta.discount)) : plan.monthly_fee;
           const perMonth = discountable ? Math.round(total / meta.months) : plan.monthly_fee;
           const savings = discountable ? plan.monthly_fee * meta.months - total : 0;

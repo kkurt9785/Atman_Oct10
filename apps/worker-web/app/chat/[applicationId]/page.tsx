@@ -130,7 +130,7 @@ export default function WorkerChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send(); }}
               placeholder="메시지 입력 (전화번호는 자동 마스킹돼요)"
-              className="flex-1 h-11 px-4 bg-bg rounded-xl text-[14px] text-ink outline-none"
+              className="flex-1 h-11 px-4 bg-bg rounded-xl text-[16px] text-ink outline-none"
             />
             <button
               onClick={send}

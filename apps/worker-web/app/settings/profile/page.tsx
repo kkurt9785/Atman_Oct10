@@ -127,7 +127,8 @@ export default function ProfileEditPage() {
       if (uploadedPath && licensePhotoPath && uploadedPath !== licensePhotoPath) {
         await supabase.storage.from('license-photos').remove([licensePhotoPath]).catch(() => undefined);
       }
-      router.back();
+      // 온보딩 Approval CTA 경유 시 back()이 온보딩 스플래시로 떨어짐 — 홈으로 명시 이동
+      router.replace('/home');
     } catch (saveError: unknown) {
       if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
       setError(saveError instanceof Error ? saveError.message : '저장 중 오류가 발생했어요.');
@@ -214,7 +215,7 @@ export default function ProfileEditPage() {
                 placeholder="면허번호 입력"
                 value={licenseNumber}
                 onChange={(e) => setLicenseNumber(e.target.value)}
-                className="flex-1 bg-transparent text-[15px] text-ink focus:outline-none"
+                className="flex-1 bg-transparent text-[16px] text-ink focus:outline-none"
               />
               <span className="text-[15px] text-sub whitespace-nowrap">호</span>
             </div>
@@ -250,7 +251,7 @@ export default function ProfileEditPage() {
             placeholder={role === 'pharmacist' ? '예: ○○약국 대체약사' : role === 'pharmacy_staff' ? '예: ○○약국 전산·접수' : '예: ○○병원 중환자실'}
             value={lastWorkplace}
             onChange={(e) => setLastWorkplace(e.target.value)}
-            className="w-full bg-bg rounded-xl px-4 py-3.5 text-[15px] text-ink placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full bg-bg rounded-xl px-4 py-3.5 text-[16px] text-ink placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </section>
 

@@ -56,7 +56,7 @@ export default async function OperationsPage() {
           {operationAlerts.slice(0, 8).map((alert) => (
             <Card key={`${alert.kind}:${alert.shiftId}`} className={alert.kind === 'no_show' ? 'border border-red-200' : 'border border-amber-200'}>
               <div className="flex items-center justify-between gap-3">
-                <div><p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? '출근 30분 경과 · 노쇼 확인' : '48시간 내 지원자 없음'}</p><p className="text-body font-bold mt-1">{alert.shiftDate} {alert.startTime.slice(0,5)} · {alert.department ?? '병동'}</p></div>
+                <div><p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? '출근 30분 경과 · 노쇼 확인' : '48시간 내 지원자 없음'}</p><p className="text-body font-bold mt-1">{alert.shiftDate} {alert.startTime.slice(0,5)} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p></div>
                 <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[12px] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form>
               </div>
             </Card>
@@ -69,7 +69,7 @@ export default async function OperationsPage() {
         <span className="text-label text-sub">최대 8주 생성</span>
       </div>
       {templates.length === 0 ? (
-        <Card className="py-8 text-center mb-4"><p className="text-body font-bold">저장된 템플릿이 없어요</p><p className="text-label text-sub mt-1">매주 반복되는 병동 일정을 먼저 저장하세요.</p></Card>
+        <Card className="py-8 text-center mb-4"><p className="text-body font-bold">저장된 템플릿이 없어요</p><p className="text-label text-sub mt-1">매주 반복되는 일정을 먼저 저장하세요. 요일·시간·직군을 정해두면 몇 주치 공고를 한 번에 만들 수 있어요.</p></Card>
       ) : (
         <div className="space-y-3 mb-5">
           {templates.map((template) => (

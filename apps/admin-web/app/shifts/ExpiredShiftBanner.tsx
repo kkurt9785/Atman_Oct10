@@ -18,7 +18,7 @@ export function ExpiredShiftBanner({ shifts }: { shifts: ShiftRow[] }) {
   if (dismissed || shifts.length === 0) return null;
 
   return (
-    <div className="mb-4 rounded-2xl border border-warn/30 bg-warn/8 overflow-hidden">
+    <div className="mb-4 rounded-2xl border border-warn/30 bg-warn/10 overflow-hidden">
       {/* 헤더 */}
       <div className="flex items-center gap-3 px-4 py-3.5">
         <span className="text-xl flex-shrink-0">⚠️</span>

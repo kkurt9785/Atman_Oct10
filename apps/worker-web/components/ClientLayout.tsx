@@ -19,7 +19,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
     || path.startsWith('/earnings') || path.startsWith('/rewards') || path.startsWith('/settings');
   return (
     <>
-      <div className={showNav ? 'pb-[56px]' : ''}>{children}</div>
+      <div className={showNav ? 'pb-[calc(56px+env(safe-area-inset-bottom))]' : ''}>{children}</div>
       {showNav && <InstallBanner />}
       {showNav && <WorkerNav />}
     </>
