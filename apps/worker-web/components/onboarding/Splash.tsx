@@ -6,12 +6,11 @@ import { supabase } from '@/lib/supabase';
 
 const DEMO_PASSWORD = 'Atman-demo-2026!';
 const DEMO_WORKERS = [
-  { email: 'worker-demo-1@demo.atman.co.kr', label: 'W여성병원 Demo 1 · RN' },
-  { email: 'worker-demo-2@demo.atman.co.kr', label: '온누리약국 Demo 2 · 전산직' },
-  { email: 'worker-demo-3@demo.atman.co.kr', label: '수원 권선 NA' },
-  { email: 'worker-demo-4@demo.atman.co.kr', label: '수원 팔달 RN' },
-  { email: 'worker-demo-5@demo.atman.co.kr', label: '수원 영통 NA' },
-  { email: 'worker-demo-6@demo.atman.co.kr', label: '온누리약국 Demo 6 · 약사' },
+  { email: 'worker-demo-1@demo.atman.co.kr', label: 'Demo 1 · W여성병원 간호사' },
+  { email: 'worker-demo-2@demo.atman.co.kr', label: 'Demo 2 · 온누리약국 약사' },
+  { email: 'worker-demo-3@demo.atman.co.kr', label: 'Demo 3 · 온누리약국 전산직원' },
+  { email: 'worker-demo-4@demo.atman.co.kr', label: 'Demo 4 · 수원 팔달 간호사' },
+  { email: 'worker-demo-5@demo.atman.co.kr', label: 'Demo 5 · 수원 영통 간호조무사' },
 ];
 
 export function Splash() {
