@@ -22,6 +22,10 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
   const { rows, error } = paymentResult;
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super';
   const facilityWord=shop.facilityType==='pharmacy'?'약국':'병원';
+  if (!context?.canViewPayroll) return <main className="px-4">
+    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{facilityWord} 직접 지급</p><h1 className="text-display font-extrabold text-ink">급여 지급관리</h1></div>
+    <Card className="py-10 text-center"><p className="text-[28px]">🔒</p><p className="mt-2 font-bold">급여 열람 권한이 없어요</p><p className="mt-2 text-label text-sub leading-5">급여 정보는 {facilityWord} 소유자와<br/>허용된 관리자만 볼 수 있어요.<br/>필요하면 설정 → 관리자 권한에서 허용을 요청해 주세요.</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-xl bg-ink px-5 text-label font-bold text-white">홈으로</Link></Card>
+  </main>;
   const pending = rows.filter(r => ['draft','approved','exported','disputed'].includes(r.status)).reduce((s,r)=>s+r.netAmount,0)+staffRows.filter(r=>['draft','approved','exported'].includes(r.status)).reduce((sum,row)=>sum+row.netAmount,0);
   const completed = rows.filter(r => ['paid','worker_confirmed'].includes(r.status)).reduce((s,r)=>s+r.netAmount,0)+staffRows.filter(r=>r.status==='paid').reduce((sum,row)=>sum+row.netAmount,0);
   return <main className="px-4">

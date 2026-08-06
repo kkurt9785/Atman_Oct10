@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { getFacilityProfile } from '@/lib/actions/facility';
+import { getFacilityProfile, getFacilityAdmins } from '@/lib/actions/facility';
 import { FacilityProfileForm } from './FacilityProfileForm';
+import { AdminAccessSection } from './AdminAccessSection';
 import { getShop } from '@/lib/db/shop';
 
 export default async function SettingsPage() {
-  const profile = await getFacilityProfile();
-  const shop = await getShop();
+  const [profile, shop, admins] = await Promise.all([getFacilityProfile(), getShop(), getFacilityAdmins()]);
   const facilityWord = shop?.facilityType === 'pharmacy' ? '약국' : '병원';
 
   return (
@@ -14,6 +14,7 @@ export default async function SettingsPage() {
         <Link href="/" className="mr-3 text-[20px] leading-none">←</Link>
         <h1 className="text-[17px] font-bold text-ink">{facilityWord} 설정</h1>
       </div>
+      {admins && admins.length > 0 && <AdminAccessSection admins={admins} facilityWord={facilityWord} />}
       <FacilityProfileForm profile={profile} facilityType={shop?.facilityType??'clinic'} />
     </div>
   );

@@ -9,9 +9,10 @@ import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
 import { won, hours } from '@/lib/format';
 import { getUnifiedWorkforceSummary } from '@/lib/db/payroll';
 import { getClinicStaff } from '@/lib/db/clinic-workforce';
+import { getAdminContext } from '@/lib/admin-auth';
 
 export default async function Home() {
-  const [shop, staff, clinicStaff, workforceSummary, pendingCount, ops, alerts] = await Promise.all([
+  const [shop, staff, clinicStaff, workforceSummary, pendingCount, ops, alerts, context] = await Promise.all([
     getShop(),
     getStaff(),
     getClinicStaff(),
@@ -19,7 +20,9 @@ export default async function Home() {
     getPendingCount(),
     getOperationsSummary(),
     getOperationsAlerts(),
+    getAdminContext(),
   ]);
+  const canViewPayroll = context?.canViewPayroll ?? false;
 
   if (!shop) redirect('/setup/claim-facility');
 
@@ -34,7 +37,7 @@ export default async function Home() {
     { key: 'noshow', label: '노쇼 확인', count: noShowCount, href: '/operations', tone: 'danger' as const },
     { key: 'unfilled', label: '48시간 내 미충원', count: ops.urgentUnfilledCount, href: '/operations', tone: 'warn' as const },
     { key: 'credential', label: '자격 만료 임박', count: ops.expiringCredentialCount, href: '/workforce', tone: 'warn' as const },
-    { key: 'wage', label: '지급 처리 대기', count: ops.pendingWageCount, href: '/payroll', tone: 'warn' as const },
+    ...(canViewPayroll ? [{ key: 'wage', label: '지급 처리 대기', count: ops.pendingWageCount, href: '/payroll', tone: 'warn' as const }] : []),
   ].filter((t) => t.count > 0);
 
   const toneClass = {
@@ -54,7 +57,9 @@ export default async function Home() {
       <Card className="shadow-sm">
         <p className="text-label text-sub mb-3">이번 달 현황</p>
         <div className="flex justify-between items-end">
-          <BigStat label="예상 인건비" value={won(summary.estimatedPay)} />
+          {canViewPayroll
+            ? <BigStat label="예상 인건비" value={won(summary.estimatedPay)} />
+            : <BigStat label="등록 직원" value={`${staff.length + clinicStaff.length}명`} />}
           <div className="text-right">
             <p className="text-label text-sub mb-1">총 근로시간</p>
             <p className="text-title font-bold text-ink">{hours(summary.totalMinutes)}</p>
@@ -104,7 +109,7 @@ export default async function Home() {
           { icon: '🤝', label: `${facilityWord} 인력풀`, href: '/workforce' },
           { icon: '⚙️', label: '운영 자동화', href: '/operations' },
           { icon: '💬', label: '워커 채팅', href: '/chats' },
-          { icon: '₩', label: '급여 자료', href: '/payroll' },
+          ...(canViewPayroll ? [{ icon: '₩', label: '급여 자료', href: '/payroll' }] : []),
           { icon: '🧾', label: '요금·청구', href: '/membership' },
           { icon: isPharmacy ? '💊' : '🏥', label: `${facilityWord} 프로필`, href: '/settings' },
         ]}

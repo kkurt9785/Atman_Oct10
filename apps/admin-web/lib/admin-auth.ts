@@ -21,6 +21,7 @@ export type AdminSession = {
 export type AdminContext = AdminSession & {
   facilityId: string;
   accessRole: AdminAccessRole;
+  canViewPayroll: boolean;
 };
 
 type FacilityCookiePayload = {
@@ -130,10 +131,15 @@ export async function setFacilityContextCookie(
   });
 }
 
-export const getFacilityAccessRole=cache(async (
+export type FacilityAccessInfo = {
+  role: AdminAccessRole;
+  canViewPayroll: boolean;
+};
+
+export const getFacilityAccessInfo=cache(async (
   userId: string,
   facilityId: string,
-): Promise<AdminAccessRole | null> => {
+): Promise<FacilityAccessInfo | null> => {
   const sb = adminClient();
   if (!sb) return null;
 
@@ -148,15 +154,25 @@ export const getFacilityAccessRole=cache(async (
       .maybeSingle(),
     sb
       .from('facility_admin_access')
-      .select('access_role')
+      .select('access_role, can_view_payroll')
       .eq('user_id', userId)
       .eq('facility_id', facilityId)
       .maybeSingle(),
   ]);
 
-  if (owned) return 'owner';
+  // 소유자(원장)는 항상 급여 열람 가능. 위임 관리자는 토글 값을 따른다.
+  if (owned) return { role: 'owner', canViewPayroll: true };
   const role = delegated?.access_role;
-  return role === 'operator' || role === 'sales' || role === 'super' ? role : null;
+  if (role !== 'operator' && role !== 'sales' && role !== 'super') return null;
+  return { role, canViewPayroll: delegated?.can_view_payroll === true };
+});
+
+export const getFacilityAccessRole=cache(async (
+  userId: string,
+  facilityId: string,
+): Promise<AdminAccessRole | null> => {
+  const info = await getFacilityAccessInfo(userId, facilityId);
+  return info?.role ?? null;
 });
 
 export const getAdminContext=cache(async (): Promise<AdminContext | null> => {
@@ -167,13 +183,14 @@ export const getAdminContext=cache(async (): Promise<AdminContext | null> => {
   const payload = decodeFacilityCookie(jar.get(FACILITY_COOKIE)?.value);
   if (!payload || payload.userId !== session.user.id) return null;
 
-  const accessRole = await getFacilityAccessRole(session.user.id, payload.facilityId);
-  if (!accessRole) return null;
+  const access = await getFacilityAccessInfo(session.user.id, payload.facilityId);
+  if (!access) return null;
 
   return {
     ...session,
     facilityId: payload.facilityId,
-    accessRole,
+    accessRole: access.role,
+    canViewPayroll: access.canViewPayroll,
   };
 });
 

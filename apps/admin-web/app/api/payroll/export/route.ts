@@ -9,7 +9,7 @@ function csvCell(value: unknown) {
 export async function GET(request:Request) {
   const context = await getAdminContext();
   if (!context) return new Response('로그인이 필요합니다.', { status: 401 });
-  if (context.accessRole !== 'owner' && context.accessRole !== 'super') {
+  if ((context.accessRole !== 'owner' && context.accessRole !== 'super') || !context.canViewPayroll) {
     return new Response('급여 자료 내보내기 권한이 없습니다.', { status: 403 });
   }
   const sb = adminClient();

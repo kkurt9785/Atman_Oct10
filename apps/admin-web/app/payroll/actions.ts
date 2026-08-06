@@ -5,6 +5,7 @@ import { adminClient, userClient } from '@/lib/supabase';
 
 export async function updatePaymentStatus(formData: FormData) {
   const context = await requireAdminContext(['owner','super']);
+  if (!context.canViewPayroll) throw new Error('급여 처리 권한이 없습니다.');
   const id = String(formData.get('id') ?? '');
   const action = String(formData.get('action') ?? '');
   if (!id || !['approve','mark_exported','mark_paid'].includes(action)) throw new Error('올바르지 않은 지급 요청입니다.');
@@ -50,6 +51,7 @@ export async function runPayrollAction(kind:'marketplace'|'staff',formData:FormD
 
 export async function updateStaffPaymentStatus(formData:FormData){
   const context=await requireAdminContext(['owner','super']);
+  if(!context.canViewPayroll)throw new Error('급여 처리 권한이 없습니다.');
   const staffId=String(formData.get('staff_id')??'');
   const periodMonth=String(formData.get('period_month')??'');
   const action=String(formData.get('action')??'');

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
-import { requireAdminContext } from '../admin-auth';
+import { getAdminContext, requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
 
 export type FacilityProfile = {
@@ -186,4 +186,66 @@ export async function clearWorkplaceNetworks(): Promise<void> {
   if (auditError) console.error('[clearWorkplaceNetworks] audit log failed', auditError);
 
   revalidatePath('/settings');
+}
+
+export type FacilityAdminRow = {
+  userId: string;
+  email: string;
+  role: 'owner' | 'operator' | 'sales' | 'super';
+  canViewPayroll: boolean;
+};
+
+// 소유자·전체 관리(super)만 관리자 목록을 본다. 그 외 등급에는 null (섹션 미노출).
+export async function getFacilityAdmins(): Promise<FacilityAdminRow[] | null> {
+  const context = await getAdminContext();
+  if (!context || (context.accessRole !== 'owner' && context.accessRole !== 'super')) return null;
+  const sb = adminClient();
+  if (!sb) return null;
+
+  const [{ data: facility }, { data: delegated }] = await Promise.all([
+    sb.from('facilities').select('admin_user_id').eq('id', context.facilityId).maybeSingle(),
+    sb.from('facility_admin_access').select('user_id, access_role, can_view_payroll')
+      .eq('facility_id', context.facilityId).order('created_at'),
+  ]);
+
+  const rows: FacilityAdminRow[] = [];
+  const ids = [
+    ...(facility?.admin_user_id ? [{ id: facility.admin_user_id as string, role: 'owner' as const, canView: true }] : []),
+    ...(delegated ?? []).map((d) => ({
+      id: d.user_id as string,
+      role: d.access_role as 'operator' | 'sales' | 'super',
+      canView: d.can_view_payroll === true,
+    })),
+  ];
+  for (const entry of ids) {
+    if (rows.some((r) => r.userId === entry.id)) continue;
+    const { data } = await sb.auth.admin.getUserById(entry.id);
+    rows.push({ userId: entry.id, email: data?.user?.email ?? '알 수 없음', role: entry.role, canViewPayroll: entry.canView });
+  }
+  return rows;
+}
+
+export async function setAdminPayrollVisibility(targetUserId: string, allow: boolean): Promise<void> {
+  const context = await requireAdminContext(['owner', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+
+  const { data: updated, error } = await sb.from('facility_admin_access')
+    .update({ can_view_payroll: allow })
+    .eq('facility_id', context.facilityId).eq('user_id', targetUserId)
+    .select('user_id');
+  if (error) throw new Error(error.message);
+  if (!updated?.length) throw new Error('이 사업장의 위임 관리자가 아니에요.');
+
+  const { error: auditError } = await sb.from('audit_logs').insert({
+    actor_type: 'admin', actor_id: context.user.id,
+    action: 'facility.payroll_visibility.update',
+    entity_type: 'facility', entity_id: context.facilityId,
+    after_data: { target_user_id: targetUserId, can_view_payroll: allow },
+  });
+  if (auditError) console.error('[setAdminPayrollVisibility] audit log failed', auditError);
+
+  revalidatePath('/settings');
+  revalidatePath('/payroll');
+  revalidatePath('/');
 }
