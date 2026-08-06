@@ -102,6 +102,12 @@ export function Splash() {
             {demoError && <p className="mt-3 text-center text-[12px] text-red-600">{demoError}</p>}
           </div>
         )}
+        <a
+          href="https://admin.itdot.co.kr"
+          className="block rounded-xl border border-line bg-white py-3 text-center text-[13px] font-semibold text-sub active:opacity-70"
+        >
+          병원·약국 관리자이신가요? <span className="font-bold text-primary">관리자 페이지로 →</span>
+        </a>
         <p className="text-center text-[13px] text-tertiary">
           계속 진행하면 이용약관 및 개인정보처리방침에 동의하게 됩니다
         </p>

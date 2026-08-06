@@ -111,6 +111,13 @@ function LoginInner() {
             )}
           </div>
         )}
+
+        <a
+          href="https://itdot.co.kr"
+          className="mt-4 block rounded-xl border border-line bg-white py-3 text-center text-[13px] font-semibold text-sub active:opacity-70"
+        >
+          근무하러 오셨나요? <span className="font-bold text-primary">잇닿 워커 앱으로 →</span>
+        </a>
       </div>
     </div>
   );
