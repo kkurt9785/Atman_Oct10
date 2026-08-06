@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
 
@@ -24,6 +25,7 @@ export type FacilityProfile = {
   check_in_after_minutes: number;
   check_out_before_minutes: number;
   check_out_after_minutes: number;
+  allowed_ips: string[];
 };
 
 export async function getFacilityProfile(): Promise<FacilityProfile | null> {
@@ -50,6 +52,7 @@ export async function getFacilityProfile(): Promise<FacilityProfile | null> {
     check_in_after_minutes:attendance?.check_in_after_minutes??60,
     check_out_before_minutes:attendance?.check_out_before_minutes??60,
     check_out_after_minutes:attendance?.check_out_after_minutes??120,
+    allowed_ips:attendance?.allowed_ips??[],
   } as FacilityProfile;
 }
 
@@ -116,6 +119,71 @@ export async function saveFacilityProfile(formData: FormData) {
     after_data: patch,
   });
   if (auditError) console.error('[saveFacilityProfile] audit log failed', auditError);
+
+  revalidatePath('/settings');
+}
+
+const MAX_WORKPLACE_IPS = 5;
+
+async function requestPublicIp(): Promise<string | null> {
+  const h = await headers();
+  const raw = h.get('x-forwarded-for')?.split(',')[0] ?? h.get('x-real-ip') ?? '';
+  const ip = raw.trim();
+  if (!ip || ip === '127.0.0.1' || ip === '::1') return null;
+  return ip.slice(0, 45);
+}
+
+// 관리자가 사업장 와이파이에서 누르면, 그 요청의 공인 IP를 인증 네트워크로 등록.
+// 워커의 출퇴근 RPC(Supabase)도 같은 회선으로 나가므로 공인 IP가 일치한다.
+export async function registerWorkplaceNetwork(): Promise<{ ip: string; allowed_ips: string[] }> {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+
+  const ip = await requestPublicIp();
+  if (!ip) throw new Error('현재 네트워크의 공인 IP를 확인할 수 없어요. 사업장 와이파이에 연결한 뒤 다시 시도해 주세요.');
+
+  const { data: settings } = await sb.from('facility_attendance_settings')
+    .select('allowed_ips').eq('facility_id', context.facilityId).maybeSingle();
+  const current: string[] = settings?.allowed_ips ?? [];
+  const next = current.includes(ip) ? current : [...current, ip].slice(-MAX_WORKPLACE_IPS);
+
+  const { error } = await sb.from('facility_attendance_settings').upsert({
+    facility_id: context.facilityId, allowed_ips: next,
+    updated_by: context.user.id, updated_at: new Date().toISOString(),
+  }, { onConflict: 'facility_id' });
+  if (error) throw new Error(error.message);
+
+  const { error: auditError } = await sb.from('audit_logs').insert({
+    actor_type: 'admin', actor_id: context.user.id,
+    action: 'facility.workplace_network.register',
+    entity_type: 'facility', entity_id: context.facilityId,
+    after_data: { ip, allowed_ips: next },
+  });
+  if (auditError) console.error('[registerWorkplaceNetwork] audit log failed', auditError);
+
+  revalidatePath('/settings');
+  return { ip, allowed_ips: next };
+}
+
+export async function clearWorkplaceNetworks(): Promise<void> {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+
+  const { error } = await sb.from('facility_attendance_settings').upsert({
+    facility_id: context.facilityId, allowed_ips: [],
+    updated_by: context.user.id, updated_at: new Date().toISOString(),
+  }, { onConflict: 'facility_id' });
+  if (error) throw new Error(error.message);
+
+  const { error: auditError } = await sb.from('audit_logs').insert({
+    actor_type: 'admin', actor_id: context.user.id,
+    action: 'facility.workplace_network.clear',
+    entity_type: 'facility', entity_id: context.facilityId,
+    after_data: { allowed_ips: [] },
+  });
+  if (auditError) console.error('[clearWorkplaceNetworks] audit log failed', auditError);
 
   revalidatePath('/settings');
 }

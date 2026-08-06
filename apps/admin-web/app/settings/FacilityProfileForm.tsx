@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition, useState } from 'react';
-import { saveFacilityProfile, type FacilityProfile } from '@/lib/actions/facility';
+import { saveFacilityProfile, registerWorkplaceNetwork, clearWorkplaceNetworks, type FacilityProfile } from '@/lib/actions/facility';
 
 function Toggle({ name, label, defaultChecked }: { name: string; label: string; defaultChecked: boolean }) {
   const [on, setOn] = useState(defaultChecked);
@@ -30,6 +30,35 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [netPending, startNetTransition] = useTransition();
+  const [allowedIps, setAllowedIps] = useState<string[]>(profile?.allowed_ips ?? []);
+  const [netMessage, setNetMessage] = useState('');
+
+  function handleRegisterNetwork() {
+    setNetMessage('');
+    startNetTransition(async () => {
+      try {
+        const { ip, allowed_ips } = await registerWorkplaceNetwork();
+        setAllowedIps(allowed_ips);
+        setNetMessage(`현재 네트워크(${ip})를 등록했어요 ✓`);
+      } catch (err) {
+        setNetMessage(err instanceof Error ? err.message : '등록 실패');
+      }
+    });
+  }
+
+  function handleClearNetworks() {
+    setNetMessage('');
+    startNetTransition(async () => {
+      try {
+        await clearWorkplaceNetworks();
+        setAllowedIps([]);
+        setNetMessage('등록된 네트워크를 모두 해제했어요');
+      } catch (err) {
+        setNetMessage(err instanceof Error ? err.message : '해제 실패');
+      }
+    });
+  }
   const isPharmacy=facilityType==='pharmacy';
   const facilityWord=isPharmacy?'약국':'병원';
 
@@ -150,6 +179,27 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
           <label className="text-[12px] text-sub">퇴근 후(분)<input name="check_out_after_minutes" type="number" min="0" max="720" defaultValue={profile?.check_out_after_minutes??120} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
         </div>
         <label className="mt-4 flex items-center gap-2 text-[13px] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>GPS 실패 시 동적 QR fallback 허용</label>
+
+        <div className="mt-5 border-t border-line pt-4">
+          <p className="text-[13px] font-bold text-ink">{facilityWord} 네트워크 인증</p>
+          <p className="text-[12px] text-tertiary mt-1 leading-5">{facilityWord} 와이파이를 등록하면, 그 네트워크에서의 출퇴근도 인증돼요. 이 기기를 {facilityWord} 와이파이에 연결한 뒤 아래 버튼을 누르세요. (GPS·QR 실패 시 보조 인증 · 인터넷 회선 변경 시 재등록)</p>
+          {allowedIps.length > 0 && (
+            <p className="mt-2 text-[12px] text-sub">등록된 네트워크 {allowedIps.length}개: {allowedIps.join(', ')}</p>
+          )}
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={handleRegisterNetwork} disabled={netPending}
+              className="h-11 flex-1 rounded-xl bg-ink text-white text-[13px] font-bold disabled:opacity-60">
+              {netPending ? '확인 중...' : '지금 이 네트워크 등록'}
+            </button>
+            {allowedIps.length > 0 && (
+              <button type="button" onClick={handleClearNetworks} disabled={netPending}
+                className="h-11 px-4 rounded-xl border border-line text-[13px] text-sub disabled:opacity-60">
+                모두 해제
+              </button>
+            )}
+          </div>
+          {netMessage && <p role="status" className="mt-2 text-[12px] text-sub">{netMessage}</p>}
+        </div>
       </section>
 
       {error && <p role="alert" className="text-center text-[14px] text-warn mb-4">{error}</p>}

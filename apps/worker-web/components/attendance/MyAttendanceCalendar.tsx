@@ -10,7 +10,7 @@ type Row = {
 };
 
 const STATUS_LABEL: Record<string, string> = { scheduled: '예정', working: '근무 중', checkout_pending: '승인 대기', completed: '완료', late: '지각', absent: '결근', leave: '휴가' };
-const AUTH: Record<string, string> = { GPS: '위치', GPS_QR: '위치+QR', QR: 'QR', QR_FALLBACK: 'QR 보완', ADMIN: '관리자', qr: '기존 QR', button: '원터치' };
+const AUTH: Record<string, string> = { GPS: '위치', GPS_QR: '위치+QR', QR: 'QR', QR_FALLBACK: 'QR 보완', WORKPLACE_NET: '사업장 네트워크', ADMIN: '관리자', qr: '기존 QR', button: '원터치' };
 const DAY_STYLE: Record<string, string> = {
   completed: 'bg-primary text-white', working: 'bg-primary/15 text-primary',
   checkout_pending: 'bg-amber-100 text-amber-700', late: 'bg-amber-400 text-white',

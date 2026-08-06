@@ -5,7 +5,7 @@ import { HistoryActionForm } from './HistoryActionForm';
 
 const STATUS:Record<string,string>={scheduled:'예정',working:'근무 중',checkout_pending:'승인 대기',completed:'완료',late:'지각',absent:'결근',leave:'휴가'};
 const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기',shift:'공고 시프트'};
-const AUTH:Record<string,string>={GPS:'위치',GPS_QR:'위치+QR',QR:'QR',QR_FALLBACK:'QR 보완',ADMIN:'관리자',qr:'기존 QR',button:'원터치'};
+const AUTH:Record<string,string>={GPS:'위치',GPS_QR:'위치+QR',QR:'QR',QR_FALLBACK:'QR 보완',WORKPLACE_NET:'사업장 네트워크',ADMIN:'관리자',qr:'기존 QR',button:'원터치'};
 function moveMonth(month:string,delta:number){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+delta);return d.toISOString().slice(0,7);}
 // 서버 컴포넌트에서 렌더되므로 timeZone 필수 — Vercel(UTC)에서 9시간 어긋남 방지
 function dt(iso:string|null){if(!iso)return '—';return new Date(iso).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'});}
