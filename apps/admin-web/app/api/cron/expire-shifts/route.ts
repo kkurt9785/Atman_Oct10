@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { todayKST } from '@/lib/date';
+import { reviveDemoShowcase } from '@/lib/demo/revive-showcase';
+
+export const runtime = 'nodejs';
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   // Vercel Cron 인증
@@ -47,11 +51,24 @@ export async function GET(req: NextRequest) {
     expiredApps = updated?.length ?? 0;
   }
 
+  // 4. 지난 데모 정리 직후 오늘자 데모 쇼케이스 재시드 (KST 00:00 실행 → 아침엔 신선).
+  //    DEMO_SHOWCASE_ENABLED=false 로 끌 수 있다 (실제 운영 전환 시).
+  let demo: unknown = null;
+  if (process.env.DEMO_SHOWCASE_ENABLED !== 'false') {
+    try {
+      demo = await reviveDemoShowcase();
+    } catch (error) {
+      console.error('[cron/expire-shifts] demo revive failed', error);
+      demo = { ok: false, error: String(error) };
+    }
+  }
+
   const result = {
     ok: true,
     as_of: today,
     cancelled_shifts:     cancelled?.length ?? 0,
     expired_applications: expiredApps,
+    demo,
   };
   console.log('[cron/expire-shifts]', result);
   return NextResponse.json(result);
