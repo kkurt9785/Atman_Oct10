@@ -13,6 +13,15 @@ function position(){
   }));
 }
 
+async function nudgeAdminNotifications(){
+  const {data:{session}}=await supabase.auth.getSession();
+  if(!session)return;
+  const adminBase=process.env.NEXT_PUBLIC_ADMIN_WEB_URL??(window.location.hostname==='localhost'?'http://localhost:3002':'https://admin.itdot.co.kr');
+  fetch(`${adminBase}/api/attendance/nudge`,{
+    method:'POST',headers:{Authorization:`Bearer ${session.access_token}`},keepalive:true,
+  }).catch(()=>undefined);
+}
+
 export function AttendanceActionButton({targetType,targetId,action,qrToken,mode='gps_or_qr',onSuccess}:{
   targetType:'staff'|'shift';targetId:string;action:'check_in'|'check_out';qrToken?:string|null;mode?:AttendanceMode;onSuccess?:()=>void;
 }){
@@ -30,6 +39,7 @@ export function AttendanceActionButton({targetType,targetId,action,qrToken,mode=
       p_accuracy:coords?.accuracy??null,p_qr_token:qrToken??null,
     });
     const next=(data??{ok:false,message:error?.message?.replace(/^.*?: /,'')??'출퇴근 인증에 실패했어요.'}) as Result;
+    void nudgeAdminNotifications();
     setResult(next);setLoading(false);
     if(next.ok)onSuccess?.();
   }

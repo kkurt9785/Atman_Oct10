@@ -6,6 +6,7 @@ import { Card } from '@/components/ui';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import type { ClinicStaff } from '@/lib/db/clinic-workforce';
 import type { StaffRow } from '@/lib/db/staff';
+import { AttendanceRealtime } from './AttendanceRealtime';
 
 type Filter='all'|'working'|'issue'|'completed';
 type Failure={
@@ -38,7 +39,7 @@ function group(status:string):Filter{
   return 'all';
 }
 
-export function AttendanceDashboard({staff,matched,failures}:{staff:ClinicStaff[];matched:StaffRow[];failures:Failure[]}){
+export function AttendanceDashboard({staff,matched,failures,facilityId}:{staff:ClinicStaff[];matched:StaffRow[];failures:Failure[];facilityId:string|null}){
   const [filter,setFilter]=useState<Filter>('all');
   const people=useMemo<Person[]>(()=>[
     ...staff.map((s):Person=>({kind:'staff',key:`staff-${s.id}`,name:s.name,subtitle:`${s.department??s.role??'부서 미지정'} · ${s.defaultStart.slice(0,5)}~${s.defaultEnd.slice(0,5)}`,employment:ENGAGEMENT[s.engagementType]??'직원',status:s.attendanceStatus,checkInAt:s.checkInAt,checkOutAt:s.checkOutAt,method:s.checkOutMethod??s.checkInMethod,distance:s.checkOutDistanceM??s.checkInDistanceM,staff:s})),
@@ -52,6 +53,7 @@ export function AttendanceDashboard({staff,matched,failures}:{staff:ClinicStaff[
   const visible=filter==='all'?people:people.filter(p=>group(p.status)===filter);
 
   return <>
+    <AttendanceRealtime facilityId={facilityId}/>
     <div className="mt-4 grid grid-cols-3 gap-2">
       {([['working','근무 중',counts.working,'text-success'],['completed','퇴근 완료',counts.completed,'text-ink'],['issue','확인 필요',counts.issue,'text-red-600']] as const).map(([key,label,value,color])=>
         <button key={key} onClick={()=>setFilter(filter===key?'all':key)} className={`rounded-2xl border p-3 text-left transition ${filter===key?'border-primary bg-primary/5':'border-transparent bg-white shadow-card'}`}>

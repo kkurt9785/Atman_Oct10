@@ -3,13 +3,15 @@ import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-work
 import { getStaff } from '@/lib/db/staff';
 import { AttendanceDashboard } from './AttendanceDashboard';
 import { getShop } from '@/lib/db/shop';
+import { getCurrentFacilityId } from '@/lib/facility';
 
 export default async function TimesheetPage(){
-  const [staff,matched,failures,shop]=await Promise.all([
+  const [staff,matched,failures,shop,facilityId]=await Promise.all([
     getClinicStaff(),
     getStaff(),
     getTodayAttendanceFailures(),
     getShop(),
+    getCurrentFacilityId(),
   ]);
   const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
   const currentMonth=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
@@ -29,7 +31,7 @@ export default async function TimesheetPage(){
       <Link href="/leave" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">휴가 관리</Link>
     </div>
     <Link href={summaryHref} className="mt-3 flex min-h-12 items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 text-label font-bold text-primary"><span><span className="block">월 근태 요약</span><span className="mt-0.5 block text-[11px] font-medium text-sub">누적 시간과 확인할 기록을 먼저 확인</span></span><span aria-hidden>›</span></Link>
-    <AttendanceDashboard staff={staff} matched={matched} failures={failures}/>
+    <AttendanceDashboard staff={staff} matched={matched} failures={failures} facilityId={facilityId}/>
     <p className="mt-4 px-1 text-[11px] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 운영 기록입니다. 법정 휴가와 임금의 최종 판단은 사업장의 계약 및 취업규칙을 기준으로 확인해 주세요.</p>
   </main>;
 }
