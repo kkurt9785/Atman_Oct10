@@ -106,7 +106,7 @@ export default async function Home() {
         ]}
         more={[
           { icon: '📍', label: '출퇴근 방식 설정', description: 'QR·위치·Wi-Fi 설정하기', href: '/attendance-qr' },
-          { icon: '🤝', label: '다시 부를 인력', description: '함께 일한 워커에게 요청하기', href: '/workforce' },
+          { icon: '🤝', label: '함께한 근무자', description: '근무 이력이 있는 워커에게 요청하기', href: '/workforce' },
           { icon: '⚙️', label: '반복 일정·알림', description: '미충원·노쇼와 반복 모집 관리', href: '/operations' },
           { icon: '💬', label: '메시지', description: '지원자·근무자와 대화하기', href: '/chats' },
           ...(canViewPayroll ? [{ icon: '₩', label: '급여·지급 관리', description: '근무시간과 지급 상태 확인', href: '/payroll' }] : []),

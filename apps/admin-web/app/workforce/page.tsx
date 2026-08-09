@@ -27,8 +27,8 @@ export default async function WorkforcePage() {
   return (
     <main className="px-4 pb-28">
       <div className="mt-3 mb-5 px-1">
-        <p className="text-label font-bold text-primary">함께 일한 {facilityWord} 인력</p>
-        <h1 className="text-display font-extrabold text-ink mt-1">다시 부를 인력</h1>
+        <p className="text-label font-bold text-primary">우리 {facilityWord} 근무 이력</p>
+        <h1 className="text-display font-extrabold text-ink mt-1">함께한 근무자</h1>
         <p className="text-label text-sub mt-2 leading-5">지원 수락 또는 근무 이력이 생기면 자동으로 등록됩니다. 공개 공고 없이 특정 워커에게 반복근무를 요청할 수 있어요.</p>
       </div>
 
@@ -40,7 +40,7 @@ export default async function WorkforcePage() {
 
       {members.length === 0 ? (
         <Card className="py-10 text-center">
-          <p className="text-title font-bold text-ink">아직 다시 부를 인력이 없어요</p>
+          <p className="text-title font-bold text-ink">아직 함께한 근무자가 없어요</p>
           <p className="text-label text-sub mt-2 leading-5">모집 지원자를 수락하거나 근무가 완료되면<br />이곳에서 다음 근무를 바로 요청할 수 있어요.</p>
           <Link href="/shifts/new" className="inline-flex mt-5 h-11 px-5 items-center rounded-xl bg-primary text-white text-label font-bold">첫 근무자 모집하기</Link>
         </Card>
