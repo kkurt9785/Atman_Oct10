@@ -147,7 +147,7 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   const accessRows=SUPER_ACCOUNTS.map(([email])=>{
     const target=demoTargets[email];
     if(!target)throw new Error(`demo target missing for ${email}`);
-    return {user_id:adminIds[email],facility_id:target.id,access_role:'super'};
+    return {user_id:adminIds[email],facility_id:target.id,access_role:'super',can_view_payroll:true};
   });
   await req('DELETE',`/rest/v1/facility_admin_access?user_id=in.(${Object.values(adminIds).join(',')})`);
   await req(
