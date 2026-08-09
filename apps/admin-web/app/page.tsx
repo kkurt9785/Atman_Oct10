@@ -91,7 +91,7 @@ export default async function Home() {
       {isPharmacy&&(
         <Link href="/workforce" className="mt-4 block rounded-2xl border border-primary/20 bg-primary/5 p-5 active:opacity-80">
           <p className="text-[12px] font-bold text-primary">약국 운영의 핵심</p>
-          <div className="mt-1 flex items-center justify-between gap-3"><div><h2 className="text-[17px] font-extrabold text-ink">함께 일한 약사에게 다시 요청</h2><p className="mt-1 text-[12px] leading-5 text-sub">검증된 대체약사를 인력풀에서 찾아 다음 근무를 바로 요청하세요.</p></div><span className="text-[22px] text-primary">→</span></div>
+          <div className="mt-1 flex items-center justify-between gap-3"><div><h2 className="text-[17px] font-extrabold text-ink">함께 일한 약사 다시 부르기</h2><p className="mt-1 text-[12px] leading-5 text-sub">근무 이력이 있는 대체약사에게 다음 근무를 바로 요청하세요.</p></div><span className="text-[22px] text-primary">→</span></div>
         </Link>
       )}
 
@@ -99,19 +99,19 @@ export default async function Home() {
       <SectionTitle>빠른 메뉴</SectionTitle>
       <QuickMenu
         primary={[
-          { icon: '📋', label: '시프트 등록', href: '/shifts/new' },
-          { icon: '🕐', label: '오늘 근태', href: '/timesheet' },
-          { icon: '🧑‍⚕️', label: '직원 관리', href: '/staff' },
-          { icon: '🌿', label: '휴가 관리', href: '/leave' },
+          { icon: '📋', label: '근무자 모집', description: '날짜·시간을 정해 모집하기', href: '/shifts/new' },
+          { icon: '🕐', label: '오늘 근무 현황', description: '출퇴근과 확인할 기록 보기', href: '/timesheet' },
+          { icon: '🧑‍⚕️', label: '직원 관리', description: '계약·근무 정보 관리하기', href: '/staff' },
+          { icon: '🌿', label: '휴가 관리', description: '신청 승인과 사용 내역 보기', href: '/leave' },
         ]}
         more={[
-          { icon: '📍', label: '출퇴근 인증', href: '/attendance-qr' },
-          { icon: '🤝', label: `${facilityWord} 인력풀`, href: '/workforce' },
-          { icon: '⚙️', label: '운영 자동화', href: '/operations' },
-          { icon: '💬', label: '워커 채팅', href: '/chats' },
-          ...(canViewPayroll ? [{ icon: '₩', label: '급여 자료', href: '/payroll' }] : []),
-          { icon: '🧾', label: '요금·청구', href: '/membership' },
-          { icon: isPharmacy ? '💊' : '🏥', label: `${facilityWord} 프로필`, href: '/settings' },
+          { icon: '📍', label: '출퇴근 방식 설정', description: 'QR·위치·Wi-Fi 설정하기', href: '/attendance-qr' },
+          { icon: '🤝', label: '다시 부를 인력', description: '함께 일한 워커에게 요청하기', href: '/workforce' },
+          { icon: '⚙️', label: '반복 일정·알림', description: '미충원·노쇼와 반복 모집 관리', href: '/operations' },
+          { icon: '💬', label: '메시지', description: '지원자·근무자와 대화하기', href: '/chats' },
+          ...(canViewPayroll ? [{ icon: '₩', label: '급여·지급 관리', description: '근무시간과 지급 상태 확인', href: '/payroll' }] : []),
+          { icon: '🧾', label: '이용 요금', description: '요금제와 청구 내역 확인', href: '/membership' },
+          { icon: isPharmacy ? '💊' : '🏥', label: '사업장 설정', description: `${facilityWord} 정보와 운영 설정`, href: '/settings' },
         ]}
       />
 

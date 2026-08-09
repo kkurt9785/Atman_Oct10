@@ -4,8 +4,8 @@ import { usePathname } from 'next/navigation';
 
 const TABS = [
   { href: '/', icon: '🏠', label: '홈' },
-  { href: '/shifts', icon: '📋', label: '공고' },
-  { href: '/applications', icon: '👥', label: '지원자' },
+  { href: '/shifts', icon: '📋', label: '모집' },
+  { href: '/applications', icon: '👥', label: '지원' },
   { href: '/staff', icon: '🧑‍⚕️', label: '직원' },
   { href: '/timesheet', icon: '🕐', label: '근태' },
 ];

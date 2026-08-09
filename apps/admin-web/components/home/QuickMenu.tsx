@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
-type Tile = { icon: string; label: string; href: string; badge?: number };
+type Tile = { icon: string; label: string; description?: string; href: string; badge?: number };
 
 // 자주 쓰는 4개는 항상 크게, 나머지는 접어서(펼침 상태 기억) 노출.
 export function QuickMenu({ primary, more }: { primary: Tile[]; more: Tile[] }) {
@@ -48,11 +48,11 @@ export function QuickMenu({ primary, more }: { primary: Tile[]; more: Tile[] }) 
   );
 }
 
-function Tile({ icon, label, href, badge }: Tile) {
+function Tile({ icon, label, description, href, badge }: Tile) {
   return (
     <Link
       href={href}
-      className="relative flex flex-col items-center justify-center gap-2 bg-white rounded-2xl py-6 active:bg-bg"
+      className="relative flex min-h-[132px] flex-col items-center justify-center gap-2 rounded-2xl bg-white px-3 py-5 text-center active:bg-bg"
     >
       {badge != null && badge > 0 && (
         <span className="absolute top-3 right-3 min-w-5 h-5 px-1.5 rounded-full bg-primary text-white text-[11px] font-bold flex items-center justify-center">
@@ -61,6 +61,7 @@ function Tile({ icon, label, href, badge }: Tile) {
       )}
       <span className="text-4xl">{icon}</span>
       <span className="text-body font-semibold text-ink">{label}</span>
+      {description && <span className="text-[11px] leading-4 text-sub">{description}</span>}
     </Link>
   );
 }
