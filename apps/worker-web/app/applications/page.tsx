@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { QRModal } from '@/components/shifts/QRModal';
 import { dateKST } from '@/lib/date';
 import { cancelApplication, respondToInvitation } from '@/lib/shifts';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
@@ -115,12 +114,10 @@ function StatusSteps({ app }: { app: Application }) {
 function ApplicationCard({
   app,
   onCancel,
-  onQR,
   onInvitation,
 }: {
   app: Application;
   onCancel: (id: string) => void;
-  onQR: (app: Application) => void;
   onInvitation: (id: string, accept: boolean) => void;
 }) {
   const { label, description, className } = STATUS_CONFIG[app.status];
@@ -185,14 +182,11 @@ function ApplicationCard({
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
                 <p className="text-[13px] font-semibold text-primary">근무 중</p>
               </div>
-              <button onClick={() => onQR(app)} className="text-[12px] font-bold text-primary underline">
-                QR 체크아웃
-              </button>
               </div>
               <AttendanceActionButton targetType="shift" targetId={app.id} action="check_out"/>
             </div>
           ) : isToday ? (
-            <div><AttendanceActionButton targetType="shift" targetId={app.id} action="check_in"/><button onClick={() => onQR(app)} className="mt-2 h-11 w-full rounded-xl border border-line text-[13px] font-bold text-sub">기존 QR 방식 사용</button></div>
+            <AttendanceActionButton targetType="shift" targetId={app.id} action="check_in"/>
           ) : (
             <div className="mt-3 p-3 bg-bg rounded-xl flex items-center gap-2">
               <span className="text-success">✅</span>
@@ -237,7 +231,6 @@ export default function ApplicationsPage() {
   const [workerId, setWorkerId] = useState<string | null>(null);
   const [apps, setApps]     = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
-  const [qrTarget, setQrTarget] = useState<Application | null>(null);
   const [actionNotice, setActionNotice] = useState('');
 
   // 워커 ID + 지원 현황 초기 로드
@@ -343,18 +336,10 @@ export default function ApplicationsPage() {
           </div>
         ) : (
           apps.map((a) => (
-            <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onQR={setQrTarget} onInvitation={handleInvitation} />
+            <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onInvitation={handleInvitation} />
           ))
         )}
 
-      {qrTarget && (
-        <QRModal
-          applicationId={qrTarget.id}
-          shiftDate={qrTarget.shift.shift_date}
-          startTime={qrTarget.shift.start_time}
-          onClose={() => setQrTarget(null)}
-        />
-      )}
     </div>
   );
 }

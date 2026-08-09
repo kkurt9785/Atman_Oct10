@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 type Result={ok:boolean;message?:string;reason?:string;method?:string;distanceM?:number;accuracyM?:number;action?:string;checkInAt?:string;checkOutAt?:string};
 export type AttendanceMode='gps'|'gps_qr'|'qr'|'network'|'admin'|'gps_or_qr';
 const METHOD:Record<string,string>={GPS:'위치 인증',GPS_QR:'위치 + 동적 QR',QR:'동적 QR',QR_FALLBACK:'QR 보완 인증',WORKPLACE_NET:'사업장 네트워크',ADMIN:'관리자 처리'};
-const MODE_LABEL:Record<AttendanceMode,string>={gps:'위치 인증',gps_qr:'위치 + 동적 QR',qr:'동적 QR',network:'사업장 Wi-Fi/IP',admin:'관리자 승인',gps_or_qr:'위치 OR 사업장 Wi-Fi · QR 보완'};
+const MODE_LABEL:Record<AttendanceMode,string>={gps:'위치 인증',gps_qr:'위치 + 동적 QR',qr:'동적 QR',network:'사업장 네트워크',admin:'관리자 승인',gps_or_qr:'위치 우선 · QR 보완'};
 
 function position(){
   return new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{
@@ -48,7 +48,7 @@ export function AttendanceActionButton({targetType,targetId,action,qrToken,mode=
       {loading?`${MODE_LABEL[mode]} 확인 중...`:action==='check_in'?'출근하기':'퇴근하기'}
     </button>
     {result&&<div role="status" className={`mt-2 rounded-xl p-3 text-[12px] font-bold ${result.ok?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-600'}`}>
-      <p>{result.ok?`${action==='check_in'?'출근':'퇴근'}이 완료되었습니다.`:result.message}</p>
+      <p>{result.ok?`${action==='check_in'?'출근':'퇴근'}이 완료됐어요.`:result.message}</p>
       {result.ok&&<><p className="mt-1 font-medium">{new Date(result.checkOutAt??result.checkInAt??Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})} · {METHOD[result.method??'']??result.method}{typeof result.distanceM==='number'?` · 사업장에서 ${result.distanceM}m`:''}{typeof result.accuracyM==='number'?` · 위치 오차 ±${Math.round(result.accuracyM)}m`:''}</p><button onClick={()=>window.location.reload()} className="mt-2 h-9 rounded-lg bg-white px-3 text-[12px] font-extrabold text-emerald-700">완료</button></>}
       {!result.ok&&<div className="mt-2 flex flex-wrap gap-2"><button onClick={run} className="h-9 rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">다시 확인</button>{!qrToken&&<button onClick={()=>setQrHelp(true)} className="h-9 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">동적 QR로 인증</button>}</div>}
     </div>}
