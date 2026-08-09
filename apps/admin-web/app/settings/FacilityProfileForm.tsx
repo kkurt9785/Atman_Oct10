@@ -153,7 +153,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         />
       </section>
 
-      <section className="bg-white rounded-2xl p-5 mb-6">
+      <section id="attendance-auth" className="scroll-mt-20 bg-white rounded-2xl p-5 mb-6">
         <p className="text-[13px] font-bold text-sub mb-1">출퇴근 인증</p>
         <p className="text-[12px] text-tertiary mb-4">실내 GPS 오차를 고려해 {facilityWord} 환경에 맞게 선택하세요.</p>
         <label className="block text-[13px] text-sub mb-4">기본 인증 방식

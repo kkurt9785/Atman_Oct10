@@ -25,7 +25,7 @@ export default async function TimesheetPage(){
     </div>
     <div className="mt-4 grid grid-cols-3 gap-2">
       <Link href="/staff" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">직원 관리</Link>
-      <Link href="/attendance-qr" className="flex h-11 items-center justify-center rounded-xl bg-primary text-label font-bold text-white">동적 QR</Link>
+      <Link href="/attendance-qr" className="flex h-11 items-center justify-center rounded-xl bg-primary text-label font-bold text-white">출퇴근 인증</Link>
       <Link href="/leave" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">휴가 관리</Link>
     </div>
     <Link href={summaryHref} className="mt-3 flex min-h-12 items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 text-label font-bold text-primary"><span><span className="block">월 근태 요약</span><span className="mt-0.5 block text-[11px] font-medium text-sub">누적 시간과 확인할 기록을 먼저 확인</span></span><span aria-hidden>›</span></Link>
