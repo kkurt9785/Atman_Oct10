@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { reviveDemoShowcase } from '@/lib/demo/revive-showcase';
 
-// 데모 쇼케이스 온디맨드 재시드. 자동 스케줄은 expire-shifts 크론이 매일 KST 00:00 에
+// 데모 쇼케이스 온디맨드 재시드. 자동 스케줄은 expire-shifts 크론이 매일 KST 08:30 에
 // 함께 수행하고, 이 route 는 급 시연 직전 즉시 재시드가 필요할 때 수동 호출용이다.
 //   curl -H "Authorization: Bearer $CRON_SECRET" https://<host>/api/cron/revive-demo
 export const runtime = 'nodejs';

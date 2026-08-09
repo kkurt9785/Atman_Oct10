@@ -5,7 +5,7 @@
 // 원본의 REST/GoTrue 호출을 그대로 raw fetch 로 1:1 이식한다.
 //
 // 사용처:
-//  - app/api/cron/expire-shifts  (매일 KST 00:00, 자동 재시드)
+//  - app/api/cron/expire-shifts  (매일 KST 08:30, 자동 재시드)
 //  - app/api/cron/revive-demo    (수동 온디맨드 재시드)
 //
 // 전제: 데모 병원 50개(business_registration_number=DEMO-TARGET-*)와
@@ -24,7 +24,7 @@ export type ReviveSummary = {
   purged_shifts: number;
   matched: { shifts: number; applications: number; attendances_status: number };
   open: { shifts: number; applications: number };
-  workforce: unknown;
+  workforce: { clinic: unknown; pharmacy: unknown; demo1_application: unknown };
   totals: { matched_today: number; open_today: number };
 };
 
@@ -128,9 +128,11 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   );
 
   // ── 3. facility_admin_access (3계정 × 데모 병원 전체) ───────────────────────
+  // 약국은 직군·시급·근태 시드 구조가 달라 아래 병원 50개 생성 루프에서 제외하고
+  // refresh_demo_pharmacy_workforce()로 별도 갱신한다.
   const fac = await req<Facility[]>(
     'GET',
-    '/rest/v1/facilities?business_registration_number=like.DEMO-TARGET-*&select=id,business_registration_number,facility_type&order=business_registration_number',
+    '/rest/v1/facilities?business_registration_number=like.DEMO-TARGET-*&facility_type=neq.pharmacy&select=id,business_registration_number,facility_type&order=business_registration_number',
   );
   if (fac.status !== 200 || !Array.isArray(fac.data)) {
     throw new Error(`facilities load failed: ${fac.status}`);
@@ -289,10 +291,19 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   }
   await req('POST', '/rest/v1/shift_applications', openApps);
 
-  // ── 8. 병원 근태관리 데모 직원·휴가·오늘 기록 재생성 (RPC) ───────────────────
-  const workforce = await req('POST', '/rest/v1/rpc/refresh_demo_clinic_workforce', {});
-  if (workforce.status !== 200) {
-    throw new Error(`workforce demo refresh failed: ${workforce.status} ${JSON.stringify(workforce.data)}`);
+  // ── 8. 병원·약국 근태와 demo-1 지원을 순서대로 재생성 (RPC) ─────────────────
+  const clinicWorkforce = await req('POST', '/rest/v1/rpc/refresh_demo_clinic_workforce', {});
+  if (clinicWorkforce.status !== 200) {
+    throw new Error(`clinic workforce refresh failed: ${clinicWorkforce.status} ${JSON.stringify(clinicWorkforce.data)}`);
+  }
+  const pharmacyWorkforce = await req('POST', '/rest/v1/rpc/refresh_demo_pharmacy_workforce', {});
+  if (pharmacyWorkforce.status !== 200) {
+    throw new Error(`pharmacy workforce refresh failed: ${pharmacyWorkforce.status} ${JSON.stringify(pharmacyWorkforce.data)}`);
+  }
+  // 쇼케이스 open 공고 생성이 끝난 뒤 실행해야 demo-1 지원이 항상 살아난다.
+  const demo1Application = await req('POST', '/rest/v1/rpc/ensure_demo1_wf_application', {});
+  if (demo1Application.status !== 200) {
+    throw new Error(`demo1 application refresh failed: ${demo1Application.status} ${JSON.stringify(demo1Application.data)}`);
   }
 
   // ── 9. 오늘 데이터 집계 ─────────────────────────────────────────────────────
@@ -313,7 +324,11 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     purged_shifts: oldIds.length,
     matched: { shifts: created.data.length, applications: appRows.data.length, attendances_status: att.status },
     open: { shifts: createdOpen.data.length, applications: openApps.length },
-    workforce: workforce.data,
+    workforce: {
+      clinic: clinicWorkforce.data,
+      pharmacy: pharmacyWorkforce.data,
+      demo1_application: demo1Application.data,
+    },
     totals: {
       matched_today: (matchedCount.data ?? []).length,
       open_today: (openCount.data ?? []).length,

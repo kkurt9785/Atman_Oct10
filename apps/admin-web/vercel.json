@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/cron/expire-shifts",
-      "schedule": "0 15 * * *"
+      "schedule": "30 23 * * *"
     },
     {
       "path": "/api/cron/dispatch-notifications",

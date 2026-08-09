@@ -22,8 +22,8 @@ BEGIN
   WHERE u.email = ''worker-demo-2@demo.atman.co.kr'' AND w.deleted_at IS NULL;',
     'SELECT id INTO v_staff_worker FROM public.workers
   WHERE is_demo = true AND kakao_id = ''demo_pharmacy_staff_2'' AND deleted_at IS NULL;');
-  IF patched = def THEN RAISE EXCEPTION 'patch ① no-op: auth join lookup not found'; END IF;
-  def := patched;
+  -- 이미 후속 마이그레이션에서 public.workers 조회로 바뀐 환경도 허용한다.
+  IF patched <> def THEN def := patched; END IF;
 
   patched := replace(def,
     '  RETURN QUERY
@@ -42,9 +42,8 @@ BEGIN
 
   RETURN QUERY
   SELECT ''pharmacy_staff''::text, count(*) FROM public.facility_staff');
-  IF patched = def THEN RAISE EXCEPTION 'patch ② no-op: return query anchor not found'; END IF;
-
-  EXECUTE patched;
+  -- 링크 강제 구문도 이미 들어간 환경이면 현재 함수 정의를 그대로 유지한다.
+  IF patched <> def THEN EXECUTE patched; END IF;
 END $$;
 
 -- 즉시 1회 실행 — linked_accounts = 2 확인

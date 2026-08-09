@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
     expiredApps = updated?.length ?? 0;
   }
 
-  // 4. 지난 데모 정리 직후 오늘자 데모 쇼케이스 재시드 (KST 00:00 실행 → 아침엔 신선).
+  // 4. 지난 데모 정리 직후 오늘자 데모 쇼케이스 재시드 (KST 08:30 실행).
   //    DEMO_SHOWCASE_ENABLED=false 로 끌 수 있다 (실제 운영 전환 시).
   let demo: unknown = null;
   if (process.env.DEMO_SHOWCASE_ENABLED !== 'false') {

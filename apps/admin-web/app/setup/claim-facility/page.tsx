@@ -126,7 +126,7 @@ export default function ClaimFacilityPage() {
               : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4"/><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>}
           </button>
         </div>
-        <p className="-mt-4 px-1 text-[12px] text-sub">예: W여성, 수원온누리 — 병원·약국 모두 한 번에 검색돼요</p>
+        <p className="-mt-4 px-1 text-[12px] text-sub">예: W여성, 수원 온누리 — 띄어쓰기와 관계없이 검색돼요</p>
 
         {/* 유형 필터 칩 — 결과를 거르기만 하고, 기본 '전체'라 아무것도 숨기지 않는다 */}
         {searched && results.length > 0 && (
