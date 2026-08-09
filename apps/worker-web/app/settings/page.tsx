@@ -213,8 +213,9 @@ export default function SettingsPage() {
         <div className="text-left">
           <p className="text-[15px] font-bold text-ink">시프트 알림</p>
           <p className="text-[13px] text-tertiary mt-0.5">
-            {pushEnabled ? '새 시프트 공고를 즉시 알려드려요' : '알림을 켜면 새 시프트를 바로 받아요'}
+            {pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 시프트를 바로 받아요'}
           </p>
+          <p className="mt-1 text-[11px] leading-4 text-sub">새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요</p>
         </div>
         <div className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 flex items-center px-1 ${pushEnabled ? 'bg-primary' : 'bg-line'}`}>
           <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />

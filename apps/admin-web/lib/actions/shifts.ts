@@ -112,9 +112,9 @@ export async function createShiftAction(formData: FormData) {
       if (invitedWorker) {
         workers = [{ auth_user_id: invitedWorker.auth_user_id }];
       } else {
-        const roleFilter = requiredRole === 'any' ? [...ALL_ROLES] : [requiredRole];
-        const { data, error: workerError } = await sb.from('workers').select('auth_user_id')
-          .in('role', roleFilter).eq('verification_status', 'approved').is('deleted_at', null);
+        const { data, error: workerError } = await sb.rpc('get_shift_notification_recipients', {
+          p_shift_id: shiftId,
+        });
         if (workerError) throw workerError;
         workers = data ?? [];
       }

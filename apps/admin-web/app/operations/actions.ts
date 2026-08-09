@@ -96,12 +96,15 @@ export async function generateRecurringShiftsAction(formData: FormData) {
     throw error;
   }
 
-  const roleFilter = template.required_role === 'any' ? ['rn', 'na', 'pharmacist', 'pharmacy_staff'] : [template.required_role];
-  const { data: workers } = await sb.from('workers').select('auth_user_id').in('role', roleFilter)
-    .eq('verification_status', 'approved').is('deleted_at', null);
-  const outbox = (workers ?? []).filter((worker: any) => worker.auth_user_id).map((worker: any) => ({
-    worker_auth_user_id: worker.auth_user_id,
-    event_type: 'shift.batch_created', dedupe_key: `shift.batch_created:${batchId}:${worker.auth_user_id}`,
+  const recipientIds = new Set<string>();
+  const { data: generatedShifts } = await sb.from('shifts').select('id').eq('generation_batch_id', batchId);
+  for (const row of generatedShifts ?? []) {
+    const { data: recipients } = await sb.rpc('get_shift_notification_recipients', { p_shift_id: row.id });
+    for (const recipient of recipients ?? []) if (recipient.auth_user_id) recipientIds.add(recipient.auth_user_id as string);
+  }
+  const outbox = [...recipientIds].map((authUserId) => ({
+    worker_auth_user_id: authUserId,
+    event_type: 'shift.batch_created', dedupe_key: `shift.batch_created:${batchId}:${authUserId}`,
     title: `새 반복 시프트 ${rows.length}건`, body: `${template.name} · ${startDate}부터 확인해 보세요`,
     data: { type: 'new_shift_batch', batchId },
   }));
@@ -166,8 +169,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
       }
     }
   }
-  const roles = target.required_role === 'any' ? ['rn','na','pharmacist','pharmacy_staff'] : [target.required_role];
-  const { data: workers } = await sb.from('workers').select('auth_user_id').in('role', roles).eq('verification_status', 'approved').is('deleted_at', null);
+  const { data: workers } = await sb.rpc('get_shift_notification_recipients', { p_shift_id: target.id });
   const hourKey = new Date().toISOString().slice(0, 13);
   const outbox = (workers ?? []).filter((worker: any) => worker.auth_user_id).map((worker: any) => ({
     worker_auth_user_id: worker.auth_user_id, event_type: 'shift.urgent',
