@@ -12,10 +12,11 @@ import { BasicInfo, type BasicInfoValue } from '@/components/onboarding/BasicInf
 import { BankAccount, type BankAccountValue } from '@/components/onboarding/BankAccount';
 import { ReviewPending } from '@/components/onboarding/ReviewPending';
 import { Approval } from '@/components/onboarding/Approval';
+import { NotificationSetup } from '@/components/onboarding/NotificationSetup';
 import type { WorkerRole } from '@/lib/roles';
 
-type Step = 'splash' | 'terms' | 'role' | 'area' | 'license' | 'info' | 'bank' | 'review' | 'approval';
-const VALID_STEPS = new Set<Step>(['splash','terms','role','area','license','info','bank','review','approval']);
+type Step = 'splash' | 'terms' | 'role' | 'license' | 'info' | 'area' | 'bank' | 'notification' | 'review' | 'approval';
+const VALID_STEPS = new Set<Step>(['splash','terms','role','license','info','area','bank','notification','review','approval']);
 const MIME_EXT: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf' };
 
 function OnboardingInner() {
@@ -31,6 +32,7 @@ function OnboardingInner() {
   const [basicInfo, setBasicInfo] = useState<BasicInfoValue | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [completionStep, setCompletionStep] = useState<'review' | 'approval'>('approval');
   const finishOnboarding=()=>{
     const next=window.localStorage.getItem('atman_auth_next');
     if(next?.startsWith('/')){
@@ -91,7 +93,8 @@ function OnboardingInner() {
       }
 
       // 전산·사무직은 서류(이력서)와 무관하게 프로필 완성이 승인 경로 → approval 안내 화면으로
-      setStep(role === 'pharmacy_staff' ? 'approval' : licenseFile || licenseNumber ? 'review' : 'approval');
+      setCompletionStep(role === 'pharmacy_staff' ? 'approval' : licenseFile || licenseNumber ? 'review' : 'approval');
+      setStep('notification');
     } catch (error) {
       if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
       setSubmitError(error instanceof Error ? error.message : '가입 정보 저장에 실패했어요.');
@@ -102,11 +105,11 @@ function OnboardingInner() {
 
   // ?step= 딥링크로 선행 상태 없이 진입하면 백지가 되므로 스플래시로 되돌린다
   useEffect(() => {
-    const needsTerms: Step[] = ['role', 'area', 'license', 'info', 'bank'];
+    const needsTerms: Step[] = ['role', 'license', 'info', 'area', 'bank'];
     if (needsTerms.includes(step) && !terms) setStep('splash');
   }, [step, terms]);
 
-  const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', area: 'role', license: 'area', info: 'license', bank: 'info' };
+  const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', info: 'license', area: 'info', bank: 'area' };
   const prevStep = PREV[step];
 
   return (
@@ -124,12 +127,13 @@ function OnboardingInner() {
       )}
       {step === 'splash' && <Splash />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
-      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep('area'); }} />}
+      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep('license'); }} />}
       {/* 서류 분기: 약사=면허 필수 · 전산·사무직=이력서 필수 · 간호직=권장(건너뛰기 가능) */}
-      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('license'); }} />}
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
-      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('bank'); }} />}
+      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('area'); }} />}
+      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} submitting={submitting} submitError={submitError} />}
+      {step === 'notification' && <NotificationSetup onNext={() => setStep(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
       {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}
     </main>
