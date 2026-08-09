@@ -30,18 +30,20 @@ export default function ClaimFacilityPage() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
   // 유형은 검색 게이트가 아니라 결과 필터 — 기본 '전체'라 어떤 유형이든 숨겨지지 않는다.
-  const [typeFilter,setTypeFilter]=useState<'all'|'medical'|'pharmacy'>('all');
+  const [typeFilter,setTypeFilter]=useState<'all'|'medical'|'care'|'pharmacy'>('all');
   const [searching,setSearching]=useState(false);
   const [searchFailed,setSearchFailed]=useState(false);
   const [showRequest,setShowRequest]=useState(false);
-  const [requestType,setRequestType]=useState<''|'medical'|'pharmacy'>('');
+  const [requestType,setRequestType]=useState<''|'medical'|'care'|'pharmacy'>('');
   const [requestForm,setRequestForm]=useState({name:'',address:'',contactName:'',contactPhone:'',note:''});
   const [requestDone,setRequestDone]=useState(false);
   const isPharmacyType=(t:string)=>t==='pharmacy';
-  const medicalCount=results.filter(f=>!isPharmacyType(f.facility_type)).length;
-  const pharmacyCount=results.length-medicalCount;
+  const isCareType=(t:string)=>t==='care_hospital';
+  const pharmacyCount=results.filter(f=>isPharmacyType(f.facility_type)).length;
+  const careCount=results.filter(f=>isCareType(f.facility_type)).length;
+  const medicalCount=results.length-pharmacyCount-careCount;
   const visibleResults=typeFilter==='all'?results
-    :results.filter(f=>typeFilter==='pharmacy'?isPharmacyType(f.facility_type):!isPharmacyType(f.facility_type));
+    :results.filter(f=>typeFilter==='pharmacy'?isPharmacyType(f.facility_type):typeFilter==='care'?isCareType(f.facility_type):!isPharmacyType(f.facility_type)&&!isCareType(f.facility_type));
   const hiddenByFilter=results.length-visibleResults.length;
 
   async function handleSearch() {
@@ -81,7 +83,7 @@ export default function ClaimFacilityPage() {
     setError('');
     startTransition(async()=>{
       const result=await requestFacilityRegistration({
-        facilityType:requestType==='pharmacy'?'pharmacy':'small_hospital',
+        facilityType:requestType==='pharmacy'?'pharmacy':requestType==='care'?'care_hospital':'small_hospital',
         facilityName:requestForm.name,
         addressText:requestForm.address,
         contactName:requestForm.contactName,
@@ -100,7 +102,7 @@ export default function ClaimFacilityPage() {
         <div className="text-center space-y-2">
           <div className="text-4xl">🏥💊</div>
           <h1 className="text-[22px] font-bold text-ink">내 사업장 찾기</h1>
-          <p className="text-[14px] text-sub">병원·의원·약국명을 검색해서 사업장을 연결해주세요</p>
+          <p className="text-[14px] text-sub">약국·병원·요양병원명을 검색해서 사업장을 연결해주세요</p>
         </div>
 
         {/* 검색 — 통합 서치바 (버튼이 바 안에 있어 좁은 화면에서도 안 깨짐) */}
@@ -131,7 +133,7 @@ export default function ClaimFacilityPage() {
         {/* 유형 필터 칩 — 결과를 거르기만 하고, 기본 '전체'라 아무것도 숨기지 않는다 */}
         {searched && results.length > 0 && (
           <div className="flex gap-2" role="group" aria-label="사업장 유형 필터">
-            {([['all',`전체 ${results.length}`],['medical',`🏥 병원·의원 ${medicalCount}`],['pharmacy',`💊 약국 ${pharmacyCount}`]] as const).map(([key,label])=>(
+            {([['all',`전체 ${results.length}`],['medical',`병원·의원 ${medicalCount}`],['care',`요양병원 ${careCount}`],['pharmacy',`약국 ${pharmacyCount}`]] as const).map(([key,label])=>(
               <button key={key} type="button" onClick={()=>{setTypeFilter(key);setSelected(null);}}
                 aria-pressed={typeFilter===key}
                 className={`h-9 rounded-full border px-3 text-[13px] font-bold ${typeFilter===key?'border-primary bg-primary/5 text-primary':'border-line bg-white text-sub'}`}>
@@ -240,10 +242,12 @@ export default function ClaimFacilityPage() {
                 <h2 id="request-title" className="text-[19px] font-extrabold">신규 사업장 등록 요청</h2>
                 <p className="mt-1 text-[12px] text-sub">사업자등록증 제출은 담당자 확인 단계에서 별도로 안내합니다.</p>
                 <p className="mt-4 text-[12px] font-bold text-sub">사업장 유형</p>
-                <div className="mt-1 grid grid-cols-2 gap-2">
-                  <button type="button" onClick={()=>setRequestType('medical')} aria-pressed={requestType==='medical'} className={`min-h-12 rounded-xl border px-3 text-left text-[14px] font-bold ${requestType==='medical'?'border-primary bg-primary/5':'border-line'}`}>🏥 병원·의원</button>
-                  <button type="button" onClick={()=>setRequestType('pharmacy')} aria-pressed={requestType==='pharmacy'} className={`min-h-12 rounded-xl border px-3 text-left text-[14px] font-bold ${requestType==='pharmacy'?'border-primary bg-primary/5':'border-line'}`}>💊 약국</button>
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  <button type="button" onClick={()=>setRequestType('pharmacy')} aria-pressed={requestType==='pharmacy'} className={`min-h-16 rounded-xl border px-2 text-center text-[13px] font-bold ${requestType==='pharmacy'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">약국</span><span className="mt-1 block text-[10px] font-medium text-sub">10명 69,000원</span></button>
+                  <button type="button" onClick={()=>setRequestType('medical')} aria-pressed={requestType==='medical'} className={`min-h-16 rounded-xl border px-2 text-center text-[13px] font-bold ${requestType==='medical'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">병원·의원</span><span className="mt-1 block text-[10px] font-medium text-sub">10명 69,000원</span></button>
+                  <button type="button" onClick={()=>setRequestType('care')} aria-pressed={requestType==='care'} className={`min-h-16 rounded-xl border px-2 text-center text-[13px] font-bold ${requestType==='care'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">요양병원</span><span className="mt-1 block text-[10px] font-medium text-sub">20명 119,000원</span></button>
                 </div>
+                <p className="mt-2 text-[11px] leading-4 text-sub">30일 무료 체험 후 선택한 업종과 관리 인원에 맞는 요금제만 표시됩니다.</p>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="col-span-2 text-[12px] font-bold text-sub">사업장명<input value={requestForm.name} onChange={e=>updateRequest('name',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="사업장명"/></label>
                   <label className="col-span-2 text-[12px] font-bold text-sub">주소<input value={requestForm.address} onChange={e=>updateRequest('address',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="도로명 주소"/></label>

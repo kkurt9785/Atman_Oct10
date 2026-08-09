@@ -26,10 +26,12 @@ async function getBilling(facilityId:string) {
     return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'요금제와 청구 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'};
   }
   const isPharmacy=facility.data?.facility_type==='pharmacy';
-  // 약국은 전용 2단(69,000/119,000)만 — 병원용 basic/pro/enterprise를 약국에 노출하지 않는다
+  const isCareHospital=facility.data?.facility_type==='care_hospital';
+  // 최초 등록 업종에 맞는 가격표만 노출한다.
   const availablePlans = ((plans.data??[]) as Plan[]).filter(plan=>
     isPharmacy ? ['free','pharmacy','pharmacy_plus'].includes(plan.code)
-               : !['pharmacy','pharmacy_plus'].includes(plan.code));
+      : isCareHospital ? ['free','basic','pro','enterprise'].includes(plan.code)
+      : !['pharmacy','pharmacy_plus'].includes(plan.code));
   const free = availablePlans.find((plan)=>plan.code==='free');
   const effectiveSubscription = subscription.data ?? (free ? {
     status:'active', current_period_end:null, plan_code:'free', trial_started_at:null,

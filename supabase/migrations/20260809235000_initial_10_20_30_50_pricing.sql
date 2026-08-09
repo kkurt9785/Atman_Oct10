@@ -1,0 +1,5 @@
+-- 초기 판매 범위를 10/20/30/50명으로 제한한다. 50명 초과는 후속 정책 전까지 별도 문의.
+UPDATE public.service_plans SET monthly_fee=119000,included_facilities=1,included_admin_seats=2,included_attendance_slots=20,included_active_workers=20,included_job_posting_slots=10,features=features||jsonb_build_object('tagline','직원 20명 안팎 병원의 반복 인력 운영') WHERE code='basic';
+UPDATE public.service_plans SET monthly_fee=169000,included_facilities=1,included_admin_seats=3,included_attendance_slots=30,included_active_workers=30,included_job_posting_slots=20,features=features||jsonb_build_object('tagline','직원 30명 안팎 요양병원의 교대·결원 관리','popular',true) WHERE code='pro';
+UPDATE public.service_plans SET name='Hospital 50',monthly_fee=249000,included_facilities=1,included_admin_seats=5,included_attendance_slots=50,included_active_workers=50,included_job_posting_slots=999999,features=features||jsonb_build_object('tagline','직원 50명까지 한 사업장에서 통합 운영','support','priority','operations',true,'credential_status',true) WHERE code='enterprise';
+UPDATE public.service_plans SET included_active_workers=20,features=features||jsonb_build_object('tagline','직원 20명 안팎 약국의 반복 일정 운영') WHERE code='pharmacy_plus';

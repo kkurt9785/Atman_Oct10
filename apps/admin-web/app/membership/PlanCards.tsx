@@ -24,10 +24,10 @@ const PLAN_PERKS: Record<string, string[]> = {
   free: ['공고 월 1건', '직원 근태 3명', '관리자 1명', '기본 자격 확인·채팅'],
   clinic: ['직원 최대 10명', '간편 출퇴근·휴가', '공고 월 3건', '함께한 근무자 5명 재요청'],
   pharmacy: ['약사·전산직 최대 10명', '간편 출퇴근·휴가·급여 검토', '공고 월 3건', '함께한 약사 반복근무 요청', '옵션: 관리자 1명 추가 +월 20,000원'],
-  pharmacy_plus: ['약사·전산직 최대 20명', '공고 월 15건 · 반복초대 30명', '반복 일정 자동화(토요일 대체약사 등)', '관리자 3명 · 자격 만료관리'],
-  basic: ['직원 근태 30명', '공고 월 15건', '월 반복요청 대상 30명', '관리자 3명'],
-  pro: ['직원 근태 100명', '공고 무제한', '월 반복요청 대상 100명', '관리자 5명 · 자격·운영 자동화'],
-  enterprise: ['직원 근태·공고·반복초대 무제한', '관리자 15명 · 사업장 3곳', '자격·운영 통합관리', 'API·감사로그·전담지원'],
+  pharmacy_plus: ['약사·전산직 최대 20명', '공고 월 15건 · 반복요청 20명', '반복 일정 자동화(토요일 대체약사 등)', '관리자 3명 · 자격 만료관리'],
+  basic: ['직원 근태 20명', '공고 월 10건', '월 반복요청 대상 20명', '관리자 2명'],
+  pro: ['직원 근태 30명', '공고 월 20건', '월 반복요청 대상 30명', '관리자 3명 · 자격·운영 자동화'],
+  enterprise: ['직원 근태 50명', '공고 무제한 · 반복요청 50명', '관리자 5명', '한 사업장 자격·운영 통합관리'],
 };
 
 type PlanExtras = { included_job_posting_slots?: number; included_active_workers?: number; included_admin_seats?: number };
@@ -90,7 +90,7 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
                     </>
                   ) : (
                     <>
-                      <p className="text-[22px] font-extrabold text-ink leading-none">{`${won(plan.monthly_fee)}${plan.code === 'enterprise' ? '부터' : ''}`}</p>
+                      <p className="text-[22px] font-extrabold text-ink leading-none">{won(plan.monthly_fee)}</p>
                       <p className="text-[11px] text-tertiary mt-0.5">월 · 부가세 별도</p>
                     </>
                   )}
