@@ -32,6 +32,7 @@ function WorkplaceContent() {
   const [attendance,setAttendance]=useState<Record<string,AttendanceState>>({});
   const [shiftTarget,setShiftTarget]=useState<ShiftTarget|null>(null);
   const [attendanceModes,setAttendanceModes]=useState<Record<string,AttendanceMode>>({});
+  const [tab,setTab]=useState<'history'|'leave'>('history');
 
   useEffect(()=>{ void (async()=>{
     const {data:{user}}=await supabase.auth.getUser();
@@ -146,12 +147,16 @@ function WorkplaceContent() {
           {currentAttendance?.check_out_at&&<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">오늘 출퇴근이 완료됐어요.</p>}
           {attendanceToken&&<p className="mt-2 text-center text-[11px] font-bold text-primary">동적 QR을 확인했어요. 위치 확인 후 사업장 정책에 맞게 인증합니다.</p>}
         </section>
-        <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
+        <nav aria-label="직장 업무" className="mt-5 grid grid-cols-2 rounded-2xl bg-white p-1.5 shadow-sm">
+          <button type="button" onClick={()=>setTab('history')} aria-pressed={tab==='history'} className={`h-11 rounded-xl text-[13px] font-extrabold ${tab==='history'?'bg-primary text-white':'text-sub'}`}>근태 내역</button>
+          <button type="button" onClick={()=>setTab('leave')} aria-pressed={tab==='leave'} className={`h-11 rounded-xl text-[13px] font-extrabold ${tab==='leave'?'bg-primary text-white':'text-sub'}`}>휴가 신청</button>
+        </nav>
+        {tab==='history'&&<section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-[18px] font-extrabold">내 근태 내역</h2>
           <div className="mt-3"><MyAttendanceCalendar staffId={staff.id}/></div>
           <p className="mt-3 text-[11px] leading-5 text-sub">수정이 필요한 기록은 사업장 관리자에게 요청하세요. 월 마감 후에는 급여 자료에 반영됩니다.</p>
-        </section>
-        <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><div className="flex justify-between items-start"><div><h2 className="font-extrabold text-[18px]">휴가 신청</h2><p className="text-[12px] text-sub mt-1">승인된 경우에만 잔여 휴가가 차감돼요.</p></div><div className="text-right"><p className="text-[11px] text-sub">잔여</p><b className="text-primary">{leaveMinutes/60}시간</b></div></div>
+        </section>}
+        {tab==='leave'&&<section className="mt-3 bg-white rounded-2xl p-5 shadow-sm"><div className="flex justify-between items-start"><div><h2 className="font-extrabold text-[18px]">휴가 신청</h2><p className="text-[12px] text-sub mt-1">승인된 경우에만 잔여 휴가가 차감돼요.</p></div><div className="text-right"><p className="text-[11px] text-sub">잔여</p><b className="text-primary">{leaveMinutes/60}시간</b></div></div>
           <form action={requestLeave} className="grid grid-cols-2 gap-3 mt-4">
             <label className="col-span-2 text-[12px] text-sub">유형<select name="leave_type" value={leaveType} onChange={e=>setLeaveType(e.target.value)} className="mt-1 w-full h-12 border border-line rounded-xl px-3 bg-white">{TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
             {leaveType==='hourly'&&<label className="col-span-2 text-[12px] text-sub">사용 시간<select name="hourly_minutes" className="mt-1 w-full h-12 border border-line rounded-xl px-3 bg-white">{[1,2,3,4,5,6,7].map(h=><option key={h} value={h*60}>{h}시간</option>)}</select></label>}
@@ -161,7 +166,7 @@ function WorkplaceContent() {
             <button className="col-span-2 h-12 rounded-xl bg-primary text-white font-bold">관리자에게 신청</button>
           </form>
           {leaves.length>0&&<div className="mt-5 border-t border-line pt-4"><p className="text-[13px] font-bold">최근 신청</p><div className="mt-2 divide-y divide-line">{leaves.map(l=><div key={l.id} className="py-2.5 flex justify-between gap-2 text-[12px]"><span>{l.start_date}{l.end_date!==l.start_date?`~${l.end_date.slice(5)}`:''} · {l.requested_minutes/60}시간</span><b className={l.status==='approved'?'text-success':l.status==='rejected'?'text-red-600':'text-amber-600'}>{l.status==='approved'?'승인':l.status==='rejected'?'반려':'대기'}</b></div>)}</div></div>}
-        </section>
+        </section>}
       </>}
     {message&&<p role="status" className="mt-4 rounded-xl bg-white border border-line p-3 text-[13px] font-bold">{message}</p>}
   </main>;

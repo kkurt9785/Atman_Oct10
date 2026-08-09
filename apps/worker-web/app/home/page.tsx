@@ -382,8 +382,6 @@ export default function HomePage() {
       matchesDept(s, deptFilter)
   );
 
-  const recommended = filtered.slice(0, 3);
-  const areaShifts  = filtered.slice(3);
   const todayCount = roleShifts.filter((s) => matchesDate(s, 'today')).length;
 
   function resetFilters() {
@@ -466,21 +464,6 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="mx-5 mb-4 bg-ink rounded-2xl p-4 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-white/70">오늘 바로 지원</p>
-          <p className="text-[19px] font-extrabold text-white mt-0.5">
-            {todayCount > 0 ? `${todayCount}개 시프트 확인` : '조건을 넓혀서 보기'}
-          </p>
-        </div>
-        <Link
-          href="/shifts"
-          className="h-11 px-4 rounded-xl bg-white text-ink text-[14px] font-extrabold flex items-center justify-center flex-shrink-0"
-        >
-          보기
-        </Link>
-      </div>
-
       <Link href="/rewards" className="mx-5 mb-4 block rounded-2xl border border-primary/20 bg-primary/8 p-4 active:opacity-80">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -523,28 +506,9 @@ export default function HomePage() {
         <ChipRow options={WAGE_CHIPS} value={wageFilter} onChange={setWageFilter} />
       </div>
 
-      {/* 조건 일치 공고 */}
-      {recommended.length > 0 && (
-        <section className="mb-6">
-          <div className="px-5 flex items-center justify-between mb-3">
-            <h2 className="text-[16px] font-extrabold text-ink">내 조건과 가까운 공고</h2>
-            <span className="text-[12px] text-tertiary">조건 맞춤</span>
-          </div>
-          <div className="overflow-x-auto scrollbar-hide">
-            <div className="flex gap-3 px-5 pb-2">
-              {recommended.map((s) => (
-                <ShiftCard key={s.id} shift={s} hot onApply={() => setSelected(s)} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 전체 공고 */}
+      {/* 조건에 맞는 공고 — 추천/전체 중복 없이 한 목록에서 바로 지원 */}
       <section className="px-5">
-        <h2 className="text-[16px] font-extrabold text-ink mb-3">
-          {areas.length > 0 ? `📍 ${areas[0]} 전체 공고` : '📍 전체 공고'}
-        </h2>
+        <div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-[12px] font-bold text-primary">선택한 조건</p><h2 className="text-[18px] font-extrabold text-ink">지원 가능한 근무</h2></div><span className="text-[12px] font-bold text-sub">{filtered.length}건</span></div>
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
@@ -557,10 +521,8 @@ export default function HomePage() {
               필터 초기화
             </button>
           </div>
-        ) : areaShifts.length === 0 ? (
-          <p className="text-[13px] text-tertiary py-4 text-center">조건에 맞는 추가 공고가 없어요</p>
         ) : (
-          areaShifts.map((s) => (
+          filtered.map((s) => (
             <ListCard key={s.id} shift={s} onApply={() => setSelected(s)} />
           ))
         )}

@@ -10,6 +10,7 @@ import { won, hours } from '@/lib/format';
 import { getUnifiedWorkforceSummary } from '@/lib/db/payroll';
 import { getClinicStaff } from '@/lib/db/clinic-workforce';
 import { getAdminContext } from '@/lib/admin-auth';
+import type { QuickMenuIcon } from '@/components/home/QuickMenu';
 
 export default async function Home() {
   const [shop, staff, clinicStaff, workforceSummary, pendingCount, ops, alerts, context] = await Promise.all([
@@ -45,6 +46,14 @@ export default async function Home() {
     danger: 'text-red-600',
     warn: 'text-warn',
   };
+  type MenuItem={icon:QuickMenuIcon;label:string;description:string;href:string;badge?:number};
+  const priorityMenu:MenuItem = pendingCount>0
+    ? {icon:'applications',label:'지원 확인',description:'지원자를 검토하고 확정하기',href:'/applications',badge:pendingCount}
+    : noShowCount+ops.urgentUnfilledCount>0
+      ? {icon:'alert',label:'운영 확인',description:'미충원·노쇼 먼저 처리하기',href:'/operations',badge:noShowCount+ops.urgentUnfilledCount}
+      : canViewPayroll&&ops.pendingWageCount>0
+        ? {icon:'pay',label:'급여 지급 확인',description:'지급 대기 내역 처리하기',href:'/payroll',badge:ops.pendingWageCount}
+        : {icon:'recruit',label:'근무자 모집',description:'날짜·시간을 정해 모집하기',href:'/shifts/new'};
 
   return (
     <main className="px-4">
@@ -99,19 +108,20 @@ export default async function Home() {
       <SectionTitle>빠른 메뉴</SectionTitle>
       <QuickMenu
         primary={[
-          { icon: '📋', label: '근무자 모집', description: '날짜·시간을 정해 모집하기', href: '/shifts/new' },
-          { icon: '🕐', label: '오늘 근무 현황', description: '출퇴근과 확인할 기록 보기', href: '/timesheet' },
-          { icon: '🧑‍⚕️', label: '직원 관리', description: '계약·근무 정보 관리하기', href: '/staff' },
-          { icon: '🌿', label: '휴가 관리', description: '신청 승인과 사용 내역 보기', href: '/leave' },
+          priorityMenu,
+          { icon: 'clock', label: '오늘 근무 현황', description: '출퇴근과 확인할 기록 보기', href: '/timesheet' },
+          { icon: 'staff', label: '직원 관리', description: '계약·근무 정보 관리하기', href: '/staff' },
+          { icon: 'leave', label: '휴가 관리', description: '신청 승인과 사용 내역 보기', href: '/leave' },
         ]}
         more={[
-          { icon: '📍', label: '출퇴근 방식 설정', description: 'QR·위치·Wi-Fi 설정하기', href: '/attendance-qr' },
-          { icon: '🤝', label: '함께한 근무자', description: '근무 이력이 있는 워커에게 요청하기', href: '/workforce' },
-          { icon: '⚙️', label: '반복 일정·알림', description: '미충원·노쇼와 반복 모집 관리', href: '/operations' },
-          { icon: '💬', label: '메시지', description: '지원자·근무자와 대화하기', href: '/chats' },
-          ...(canViewPayroll ? [{ icon: '₩', label: '급여·지급 관리', description: '근무시간과 지급 상태 확인', href: '/payroll' }] : []),
-          { icon: '🧾', label: '이용 요금', description: '요금제와 청구 내역 확인', href: '/membership' },
-          { icon: isPharmacy ? '💊' : '🏥', label: '사업장 설정', description: `${facilityWord} 정보와 운영 설정`, href: '/settings' },
+          ...(priorityMenu.href==='/shifts/new'?[]:[{icon:'recruit' as const,label:'근무자 모집',description:'날짜·시간을 정해 모집하기',href:'/shifts/new'}]),
+          { icon: 'qr', label: '출퇴근 QR 열기', description: '현장 QR과 인증 상태 확인', href: '/attendance-qr' },
+          { icon: 'repeat', label: '함께한 근무자', description: '근무 이력이 있는 워커에게 요청하기', href: '/workforce' },
+          { icon: 'alert', label: '반복 일정·알림', description: '미충원·노쇼와 반복 모집 관리', href: '/operations' },
+          { icon: 'chat', label: '메시지', description: '지원자·근무자와 대화하기', href: '/chats' },
+          ...(canViewPayroll ? [{ icon: 'pay' as const, label: '급여·지급 관리', description: '근무시간과 지급 상태 확인', href: '/payroll' }] : []),
+          { icon: 'bill', label: '이용 요금', description: '요금제와 청구 내역 확인', href: '/membership' },
+          { icon: 'settings', label: '사업장 설정', description: `${facilityWord} 정보와 운영 설정`, href: '/settings' },
         ]}
       />
 
