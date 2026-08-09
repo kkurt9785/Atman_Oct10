@@ -14,7 +14,7 @@
 import { todayKST } from '@/lib/date';
 
 type Worker = { id: string; kakao_id: string; role: string };
-type Facility = { id: string; business_registration_number: string; facility_type: string };
+type Facility = { id: string; name?: string; business_registration_number: string; facility_type: string };
 
 export type ReviveSummary = {
   ok: boolean;
@@ -30,8 +30,8 @@ export type ReviveSummary = {
 
 const SUPER_ACCOUNTS: Array<[email: string, name: string, accessRole: string]> = [
   ['sales-demo-1@demo.atman.co.kr', '시연 슈퍼계정 1', 'super'],
-  ['sales-demo-2@demo.atman.co.kr', '시연 슈퍼계정 2', 'sales'],
-  ['sales-demo-3@demo.atman.co.kr', '시연 슈퍼계정 3', 'operator'],
+  ['sales-demo-2@demo.atman.co.kr', '약국 시연 관리자', 'super'],
+  ['sales-demo-3@demo.atman.co.kr', '요양병원 시연 관리자', 'super'],
 ];
 const PASSWORD = 'Atman-demo-2026!';
 
@@ -127,20 +127,29 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     'resolution=merge-duplicates',
   );
 
-  // ── 3. facility_admin_access (3계정 × 데모 병원 전체) ───────────────────────
+  // ── 3. facility_admin_access (계정별 대표 사업장 1곳) ───────────────────────
   // 약국은 직군·시급·근태 시드 구조가 달라 아래 병원 50개 생성 루프에서 제외하고
   // refresh_demo_pharmacy_workforce()로 별도 갱신한다.
   const fac = await req<Facility[]>(
     'GET',
-    '/rest/v1/facilities?business_registration_number=like.DEMO-TARGET-*&facility_type=neq.pharmacy&select=id,business_registration_number,facility_type&order=business_registration_number',
+    '/rest/v1/facilities?business_registration_number=like.DEMO-TARGET-*&facility_type=neq.pharmacy&select=id,name,business_registration_number,facility_type&order=business_registration_number',
   );
   if (fac.status !== 200 || !Array.isArray(fac.data)) {
     throw new Error(`facilities load failed: ${fac.status}`);
   }
   const facilities = fac.data;
-  const accessRows = SUPER_ACCOUNTS.flatMap(([email, , accessRole]) =>
-    facilities.map((f) => ({ user_id: adminIds[email], facility_id: f.id, access_role: accessRole })),
-  );
+  const pharmacy=await req<Facility[]>('GET','/rest/v1/facilities?business_registration_number=eq.DEMO-TARGET-PHARMACY&select=id,name,business_registration_number,facility_type');
+  const demoTargets:Record<string,Facility|undefined>={
+    'sales-demo-1@demo.atman.co.kr':facilities.find(f=>f.name==='W여성병원'),
+    'sales-demo-2@demo.atman.co.kr':pharmacy.data?.[0],
+    'sales-demo-3@demo.atman.co.kr':facilities.find(f=>f.business_registration_number==='DEMO-TARGET-0026'&&f.facility_type==='care_hospital'),
+  };
+  const accessRows=SUPER_ACCOUNTS.map(([email])=>{
+    const target=demoTargets[email];
+    if(!target)throw new Error(`demo target missing for ${email}`);
+    return {user_id:adminIds[email],facility_id:target.id,access_role:'super'};
+  });
+  await req('DELETE',`/rest/v1/facility_admin_access?user_id=in.(${Object.values(adminIds).join(',')})`);
   await req(
     'POST',
     '/rest/v1/facility_admin_access?on_conflict=user_id,facility_id',

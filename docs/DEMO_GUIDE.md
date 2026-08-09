@@ -6,8 +6,9 @@
 
 | 용도 | 계정 | 비고 |
 |---|---|---|
-| 관리자 (병원 전환) | sales-demo-**1**@demo.atman.co.kr | `super` — 모든 조작 가능. **시연은 이 계정으로** |
-| 관리자 (조회 전용) | sales-demo-2 (`sales`) / sales-demo-3 (`operator`) | 2번은 수락·등록 불가 (조회만) |
+| 병원 관리자 | sales-demo-**1**@demo.atman.co.kr | W여성병원 · 모든 조작 가능 |
+| 약국 관리자 | sales-demo-**2**@demo.atman.co.kr | 수원 온누리 데모약국 · 모든 조작 가능 |
+| 요양병원 관리자 | sales-demo-**3**@demo.atman.co.kr | 수원요양병원 · 모든 조작 가능 |
 | 워커 (광주 RN) | worker-demo-**1**@demo.atman.co.kr | 광주 광산구 병원 미팅용 |
 | 약국 직원 (박하늘·전산/접수) | worker-demo-**2** | 온누리약국 출퇴근·휴가·근태 캘린더 |
 | 워커 (수원 권선 NA) | worker-demo-**3** | |

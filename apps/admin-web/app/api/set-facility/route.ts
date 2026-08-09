@@ -18,11 +18,15 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({})) as { facilityId?: string };
   const facilities = await listAccessibleFacilities();
-  const showcase = session.user.email?.endsWith('@demo.atman.co.kr')
-    ? facilities.find((facility) => facility.name === 'W여성병원' && facility.is_demo === true)
-    : undefined;
+  const demoTarget = session.user.email==='sales-demo-1@demo.atman.co.kr'
+    ? facilities.find((facility)=>facility.name==='W여성병원'&&facility.is_demo===true)
+    : session.user.email==='sales-demo-2@demo.atman.co.kr'
+      ? facilities.find((facility)=>facility.facility_type==='pharmacy'&&facility.is_demo===true)
+      : session.user.email==='sales-demo-3@demo.atman.co.kr'
+        ? facilities.find((facility)=>facility.facility_type==='care_hospital'&&facility.is_demo===true)
+        : undefined;
   const facilityId = body.facilityId
-    ?? (showcase?.id as string | undefined)
+    ?? (demoTarget?.id as string | undefined)
     ?? (facilities[0]?.id as string | undefined)
     ?? null;
 

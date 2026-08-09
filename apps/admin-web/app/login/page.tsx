@@ -7,9 +7,9 @@ import { supabase } from '@/lib/supabase-browser';
 // 시연용 데모 계정 — 비프로덕션 빌드에서만 노출 (NEXT_PUBLIC_은 빌드타임 고정)
 const DEMO_PASSWORD = 'Atman-demo-2026!';
 const DEMO_ACCOUNTS = [
-  { email: 'sales-demo-1@demo.atman.co.kr', label: '슈퍼계정 1' },
-  { email: 'sales-demo-2@demo.atman.co.kr', label: '슈퍼계정 2' },
-  { email: 'sales-demo-3@demo.atman.co.kr', label: '슈퍼계정 3' },
+  { email: 'sales-demo-1@demo.atman.co.kr', label: '병원 · W여성병원' },
+  { email: 'sales-demo-2@demo.atman.co.kr', label: '약국 · 수원 온누리약국' },
+  { email: 'sales-demo-3@demo.atman.co.kr', label: '요양병원 · 수원요양병원' },
 ];
 
 function LoginInner() {
