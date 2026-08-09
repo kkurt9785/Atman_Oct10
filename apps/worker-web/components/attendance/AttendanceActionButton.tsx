@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 type Result={ok:boolean;message?:string;reason?:string;method?:string;distanceM?:number;accuracyM?:number;action?:string;checkInAt?:string;checkOutAt?:string};
 export type AttendanceMode='gps'|'gps_qr'|'qr'|'network'|'admin'|'gps_or_qr';
 const METHOD:Record<string,string>={GPS:'위치 인증',GPS_QR:'위치 + 동적 QR',QR:'동적 QR',QR_FALLBACK:'QR 보완 인증',WORKPLACE_NET:'사업장 네트워크',ADMIN:'관리자 처리'};
-const MODE_LABEL:Record<AttendanceMode,string>={gps:'위치 인증',gps_qr:'위치 + 동적 QR',qr:'동적 QR',network:'사업장 Wi-Fi/IP',admin:'관리자 승인',gps_or_qr:'위치 우선 · QR/Wi-Fi 보완'};
+const MODE_LABEL:Record<AttendanceMode,string>={gps:'위치 인증',gps_qr:'위치 + 동적 QR',qr:'동적 QR',network:'사업장 Wi-Fi/IP',admin:'관리자 승인',gps_or_qr:'위치 OR 사업장 Wi-Fi · QR 보완'};
 
 function position(){
   return new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{

@@ -7,7 +7,7 @@ import { getFacilityProfile } from '@/lib/actions/facility';
 import { getShop } from '@/lib/db/shop';
 
 const MODE_LABEL:Record<string,string>={
-  gps_or_qr:'위치 우선 → 동적 QR → Wi-Fi/IP 보완',
+  gps_or_qr:'위치 OR Wi-Fi/IP · 필요할 때 QR 보완',
   gps:'위치(GPS) 우선 · QR/Wi-Fi 보완',
   gps_qr:'위치 + 동적 QR 모두 필수',
   qr:'동적 QR만',network:'사업장 Wi-Fi/IP만',admin:'관리자 승인만',
