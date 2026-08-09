@@ -82,6 +82,15 @@ export default async function Home() {
         <Link href="/shifts/new" className="rounded-2xl bg-primary px-5 py-5 text-white shadow-btn active:opacity-85"><span className="text-[20px]">＋</span><p className="mt-2 text-[17px] font-extrabold">근무자 모집</p><p className="mt-1 text-[12px] text-white/80">날짜와 시간만 정하면 돼요</p></Link>
         <Link href="/timesheet" className="rounded-2xl bg-white px-5 py-5 active:bg-bg"><span className="text-[20px]">◷</span><p className="mt-2 text-[17px] font-extrabold text-ink">오늘 근무 보기</p><p className="mt-1 text-[12px] text-sub">출퇴근과 확인 요청을 봐요</p></Link>
       </div>
+      <div className="mt-3 rounded-2xl border border-line bg-white px-4 py-3">
+        <p className="text-[11px] font-bold text-sub">처음이라면 이 순서로 진행하세요</p>
+        <div className="mt-2 flex items-center justify-between gap-1 text-[11px] font-extrabold text-primary">
+          <Link href="/shifts/new">① 모집</Link><span className="text-line">→</span>
+          <Link href="/applications">② 지원 확정</Link><span className="text-line">→</span>
+          <Link href="/timesheet">③ 출퇴근</Link><span className="text-line">→</span>
+          <Link href="/payroll">④ 지급</Link>
+        </div>
+      </div>
       {isPharmacy&&<Link href="/workforce" className="mt-3 flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 text-label font-bold text-primary"><span>함께 일한 약사 다시 부르기</span><span>→</span></Link>}
 
       {/* ⑤ 오늘 근무 */}

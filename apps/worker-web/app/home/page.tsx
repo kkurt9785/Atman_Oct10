@@ -464,6 +464,16 @@ export default function HomePage() {
         )}
       </div>
 
+      <div className="mx-5 mb-4 rounded-2xl border border-line bg-white px-4 py-3 shadow-sm">
+        <p className="text-[11px] font-bold text-sub">잇닿 이용 순서</p>
+        <div className="mt-2 flex items-center justify-between gap-1 text-[11px] font-extrabold text-primary">
+          <span>① 근무 찾기</span><span className="text-line">→</span>
+          <Link href="/applications">② 지원</Link><span className="text-line">→</span>
+          <Link href="/workplace">③ 출퇴근</Link><span className="text-line">→</span>
+          <Link href="/earnings">④ 입금 확인</Link>
+        </div>
+      </div>
+
       <Link href="/rewards" className="mx-5 mb-4 block rounded-2xl border border-primary/20 bg-primary/8 p-4 active:opacity-80">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
