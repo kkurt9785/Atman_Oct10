@@ -61,22 +61,22 @@ function WorkplaceContent() {
       for(const row of (records??[]) as AttendanceState[])if(!map[row.staff_id]&&row.work_date===todayStr)map[row.staff_id]=row;
       setAttendance(map);
     }
-    if(attendanceToken){
-      const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
-      const {data:worker}=await supabase.from('workers').select('id').eq('auth_user_id',user.id).maybeSingle();
-      if(worker){
-        const {data:application}=await supabase.from('shift_applications')
-          .select('id,checked_in_at,checked_out_at,shifts!inner(shift_date,start_time,end_time,facilities(id,name))')
-          .eq('worker_id',worker.id).eq('status','accepted').eq('shifts.shift_date',today).limit(1).maybeSingle();
-        if(application){
-          const target=application as unknown as ShiftTarget;
-          setShiftTarget(target);
-          const shift=Array.isArray(target.shifts)?target.shifts[0]:target.shifts;
-          const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;
-          if(facility?.id){
-            const {data:setting}=await supabase.from('facility_attendance_settings').select('authentication_mode').eq('facility_id',facility.id).maybeSingle();
-            if(setting)setAttendanceModes(current=>({...current,[facility.id]:setting.authentication_mode as AttendanceMode}));
-          }
+    // 단기 시프트도 QR 진입 여부와 관계없이 오늘 배정을 불러온다.
+    // 그래야 워커가 앱을 직접 열어 GPS/Wi-Fi로 출퇴근할 수 있다.
+    const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
+    const {data:worker}=await supabase.from('workers').select('id').eq('auth_user_id',user.id).maybeSingle();
+    if(worker){
+      const {data:application}=await supabase.from('shift_applications')
+        .select('id,checked_in_at,checked_out_at,shifts!inner(shift_date,start_time,end_time,facilities(id,name))')
+        .eq('worker_id',worker.id).eq('status','accepted').eq('shifts.shift_date',today).limit(1).maybeSingle();
+      if(application){
+        const target=application as unknown as ShiftTarget;
+        setShiftTarget(target);
+        const shift=Array.isArray(target.shifts)?target.shifts[0]:target.shifts;
+        const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;
+        if(facility?.id){
+          const {data:setting}=await supabase.from('facility_attendance_settings').select('authentication_mode').eq('facility_id',facility.id).maybeSingle();
+          if(setting)setAttendanceModes(current=>({...current,[facility.id]:setting.authentication_mode as AttendanceMode}));
         }
       }
     }
