@@ -1,23 +1,18 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Card, SectionTitle, BigStat, StatusBadge } from '@/components/ui';
-import { QuickMenu } from '@/components/home/QuickMenu';
+import { Card, SectionTitle, StatusBadge } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
 import { getStaff } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
 import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
-import { won, hours } from '@/lib/format';
-import { getUnifiedWorkforceSummary } from '@/lib/db/payroll';
 import { getClinicStaff } from '@/lib/db/clinic-workforce';
 import { getAdminContext } from '@/lib/admin-auth';
-import type { QuickMenuIcon } from '@/components/home/QuickMenu';
 
 export default async function Home() {
-  const [shop, staff, clinicStaff, workforceSummary, pendingCount, ops, alerts, context] = await Promise.all([
+  const [shop, staff, clinicStaff, pendingCount, ops, alerts, context] = await Promise.all([
     getShop(),
     getStaff(),
     getClinicStaff(),
-    getUnifiedWorkforceSummary(),
     getPendingCount(),
     getOperationsSummary(),
     getOperationsAlerts(),
@@ -27,7 +22,6 @@ export default async function Home() {
 
   if (!shop) redirect('/setup/claim-facility');
 
-  const summary = workforceSummary;
   const isPharmacy = shop.facilityType === 'pharmacy';
   const facilityWord = isPharmacy ? '약국' : '병원';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
@@ -46,14 +40,10 @@ export default async function Home() {
     danger: 'text-red-600',
     warn: 'text-warn',
   };
-  type MenuItem={icon:QuickMenuIcon;label:string;description:string;href:string;badge?:number};
-  const priorityMenu:MenuItem = pendingCount>0
-    ? {icon:'applications',label:'지원 확인',description:'지원자를 검토하고 확정하기',href:'/applications',badge:pendingCount}
-    : noShowCount+ops.urgentUnfilledCount>0
-      ? {icon:'alert',label:'운영 확인',description:'미충원·노쇼 먼저 처리하기',href:'/operations',badge:noShowCount+ops.urgentUnfilledCount}
-      : canViewPayroll&&ops.pendingWageCount>0
-        ? {icon:'pay',label:'급여 지급 확인',description:'지급 대기 내역 처리하기',href:'/payroll',badge:ops.pendingWageCount}
-        : {icon:'recruit',label:'근무자 모집',description:'날짜·시간을 정해 모집하기',href:'/shifts/new'};
+  const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
+  const todayCount=clinicStaff.length+shiftStaff.length;
+  const workingCount=clinicStaff.filter(s=>['working','late','checkout_pending'].includes(s.attendanceStatus??'')).length
+    +shiftStaff.filter(s=>s.todayStatus==='근무중').length;
 
   return (
     <main className="px-4">
@@ -62,21 +52,12 @@ export default async function Home() {
         <h1 className="text-display font-extrabold text-ink mt-1">{isPharmacy?'약국장님':'원장님'}, 안녕하세요 👋</h1>
       </div>
 
-      {/* ① 이번 달 현황 */}
+      {/* 첫 화면은 숫자보다 오늘 상황과 다음 행동을 먼저 보여준다. */}
       <Card className="shadow-sm">
-        <p className="text-label text-sub mb-3">이번 달 현황</p>
-        <div className="flex justify-between items-end">
-          {canViewPayroll
-            ? <BigStat label="예상 인건비" value={won(summary.estimatedPay)} />
-            : <BigStat label="등록 직원" value={`${staff.length + clinicStaff.length}명`} />}
-          <div className="text-right">
-            <p className="text-label text-sub mb-1">총 근로시간</p>
-            <p className="text-title font-bold text-ink">{hours(summary.totalMinutes)}</p>
-          </div>
-        </div>
-        <div className="mt-4 pt-4 border-t border-line flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-success" />
-          <span className="text-body text-ink">지금 <b>{summary.workingNow}명</b> 근무 중이에요</span>
+        <p className="text-label font-bold text-primary">오늘 근무</p>
+        <div className="mt-1 flex items-end justify-between gap-4">
+          <div><p className="text-[28px] leading-tight font-extrabold text-ink">{todayCount}명 예정</p><p className="mt-1 text-body text-sub">지금 {workingCount}명이 근무 중이에요</p></div>
+          <Link href="/timesheet" className="text-label font-bold text-primary whitespace-nowrap">현황 보기 →</Link>
         </div>
       </Card>
 
@@ -97,36 +78,14 @@ export default async function Home() {
           </div>
         </Card>
       )}
-      {isPharmacy&&(
-        <Link href="/workforce" className="mt-4 block rounded-2xl border border-primary/20 bg-primary/5 p-5 active:opacity-80">
-          <p className="text-[12px] font-bold text-primary">약국 운영의 핵심</p>
-          <div className="mt-1 flex items-center justify-between gap-3"><div><h2 className="text-[17px] font-extrabold text-ink">함께 일한 약사 다시 부르기</h2><p className="mt-1 text-[12px] leading-5 text-sub">근무 이력이 있는 대체약사에게 다음 근무를 바로 요청하세요.</p></div><span className="text-[22px] text-primary">→</span></div>
-        </Link>
-      )}
-
-      {/* ③④ 빠른 메뉴 (자주 쓰는 4 + 더보기 접기) */}
-      <SectionTitle>빠른 메뉴</SectionTitle>
-      <QuickMenu
-        primary={[
-          priorityMenu,
-          { icon: 'clock', label: '오늘 근무 현황', description: '출퇴근과 확인할 기록 보기', href: '/timesheet' },
-          { icon: 'staff', label: '직원 관리', description: '계약·근무 정보 관리하기', href: '/staff' },
-          { icon: 'leave', label: '휴가 관리', description: '신청 승인과 사용 내역 보기', href: '/leave' },
-        ]}
-        more={[
-          ...(priorityMenu.href==='/shifts/new'?[]:[{icon:'recruit' as const,label:'근무자 모집',description:'날짜·시간을 정해 모집하기',href:'/shifts/new'}]),
-          { icon: 'qr', label: '출퇴근 QR 열기', description: '현장 QR과 인증 상태 확인', href: '/attendance-qr' },
-          { icon: 'repeat', label: '함께한 근무자', description: '근무 이력이 있는 워커에게 요청하기', href: '/workforce' },
-          { icon: 'alert', label: '반복 일정·알림', description: '미충원·노쇼와 반복 모집 관리', href: '/operations' },
-          { icon: 'chat', label: '메시지', description: '지원자·근무자와 대화하기', href: '/chats' },
-          ...(canViewPayroll ? [{ icon: 'pay' as const, label: '급여·지급 관리', description: '근무시간과 지급 상태 확인', href: '/payroll' }] : []),
-          { icon: 'bill', label: '이용 요금', description: '요금제와 청구 내역 확인', href: '/membership' },
-          { icon: 'settings', label: '사업장 설정', description: `${facilityWord} 정보와 운영 설정`, href: '/settings' },
-        ]}
-      />
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <Link href="/shifts/new" className="rounded-2xl bg-primary px-5 py-5 text-white shadow-btn active:opacity-85"><span className="text-[20px]">＋</span><p className="mt-2 text-[17px] font-extrabold">근무자 모집</p><p className="mt-1 text-[12px] text-white/80">날짜와 시간만 정하면 돼요</p></Link>
+        <Link href="/timesheet" className="rounded-2xl bg-white px-5 py-5 active:bg-bg"><span className="text-[20px]">◷</span><p className="mt-2 text-[17px] font-extrabold text-ink">오늘 근무 보기</p><p className="mt-1 text-[12px] text-sub">출퇴근과 확인 요청을 봐요</p></Link>
+      </div>
+      {isPharmacy&&<Link href="/workforce" className="mt-3 flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 text-label font-bold text-primary"><span>함께 일한 약사 다시 부르기</span><span>→</span></Link>}
 
       {/* ⑤ 오늘 근무 */}
-      <SectionTitle>오늘 근무</SectionTitle>
+      <SectionTitle>진행 중인 근무</SectionTitle>
       {staff.length === 0&&clinicStaff.length===0 ? (
         <Card className="py-8 text-center">
           <p className="text-body font-bold text-ink">오늘 근무가 없어요</p>
@@ -137,16 +96,16 @@ export default async function Home() {
           {clinicStaff.map((s) => (
             <div key={`managed-${s.id}`} className="flex items-center justify-between px-5 py-4">
               <div><p className="text-body font-bold text-ink">{s.name}</p><p className="text-label text-sub">{s.department??'업무 미지정'} · {facilityWord} 등록 직원</p></div>
-              <StatusBadge status={s.attendanceStatus==='working'||s.attendanceStatus==='late'||s.attendanceStatus==='checkout_pending'?'근무중':s.attendanceStatus==='completed'?'퇴근':s.attendanceStatus==='absent'?'결근':'예정'} />
+              <div className="text-right"><StatusBadge status={s.attendanceStatus==='working'||s.attendanceStatus==='late'||s.attendanceStatus==='checkout_pending'?'근무중':s.attendanceStatus==='completed'?'퇴근':s.attendanceStatus==='absent'?'결근':'예정'} /><p className="mt-1 text-[11px] text-sub">{s.attendanceStatus==='completed'?'다음: 지급 확인':s.attendanceStatus==='checkout_pending'?'다음: 퇴근 승인':s.attendanceStatus==='working'||s.attendanceStatus==='late'?'다음: 퇴근 확인':'근무 상태 확인'}</p></div>
             </div>
           ))}
-          {staff.filter((shift)=>!clinicStaff.some((managed)=>managed.workerId===shift.id)).map((s) => (
+          {shiftStaff.map((s) => (
             <div key={s.id} className="flex items-center justify-between px-5 py-4">
               <div>
                 <p className="text-body font-bold text-ink">{s.name}</p>
                 <p className="text-label text-sub">{s.job}</p>
               </div>
-              <StatusBadge status={s.todayStatus} />
+              <div className="text-right"><StatusBadge status={s.todayStatus} /><p className="mt-1 text-[11px] text-sub">{s.todayStatus==='퇴근'?'다음: 지급 확인':s.todayStatus==='근무중'?'다음: 퇴근 확인':'근무 상태 확인'}</p></div>
             </div>
           ))}
         </Card>
