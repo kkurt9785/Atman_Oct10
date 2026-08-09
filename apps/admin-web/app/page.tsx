@@ -105,7 +105,8 @@ export default async function Home() {
           { icon: '🌿', label: '휴가 관리', href: '/leave' },
         ]}
         more={[
-          { icon: '🔲', label: 'QR 체크인', href: '/checkin' },
+          { icon: '📍', label: '출퇴근 인증', href: '/attendance-qr' },
+          { icon: '📷', label: '워커 QR 스캔', href: '/checkin' },
           { icon: '🤝', label: `${facilityWord} 인력풀`, href: '/workforce' },
           { icon: '⚙️', label: '운영 자동화', href: '/operations' },
           { icon: '💬', label: '워커 채팅', href: '/chats' },
