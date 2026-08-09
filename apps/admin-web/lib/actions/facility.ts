@@ -17,7 +17,7 @@ export type FacilityProfile = {
   pharmacy_system: string | null;
   average_daily_prescriptions: number | null;
   handover_minutes: number | null;
-  attendance_mode: 'gps'|'gps_qr'|'qr'|'admin'|'gps_or_qr';
+  attendance_mode: 'gps'|'gps_qr'|'qr'|'network'|'admin'|'gps_or_qr';
   gps_radius_meters: number;
   max_gps_accuracy_meters: number;
   qr_fallback_enabled: boolean;
@@ -92,11 +92,18 @@ export async function saveFacilityProfile(formData: FormData) {
   const { error } = await sb.from('facilities').update(patch).eq('id', context.facilityId);
   if (error) throw new Error(error.message);
   const mode=String(formData.get('attendance_mode')??'gps_or_qr');
-  const allowedModes=['gps','gps_qr','qr','admin','gps_or_qr'];
+  const allowedModes=['gps','gps_qr','qr','network','admin','gps_or_qr'];
   const radius=Number(formData.get('gps_radius_meters')??30);
   const accuracy=Number(formData.get('max_gps_accuracy_meters')??80);
   if(!allowedModes.includes(mode)||![10,20,30,50,100].includes(radius)||accuracy<10||accuracy>500){
     throw new Error('근태 인증 설정을 다시 확인해 주세요.');
+  }
+  if(mode==='network'){
+    const {data:networkSettings}=await sb.from('facility_attendance_settings')
+      .select('allowed_ips').eq('facility_id',context.facilityId).maybeSingle();
+    if(!(networkSettings?.allowed_ips?.length)){
+      throw new Error('사업장 Wi-Fi/IP 인증을 선택하려면 먼저 현재 네트워크를 등록해 주세요.');
+    }
   }
   const attendancePatch={
     facility_id:context.facilityId,authentication_mode:mode,gps_radius_meters:radius,

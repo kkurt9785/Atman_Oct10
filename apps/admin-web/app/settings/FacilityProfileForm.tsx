@@ -33,6 +33,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
   const [netPending, startNetTransition] = useTransition();
   const [allowedIps, setAllowedIps] = useState<string[]>(profile?.allowed_ips ?? []);
   const [netMessage, setNetMessage] = useState('');
+  const [attendanceMode, setAttendanceMode] = useState(profile?.attendance_mode ?? 'gps_or_qr');
 
   function handleRegisterNetwork() {
     setNetMessage('');
@@ -156,14 +157,16 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         <p className="text-[13px] font-bold text-sub mb-1">출퇴근 인증</p>
         <p className="text-[12px] text-tertiary mb-4">실내 GPS 오차를 고려해 {facilityWord} 환경에 맞게 선택하세요.</p>
         <label className="block text-[13px] text-sub mb-4">기본 인증 방식
-          <select name="attendance_mode" defaultValue={profile?.attendance_mode??'gps_or_qr'} className="mt-1.5 w-full h-12 rounded-xl border border-line bg-white px-3 text-[14px]">
-            <option value="gps_or_qr">추천 · GPS 우선, 실패 시 동적 QR</option>
-            <option value="gps">GPS 원터치만</option><option value="gps_qr">GPS + 동적 QR 모두 확인</option>
+          <select name="attendance_mode" value={attendanceMode} onChange={event=>setAttendanceMode(event.target.value as FacilityProfile['attendance_mode'])} className="mt-1.5 w-full h-12 rounded-xl border border-line bg-white px-3 text-[14px]">
+            <option value="gps_or_qr">추천 · 위치 → 동적 QR → 사업장 Wi-Fi</option>
+            <option value="gps">위치(GPS) 우선 · QR/Wi-Fi 보완</option>
+            <option value="gps_qr">위치 + 동적 QR 모두 필수</option>
             <option value="qr">동적 QR만</option>
-            <option value="admin">관리자 승인</option>
+            <option value="network">사업장 Wi-Fi/IP만</option>
+            <option value="admin">관리자 승인만</option>
           </select>
         </label>
-        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[12px] leading-5 text-sub"><b className="text-primary">추천 방식</b><br/>평소에는 버튼 한 번으로 GPS 인증하고, 실내 위치가 불안정할 때만 {facilityWord} 화면의 60초 QR로 보완합니다.</div>
+        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[12px] leading-5 text-sub"><b className="text-primary">추천 방식</b><br/>평소에는 버튼 한 번으로 위치를 확인하고, 실내 GPS가 불안정하면 60초 QR, 등록된 {facilityWord} Wi-Fi 순으로 보완해요. 각 방식을 위 선택창에서 단독으로도 운영할 수 있어요.</div>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-[12px] text-sub">GPS 반경
             <select name="gps_radius_meters" defaultValue={profile?.gps_radius_meters??30} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">
@@ -178,11 +181,11 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
           <label className="text-[12px] text-sub">퇴근 전(분)<input name="check_out_before_minutes" type="number" min="0" max="360" defaultValue={profile?.check_out_before_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
           <label className="text-[12px] text-sub">퇴근 후(분)<input name="check_out_after_minutes" type="number" min="0" max="720" defaultValue={profile?.check_out_after_minutes??120} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
         </div>
-        <label className="mt-4 flex items-center gap-2 text-[13px] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>GPS 실패 시 동적 QR fallback 허용</label>
+        {(attendanceMode==='gps'||attendanceMode==='gps_or_qr')&&<label className="mt-4 flex items-center gap-2 text-[13px] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>위치 인증 실패 시 동적 QR 보완 허용</label>}
 
         <div className="mt-5 border-t border-line pt-4">
           <p className="text-[13px] font-bold text-ink">{facilityWord} 네트워크 인증</p>
-          <p className="text-[12px] text-tertiary mt-1 leading-5">{facilityWord} 와이파이를 등록하면, 그 네트워크에서의 출퇴근도 인증돼요. 이 기기를 {facilityWord} 와이파이에 연결한 뒤 아래 버튼을 누르세요. (GPS·QR 실패 시 보조 인증 · 인터넷 회선 변경 시 재등록)</p>
+          <p className="text-[12px] text-tertiary mt-1 leading-5">{facilityWord} Wi-Fi의 공인 IP를 등록해 출퇴근에 활용해요. 이 기기를 {facilityWord} Wi-Fi에 연결한 뒤 등록하세요. 추천 방식의 마지막 보완 수단이나 `Wi-Fi/IP만` 단독 방식으로 선택할 수 있어요.</p>
           {allowedIps.length > 0 && (
             <p className="mt-2 text-[12px] text-sub">등록된 네트워크 {allowedIps.length}개: {allowedIps.join(', ')}</p>
           )}
