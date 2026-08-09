@@ -309,6 +309,16 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   if (pharmacyWorkforce.status !== 200) {
     throw new Error(`pharmacy workforce refresh failed: ${pharmacyWorkforce.status} ${JSON.stringify(pharmacyWorkforce.data)}`);
   }
+  // 직원 refresh는 데모 직원을 재생성하므로 FK cascade로 과거 근태도 함께
+  // 지워진다. 영상/시연에서 월간 이력이 항상 유지되도록 직원 생성 직후 복원한다.
+  const anchorMonth = await req('POST', '/rest/v1/rpc/refresh_anchor_demo_month_history', {});
+  if (anchorMonth.status !== 200) {
+    throw new Error(`anchor month history refresh failed: ${anchorMonth.status} ${JSON.stringify(anchorMonth.data)}`);
+  }
+  const careMonth = await req('POST', '/rest/v1/rpc/refresh_demo_care_month_history', {});
+  if (careMonth.status !== 200) {
+    throw new Error(`care month history refresh failed: ${careMonth.status} ${JSON.stringify(careMonth.data)}`);
+  }
   // 쇼케이스 open 공고 생성이 끝난 뒤 실행해야 demo-1 지원이 항상 살아난다.
   const demo1Application = await req('POST', '/rest/v1/rpc/ensure_demo1_wf_application', {});
   if (demo1Application.status !== 200) {
