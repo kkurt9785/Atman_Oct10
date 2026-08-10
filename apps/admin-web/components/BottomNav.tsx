@@ -7,7 +7,7 @@ const TABS = [
   { href: '/shifts', icon: 'recruit', label: '인력 모집' },
   { href: '/timesheet', icon: 'clock', label: '근무 관리' },
   { href: '/staff', icon: 'staff', label: '직원' },
-  { href: '/more', icon: 'more', label: '더보기' },
+  { href: '/more', icon: 'manage', label: '관리' },
 ];
 
 const ICONS={
@@ -15,7 +15,7 @@ const ICONS={
   recruit:<><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 6V4h8v2M8 12h8M12 9v6"/></>,
   staff:<><circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 8h5M18.5 5.5v5"/></>,
   clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
-  more:<><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/></>,
+  manage:<><path d="M4 20V8l8-4 8 4v12"/><path d="M8 20v-7h8v7M9 9h.01M12 9h.01M15 9h.01"/></>,
 };
 
 function isActive(path:string,href:string){
