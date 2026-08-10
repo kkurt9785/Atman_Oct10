@@ -3,6 +3,7 @@ import { getFacilityProfile, getFacilityAdmins } from '@/lib/actions/facility';
 import { FacilityProfileForm } from './FacilityProfileForm';
 import { AdminAccessSection } from './AdminAccessSection';
 import { getShop } from '@/lib/db/shop';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 export default async function SettingsPage() {
   const [profile, shop, admins] = await Promise.all([getFacilityProfile(), getShop(), getFacilityAdmins()]);
@@ -10,9 +11,9 @@ export default async function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-surface">
-      <div className="sticky top-0 bg-surface z-10 flex items-center px-4 py-4 border-b border-line">
-        <Link href="/more" className="mr-3 text-[20px] leading-none">←</Link>
-        <h1 className="text-[17px] font-bold text-ink">{facilityWord} 설정</h1>
+      <div className="px-4 pt-1">
+        <ManageBackLink href="/more" label="관리" />
+        <h1 className="mt-2 px-1 text-display font-extrabold text-ink">{facilityWord} 설정</h1>
       </div>
       <section className="px-4 pt-5">
         <p className="mb-2 px-1 text-label font-bold text-sub">서비스 이용</p>

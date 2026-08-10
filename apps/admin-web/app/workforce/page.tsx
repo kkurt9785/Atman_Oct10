@@ -4,6 +4,7 @@ import { getWorkforcePool } from '@/lib/db/workforce';
 import { hours } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 const ROLE_LABEL: Record<string,string> = { rn: '간호사 RN', na: '간호조무사 NA', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
 const CREDENTIAL_STYLE = {
@@ -26,6 +27,7 @@ export default async function WorkforcePage() {
 
   return (
     <main className="px-4 pb-28">
+      <ManageBackLink href="/more/operations" label="근무 운영" />
       <div className="mt-3 mb-5 px-1">
         <p className="text-label font-bold text-primary">우리 {facilityWord} 근무 이력</p>
         <h1 className="text-display font-extrabold text-ink mt-1">함께한 근무자</h1>

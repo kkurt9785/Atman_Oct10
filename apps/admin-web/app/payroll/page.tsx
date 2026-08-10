@@ -6,6 +6,7 @@ import { won, formatDate } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
 import Link from 'next/link';
 import { PayrollActionForm } from './PayrollActionForm';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 const STATUS: Record<string,string> = { collecting:'집계 중',draft:'검토 전',approved:'지급 승인',exported:'이체 준비',paid:'지급 완료',worker_confirmed:'입금 확인',disputed:'확인 요청',cancelled:'취소' };
 const ENGAGEMENT:Record<string,string>={regular:'상시 직원',fixed_term:'기간제',temporary:'임시 계약',daily:'단기 근무'};
@@ -23,12 +24,14 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super';
   const facilityWord=shop.facilityType==='pharmacy'?'약국':'병원';
   if (!context?.canViewPayroll) return <main className="px-4">
+    <ManageBackLink href="/more" label="관리" />
     <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{facilityWord} 직접 지급</p><h1 className="text-display font-extrabold text-ink">급여 지급관리</h1></div>
     <Card className="py-10 text-center"><p className="text-[28px]">🔒</p><p className="mt-2 font-bold">급여 열람 권한이 없어요</p><p className="mt-2 text-label text-sub leading-5">급여 정보는 {facilityWord} 소유자와<br/>허용된 관리자만 볼 수 있어요.<br/>필요하면 설정 → 관리자 권한에서 허용을 요청해 주세요.</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-xl bg-ink px-5 text-label font-bold text-white">홈으로</Link></Card>
   </main>;
   const pending = rows.filter(r => ['draft','approved','exported','disputed'].includes(r.status)).reduce((s,r)=>s+r.netAmount,0)+staffRows.filter(r=>['draft','approved','exported'].includes(r.status)).reduce((sum,row)=>sum+row.netAmount,0);
   const completed = rows.filter(r => ['paid','worker_confirmed'].includes(r.status)).reduce((s,r)=>s+r.netAmount,0)+staffRows.filter(r=>r.status==='paid').reduce((sum,row)=>sum+row.netAmount,0);
   return <main className="px-4">
+    <ManageBackLink href="/more" label="관리" />
     <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{facilityWord} 직접 지급</p><h1 className="text-display font-extrabold text-ink">급여 지급관리</h1><p className="text-label text-sub mt-2">근무 기록을 승인하고 {facilityWord} 계좌에서 워커에게 직접 지급하세요. 잇닿은 임금을 보관하지 않습니다.</p><div className="mt-3 flex gap-2"><Link href={`/attendance-summary?month=${selectedMonth}`} className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-primary/30 bg-white text-primary text-label font-bold">월 근태 요약</Link><a href={`/api/payroll/export?month=${selectedMonth}`} className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-primary/30 bg-white text-primary text-label font-bold">급여 CSV</a></div></div>
     <div className="grid grid-cols-2 gap-3 mb-5"><Card><p className="text-label text-sub">지급 예정</p><p className="text-title font-extrabold mt-1">{won(pending)}</p></Card><Card><p className="text-label text-sub">지급 완료</p><p className="text-title font-extrabold text-primary mt-1">{won(completed)}</p></Card></div>
     <Card className="bg-blue-50 border border-blue-100 mb-5"><p className="text-body font-bold text-ink">지급 흐름</p><p className="text-label text-sub mt-2 leading-5">근무 완료 → 금액 검토 → 지급 승인 → 이체 준비 → {facilityWord} 지급 완료 → 워커 입금 확인</p><p className="text-[13px] text-sub mt-2">3.3% 공제는 자동 적용하지 않습니다. 고용·세무 분류를 확인한 뒤 사업장이 결정하세요.</p></Card>

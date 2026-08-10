@@ -6,6 +6,7 @@ import { getOperationsAlerts, getOperationsSummary, getShiftTemplates } from '@/
 import { createShiftTemplateAction, deactivateShiftTemplateAction, generateRecurringShiftsAction, requestUrgentReplacementAction } from './actions';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
@@ -32,6 +33,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
     + operationAlerts.filter((alert) => alert.kind === 'no_show').length;
   return (
     <main className="px-4 pb-28">
+      <ManageBackLink href="/more/operations" label="근무 운영" />
       {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[13px] font-bold text-success">{notice}</p>}
       <div className="mt-3 mb-5 px-1">
         <p className="text-label font-bold text-primary">운영 자동화</p>

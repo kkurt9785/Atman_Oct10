@@ -6,6 +6,7 @@ import { PlanCards } from './PlanCards';
 import { getAdminContext } from '@/lib/admin-auth';
 import { redirect } from 'next/navigation';
 import { todayKST } from '@/lib/date';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 type Plan={code:string;name:string;monthly_fee:number;included_facilities:number;included_admin_seats:number;included_active_workers:number;included_attendance_slots:number;included_job_posting_slots:number;features:Record<string,unknown>};
 
@@ -56,6 +57,7 @@ export default async function MembershipPage(){
   const isTrial = Boolean(subscription?.trial_ends_at && !subscription?.trial_converted_at);
   const trialDaysLeft = isTrial ? Math.max(1, Math.ceil((Date.parse(`${subscription.trial_ends_at}T23:59:59+09:00`)-Date.now())/86_400_000)) : 0;
   return <main className="px-4 pb-28">
+    <ManageBackLink href="/settings" label="사업장 설정" />
     <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">임금과 완전히 분리된 요금</p><h1 className="text-display font-extrabold text-ink">요금제·청구</h1><p className="text-label text-sub mt-2 leading-5">잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.</p></div>
     {error ? <div className="bg-white rounded-2xl p-8 text-center border border-red-200"><p role="alert" className="text-body font-bold text-red-600">청구 정보를 불러오지 못했어요</p><p className="text-label text-sub mt-2">{error}</p><a href="/membership" className="inline-flex mt-4 px-4 h-10 items-center rounded-xl bg-ink text-white text-label font-bold">다시 불러오기</a></div> : <>
     <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[12px] text-white/70">{isTrial?'무료 체험 중':'현재 구독'}</p><div className="mt-1 flex items-end justify-between gap-3"><p className="text-[22px] font-extrabold">{subscription?.service_plans?.name??'Free 파일럿'}</p><p className="shrink-0 text-[14px] font-extrabold">{Number(subscription?.service_plans?.monthly_fee??0)>0?`${won(Number(subscription.service_plans.monthly_fee))}/월`:'무료'}</p></div><p className="text-[12px] text-white/70 mt-2">{isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 Free 자동 전환`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'} · 부가세 별도`:'공고 월 1건 제한 파일럿'}</p></div>

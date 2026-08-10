@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { getAdminContext } from '@/lib/admin-auth';
 import { MANAGE_SECTIONS, visibleManageItems } from '@/lib/manage-menu';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 export default async function ManageSectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section: slug } = await params;
@@ -13,7 +14,7 @@ export default async function ManageSectionPage({ params }: { params: Promise<{ 
 
   return <main className="px-4">
     <div className="mt-2 mb-5 px-1">
-      <Link href="/more" className="inline-flex items-center gap-1 text-label font-bold text-sub">← 관리</Link>
+      <ManageBackLink href="/more" label="관리" />
       <p className="mt-5 text-label font-bold text-primary">{section.eyebrow}</p>
       <h1 className="mt-1 text-display font-extrabold text-ink">{section.title}</h1>
       <p className="mt-2 text-body leading-6 text-sub">{section.description}</p>

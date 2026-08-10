@@ -5,6 +5,7 @@ import { PrintButton } from './PrintButton';
 import { DynamicQrPanel } from './DynamicQrPanel';
 import { getFacilityProfile } from '@/lib/actions/facility';
 import { getShop } from '@/lib/db/shop';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 const MODE_LABEL:Record<string,string>={
   gps_or_qr:'위치 OR Wi-Fi/IP · 필요할 때 QR 보완',
@@ -25,6 +26,7 @@ export default async function AttendanceQrPage(){
   const qrEnabled=['qr','gps_qr'].includes(mode)||(['gps','gps_or_qr'].includes(mode)&&Boolean(profile?.qr_fallback_enabled));
   const networkEnabled=mode==='network'||(networkCount>0&&['gps','gps_or_qr'].includes(mode));
   return <main className="px-4 pb-28">
+    <ManageBackLink href="/more/operations" label="근무 운영" />
     <div className="mt-3 px-1"><p className="text-label font-bold text-primary">오늘 출퇴근을 한 곳에서</p><h1 className="text-display font-extrabold">출퇴근 인증센터</h1><p className="text-label text-sub mt-1">QR은 이 화면에 띄워두고, 위치·Wi-Fi 인증은 직원이 워커 앱에서 출퇴근 버튼을 누르면 작동해요.</p></div>
     <section className="mt-4 rounded-2xl bg-ink p-4 text-white print:hidden">
       <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold text-white/60">현재 운영 방식</p><p className="mt-1 text-[16px] font-extrabold">{MODE_LABEL[mode]??mode}</p></div><span className="shrink-0 rounded-full bg-emerald-400/20 px-2.5 py-1 text-[11px] font-bold text-emerald-200">사용 중</span></div>

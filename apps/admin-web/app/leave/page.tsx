@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { getClinicLeaveRequests, getClinicStaff } from '@/lib/db/clinic-workforce';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 const TYPE:Record<string,string>={annual:'연차',half_day:'반차',quarter_day:'반반차',hourly:'시간차',sick:'병가',other:'기타'};
 const STATUS:Record<string,{label:string;style:string}>={pending:{label:'승인 대기',style:'text-warn bg-warn/10'},approved:{label:'승인',style:'text-success bg-success/10'},rejected:{label:'반려',style:'text-red-600 bg-red-50'},cancelled:{label:'취소',style:'text-sub bg-bg'}};
@@ -11,7 +12,8 @@ export default async function LeavePage(){
   const [staff,requests]=await Promise.all([getClinicStaff(),getClinicLeaveRequests()]);
   const total=staff.reduce((sum,s)=>sum+s.leaveMinutes,0);
   return <main className="px-4 pb-28">
-    <div className="mt-3 px-1"><div className="flex items-center gap-3"><Link href="/staff" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-white text-[21px] text-ink shadow-sm active:bg-bg" aria-label="직원 관리로 돌아가기">←</Link><div><p className="text-label font-bold text-primary">직원 신청 → 관리자 승인</p><h1 className="text-display font-extrabold">휴가 관리</h1></div></div><p className="text-label text-sub mt-1">직원이 신청하면 확인 후 승인하고, 승인 시에만 잔여시간이 차감돼요.</p></div>
+    <ManageBackLink href="/more/operations" label="근무 운영" />
+    <div className="mt-2 px-1"><p className="text-label font-bold text-primary">직원 신청 → 관리자 승인</p><h1 className="text-display font-extrabold">휴가 관리</h1><p className="text-label text-sub mt-1">직원이 신청하면 확인 후 승인하고, 승인 시에만 잔여시간이 차감돼요.</p></div>
     <Card className="mt-4 bg-primary text-white"><p className="text-label text-white/70">전체 직원 잔여 휴가</p><p className="text-money font-extrabold mt-1">{days(total)}일</p><p className="text-[11px] text-white/70 mt-2">사업장이 입력한 부여시간 기준</p></Card>
     <details className="mt-3 bg-primary/5 border border-primary/15 rounded-2xl group">
       <summary className="list-none px-5 py-4 flex justify-between cursor-pointer"><b className="text-primary">잔여 휴가 설정</b><span className="text-sub">⌄</span></summary>
