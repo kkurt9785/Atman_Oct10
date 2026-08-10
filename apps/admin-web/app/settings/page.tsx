@@ -11,9 +11,15 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-surface">
       <div className="sticky top-0 bg-surface z-10 flex items-center px-4 py-4 border-b border-line">
-        <Link href="/" className="mr-3 text-[20px] leading-none">←</Link>
+        <Link href="/more" className="mr-3 text-[20px] leading-none">←</Link>
         <h1 className="text-[17px] font-bold text-ink">{facilityWord} 설정</h1>
       </div>
+      <section className="px-4 pt-5">
+        <p className="mb-2 px-1 text-label font-bold text-sub">서비스 이용</p>
+        <Link href="/membership" className="flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-card active:bg-bg">
+          <div><p className="text-body font-bold text-ink">잇닿 요금제·결제</p><p className="mt-1 text-label text-sub">이용 중인 요금제와 서비스 청구 내역</p></div><span className="ml-4 text-sub">›</span>
+        </Link>
+      </section>
       {admins && admins.length > 0 && <AdminAccessSection admins={admins} facilityWord={facilityWord} />}
       <FacilityProfileForm profile={profile} facilityType={shop?.facilityType??'clinic'} />
     </div>

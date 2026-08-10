@@ -6,11 +6,13 @@ export type ManageItem = {
 };
 
 export type ManageSection = {
-  slug: 'operations' | 'billing' | 'account';
+  slug: 'operations' | 'payroll' | 'settings';
   eyebrow: string;
   title: string;
   description: string;
   icon: 'operations' | 'billing' | 'account';
+  href?: string;
+  payrollOnly?: boolean;
   items: ManageItem[];
 };
 
@@ -30,28 +32,30 @@ export const MANAGE_SECTIONS: ManageSection[] = [
     ],
   },
   {
-    slug: 'billing',
-    eyebrow: '요금·결제',
-    title: '요금과 지급',
-    description: '이용 요금제와 근무 급여 지급 현황을 확인해요.',
+    slug: 'payroll',
+    eyebrow: '직원 급여',
+    title: '급여 지급',
+    description: '근무시간을 확인하고 지급·입금 상태를 관리해요.',
     icon: 'billing',
-    items: [
-      { label: '급여·지급 관리', description: '근무시간과 지급·입금 확인 상태', href: '/payroll', payrollOnly: true },
-      { label: '이용 요금', description: '사업장 요금제와 서비스 청구 내역', href: '/membership' },
-    ],
+    href: '/payroll',
+    payrollOnly: true,
+    items: [],
   },
   {
-    slug: 'account',
-    eyebrow: '계정·지원',
+    slug: 'settings',
+    eyebrow: '사업장·서비스',
     title: '사업장 설정',
-    description: '사업장 정보와 관리자 권한, 서비스 설정을 관리해요.',
+    description: '사업장 정보, 관리자 권한과 잇닿 요금제를 설정해요.',
     icon: 'account',
-    items: [
-      { label: '사업장 설정', description: '사업장 정보·관리자 권한·알림 설정', href: '/settings' },
-    ],
+    href: '/settings',
+    items: [],
   },
 ];
 
 export function visibleManageItems(section: ManageSection, canViewPayroll: boolean) {
   return section.items.filter((item) => !item.payrollOnly || canViewPayroll);
+}
+
+export function visibleManageSections(canViewPayroll: boolean) {
+  return MANAGE_SECTIONS.filter((section) => !section.payrollOnly || canViewPayroll);
 }

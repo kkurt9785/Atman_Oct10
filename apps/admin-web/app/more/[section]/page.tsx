@@ -7,7 +7,7 @@ import { MANAGE_SECTIONS, visibleManageItems } from '@/lib/manage-menu';
 export default async function ManageSectionPage({ params }: { params: Promise<{ section: string }> }) {
   const { section: slug } = await params;
   const section = MANAGE_SECTIONS.find((item) => item.slug === slug);
-  if (!section) notFound();
+  if (!section || section.href) notFound();
   const context = await getAdminContext();
   const items = visibleManageItems(section, context?.canViewPayroll === true);
 
