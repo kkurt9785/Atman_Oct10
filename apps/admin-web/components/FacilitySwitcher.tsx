@@ -17,6 +17,7 @@ export function FacilitySwitcher() {
   const [selected, setSelected] = useState('');
   const current=facilities.find(facility=>facility.id===selected);
   const isPharmacy=current?.facility_type==='pharmacy';
+  const typeLabel=isPharmacy?'약국':current?.facility_type==='care_hospital'?'요양병원':'병원·의원';
 
   useEffect(() => {
     async function load() {
@@ -59,7 +60,7 @@ export function FacilitySwitcher() {
   if (facilities.length === 1) return (
     <div className="flex max-w-[175px] items-center gap-2 rounded-xl border border-line bg-white px-2.5 py-1.5">
       <span aria-hidden className="text-[16px]">{isPharmacy?'💊':'🏥'}</span>
-      <div className="min-w-0"><p className="truncate text-[11px] font-extrabold text-ink">{current.name}</p><p className="text-[9px] font-bold text-sub">{isPharmacy?'약국':'병원·의원'}</p></div>
+      <div className="min-w-0"><p className="truncate text-[11px] font-extrabold text-ink">{current.name}</p><p className="text-[9px] font-bold text-sub">{typeLabel}</p></div>
     </div>
   );
 
@@ -73,7 +74,7 @@ export function FacilitySwitcher() {
         aria-label="사업장 선택"
       >
         {facilities.map((facility) => (
-          <option key={facility.id} value={facility.id}>{facility.facility_type==='pharmacy'?'💊':'🏥'} {facility.name} · {facility.facility_type==='pharmacy'?'약국':'병원·의원'}</option>
+          <option key={facility.id} value={facility.id}>{facility.facility_type==='pharmacy'?'💊':'🏥'} {facility.name} · {facility.facility_type==='pharmacy'?'약국':facility.facility_type==='care_hospital'?'요양병원':'병원·의원'}</option>
         ))}
       </select>
       <span className="pointer-events-none absolute right-2 text-[10px] text-sub">⌄</span>

@@ -13,7 +13,7 @@ export default async function TimesheetPage(){
     getShop(),
     getCurrentFacilityId(),
   ]);
-  const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
+  const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':'병원';
   const currentMonth=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
   const recentComplete=new Date(`${currentMonth}-01T00:00:00Z`);recentComplete.setUTCMonth(recentComplete.getUTCMonth()-1);
   const summaryHref=shop?.isDemo?`/attendance-summary?month=${recentComplete.toISOString().slice(0,7)}`:'/attendance-summary';

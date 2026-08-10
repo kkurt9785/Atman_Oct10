@@ -115,10 +115,12 @@ function ApplicationCard({
   app,
   onCancel,
   onInvitation,
+  onAttendanceSuccess,
 }: {
   app: Application;
   onCancel: (id: string) => void;
   onInvitation: (id: string, accept: boolean) => void;
+  onAttendanceSuccess: (id: string, action: 'check_in' | 'check_out') => void;
 }) {
   const { label, description, className } = STATUS_CONFIG[app.status];
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
@@ -183,10 +185,10 @@ function ApplicationCard({
                 <p className="text-[13px] font-semibold text-primary">근무 중</p>
               </div>
               </div>
-              <AttendanceActionButton targetType="shift" targetId={app.id} action="check_out"/>
+              <AttendanceActionButton targetType="shift" targetId={app.id} action="check_out" onSuccess={() => onAttendanceSuccess(app.id, 'check_out')}/>
             </div>
           ) : isToday ? (
-            <AttendanceActionButton targetType="shift" targetId={app.id} action="check_in"/>
+            <AttendanceActionButton targetType="shift" targetId={app.id} action="check_in" onSuccess={() => onAttendanceSuccess(app.id, 'check_in')}/>
           ) : (
             <div className="mt-3 p-3 bg-bg rounded-xl flex items-center gap-2">
               <span className="text-success">✅</span>
@@ -291,6 +293,13 @@ export default function ApplicationsPage() {
       : app));
   }
 
+  function handleAttendanceSuccess(applicationId: string, action: 'check_in' | 'check_out') {
+    const now = new Date().toISOString();
+    setApps((current) => current.map((app) => app.id !== applicationId ? app : action === 'check_in'
+      ? { ...app, checked_in_at: now }
+      : { ...app, checked_out_at: now, status: 'completed' as const }));
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -336,7 +345,7 @@ export default function ApplicationsPage() {
           </div>
         ) : (
           apps.map((a) => (
-            <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onInvitation={handleInvitation} />
+            <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onInvitation={handleInvitation} onAttendanceSuccess={handleAttendanceSuccess} />
           ))
         )}
 

@@ -8,7 +8,7 @@ import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
 
 const MODE_LABEL:Record<string,string>={
-  gps_or_qr:'위치 OR Wi-Fi/IP · 필요할 때 QR 보완',
+  gps_or_qr:'앱에서 버튼만 누르기 · 필요할 때 QR 보완',
   gps:'위치(GPS) 우선 · QR/Wi-Fi 보완',
   gps_qr:'위치 + 동적 QR 모두 필수',
   qr:'동적 QR만',network:'사업장 Wi-Fi/IP만',admin:'관리자 승인만',
@@ -19,7 +19,7 @@ export default async function AttendanceQrPage(){
   const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL
     ?? (process.env.NODE_ENV === 'production' ? 'https://itdot.co.kr' : 'http://localhost:3003');
   const qrSrc=token?`${workerOrigin}/workplace/qr?token=${encodeURIComponent(token)}`:null;
-  const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
+  const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':'병원';
   const mode=profile?.attendance_mode??'gps_or_qr';
   const networkCount=profile?.allowed_ips?.length??0;
   const gpsEnabled=['gps','gps_qr','gps_or_qr'].includes(mode);

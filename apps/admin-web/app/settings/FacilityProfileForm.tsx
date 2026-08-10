@@ -61,7 +61,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
     });
   }
   const isPharmacy=facilityType==='pharmacy';
-  const facilityWord=isPharmacy?'약국':'병원';
+  const facilityWord=isPharmacy?'약국':facilityType==='care_hospital'?'요양병원':'병원';
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -158,7 +158,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         <p className="text-[12px] text-tertiary mb-4">실내 GPS 오차를 고려해 {facilityWord} 환경에 맞게 선택하세요.</p>
         <label className="block text-[13px] text-sub mb-4">기본 인증 방식
           <select name="attendance_mode" value={attendanceMode} onChange={event=>setAttendanceMode(event.target.value as FacilityProfile['attendance_mode'])} className="mt-1.5 w-full h-12 rounded-xl border border-line bg-white px-3 text-[14px]">
-            <option value="gps_or_qr">추천 · 위치 OR 사업장 Wi-Fi · QR 보완</option>
+            <option value="gps_or_qr">추천 · 앱에서 버튼만 누르기</option>
             <option value="gps">위치(GPS) 우선 · QR/Wi-Fi 보완</option>
             <option value="gps_qr">위치 + 동적 QR 모두 필수</option>
             <option value="qr">동적 QR만</option>
@@ -166,7 +166,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
             <option value="admin">관리자 승인만</option>
           </select>
         </label>
-        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[12px] leading-5 text-sub"><b className="text-primary">추천 · OR 인증</b><br/>위치 반경 또는 등록된 {facilityWord} Wi-Fi 중 하나만 확인되면 출퇴근을 인정해요. 둘 다 어려울 때만 60초 동적 QR로 보완해요. 매번 두 인증을 요구하지 않아 교대시간 대기를 줄입니다.</div>
+        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[12px] leading-5 text-sub"><b className="text-primary">추천 · 버튼 한 번으로 출퇴근</b><br/>직원은 앱에서 출퇴근 버튼만 누르면 됩니다. 시스템이 위치 또는 등록된 {facilityWord} Wi-Fi를 자동으로 확인하고, 둘 다 어려울 때만 60초 동적 QR을 안내해요.</div>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-[12px] text-sub">GPS 반경
             <select name="gps_radius_meters" defaultValue={profile?.gps_radius_meters??30} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">

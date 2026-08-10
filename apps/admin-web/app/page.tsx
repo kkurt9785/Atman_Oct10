@@ -23,7 +23,7 @@ export default async function Home() {
   if (!shop) redirect('/setup/claim-facility');
 
   const isPharmacy = shop.facilityType === 'pharmacy';
-  const facilityWord = isPharmacy ? '약국' : '병원';
+  const facilityWord = isPharmacy ? '약국' : shop.facilityType === 'care_hospital' ? '요양병원' : '병원';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
 
   // 오늘 챙길 일 — 값이 있을 때만 노출 (평온한 날엔 조치 섹션 자체가 사라짐)

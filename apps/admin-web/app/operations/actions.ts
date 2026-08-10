@@ -8,6 +8,7 @@ import { adminClient } from '@/lib/supabase';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '@/lib/billing-gates';
 import { todayKST } from '@/lib/date';
+import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 
 const VALID_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff', 'any'];
 
@@ -108,7 +109,10 @@ export async function generateRecurringShiftsAction(formData: FormData) {
     title: `새 반복 시프트 ${rows.length}건`, body: `${template.name} · ${startDate}부터 확인해 보세요`,
     data: { type: 'new_shift_batch', batchId },
   }));
-  if (outbox.length) await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
+  if (outbox.length) {
+    await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
+    nudgeNotificationDispatch();
+  }
   revalidatePath('/operations');
   revalidatePath('/shifts');
   redirect('/operations?notice=generated');
@@ -178,7 +182,10 @@ export async function requestUrgentReplacementAction(formData: FormData) {
     body: `${target.shift_date} ${target.start_time.slice(0,5)} · ${target.department ?? '병동 근무'}`,
     data: { type: 'urgent_shift', shiftId: target.id },
   }));
-  if (outbox.length) await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
+  if (outbox.length) {
+    await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
+    nudgeNotificationDispatch();
+  }
   revalidatePath('/operations');
   revalidatePath('/shifts');
   redirect('/operations?notice=urgent_sent');

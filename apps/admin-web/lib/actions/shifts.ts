@@ -7,6 +7,7 @@ import { requireAdminContext } from '../admin-auth';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '../billing-gates';
 import { todayKST } from '../date';
+import { nudgeNotificationDispatch } from '../notify-nudge';
 
 const ALL_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff'] as const;
 const ROLE_LABEL: Record<string, string> = {
@@ -134,6 +135,7 @@ export async function createShiftAction(formData: FormData) {
       if (rows.length > 0) {
         const { error: outboxError } = await sb.from('notification_outbox').upsert(rows, { onConflict: 'dedupe_key', ignoreDuplicates: true });
         if (outboxError) throw outboxError;
+        nudgeNotificationDispatch();
       }
     }
   } catch (error) {
