@@ -8,6 +8,6 @@ export const dynamic = 'force-dynamic';
 export async function POST() {
   const context = await getAdminContext();
   if (!context) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  nudgeNotificationDispatch();
-  return NextResponse.json({ ok: true });
+  const dispatched = await nudgeNotificationDispatch();
+  return NextResponse.json({ ok: true, dispatched });
 }

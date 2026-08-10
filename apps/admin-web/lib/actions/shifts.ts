@@ -135,7 +135,7 @@ export async function createShiftAction(formData: FormData) {
       if (rows.length > 0) {
         const { error: outboxError } = await sb.from('notification_outbox').upsert(rows, { onConflict: 'dedupe_key', ignoreDuplicates: true });
         if (outboxError) throw outboxError;
-        nudgeNotificationDispatch();
+        await nudgeNotificationDispatch();
       }
     }
   } catch (error) {

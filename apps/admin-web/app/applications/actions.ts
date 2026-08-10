@@ -20,7 +20,7 @@ export async function acceptApplication(
   });
   if (error) throw new Error(error.message || '지원 수락에 실패했어요.');
 
-  nudgeNotificationDispatch();
+  await nudgeNotificationDispatch();
 
   revalidatePath('/applications');
   revalidatePath('/');

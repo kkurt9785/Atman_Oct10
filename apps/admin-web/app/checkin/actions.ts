@@ -56,11 +56,11 @@ export async function recordCheckin(
       p_lng: coords?.lng ?? null,
     });
 
-  nudgeNotificationDispatch();
-
     if (error) {
       return { ok: false, message: error.message || 'QR 처리에 실패했어요.' };
     }
+
+    await nudgeNotificationDispatch();
 
     const result = (data ?? {}) as RpcResult;
     if (

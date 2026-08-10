@@ -111,7 +111,7 @@ export async function generateRecurringShiftsAction(formData: FormData) {
   }));
   if (outbox.length) {
     await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
-    nudgeNotificationDispatch();
+    await nudgeNotificationDispatch();
   }
   revalidatePath('/operations');
   revalidatePath('/shifts');
@@ -184,7 +184,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
   }));
   if (outbox.length) {
     await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
-    nudgeNotificationDispatch();
+    await nudgeNotificationDispatch();
   }
   revalidatePath('/operations');
   revalidatePath('/shifts');

@@ -38,6 +38,9 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
   const [toast, setToast] = useState<string | null>(null);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
+  const [connection, setConnection] = useState<'connecting' | 'live' | 'fallback'>('connecting');
+  const [hasFreshRecord, setHasFreshRecord] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -59,14 +62,31 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
         setToast(message);
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => setToast(null), 5000);
+        setHasFreshRecord(true);
+        setLastUpdatedAt(new Date());
         router.refresh();
       },
-    ).subscribe();
+    ).subscribe((status) => {
+      if (status === 'SUBSCRIBED') setConnection('live');
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setConnection('fallback');
+    });
+    const fallback = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      setLastUpdatedAt(new Date());
+      router.refresh();
+    }, 30_000);
     return () => {
       if (timer.current) clearTimeout(timer.current);
+      window.clearInterval(fallback);
       void supabase.removeChannel(channel);
     };
   }, [facilityId, router]);
+
+  function refreshNow() {
+    setHasFreshRecord(false);
+    setLastUpdatedAt(new Date());
+    router.refresh();
+  }
 
   async function enablePush() {
     setPushMessage(null);
@@ -88,9 +108,10 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
   }
 
   return <>
+    {hasFreshRecord&&<button type="button" onClick={refreshNow} className="mt-4 flex w-full items-center justify-between rounded-2xl bg-primary px-4 py-3 text-left text-white shadow-btn"><span><b className="block text-[13px]">새 출퇴근 기록이 들어왔어요</b><span className="mt-0.5 block text-[11px] text-white/80">근태 현황에 자동 반영했습니다.</span></span><span className="text-[12px] font-extrabold">새 기록 보기 →</span></button>}
     <section className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
-      <div><p className="text-[13px] font-extrabold">예외 상황 알림</p><p className="mt-1 text-[11px] leading-4 text-sub">정상 출퇴근은 이 화면에 즉시 표시하고, 지각·인증 실패·조기 퇴근만 기기로 알려드려요.</p>{pushMessage&&<p role="status" className="mt-1 text-[11px] font-bold text-primary">{pushMessage}</p>}</div>
-      <button type="button" onClick={enablePush} disabled={pushEnabled} className={`h-10 shrink-0 rounded-xl px-3 text-[12px] font-extrabold ${pushEnabled?'bg-success/10 text-success':'bg-primary text-white'}`}>{pushEnabled?'알림 켜짐':'알림 켜기'}</button>
+      <div><div className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${connection==='live'?'bg-success':'bg-amber-500'}`}/><p className="text-[13px] font-extrabold">{connection==='live'?'실시간 근태 연결됨':'자동 갱신으로 확인 중'}</p></div><p className="mt-1 text-[11px] leading-4 text-sub">정상 출퇴근은 즉시 표시하고, 연결이 불안정해도 30초마다 다시 확인해요.{lastUpdatedAt?` · ${lastUpdatedAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})} 갱신`:''}</p>{pushMessage&&<p role="status" className="mt-1 text-[11px] font-bold text-primary">{pushMessage}</p>}</div>
+      <div className="flex shrink-0 flex-col gap-1.5"><button type="button" onClick={enablePush} disabled={pushEnabled} className={`h-9 rounded-xl px-3 text-[11px] font-extrabold ${pushEnabled?'bg-success/10 text-success':'bg-primary text-white'}`}>{pushEnabled?'알림 켜짐':'알림 켜기'}</button><button type="button" onClick={refreshNow} className="text-[10px] font-bold text-sub">지금 새로 보기</button></div>
     </section>
     {toast&&<div role="status" aria-live="polite" className="fixed inset-x-4 top-4 z-50 mx-auto max-w-[430px] rounded-2xl bg-ink px-4 py-3 text-[13px] font-bold text-white shadow-xl">{toast}</div>}
   </>;
