@@ -25,6 +25,7 @@ export default function WorkerChatPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const quickReplies=['확인했습니다. 감사합니다.','예정 시간에 도착하겠습니다.','준비물을 다시 알려주세요.'];
 
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -124,7 +125,7 @@ export default function WorkerChatPage() {
       <div className="bg-white border-t border-line px-4 pt-3 pb-8 flex-shrink-0">
         {error && <p className="text-[12px] font-bold text-red-500 mb-2">{error}</p>}
         {open ? (
-          <div className="flex gap-2">
+          <><div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">{quickReplies.map(reply=><button key={reply} type="button" onClick={()=>setInput(reply)} className="h-8 shrink-0 rounded-full border border-line bg-white px-3 text-[11px] font-bold text-sub">{reply}</button>)}</div><div className="flex gap-2">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -139,7 +140,7 @@ export default function WorkerChatPage() {
             >
               전송
             </button>
-          </div>
+          </div></>
         ) : (
           <p className="text-[13px] text-tertiary text-center py-2">
             🔒 종료된 채팅이에요 — 기록은 계속 확인할 수 있어요

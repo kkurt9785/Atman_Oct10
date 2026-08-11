@@ -11,6 +11,7 @@ import { AttendanceActionButton } from '@/components/attendance/AttendanceAction
 
 // ── 타입 ───────────────────────────────────────────────────────
 type ApplicationStatus = 'invited' | 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
+type ActivityFilter = 'active' | 'accepted' | 'completed' | 'all';
 
 type Application = {
   id: string;
@@ -234,6 +235,7 @@ export default function ApplicationsPage() {
   const [apps, setApps]     = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionNotice, setActionNotice] = useState('');
+  const [activityFilter,setActivityFilter]=useState<ActivityFilter>('active');
 
   // 워커 ID + 지원 현황 초기 로드
   useEffect(() => {
@@ -269,7 +271,9 @@ export default function ApplicationsPage() {
         .eq('worker_id', worker.id)
         .order('applied_at', { ascending: false });
 
-      setApps((data as unknown as Application[]) ?? []);
+      const loadedApps=(data as unknown as Application[]) ?? [];
+      setApps(loadedApps);
+      setActivityFilter(loadedApps.some(app=>['invited','applied'].includes(app.status))?'active':loadedApps.some(app=>app.status==='accepted')?'accepted':loadedApps.some(app=>app.status==='completed')?'completed':'all');
       setLoading(false);
     }
     load();
@@ -299,6 +303,12 @@ export default function ApplicationsPage() {
       ? { ...app, checked_in_at: now }
       : { ...app, checked_out_at: now, status: 'completed' as const }));
   }
+  const activityCounts={
+    active:apps.filter(app=>['invited','applied'].includes(app.status)).length,
+    accepted:apps.filter(app=>app.status==='accepted').length,
+    completed:apps.filter(app=>app.status==='completed').length,
+  };
+  const visibleApps=activityFilter==='all'?apps:apps.filter(app=>activityFilter==='active'?['invited','applied'].includes(app.status):app.status===activityFilter);
 
   if (loading) {
     return (
@@ -333,6 +343,10 @@ export default function ApplicationsPage() {
         </button>
       </div>
 
+      {apps.length>0&&<div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-white p-1.5 shadow-sm">
+        {([['active','진행 중',activityCounts.active],['accepted','확정 근무',activityCounts.accepted],['completed','완료',activityCounts.completed],['all','전체',apps.length]] as const).map(([key,label,count])=><button key={key} type="button" onClick={()=>setActivityFilter(key)} className={`h-10 shrink-0 rounded-xl px-3 text-[12px] font-extrabold ${activityFilter===key?'bg-ink text-white':'text-sub'}`}>{label} {count}</button>)}
+      </div>}
+
       {actionNotice && (
         <p role="alert" className="mb-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{actionNotice}</p>
       )}
@@ -343,8 +357,8 @@ export default function ApplicationsPage() {
             <p className="text-[17px] font-bold text-ink">아직 지원한 시프트가 없어요</p>
             <p className="text-[14px] text-sub text-center">마음에 드는 시프트에 지원해 보세요</p>
           </div>
-        ) : (
-          apps.map((a) => (
+        ) : visibleApps.length===0?<div className="rounded-2xl bg-white py-12 text-center"><p className="text-[15px] font-bold text-ink">이 상태의 근무가 없어요</p><button type="button" onClick={()=>setActivityFilter('all')} className="mt-2 text-[13px] font-bold text-primary">전체 내역 보기</button></div> : (
+          visibleApps.map((a) => (
             <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onInvitation={handleInvitation} onAttendanceSuccess={handleAttendanceSuccess} />
           ))
         )}

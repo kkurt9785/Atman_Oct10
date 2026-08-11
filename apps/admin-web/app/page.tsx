@@ -34,6 +34,8 @@ export default async function Home() {
     { key: 'credential', label: '자격 만료 임박', count: ops.expiringCredentialCount, href: '/workforce', tone: 'warn' as const },
     ...(canViewPayroll ? [{ key: 'wage', label: '지급 처리 대기', count: ops.pendingWageCount, href: '/payroll', tone: 'warn' as const }] : []),
   ].filter((t) => t.count > 0);
+  const primaryTodo = todos[0];
+  const remainingTodos = todos.slice(1);
 
   const toneClass = {
     primary: 'text-primary',
@@ -64,9 +66,15 @@ export default async function Home() {
       {/* ② 오늘 챙길 일 — 있을 때만 */}
       {todos.length > 0 && (
         <Card className="mt-4 border border-primary/20 p-0 overflow-hidden">
-          <p className="text-label font-bold text-primary px-5 pt-4 pb-2">⚡ 오늘 챙길 일</p>
-          <div className="divide-y divide-line">
-            {todos.map((t) => (
+          <div className="bg-primary/5 px-5 py-4">
+            <p className="text-[11px] font-bold text-primary">지금 먼저 할 일</p>
+            <Link href={primaryTodo.href} className="mt-1 flex items-center justify-between gap-3">
+              <div><p className="text-[18px] font-extrabold text-ink">{primaryTodo.label} {primaryTodo.count}건</p><p className="mt-1 text-[12px] text-sub">처리하면 다음 운영 단계로 바로 이어져요.</p></div>
+              <span className="flex h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">확인하기</span>
+            </Link>
+          </div>
+          {remainingTodos.length > 0&&<div className="divide-y divide-line">
+            {remainingTodos.map((t) => (
               <Link key={t.key} href={t.href} className="flex items-center justify-between px-5 py-3.5 active:bg-bg">
                 <span className="text-body text-ink">{t.label}</span>
                 <span className="flex items-center gap-1.5">
@@ -75,7 +83,7 @@ export default async function Home() {
                 </span>
               </Link>
             ))}
-          </div>
+          </div>}
         </Card>
       )}
       <div className="mt-4 grid grid-cols-2 gap-3">

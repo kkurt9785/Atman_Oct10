@@ -247,6 +247,7 @@ export default function HomePage() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [wageFilter, setWageFilter] = useState<WageFilter>('all');
   const [deptFilter, setDeptFilter] = useState<DeptFilter>('all');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   // RPC 결과 → 화면 모델
   const mapRows = (rows: Record<string, unknown>[] | null) =>
@@ -389,7 +390,9 @@ export default function HomePage() {
     setTimeFilter('all');
     setWageFilter('all');
     setDeptFilter('all');
+    setShowMoreFilters(false);
   }
+  const extraFilterCount=[timeFilter!=='all',wageFilter!=='all',deptFilter!=='all'].filter(Boolean).length;
 
   function handleApplied() {
     if (selected) setApplied((prev) => new Set(prev).add(selected.id));
@@ -511,9 +514,15 @@ export default function HomePage() {
       {/* 필터 */}
       <div className="px-5 pb-4 flex flex-col gap-2">
         <ChipRow options={DATE_CHIPS} value={dateFilter} onChange={setDateFilter} />
-        <ChipRow options={TIME_CHIPS} value={timeFilter} onChange={setTimeFilter} />
-        <ChipRow options={deptChips}  value={deptFilter} onChange={setDeptFilter} />
-        <ChipRow options={WAGE_CHIPS} value={wageFilter} onChange={setWageFilter} />
+        <button type="button" onClick={()=>setShowMoreFilters(value=>!value)} aria-expanded={showMoreFilters} className="flex h-10 items-center justify-between rounded-xl border border-line bg-white px-3 text-[12px] font-bold text-sub">
+          <span>시간·업무·시급 조건{extraFilterCount?` ${extraFilterCount}개 적용`:''}</span><span>{showMoreFilters?'접기 ↑':'더보기 ↓'}</span>
+        </button>
+        {showMoreFilters&&<div className="flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm">
+          <ChipRow options={TIME_CHIPS} value={timeFilter} onChange={setTimeFilter} />
+          <ChipRow options={deptChips}  value={deptFilter} onChange={setDeptFilter} />
+          <ChipRow options={WAGE_CHIPS} value={wageFilter} onChange={setWageFilter} />
+          {extraFilterCount>0&&<button type="button" onClick={()=>{setTimeFilter('all');setDeptFilter('all');setWageFilter('all');}} className="self-end text-[12px] font-bold text-primary">상세 조건 초기화</button>}
+        </div>}
       </div>
 
       {/* 조건에 맞는 공고 — 추천/전체 중복 없이 한 목록에서 바로 지원 */}
