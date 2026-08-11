@@ -117,7 +117,8 @@ export async function getWorkforceCoverage(days = 7): Promise<CoverageDay[]> {
   const rows = (shifts ?? []) as any[];
   return Array.from({ length: Math.max(1, days) }, (_, index) => {
     const date = addDays(today, index);
-    const weekday = new Date(`${date}T00:00:00+09:00`).getDay() || 7;
+    // 달력 날짜 자체의 요일 — 서버 타임존과 무관하게 UTC로 고정 (생성 액션의 getUTCDay 규약과 동일)
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
     const dueTemplates = ((templates ?? []) as any[]).filter((template) => (template.weekdays ?? []).includes(weekday));
     const expected = dueTemplates.reduce((sum, template) => sum + Number(template.required_headcount ?? 1), 0);
     const dayShifts = rows.filter((shift) => shift.shift_date === date);

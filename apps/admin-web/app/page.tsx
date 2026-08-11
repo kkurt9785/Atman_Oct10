@@ -8,6 +8,8 @@ import { getOperationsSummary, getOperationsAlerts, getWorkforceCoverage } from 
 import { getClinicStaff } from '@/lib/db/clinic-workforce';
 import { getAdminContext } from '@/lib/admin-auth';
 import { fillSevenDayScheduleGapsAction } from '@/app/operations/actions';
+import { hasPlanFeature } from '@/lib/billing-gates';
+import { adminClient } from '@/lib/supabase';
 
 export default async function Home() {
   const [shop, staff, clinicStaff, pendingCount, ops, alerts, coverage, context] = await Promise.all([
@@ -23,6 +25,13 @@ export default async function Home() {
   const canViewPayroll = context?.canViewPayroll ?? false;
 
   if (!shop) redirect('/setup/claim-facility');
+
+  // "한 번에 모집"은 액션 요건(operator급 + operations 플랜)을 충족할 때만 노출 —
+  // 미충족 사업장(free/clinic, sales 롤)은 운영 페이지 링크로 우회시킨다.
+  const gateSb = adminClient();
+  const canAutoFill =
+    !!context && ['owner', 'operator', 'super'].includes(context.accessRole) &&
+    !!gateSb && (await hasPlanFeature(gateSb, context.facilityId, 'operations'));
 
   const isPharmacy = shop.facilityType === 'pharmacy';
   const facilityWord = isPharmacy ? '약국' : shop.facilityType === 'care_hospital' ? '요양병원' : '병원';
@@ -74,7 +83,7 @@ export default async function Home() {
             <p className="text-[11px] font-bold text-primary">지금 먼저 할 일</p>
             <div className="mt-1 flex items-center justify-between gap-3">
               <div><p className="text-[18px] font-extrabold text-ink">{primaryTodo.label} {primaryTodo.count}건</p><p className="mt-1 text-[12px] text-sub">처리하면 다음 운영 단계로 바로 이어져요.</p></div>
-              {primaryTodo.key === 'schedule-gap'
+              {primaryTodo.key === 'schedule-gap' && canAutoFill
                 ? <form action={fillSevenDayScheduleGapsAction}><button className="flex min-h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">한 번에 모집</button></form>
                 : <Link href={primaryTodo.href} className="flex min-h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">확인하기</Link>}
             </div>

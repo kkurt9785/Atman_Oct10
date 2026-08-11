@@ -47,6 +47,20 @@ export async function requireStaffCapacity(sb: SupabaseClient, facilityId: strin
   throw new Error(`${plan.name} 요금제는 직원 ${plan.includedAttendanceSlots}명까지 관리할 수 있어요.`);
 }
 
+// 렌더 게이트용 — throw 없이 boolean만. CTA 노출 여부 판단에 사용.
+export async function hasPlanFeature(
+  sb: SupabaseClient,
+  facilityId: string,
+  feature: PlanFeature,
+): Promise<boolean> {
+  try {
+    const plan = await getFacilityPlan(sb, facilityId);
+    return plan.features[feature] === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function requirePlanFeature(
   sb: SupabaseClient,
   facilityId: string,
