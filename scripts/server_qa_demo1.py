@@ -102,6 +102,8 @@ shift_ids = []
 application_ids = []
 attendance_ids = []
 challenge_ids = []
+outbox_ids = []
+template_ids = []
 original_settings = None
 try:
     worker_token, worker_uid = login("worker-demo-1@demo.atman.co.kr")
@@ -124,16 +126,47 @@ try:
     kst = dt.datetime.now(dt.timezone(dt.timedelta(hours=9)))
     today = kst.date().isoformat()
     start, end = free_window_for_today(worker["id"], kst)
+    weekday = kst.isoweekday()
+    status, template_rows = req("POST", "/rest/v1/shift_templates", [{
+        "facility_id": facility["id"], "name": "E2E-QA 7일 공백",
+        "required_role": "rn", "weekdays": [weekday], "start_time": start,
+        "end_time": end, "hourly_wage": 18000, "description": "E2E-QA 공백 자동모집",
+        "department": "QA", "required_headcount": 1, "created_by": admin_uid,
+    }], token=service, prefer="return=representation")
+    if status != 201:
+        raise RuntimeError("shift template create failed " + str(template_rows))
+    template_id = template_rows[0]["id"]
+    template_ids.append(template_id)
+    batch_id = str(uuid.uuid4())
     status, rows = req("POST", "/rest/v1/shifts", [{
         "facility_id": facility["id"], "required_role": "rn", "shift_date": today,
         "start_time": start, "end_time": end, "hourly_wage": 18000,
         "estimated_total_pay": 3000, "description": "E2E-QA 서버 검증",
         "department": "QA", "notes": "E2E-QA-DEMO1", "status": "open",
+        "template_id": template_id, "template_slot": 1, "generation_batch_id": batch_id,
     }], token=service, prefer="return=representation")
     if status != 201:
         raise RuntimeError("shift create failed " + str(rows))
     shift_id = rows[0]["id"]
     shift_ids.append(shift_id)
+    link_status, linked_rows = req("GET", "/rest/v1/shifts?id=eq." + shift_id + "&template_id=eq." + template_id + "&generation_batch_id=eq." + batch_id + "&template_slot=eq.1&select=id", token=service)
+    passed("6-0 반복 근무 공백 생성", link_status == 200 and len(linked_rows or []) == 1)
+
+    # 6. New shift notification path: recipient selection -> durable outbox -> worker visibility.
+    recipient_status, recipients = rpc(service, "get_shift_notification_recipients", {"p_shift_id": shift_id})
+    recipient_uids = {row.get("auth_user_id") for row in (recipients or [])}
+    passed("6-1 알림 대상 워커 선정", recipient_status == 200 and worker_uid in recipient_uids)
+    dedupe_key = "e2e.qa.shift.created:" + uuid.uuid4().hex
+    outbox_status, outbox_rows = req("POST", "/rest/v1/notification_outbox", [{
+        "worker_auth_user_id": worker_uid, "event_type": "shift.created",
+        "dedupe_key": dedupe_key, "title": "E2E-QA 새 근무", "body": "서버 알림 연동 검증",
+        "data": {"type": "new_shift", "shiftId": shift_id},
+    }], token=service, prefer="return=representation")
+    if outbox_status == 201 and outbox_rows:
+        outbox_ids.append(outbox_rows[0]["id"])
+    passed("6-2 알림 outbox 저장", outbox_status == 201 and len(outbox_rows or []) == 1)
+    visibility_status, visible_rows = req("GET", "/rest/v1/shifts?id=eq." + shift_id + "&select=id,status", token=worker_token)
+    passed("6-3 워커 공고 노출", visibility_status == 200 and len(visible_rows or []) == 1 and visible_rows[0]["status"] == "open")
 
     # 1. Duplicate and state transitions.
     s1, app_id = rpc(worker_token, "apply_to_shift", {"p_shift_id": shift_id})
@@ -257,6 +290,10 @@ finally:
         req("DELETE", "/rest/v1/shifts?id=eq." + str(shift_id), token=service)
     for challenge_id in challenge_ids:
         req("DELETE", "/rest/v1/facility_attendance_qr_challenges?id=eq." + challenge_id, token=service)
+    for outbox_id in outbox_ids:
+        req("DELETE", "/rest/v1/notification_outbox?id=eq." + outbox_id, token=service)
+    for template_id in template_ids:
+        req("DELETE", "/rest/v1/shift_templates?id=eq." + template_id, token=service)
 
 for name, ok, detail in results:
     print(("PASS" if ok else "FAIL") + " " + name + ((" · " + detail) if detail else ""))

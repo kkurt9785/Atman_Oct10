@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { won } from '@/lib/format';
 import { todayKST } from '@/lib/date';
-import { getOperationsAlerts, getOperationsSummary, getShiftTemplates } from '@/lib/db/operations';
-import { createShiftTemplateAction, deactivateShiftTemplateAction, generateRecurringShiftsAction, requestUrgentReplacementAction } from './actions';
+import { getOperationsAlerts, getOperationsSummary, getShiftTemplates, getWorkforceCoverage } from '@/lib/db/operations';
+import { createShiftTemplateAction, deactivateShiftTemplateAction, fillSevenDayScheduleGapsAction, generateRecurringShiftsAction, requestUrgentReplacementAction } from './actions';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
@@ -16,6 +16,8 @@ const NOTICE: Record<string, string> = {
   generated: '반복 시프트를 생성했어요. 공고 목록에서 확인하세요.',
   urgent_sent: '긴급 알림을 보냈어요.',
   template_off: '템플릿 사용을 중지했어요.',
+  gaps_filled: '앞으로 7일의 근무표 공백을 공고로 만들고 워커에게 알렸어요.',
+  no_schedule_gap: '앞으로 7일 근무표에는 새로 만들 공백이 없어요.',
 };
 
 export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
@@ -24,13 +26,15 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   if (!context || context.accessRole === 'sales') {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">운영 관리 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
-  const [summary, templates, operationAlerts, shop] = await Promise.all([getOperationsSummary(), getShiftTemplates(), getOperationsAlerts(), getShop()]);
+  const [summary, templates, operationAlerts, coverage, shop] = await Promise.all([getOperationsSummary(), getShiftTemplates(), getOperationsAlerts(), getWorkforceCoverage(), getShop()]);
   const isPharmacy = shop?.facilityType === 'pharmacy';
   const roleOptions: [string, string][] = isPharmacy
     ? [['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직']]
     : [['rn', '간호사 RN'], ['na', '간호조무사 NA'], ['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직'], ['any', '자격 무관']];
   const alerts = summary.urgentUnfilledCount + summary.expiringCredentialCount + summary.pendingWageCount
     + operationAlerts.filter((alert) => alert.kind === 'no_show').length;
+  const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
+  const recruitingCount = coverage.reduce((sum, day) => sum + day.recruiting, 0);
   return (
     <main className="px-4 pb-28">
       <ManageBackLink href="/more/operations" label="근무 운영" />
@@ -50,6 +54,39 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           <div><p className="text-title font-extrabold text-ink">{alerts}</p><p className="text-[11px] text-sub">확인할 일</p></div>
         </div>
       </Card>
+
+      <section id="coverage" className="scroll-mt-20 mb-5">
+        <div className="flex items-end justify-between px-1 mb-3">
+          <div><p className="text-label font-bold text-primary">근무 공백부터 확인</p><h2 className="text-title font-extrabold text-ink mt-1">앞으로 7일 충원 현황</h2></div>
+          <Link href="/shifts" className="text-label font-bold text-primary">전체 시프트 →</Link>
+        </div>
+        {(scheduleGapCount > 0 || recruitingCount > 0) && (
+          <Card className="mb-3 border border-primary/20 bg-primary/5">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-body font-extrabold text-ink">공백 {scheduleGapCount}명 · 모집 중 {recruitingCount}명</p><p className="text-label text-sub mt-1 leading-5">한 번 생성하면 공고 등록과 워커 알림은 뒤에서 처리돼요.</p></div>
+              {scheduleGapCount > 0 && <form action={fillSevenDayScheduleGapsAction}><button className="min-h-11 shrink-0 rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">공백 한 번에 모집</button></form>}
+            </div>
+          </Card>
+        )}
+        <Card className="p-0 overflow-hidden divide-y divide-line">
+          {coverage.map((day) => {
+            const isGap = day.scheduleGap > 0;
+            const isRecruiting = day.recruiting > 0;
+            const label = new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${day.date}T00:00:00+09:00`));
+            return <div key={day.date} className="flex items-center gap-3 px-4 py-3.5">
+              <div className="w-[72px] shrink-0"><p className="text-body font-extrabold text-ink">{label}</p><p className="text-[11px] text-sub mt-0.5">예정 {day.planned}명</p></div>
+              <div className="min-w-0 flex-1">
+                {isGap ? <><p className="text-label font-extrabold text-red-600">근무표 공백 {day.scheduleGap}명</p><p className="text-[11px] text-sub mt-0.5">반복 일정이 아직 공고로 생성되지 않았어요</p></>
+                  : isRecruiting ? <><p className="text-label font-extrabold text-warn">{day.recruiting}명 모집 중</p><p className="text-[11px] text-sub mt-0.5">확정 {day.filled}명 · 지원 현황을 확인하세요</p></>
+                  : day.planned > 0 ? <><p className="text-label font-extrabold text-success">필요 인원 충원 완료</p><p className="text-[11px] text-sub mt-0.5">확정 {day.filled}명</p></>
+                  : <p className="text-label text-sub">등록된 근무 없음</p>}
+              </div>
+              {isRecruiting && !isGap ? <Link href="/applications" className="h-9 shrink-0 rounded-xl bg-primary px-3 flex items-center text-[11px] font-extrabold text-white">지원 확인</Link>
+                : null}
+            </div>;
+          })}
+        </Card>
+      </section>
 
       {alerts > 0 && (
         <Card className="border border-amber-200 bg-amber-50 mb-5">
@@ -75,7 +112,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         </div>
       )}
 
-      <div className="flex items-center justify-between px-1 mt-7 mb-3">
+      <div id="templates" className="scroll-mt-20 flex items-center justify-between px-1 mt-7 mb-3">
         <h2 className="text-title font-bold text-ink">반복 시프트 템플릿</h2>
         <span className="text-label text-sub">최대 8주 생성</span>
       </div>

@@ -4,18 +4,20 @@ import { Card, SectionTitle, StatusBadge } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
 import { getStaff } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
-import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
+import { getOperationsSummary, getOperationsAlerts, getWorkforceCoverage } from '@/lib/db/operations';
 import { getClinicStaff } from '@/lib/db/clinic-workforce';
 import { getAdminContext } from '@/lib/admin-auth';
+import { fillSevenDayScheduleGapsAction } from '@/app/operations/actions';
 
 export default async function Home() {
-  const [shop, staff, clinicStaff, pendingCount, ops, alerts, context] = await Promise.all([
+  const [shop, staff, clinicStaff, pendingCount, ops, alerts, coverage, context] = await Promise.all([
     getShop(),
     getStaff(),
     getClinicStaff(),
     getPendingCount(),
     getOperationsSummary(),
     getOperationsAlerts(),
+    getWorkforceCoverage(),
     getAdminContext(),
   ]);
   const canViewPayroll = context?.canViewPayroll ?? false;
@@ -25,9 +27,11 @@ export default async function Home() {
   const isPharmacy = shop.facilityType === 'pharmacy';
   const facilityWord = isPharmacy ? '약국' : shop.facilityType === 'care_hospital' ? '요양병원' : '병원';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
+  const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
 
   // 오늘 챙길 일 — 값이 있을 때만 노출 (평온한 날엔 조치 섹션 자체가 사라짐)
   const todos = [
+    { key: 'schedule-gap', label: '7일 근무표 공백', count: scheduleGapCount, href: '/operations#coverage', tone: 'danger' as const },
     { key: 'pending', label: '지원 대기', count: pendingCount, href: '/applications', tone: 'primary' as const },
     { key: 'noshow', label: '노쇼 확인', count: noShowCount, href: '/operations', tone: 'danger' as const },
     { key: 'unfilled', label: '48시간 내 미충원', count: ops.urgentUnfilledCount, href: '/operations', tone: 'warn' as const },
@@ -68,10 +72,12 @@ export default async function Home() {
         <Card className="mt-4 border border-primary/20 p-0 overflow-hidden">
           <div className="bg-primary/5 px-5 py-4">
             <p className="text-[11px] font-bold text-primary">지금 먼저 할 일</p>
-            <Link href={primaryTodo.href} className="mt-1 flex items-center justify-between gap-3">
+            <div className="mt-1 flex items-center justify-between gap-3">
               <div><p className="text-[18px] font-extrabold text-ink">{primaryTodo.label} {primaryTodo.count}건</p><p className="mt-1 text-[12px] text-sub">처리하면 다음 운영 단계로 바로 이어져요.</p></div>
-              <span className="flex h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">확인하기</span>
-            </Link>
+              {primaryTodo.key === 'schedule-gap'
+                ? <form action={fillSevenDayScheduleGapsAction}><button className="flex min-h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">한 번에 모집</button></form>
+                : <Link href={primaryTodo.href} className="flex min-h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">확인하기</Link>}
+            </div>
           </div>
           {remainingTodos.length > 0&&<div className="divide-y divide-line">
             {remainingTodos.map((t) => (

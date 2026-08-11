@@ -31,6 +31,14 @@ export type OperationsAlert = {
   department: string | null;
 };
 
+export type CoverageDay = {
+  date: string;
+  planned: number;
+  filled: number;
+  recruiting: number;
+  scheduleGap: number;
+};
+
 function addDays(date: string, days: number) {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
@@ -87,6 +95,43 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
     }
   }
   return alerts;
+}
+
+/**
+ * 반복 근무표와 실제 시프트를 함께 비교한다.
+ * scheduleGap은 아직 공고조차 생성되지 않은 인원, recruiting은 생성됐지만
+ * 워커가 확정되지 않은 인원이다. 두 상태를 섞지 않아 관리자가 다음 행동을
+ * 한 번에 판단할 수 있게 한다.
+ */
+export async function getWorkforceCoverage(days = 7): Promise<CoverageDay[]> {
+  const facilityId = await getCurrentFacilityId();
+  const sb = adminClient();
+  if (!sb || !facilityId) return [];
+  const today = todayKST();
+  const end = addDays(today, Math.max(1, days) - 1);
+  const [{ data: templates }, { data: shifts }] = await Promise.all([
+    sb.from('shift_templates').select('id,weekdays,required_headcount').eq('facility_id', facilityId).eq('is_active', true),
+    sb.from('shifts').select('id,template_id,shift_date,status').eq('facility_id', facilityId)
+      .gte('shift_date', today).lte('shift_date', end).neq('status', 'cancelled'),
+  ]);
+  const rows = (shifts ?? []) as any[];
+  return Array.from({ length: Math.max(1, days) }, (_, index) => {
+    const date = addDays(today, index);
+    const weekday = new Date(`${date}T00:00:00+09:00`).getDay() || 7;
+    const dueTemplates = ((templates ?? []) as any[]).filter((template) => (template.weekdays ?? []).includes(weekday));
+    const expected = dueTemplates.reduce((sum, template) => sum + Number(template.required_headcount ?? 1), 0);
+    const dayShifts = rows.filter((shift) => shift.shift_date === date);
+    const generatedTemplateShifts = dayShifts.filter((shift) => shift.template_id && dueTemplates.some((template) => template.id === shift.template_id)).length;
+    const recruiting = dayShifts.filter((shift) => shift.status === 'open').length;
+    const filled = dayShifts.filter((shift) => ['matched', 'in_progress', 'completed'].includes(shift.status)).length;
+    return {
+      date,
+      planned: Math.max(expected, dayShifts.length),
+      filled,
+      recruiting,
+      scheduleGap: Math.max(0, expected - generatedTemplateShifts),
+    };
+  });
 }
 
 export async function getOperationsSummary(): Promise<OperationsSummary> {

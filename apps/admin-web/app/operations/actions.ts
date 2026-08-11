@@ -118,6 +118,85 @@ export async function generateRecurringShiftsAction(formData: FormData) {
   redirect('/operations?notice=generated');
 }
 
+export async function fillSevenDayScheduleGapsAction() {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  await requirePlanFeature(sb, context.facilityId, 'operations');
+  const startDate = todayKST();
+  const endDate = new Date(Date.parse(`${startDate}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
+  const [{ data: templates }, { data: existing }] = await Promise.all([
+    sb.from('shift_templates').select('*').eq('facility_id', context.facilityId).eq('is_active', true),
+    sb.from('shifts').select('template_id,shift_date,template_slot').eq('facility_id', context.facilityId)
+      .gte('shift_date', startDate).lte('shift_date', endDate).neq('status', 'cancelled'),
+  ]);
+  if (!templates?.length) throw new Error('먼저 반복 근무 템플릿을 하나 만들어 주세요.');
+  const existingSlots = new Set((existing ?? []).map((row: any) => `${row.template_id}:${row.shift_date}:${row.template_slot ?? 1}`));
+  const batchId = randomUUID();
+  const rows: any[] = [];
+  for (const template of templates as any[]) {
+    const estimatedPay = calcEstimatedShiftPay(template.start_time, template.end_time, template.hourly_wage);
+    if (estimatedPay == null) continue;
+    for (let offset = 0; offset < 7; offset += 1) {
+      const date = new Date(Date.parse(`${startDate}T00:00:00Z`) + offset * 86_400_000);
+      const weekday = date.getUTCDay() || 7;
+      const shiftDate = date.toISOString().slice(0, 10);
+      if (!(template.weekdays ?? []).includes(weekday)) continue;
+      for (let slot = 1; slot <= Number(template.required_headcount ?? 1); slot += 1) {
+        if (existingSlots.has(`${template.id}:${shiftDate}:${slot}`)) continue;
+        rows.push({
+          facility_id: context.facilityId, template_id: template.id, template_slot: slot, generation_batch_id: batchId,
+          audience: 'public', invited_worker_id: null, required_role: template.required_role,
+          shift_date: shiftDate, start_time: template.start_time, end_time: template.end_time,
+          hourly_wage: template.hourly_wage, estimated_total_pay: estimatedPay,
+          description: template.description, department: template.department, notes: template.notes,
+          posted_by: context.user.id,
+        });
+      }
+    }
+  }
+  if (!rows.length) redirect('/operations?notice=no_schedule_gap');
+  const { error } = await sb.from('shifts').insert(rows);
+  if (error) throw new Error('근무표 공백을 생성하지 못했어요.');
+  const usageKey = `job_posting_batch:${context.facilityId}:${batchId}`;
+  try {
+    await consumePlanUsage(sb, context.facilityId, 'job_posting_slot', rows.length, usageKey);
+  } catch (usageError) {
+    await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
+    await releasePlanUsage(sb, usageKey);
+    throw usageError;
+  }
+  const recipientIds = new Set<string>();
+  const { data: generated } = await sb.from('shifts').select('id').eq('generation_batch_id', batchId);
+  for (const shift of generated ?? []) {
+    const { data: recipients, error: recipientError } = await sb.rpc('get_shift_notification_recipients', { p_shift_id: shift.id });
+    if (recipientError) {
+      await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
+      await releasePlanUsage(sb, usageKey);
+      throw new Error('알림 대상을 확인하지 못해 공고 생성을 취소했어요. 다시 시도해 주세요.');
+    }
+    for (const recipient of recipients ?? []) if (recipient.auth_user_id) recipientIds.add(recipient.auth_user_id as string);
+  }
+  if (recipientIds.size) {
+    const { error: outboxError } = await sb.from('notification_outbox').upsert([...recipientIds].map((authUserId) => ({
+      worker_auth_user_id: authUserId, event_type: 'shift.batch_created',
+      dedupe_key: `shift.gap_batch:${batchId}:${authUserId}`,
+      title: `새 근무 ${rows.length}건`, body: '내 지역에 맞는 새 근무를 확인해 보세요.',
+      data: { type: 'new_shift_batch', batchId },
+    })), { onConflict: 'dedupe_key', ignoreDuplicates: true });
+    if (outboxError) {
+      await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
+      await releasePlanUsage(sb, usageKey);
+      throw new Error('워커 알림을 저장하지 못해 공고 생성을 취소했어요. 다시 시도해 주세요.');
+    }
+    await nudgeNotificationDispatch();
+  }
+  revalidatePath('/');
+  revalidatePath('/operations');
+  revalidatePath('/shifts');
+  redirect(`/operations?notice=gaps_filled&count=${rows.length}`);
+}
+
 export async function requestUrgentReplacementAction(formData: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = adminClient();
