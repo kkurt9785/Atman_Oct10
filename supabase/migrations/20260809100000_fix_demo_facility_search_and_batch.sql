@@ -46,7 +46,9 @@ GRANT EXECUTE ON FUNCTION public.ensure_demo1_wf_application() TO service_role;
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'demo-pharmacy-workforce-daily';
 SELECT cron.schedule(
   'demo-pharmacy-workforce-daily', '40 23 * * *',
-  'SELECT public.refresh_demo_pharmacy_workforce();'
+  -- workforce refresh가 DEMO 직원을 DELETE→재생성하면 CASCADE로 전월 근태가 함께
+  -- 지워지므로, 같은 잡에서 즉시 이력을 복원한다 (다음 복원이 00:15라 낮 시간 공백 방지).
+  'SELECT public.refresh_demo_pharmacy_workforce(); SELECT public.refresh_anchor_demo_month_history();'
 );
 SELECT cron.unschedule(jobid) FROM cron.job WHERE jobname = 'demo1-wf-application-daily';
 SELECT cron.schedule(

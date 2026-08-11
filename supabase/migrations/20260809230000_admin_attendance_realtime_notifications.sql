@@ -81,7 +81,8 @@ BEGIN
     INSERT INTO public.notification_outbox(
       worker_auth_user_id,event_type,dedupe_key,title,body,data
     ) VALUES (
-      v_recipient,v_event,'admin-attendance:'||NEW.id::text,v_title,v_body,
+      -- dedupe_key는 전역 UNIQUE — 수신자를 포함해야 관리자 2명 이상일 때 유실이 없다.
+      v_recipient,v_event,'admin-attendance:'||NEW.id::text||':'||v_recipient::text,v_title,v_body,
       jsonb_build_object('url','/timesheet','facilityId',NEW.facility_id,'attendanceAuthLogId',NEW.id)
     ) ON CONFLICT(dedupe_key) DO NOTHING;
   END LOOP;
