@@ -14,6 +14,17 @@ function classify(message: string): ApplyFailureReason {
   return 'error';
 }
 
+// 지원 트리거가 관리자 알림을 인큐하므로, 즉시 발송되도록 디스패처를 깨운다 (fire-and-forget)
+async function nudgeAdminDispatch(): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) return;
+  const adminBase = process.env.NEXT_PUBLIC_ADMIN_WEB_URL
+    ?? (window.location.hostname === 'localhost' ? 'http://localhost:3002' : 'https://admin.itdot.co.kr');
+  fetch(`${adminBase}/api/attendance/nudge`, {
+    method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, keepalive: true,
+  }).catch(() => undefined);
+}
+
 export async function applyToShift(shiftId: string): Promise<ApplyShiftResult> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { ok: false, reason: 'auth', message: '로그인이 필요해요.' };
@@ -23,6 +34,7 @@ export async function applyToShift(shiftId: string): Promise<ApplyShiftResult> {
     const message = error?.message?.replace(/^.*?: /, '') ?? '지원 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.';
     return { ok: false, reason: classify(message), message };
   }
+  void nudgeAdminDispatch();
   return { ok: true, applicationId: data };
 }
 
