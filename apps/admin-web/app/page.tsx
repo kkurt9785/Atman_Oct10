@@ -149,7 +149,7 @@ export default async function Home() {
         className="mt-6 mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-bg active:opacity-80"
       >
         <span className="text-label text-sub">
-          워커 임금은 {facilityWord} 직접 지급 · 잇닿 이용료는 <b className="text-ink">별도 청구서</b>
+          임금 수수료 <b className="text-ink">0원</b> — 잇닿은 월 이용료만 받아요
         </span>
         <span className="text-label font-bold text-primary flex-shrink-0 ml-2">요금·청구 →</span>
       </Link>
