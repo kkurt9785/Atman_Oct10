@@ -5,6 +5,7 @@ import { hours } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { facilityTypeLabel } from '@/lib/facility-label';
 
 const ROLE_LABEL: Record<string,string> = { rn: '간호사 RN', na: '간호조무사 NA', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
 const CREDENTIAL_STYLE = {
@@ -21,7 +22,7 @@ export default async function WorkforcePage() {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">인력 운영 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
   const [members,shop] = await Promise.all([getWorkforcePool(),getShop()]);
-  const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
+  const facilityWord=facilityTypeLabel(shop?.facilityType);
   const active = members.filter((member) => member.status === 'active');
   const needsAttention = members.filter((member) => member.credentialStatus === 'expired' || member.credentialStatus === 'expiring');
 

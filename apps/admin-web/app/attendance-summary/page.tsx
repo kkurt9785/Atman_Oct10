@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { getAttendanceHistory } from '@/lib/db/attendance-history';
 import { getShop } from '@/lib/db/shop';
+import { getAdminContext } from '@/lib/admin-auth';
+import { facilityTypeLabel } from '@/lib/facility-label';
 
 const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기',shift:'공고 시프트'};
 function moveMonth(month:string,delta:number){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+delta);return d.toISOString().slice(0,7);}
@@ -12,12 +14,12 @@ export default async function AttendanceSummaryPage({searchParams}:{searchParams
   const p=await searchParams;
   const current=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
   const recentComplete=moveMonth(current,-1);
-  const shop=await getShop();
+  const [shop,context]=await Promise.all([getShop(),getAdminContext()]);
   const requested=/^\d{4}-(0[1-9]|1[0-2])$/.test(p.month??'')?p.month!:(shop?.isDemo?recentComplete:current);
   const minMonth=moveMonth(current,-2);
   const month=requested<minMonth?minMonth:requested>current?current:requested;
   const {rows,closed}=await getAttendanceHistory(month);
-  const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
+  const facilityWord=facilityTypeLabel(shop?.facilityType);
   const people=[...rows.reduce((map,row)=>{
     const key=row.staffId??`shift-${row.name}`;
     const person=map.get(key)??{key,name:row.name,staffId:row.staffId,employment:row.employment,minutes:0,days:0,late:0,early:0,absent:0,leave:0,issues:0};
@@ -59,7 +61,7 @@ export default async function AttendanceSummaryPage({searchParams}:{searchParams
         return person.staffId?<Link key={person.key} href={`/attendance-history/staff/${person.staffId}?month=${month}`} className="flex min-h-[72px] items-center justify-between gap-3 px-4 active:bg-bg">{content}</Link>:<div key={person.key} className="flex min-h-[72px] items-center justify-between gap-3 px-4">{content}</div>;
       })}</div>}
     </Card>
-    <div className="mt-4 grid grid-cols-2 gap-2"><Link href={`/attendance-history?month=${month}`} className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-[12px] font-bold">전체 기록·수정</Link><Link href={`/payroll?month=${month}`} className="flex h-11 items-center justify-center rounded-xl bg-primary text-[12px] font-bold text-white">급여 검토</Link></div>
+    <div className={`mt-4 grid gap-2 ${context?.canViewPayroll?'grid-cols-2':'grid-cols-1'}`}><Link href={`/attendance-history?month=${month}`} className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-[12px] font-bold">전체 기록·수정</Link>{context?.canViewPayroll&&<Link href={`/payroll?month=${month}`} className="flex h-11 items-center justify-center rounded-xl bg-primary text-[12px] font-bold text-white">급여 검토</Link>}</div>
     <Link href="/timesheet" className="mt-3 flex h-10 items-center justify-center text-[12px] font-bold text-sub">← 오늘 근태로</Link>
   </main>;
 }

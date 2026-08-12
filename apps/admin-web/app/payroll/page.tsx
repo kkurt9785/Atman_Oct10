@@ -7,6 +7,7 @@ import { getAdminContext } from '@/lib/admin-auth';
 import Link from 'next/link';
 import { PayrollActionForm } from './PayrollActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { facilityTypeLabel } from '@/lib/facility-label';
 
 const STATUS: Record<string,string> = { collecting:'집계 중',draft:'검토 전',approved:'지급 승인',exported:'이체 준비',paid:'지급 완료',worker_confirmed:'입금 확인',disputed:'확인 요청',cancelled:'취소' };
 const ENGAGEMENT:Record<string,string>={regular:'상시 직원',fixed_term:'기간제',temporary:'임시 계약',daily:'단기 근무'};
@@ -22,7 +23,7 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
   if (!shop) redirect('/setup/claim-facility');
   const { rows, error } = paymentResult;
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super';
-  const facilityWord=shop.facilityType==='pharmacy'?'약국':'병원';
+  const facilityWord=facilityTypeLabel(shop.facilityType);
   if (!context?.canViewPayroll) return <main className="px-4">
     <ManageBackLink href="/more" label="관리" />
     <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{facilityWord} 직접 지급</p><h1 className="text-display font-extrabold text-ink">급여 지급관리</h1></div>

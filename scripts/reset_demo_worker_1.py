@@ -49,10 +49,24 @@ def first(path, label):
     return rows[0]
 
 
-status, account_page = req("GET", "/auth/v1/admin/users?email=worker-demo-1%40demo.atman.co.kr")
-account = next((user for user in (account_page or {}).get("users", []) if user.get("email") == "worker-demo-1@demo.atman.co.kr"), None)
-if status != 200 or not account:
-    raise RuntimeError("Demo 1 account not found, status=" + str(status))
+def find_auth_user(email):
+    page = 1
+    while True:
+        status, body = req("GET", "/auth/v1/admin/users?page=" + str(page) + "&per_page=50")
+        if status != 200:
+            raise RuntimeError("Auth users lookup failed, status=" + str(status) + ", response=" + str(body))
+        users = (body or {}).get("users", [])
+        found = next((user for user in users if user.get("email") == email), None)
+        if found:
+            return found
+        if len(users) < 50:
+            return None
+        page += 1
+
+
+account = find_auth_user("worker-demo-1@demo.atman.co.kr")
+if not account:
+    raise RuntimeError("Demo 1 account not found after scanning all auth user pages")
 auth_id = account["id"]
 worker = first("/rest/v1/workers?auth_user_id=eq." + auth_id + "&select=id,license_photo_url", "Demo 1 worker")
 facility = first("/rest/v1/facilities?name=eq." + urllib.parse.quote("W여성병원") + "&is_demo=eq.true&select=id", "W facility")

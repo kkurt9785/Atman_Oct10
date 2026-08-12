@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { dateKST } from '@/lib/date';
 import { cancelApplication, respondToInvitation } from '@/lib/shifts';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
-import { AttendanceActionButton } from '@/components/attendance/AttendanceActionButton';
+import { AttendanceActionButton, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 
 // ── 타입 ───────────────────────────────────────────────────────
 type ApplicationStatus = 'invited' | 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
@@ -121,7 +121,7 @@ function ApplicationCard({
   app: Application;
   onCancel: (id: string) => void;
   onInvitation: (id: string, accept: boolean) => void;
-  onAttendanceSuccess: (id: string, action: 'check_in' | 'check_out') => void;
+  onAttendanceSuccess: (id: string, action: 'check_in' | 'check_out', response?: AttendanceResult) => void;
 }) {
   const { label, description, className } = STATUS_CONFIG[app.status];
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
@@ -186,10 +186,10 @@ function ApplicationCard({
                 <p className="text-[13px] font-semibold text-primary">근무 중</p>
               </div>
               </div>
-              <AttendanceActionButton targetType="shift" targetId={app.id} action="check_out" onSuccess={() => onAttendanceSuccess(app.id, 'check_out')}/>
+              <AttendanceActionButton targetType="shift" targetId={app.id} action="check_out" onSuccess={(response) => onAttendanceSuccess(app.id, 'check_out', response)}/>
             </div>
           ) : isToday ? (
-            <AttendanceActionButton targetType="shift" targetId={app.id} action="check_in" onSuccess={() => onAttendanceSuccess(app.id, 'check_in')}/>
+            <AttendanceActionButton targetType="shift" targetId={app.id} action="check_in" onSuccess={(response) => onAttendanceSuccess(app.id, 'check_in', response)}/>
           ) : (
             <div className="mt-3 p-3 bg-bg rounded-xl flex items-center gap-2">
               <span className="text-success">✅</span>
@@ -297,11 +297,11 @@ export default function ApplicationsPage() {
       : app));
   }
 
-  function handleAttendanceSuccess(applicationId: string, action: 'check_in' | 'check_out') {
+  function handleAttendanceSuccess(applicationId: string, action: 'check_in' | 'check_out', response?: {status?:'approved'|'pending';checkInAt?:string;checkOutAt?:string}) {
     const now = new Date().toISOString();
     setApps((current) => current.map((app) => app.id !== applicationId ? app : action === 'check_in'
-      ? { ...app, checked_in_at: now }
-      : { ...app, checked_out_at: now, status: 'completed' as const }));
+      ? { ...app, checked_in_at: response?.checkInAt??now }
+      : response?.status==='pending' ? app : { ...app, checked_out_at: response?.checkOutAt??now, status: 'completed' as const }));
   }
   const activityCounts={
     active:apps.filter(app=>['invited','applied'].includes(app.status)).length,

@@ -112,6 +112,14 @@ try:
     worker = get_one("/rest/v1/workers?auth_user_id=eq." + worker_uid + "&select=id", "worker")
     facility = get_one("/rest/v1/facilities?name=eq." + urllib.parse.quote("W여성병원") + "&is_demo=eq.true&select=id", "facility")
 
+    # Persistent demo readiness: the login identity, accepted application and chat must stay connected.
+    demo_chat_shift = get_one("/rest/v1/shifts?facility_id=eq." + facility["id"] + "&notes=eq.DEMO-1-CHAT-SHOWCASE&select=id,matched_worker_id,status", "demo chat shift")
+    _, demo_chat_apps = req("GET", "/rest/v1/shift_applications?shift_id=eq." + demo_chat_shift["id"] + "&worker_id=eq." + worker["id"] + "&status=eq.accepted&select=id", token=service)
+    demo_chat_app = demo_chat_apps[0] if demo_chat_apps else None
+    passed("7-1 demo-1 확정 지원 보장", demo_chat_shift.get("matched_worker_id") == worker["id"] and demo_chat_shift.get("status") == "matched" and demo_chat_app is not None)
+    _, demo_messages = req("GET", "/rest/v1/chat_messages?application_id=eq." + (demo_chat_app or {}).get("id", "00000000-0000-0000-0000-000000000000") + "&select=id", token=service)
+    passed("7-2 demo-1 시연 채팅 보장", len(demo_messages or []) >= 3)
+
     # Preserve attendance settings; force deterministic server checks.
     _, setting_rows = req("GET", "/rest/v1/facility_attendance_settings?facility_id=eq." + facility["id"] + "&select=*", token=service)
     original_settings = setting_rows[0] if setting_rows else None

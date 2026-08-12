@@ -111,7 +111,7 @@ export default async function Home() {
           <Link href="/shifts/new">① 모집</Link><span className="text-line">→</span>
           <Link href="/applications">② 지원 확정</Link><span className="text-line">→</span>
           <Link href="/timesheet">③ 출퇴근</Link><span className="text-line">→</span>
-          <Link href="/payroll">④ 지급</Link>
+          {canViewPayroll?<Link href="/payroll">④ 지급</Link>:<Link href="/attendance-history">④ 근무내역</Link>}
         </div>
       </div>
       {isPharmacy&&<Link href="/workforce" className="mt-3 flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 text-label font-bold text-primary"><span>함께 일한 약사 다시 부르기</span><span>→</span></Link>}

@@ -60,6 +60,21 @@ def req(method, path, body=None, key=SERVICE, bearer=None, prefer=None):
         return e.code, json.loads(e.read() or b"null")
 
 
+def find_auth_user(email):
+    page = 1
+    while True:
+        status, body = req("GET", f"/auth/v1/admin/users?page={page}&per_page=50")
+        if status != 200:
+            raise RuntimeError(f"Auth users lookup failed: status={status}, response={body}")
+        users = (body or {}).get("users", [])
+        found = next((user for user in users if user.get("email") == email), None)
+        if found:
+            return found
+        if len(users) < 50:
+            return None
+        page += 1
+
+
 for email, area, role, label, lat, lng, exact_kakao_id in ACCOUNTS:
     # 1. auth 계정 생성 (존재 시 비번 리셋)
     status, body = req("POST", "/auth/v1/admin/users", {
@@ -69,8 +84,7 @@ for email, area, role, label, lat, lng, exact_kakao_id in ACCOUNTS:
     if status in (200, 201):
         uid = body["id"]
     else:
-        s2, users = req("GET", f"/auth/v1/admin/users?email={email}")
-        found = next((u for u in (users or {}).get("users", []) if u["email"] == email), None)
+        found = find_auth_user(email)
         if not found:
             print(f"FAIL {email}: {status} {body}"); sys.exit(1)
         uid = found["id"]

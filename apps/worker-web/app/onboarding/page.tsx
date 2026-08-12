@@ -23,7 +23,9 @@ function OnboardingInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const param = searchParams.get('step') as Step | null;
+  const terminalDeepLink = param === 'notification' || param === 'review' || param === 'approval';
   const [step, setStep] = useState<Step>(param && VALID_STEPS.has(param) ? param : 'splash');
+  const [checkingDeepLink, setCheckingDeepLink] = useState(terminalDeepLink);
   const [terms, setTerms] = useState<TermsValue | null>(null);
   const [role, setRole] = useState<WorkerRole | null>(null);
   const [areas, setAreas] = useState<AreaPref[]>([]);
@@ -109,11 +111,38 @@ function OnboardingInner() {
     if (needsTerms.includes(step) && !terms) setStep('splash');
   }, [step, terms]);
 
+  useEffect(() => {
+    if (!terminalDeepLink) return;
+    let active = true;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        if (active) { setStep('splash'); setCheckingDeepLink(false); }
+        return;
+      }
+      const [{ data: profile }, { data: worker }] = await Promise.all([
+        supabase.from('profiles').select('onboarding_done').eq('id', user.id).maybeSingle(),
+        supabase.from('workers').select('role,verification_status').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+      ]);
+      if (!active) return;
+      if (!profile?.onboarding_done || !worker?.role) {
+        setStep('splash');
+      } else {
+        setRole(worker.role as WorkerRole);
+        setCompletionStep(worker.verification_status === 'approved' ? 'approval' : 'review');
+      }
+      setCheckingDeepLink(false);
+    })();
+    return () => { active = false; };
+  }, [terminalDeepLink]);
+
   const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', info: 'license', area: 'info', bank: 'area' };
   const prevStep = PREV[step];
 
   return (
     <main className="min-h-screen bg-white">
+      {checkingDeepLink && <div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>}
+      {!checkingDeepLink && <>
       {/* 단계 이동 중 오입력 복구용 뒤로가기 */}
       {prevStep && !submitting && (
         <button
@@ -136,6 +165,7 @@ function OnboardingInner() {
       {step === 'notification' && <NotificationSetup onNext={() => setStep(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
       {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}
+      </>}
     </main>
   );
 }

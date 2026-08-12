@@ -4,10 +4,11 @@ import { FacilityProfileForm } from './FacilityProfileForm';
 import { AdminAccessSection } from './AdminAccessSection';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { facilityTypeLabel } from '@/lib/facility-label';
 
 export default async function SettingsPage() {
   const [profile, shop, admins] = await Promise.all([getFacilityProfile(), getShop(), getFacilityAdmins()]);
-  const facilityWord = shop?.facilityType === 'pharmacy' ? '약국' : '병원';
+  const facilityWord = facilityTypeLabel(shop?.facilityType);
 
   return (
     <div className="min-h-screen bg-surface">

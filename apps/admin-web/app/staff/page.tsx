@@ -9,6 +9,7 @@ import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { CopyInviteButton } from './CopyInviteButton';
 import { StaffRegistrationForm } from './StaffRegistrationForm';
 import { getShop } from '@/lib/db/shop';
+import { facilityTypeLabel } from '@/lib/facility-label';
 
 const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', pharmacist:'약사', pharmacy_staff:'약국 전산·사무직', coordinator:'코디네이터', admin:'행정', other:'기타' };
 const TYPE: Record<string,string> = { regular:'상시 직원', fixed_term:'기간제', temporary:'임시 계약', daily:'단기 근무' };
@@ -25,7 +26,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
   const [clinicStaff, shiftStaff, pending,shop] = await Promise.all([
     getClinicStaff(), getStaff(), canReviewWorkers ? getPendingWorkers() : Promise.resolve([]),getShop(),
   ]);
-  const facilityWord=shop?.facilityType==='pharmacy'?'약국':'병원';
+  const facilityWord=facilityTypeLabel(shop?.facilityType);
   const contractCount = clinicStaff.filter((s)=>['fixed_term','temporary','daily'].includes(s.engagementType)).length;
   const regularCount=clinicStaff.filter((s)=>s.engagementType==='regular').length;
   const visibleStaff=view==='regular'?clinicStaff.filter((s)=>s.engagementType==='regular')
