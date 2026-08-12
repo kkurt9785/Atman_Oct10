@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-workforce';
-import { getStaff } from '@/lib/db/staff';
+import { getStaff, getUpcomingMatchedShifts } from '@/lib/db/staff';
 import { AttendanceDashboard } from './AttendanceDashboard';
 import { getShop } from '@/lib/db/shop';
 import { getCurrentFacilityId } from '@/lib/facility';
+import { OperationsFlow } from '@/components/OperationsFlow';
 
 export default async function TimesheetPage(){
-  const [staff,matched,failures,shop,facilityId]=await Promise.all([
+  const [staff,matched,upcoming,failures,shop,facilityId]=await Promise.all([
     getClinicStaff(),
     getStaff(),
+    getUpcomingMatchedShifts(),
     getTodayAttendanceFailures(),
     getShop(),
     getCurrentFacilityId(),
@@ -30,8 +32,8 @@ export default async function TimesheetPage(){
       <Link href="/attendance-qr" className="flex h-11 items-center justify-center rounded-xl bg-primary text-label font-bold text-white">출퇴근 인증</Link>
       <Link href="/leave" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">휴가 관리</Link>
     </div>
-    <Link href={summaryHref} className="mt-3 flex min-h-12 items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-4 text-label font-bold text-primary"><span><span className="block">월 근태 요약</span><span className="mt-0.5 block text-[11px] font-medium text-sub">누적 시간과 확인할 기록을 먼저 확인</span></span><span aria-hidden>›</span></Link>
-    <AttendanceDashboard staff={staff} matched={matched} failures={failures} facilityId={facilityId}/>
+    <div className="mt-3"><OperationsFlow active="attendance"/></div>
+    <AttendanceDashboard staff={staff} matched={matched} upcoming={upcoming} failures={failures} facilityId={facilityId} summaryHref={summaryHref}/>
     <p className="mt-4 px-1 text-[11px] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 운영 기록입니다. 법정 휴가와 임금의 최종 판단은 사업장의 계약 및 취업규칙을 기준으로 확인해 주세요.</p>
   </main>;
 }

@@ -1,60 +1,31 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Card, SectionTitle, StatusBadge } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
 import { getStaff } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
-import { getOperationsSummary, getOperationsAlerts, getWorkforceCoverage } from '@/lib/db/operations';
+import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
 import { getClinicStaff } from '@/lib/db/clinic-workforce';
 import { getAdminContext } from '@/lib/admin-auth';
-import { fillSevenDayScheduleGapsAction } from '@/app/operations/actions';
-import { hasPlanFeature } from '@/lib/billing-gates';
-import { adminClient } from '@/lib/supabase';
+import { OperationsFlow } from '@/components/OperationsFlow';
 
 export default async function Home() {
-  const [shop, staff, clinicStaff, pendingCount, ops, alerts, coverage, context] = await Promise.all([
+  const [shop, staff, clinicStaff, pendingCount, ops, alerts, context] = await Promise.all([
     getShop(),
     getStaff(),
     getClinicStaff(),
     getPendingCount(),
     getOperationsSummary(),
     getOperationsAlerts(),
-    getWorkforceCoverage(),
     getAdminContext(),
   ]);
   const canViewPayroll = context?.canViewPayroll ?? false;
 
   if (!shop) redirect('/setup/claim-facility');
 
-  // "한 번에 모집"은 액션 요건(operator급 + operations 플랜)을 충족할 때만 노출 —
-  // 미충족 사업장(free/clinic, sales 롤)은 운영 페이지 링크로 우회시킨다.
-  const gateSb = adminClient();
-  const canAutoFill =
-    !!context && ['owner', 'operator', 'super'].includes(context.accessRole) &&
-    !!gateSb && (await hasPlanFeature(gateSb, context.facilityId, 'operations'));
-
   const isPharmacy = shop.facilityType === 'pharmacy';
-  const facilityWord = isPharmacy ? '약국' : shop.facilityType === 'care_hospital' ? '요양병원' : '병원';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
-  const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
-
-  // 오늘 챙길 일 — 값이 있을 때만 노출 (평온한 날엔 조치 섹션 자체가 사라짐)
-  const todos = [
-    { key: 'schedule-gap', label: '7일 근무표 공백', count: scheduleGapCount, href: '/operations#coverage', tone: 'danger' as const },
-    { key: 'pending', label: '지원 대기', count: pendingCount, href: '/applications', tone: 'primary' as const },
-    { key: 'noshow', label: '노쇼 확인', count: noShowCount, href: '/operations', tone: 'danger' as const },
-    { key: 'unfilled', label: '48시간 내 미충원', count: ops.urgentUnfilledCount, href: '/operations', tone: 'warn' as const },
-    { key: 'credential', label: '자격 만료 임박', count: ops.expiringCredentialCount, href: '/workforce', tone: 'warn' as const },
-    ...(canViewPayroll ? [{ key: 'wage', label: '지급 처리 대기', count: ops.pendingWageCount, href: '/payroll', tone: 'warn' as const }] : []),
-  ].filter((t) => t.count > 0);
-  const primaryTodo = todos[0];
-  const remainingTodos = todos.slice(1);
-
-  const toneClass = {
-    primary: 'text-primary',
-    danger: 'text-red-600',
-    warn: 'text-warn',
-  };
+  const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount;
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
   const todayCount=clinicStaff.length+shiftStaff.length;
   const workingCount=clinicStaff.filter(s=>['working','late','checkout_pending'].includes(s.attendanceStatus??'')).length
@@ -76,72 +47,26 @@ export default async function Home() {
         </div>
       </Card>
 
-      {/* ② 오늘 챙길 일 — 있을 때만 */}
-      {todos.length > 0 && (
-        <Card className="mt-4 border border-primary/20 p-0 overflow-hidden">
-          <div className="bg-primary/5 px-5 py-4">
-            <p className="text-[11px] font-bold text-primary">지금 먼저 할 일</p>
-            <div className="mt-1 flex items-center justify-between gap-3">
-              <div><p className="text-[18px] font-extrabold text-ink">{primaryTodo.label} {primaryTodo.count}건</p><p className="mt-1 text-[12px] text-sub">처리하면 다음 운영 단계로 바로 이어져요.</p></div>
-              {primaryTodo.key === 'schedule-gap' && canAutoFill
-                ? <form action={fillSevenDayScheduleGapsAction}><button className="flex min-h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">한 번에 모집</button></form>
-                : <Link href={primaryTodo.href} className="flex min-h-10 shrink-0 items-center rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">확인하기</Link>}
-            </div>
-          </div>
-          {remainingTodos.length > 0&&<div className="divide-y divide-line">
-            {remainingTodos.map((t) => (
-              <Link key={t.key} href={t.href} className="flex items-center justify-between px-5 py-3.5 active:bg-bg">
-                <span className="text-body text-ink">{t.label}</span>
-                <span className="flex items-center gap-1.5">
-                  <b className={`text-body ${toneClass[t.tone]}`}>{t.count}건</b>
-                  <span className="text-sub">→</span>
-                </span>
-              </Link>
-            ))}
-          </div>}
+      <section className="mt-4">
+        <div className="mb-3 flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">오늘 처리할 일</p><h2 className="mt-0.5 text-title font-extrabold text-ink">확인이 필요한 업무</h2></div><Link href="/more" className="text-[12px] font-bold text-sub">전체 관리 →</Link></div>
+        <Card className="divide-y divide-line p-0 overflow-hidden">
+          {[
+            {label:'새 지원자',description:'지원자를 확인하고 근무를 확정해요',count:pendingCount,href:'/applications'},
+            {label:'출퇴근 확인',description:'조기 퇴근·미출근 기록을 확인해요',count:attendanceReviewCount,href:'/timesheet'},
+            {label:'지급 대기',description:canViewPayroll?'근무시간을 확인하고 지급을 완료해요':'급여 담당자에게 확인을 요청해요',count:canViewPayroll?ops.pendingWageCount:0,href:canViewPayroll?'/payroll':'/timesheet'},
+          ].map((item)=><Link key={item.label} href={item.href} className="flex min-h-[72px] items-center justify-between gap-3 px-5 py-3 active:bg-bg">
+            <div><p className="text-body font-extrabold text-ink">{item.label}</p><p className="mt-0.5 text-[12px] text-sub">{item.description}</p></div>
+            <span className={`flex min-w-[58px] items-center justify-end gap-1 text-[17px] font-extrabold ${item.count>0?'text-primary':'text-sub'}`}>{item.count}건 <span className="text-sub">›</span></span>
+          </Link>)}
         </Card>
-      )}
+        {pendingCount+attendanceReviewCount+(canViewPayroll?ops.pendingWageCount:0)===0&&<p className="mt-2 px-1 text-[12px] font-medium text-success">오늘 바로 처리할 업무를 모두 마쳤어요.</p>}
+      </section>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Link href="/shifts/new" className="rounded-2xl bg-primary px-5 py-5 text-white shadow-btn active:opacity-85"><span className="text-[20px]">＋</span><p className="mt-2 text-[17px] font-extrabold">근무자 모집</p><p className="mt-1 text-[12px] text-white/80">날짜와 시간만 정하면 돼요</p></Link>
         <Link href="/timesheet" className="rounded-2xl bg-white px-5 py-5 active:bg-bg"><span className="text-[20px]">◷</span><p className="mt-2 text-[17px] font-extrabold text-ink">오늘 근무 보기</p><p className="mt-1 text-[12px] text-sub">출퇴근과 확인 요청을 봐요</p></Link>
       </div>
-      <div className="mt-3 rounded-2xl border border-line bg-white px-4 py-3">
-        <p className="text-[11px] font-bold text-sub">처음이라면 이 순서로 진행하세요</p>
-        <div className="mt-2 flex items-center justify-between gap-1 text-[11px] font-extrabold text-primary">
-          <Link href="/shifts/new">① 모집</Link><span className="text-line">→</span>
-          <Link href="/applications">② 지원 확정</Link><span className="text-line">→</span>
-          <Link href="/timesheet">③ 출퇴근</Link><span className="text-line">→</span>
-          {canViewPayroll?<Link href="/payroll">④ 지급</Link>:<Link href="/attendance-history">④ 근무내역</Link>}
-        </div>
-      </div>
+      <div className="mt-3"><OperationsFlow compact/></div>
       {isPharmacy&&<Link href="/workforce" className="mt-3 flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 text-label font-bold text-primary"><span>함께 일한 약사 다시 부르기</span><span>→</span></Link>}
-
-      {/* ⑤ 오늘 근무 */}
-      <SectionTitle>진행 중인 근무</SectionTitle>
-      {staff.length === 0&&clinicStaff.length===0 ? (
-        <Card className="py-8 text-center">
-          <p className="text-body font-bold text-ink">오늘 근무가 없어요</p>
-          <p className="text-label text-sub mt-1">등록 직원 또는 지원 승인 근무가 생기면 표시됩니다.</p>
-        </Card>
-      ) : (
-        <Card className="divide-y divide-line p-0">
-          {clinicStaff.map((s) => (
-            <div key={`managed-${s.id}`} className="flex items-center justify-between px-5 py-4">
-              <div><p className="text-body font-bold text-ink">{s.name}</p><p className="text-label text-sub">{s.department??'업무 미지정'} · {facilityWord} 등록 직원</p></div>
-              <div className="text-right"><StatusBadge status={s.attendanceStatus==='working'||s.attendanceStatus==='late'||s.attendanceStatus==='checkout_pending'?'근무중':s.attendanceStatus==='completed'?'퇴근':s.attendanceStatus==='absent'?'결근':'예정'} /><p className="mt-1 text-[11px] text-sub">{s.attendanceStatus==='completed'?'다음: 지급 확인':s.attendanceStatus==='checkout_pending'?'다음: 퇴근 승인':s.attendanceStatus==='working'||s.attendanceStatus==='late'?'다음: 퇴근 확인':'근무 상태 확인'}</p></div>
-            </div>
-          ))}
-          {shiftStaff.map((s) => (
-            <div key={s.id} className="flex items-center justify-between px-5 py-4">
-              <div>
-                <p className="text-body font-bold text-ink">{s.name}</p>
-                <p className="text-label text-sub">{s.job}</p>
-              </div>
-              <div className="text-right"><StatusBadge status={s.todayStatus} /><p className="mt-1 text-[11px] text-sub">{s.todayStatus==='퇴근'?'다음: 지급 확인':s.todayStatus==='근무중'?'다음: 퇴근 확인':'근무 상태 확인'}</p></div>
-            </div>
-          ))}
-        </Card>
-      )}
 
       {/* ⑥ SaaS 안내 — 최하단 한 줄 링크로 축소 */}
       <Link

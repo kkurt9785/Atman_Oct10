@@ -7,6 +7,7 @@ import { getAdminContext } from '@/lib/admin-auth';
 import { redirect } from 'next/navigation';
 import { todayKST } from '@/lib/date';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { JobPostingAddonButton } from './JobPostingAddonButton';
 
 type Plan={code:string;name:string;monthly_fee:number;included_facilities:number;included_admin_seats:number;included_active_workers:number;included_attendance_slots:number;included_job_posting_slots:number;features:Record<string,unknown>};
 
@@ -64,6 +65,14 @@ export default async function MembershipPage(){
     {!canPay&&<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">청구서 결제는 사업장 소유자 또는 결제 승인 담당자에게 요청해 주세요.</p></div>}
     <h2 className="text-title font-extrabold px-1 mb-3">요금제</h2>
     <PlanCards plans={plans} currentPlanCode={subscription?.plan_code}/>
+    {canPay && subscription?.plan_code && subscription.plan_code !== 'free' && <section className="mb-7 rounded-2xl border border-primary/20 bg-white p-4 shadow-card">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div><p className="text-body font-extrabold text-ink">이번 달 공고가 더 필요한가요?</p><p className="mt-1 text-[13px] leading-5 text-sub">요금제를 바로 바꾸지 않고 필요한 만큼 1건씩 추가할 수 있어요.</p></div>
+        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">당월 사용</span>
+      </div>
+      <JobPostingAddonButton />
+      <p className="mt-2 text-[11px] leading-4 text-tertiary">VAT 포함 · 결제한 달에만 사용 · 추가 4건 이상이면 상위 요금제가 더 유리할 수 있어요.</p>
+    </section>}
     <div className="mb-7 bg-primary/5 border border-primary/15 rounded-2xl p-4">
       <p className="text-label font-bold text-primary">💡 임금은 사업장이 직접 지급 = 중개 수수료 0원</p>
       <p className="text-[13px] text-sub leading-5 mt-1">잇닿은 근무 횟수나 임금에 비례한 수수료 대신 정액 이용료를 받습니다. 사업장은 지급할 임금과 서비스 비용을 명확하게 구분할 수 있어요.</p>

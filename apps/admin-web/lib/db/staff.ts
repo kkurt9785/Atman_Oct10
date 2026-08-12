@@ -26,6 +26,17 @@ export type SummaryInfo = {
   workingNow: number;
 };
 
+export type UpcomingShiftRow={id:string;shiftDate:string;startTime:string;endTime:string;name:string;job:string};
+
+export async function getUpcomingMatchedShifts(days=7):Promise<UpcomingShiftRow[]>{
+  const facilityId=await getCurrentFacilityId();const sb=adminClient();if(!sb||!facilityId)return [];
+  const today=todayKST();const end=new Date(Date.parse(`${today}T00:00:00Z`)+days*86400000).toISOString().slice(0,10);
+  const {data}=await sb.from('shifts').select('id,shift_date,start_time,end_time,required_role,matched_worker_id,workers!shifts_matched_worker_id_fkey(name)')
+    .eq('facility_id',facilityId).gt('shift_date',today).lte('shift_date',end).not('matched_worker_id','is',null)
+    .in('status',['matched','open']).order('shift_date').order('start_time').limit(8);
+  return ((data??[]) as any[]).map(row=>({id:row.id,shiftDate:row.shift_date,startTime:row.start_time,endTime:row.end_time,name:(Array.isArray(row.workers)?row.workers[0]?.name:row.workers?.name)??'확정 근무자',job:roleLabel(row.required_role)}));
+}
+
 function roleLabel(role: string | null): string {
   switch (role) {
     case 'rn':  return 'RN (정규직 간호사)';

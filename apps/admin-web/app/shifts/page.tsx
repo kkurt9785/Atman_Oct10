@@ -4,6 +4,7 @@ import { Card } from '@/components/ui';
 import { won, formatDate } from '@/lib/format';
 import { CancelButton } from './CancelButton';
 import { ExpiredShiftBanner } from './ExpiredShiftBanner';
+import { OperationsFlow } from '@/components/OperationsFlow';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '무관' };
 
@@ -46,7 +47,7 @@ function ShiftCard({ s }: { s: ShiftRow }) {
       <p className="text-body text-ink line-clamp-2">{s.description}</p>
       <div className="mt-3 pt-3 border-t border-line flex items-center justify-between">
         <span className="text-label text-sub">{s.hourly_wage.toLocaleString('ko-KR')}원/시간</span>
-        <span className="text-body font-extrabold text-primary">{won(s.estimated_total_pay)}</span>
+        <div className="flex items-center gap-3"><Link href={`/shifts/new?copy=${s.id}`} className="text-[12px] font-bold text-sub">조건 복사</Link><span className="text-body font-extrabold text-primary">{won(s.estimated_total_pay)}</span></div>
       </div>
     </Card>
   );
@@ -70,6 +71,7 @@ export default async function ShiftsPage() {
       <div className="flex justify-end mb-4 px-1">
         <Link href="/operations" className="text-label font-bold text-primary">반복 일정·미충원 관리 →</Link>
       </div>
+      <OperationsFlow active="recruit"/>
 
       <ExpiredShiftBanner shifts={expiredShifts} />
 

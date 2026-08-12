@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createShiftAction } from '@/lib/actions/shifts';
 import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
@@ -21,7 +21,9 @@ const PHARMACY_TASKS: Record<'pharmacist'|'pharmacy_staff', string[]> = {
   pharmacy_staff: ['처방전 전산 입력 보조', '서류·거래명세표 정리', '재고 정리', '매대 관리', '고객·전화 안내'],
 };
 
-export default function NewShiftForm({ facilityType }: { facilityType: string }) {
+type RecentShift={required_role:Role;start_time:string;end_time:string;hourly_wage:number;description:string;department:string|null;notes:string|null};
+
+export default function NewShiftForm({ facilityType, recentShift, copiedShift=false }: { facilityType: string; recentShift?: RecentShift|null; copiedShift?:boolean }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,16 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
   const [notes, setNotes] = useState('');
   const [invitedWorker, setInvitedWorker] = useState<{ id: string; name: string } | null>(null);
   const [selectedTasks,setSelectedTasks]=useState<string[]>([]);
+  const loadingRecent=useRef(false);
+
+  function applyRecentShift(){
+    if(!recentShift)return;
+    loadingRecent.current=true;
+    if(roles.some(item=>item.value===recentShift.required_role))setRole(recentShift.required_role);
+    setStartTime(recentShift.start_time.slice(0,5));setEndTime(recentShift.end_time.slice(0,5));
+    setHourlyWage(recentShift.hourly_wage);setDescription(recentShift.description);
+    setDepartment(recentShift.department??'');setNotes(recentShift.notes??'');
+  }
 
   function toggleTask(task:string){
     setSelectedTasks(current=>{
@@ -50,6 +62,7 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
   }
 
   useEffect(()=>{
+    if(loadingRecent.current){loadingRecent.current=false;return;}
     if(role==='pharmacist'||role==='pharmacy_staff'){
       setSelectedTasks([]);
       setDescription('');
@@ -72,6 +85,8 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
     const name = params.get('workerName');
     if (id && name) setInvitedWorker({ id, name });
   }, []);
+
+  useEffect(()=>{if(copiedShift&&recentShift)applyRecentShift();},[copiedShift]); // 선택한 과거 공고는 진입 즉시 채운다
 
   const estimatedPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage) ?? 0;
   const isOvernight = startTime && endTime
@@ -131,6 +146,7 @@ export default function NewShiftForm({ facilityType }: { facilityType: string })
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {recentShift&&!invitedWorker&&<button type="button" onClick={applyRecentShift} className="flex min-h-14 items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 text-left active:bg-primary/10"><span><b className="block text-[13px] text-primary">{copiedShift?'이 공고 조건을 불러왔어요':'최근 공고 조건 불러오기'}</b><span className="mt-0.5 block text-[11px] text-sub">시간·시급·업무를 채우고 날짜만 새로 선택해요</span></span><span className="text-primary">{copiedShift?'✓':'›'}</span></button>}
         {invitedWorker && (
           <section className="bg-primary/10 border border-primary/20 rounded-2xl p-5">
             <p className="text-label font-bold text-primary">자체 인력풀 반복근무 요청</p>

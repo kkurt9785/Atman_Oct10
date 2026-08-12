@@ -13,6 +13,7 @@ import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 type ShiftWithFacility = Shift & {
   facilities: { name: string; address_text?: string | null; facility_type?: string | null } | null;
 };
+type NextAction={label:string;title:string;description:string;href:string;tone:'primary'|'success'};
 
 // ─── 필터 타입 ─────────────────────────────────────────────────
 type DateFilter = 'all' | 'today' | 'tomorrow' | 'week';
@@ -130,11 +131,8 @@ function ShiftCard({
     || shift.required_role === 'pharmacy_staff';
 
   return (
-    <div className="bg-white rounded-card shadow-card p-5 flex-shrink-0 w-[300px]">
-      <div className="flex items-start gap-3 mb-3">
-        <div className="w-9 h-9 rounded-xl bg-primary-light flex items-center justify-center flex-shrink-0">
-          <span className="text-[18px]">{isPharmacy?'💊':'🏥'}</span>
-        </div>
+    <div className="bg-white rounded-card shadow-card p-4 flex-shrink-0 w-[292px]">
+      <div className="flex items-start gap-2 mb-2">
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-bold text-ink leading-tight truncate">{facilityName(shift)}</p>
         </div>
@@ -145,19 +143,11 @@ function ShiftCard({
         )}
       </div>
 
-      <p className="text-[13px] text-sub mb-0.5">{shift.shift_date}</p>
+      <p className="text-[13px] font-bold text-primary mb-0.5">{shift.shift_date}</p>
       <p className="text-[19px] font-extrabold text-ink mb-1">
         {timeLabel(shift)}
       </p>
-      <p className="text-[12px] font-semibold text-primary mb-1">{mobilityLabel(shift)}</p>
-      {shift.department && (
-        <p className="text-[12px] text-tertiary mb-2">{shift.department}</p>
-      )}
-      {shift.is_overnight && (
-        <span className="inline-flex items-center px-2 py-0.5 bg-kakao rounded-full text-[11px] font-bold text-ink mb-2">
-          야간수당 +50%
-        </span>
-      )}
+      <div className="mb-2 flex flex-wrap gap-1.5"><span className="rounded-full bg-bg px-2 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>{shift.department&&<span className="rounded-full bg-bg px-2 py-1 text-[11px] font-bold text-sub">{shift.department}</span>}{shift.is_overnight&&<span className="rounded-full bg-kakao px-2 py-1 text-[11px] font-bold text-ink">야간 +50%</span>}</div>
 
       <div className="flex items-center justify-between pt-3 border-t border-line">
         <div>
@@ -179,7 +169,8 @@ function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () =>
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
 
   return (
-    <div className="bg-white rounded-card shadow-card p-4 mb-3 flex items-center gap-4">
+    <div className="bg-white rounded-card shadow-card p-4 mb-3">
+      <div className="flex items-center gap-4">
       <div className="flex-1 min-w-0">
         <p className="text-[12px] text-tertiary truncate">{facilityName(shift)}</p>
         <p className="text-[15px] font-bold text-ink mt-0.5">
@@ -191,13 +182,9 @@ function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () =>
       </div>
       <div className="text-right flex-shrink-0">
         <p className="text-[15px] font-extrabold text-primary">₩{pay}</p>
-        <button
-          onClick={onApply}
-          className="mt-1.5 h-8 px-4 bg-primary text-white text-[12px] font-bold rounded-btn active:opacity-80"
-        >
-          지원
-        </button>
       </div>
+      </div>
+      <button onClick={onApply} className="mt-3 h-10 w-full bg-primary text-white text-[13px] font-bold rounded-btn active:opacity-80">지원하기</button>
     </div>
   );
 }
@@ -235,6 +222,7 @@ export default function HomePage() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
+  const [nextAction,setNextAction]=useState<NextAction>({label:'근무 찾기',title:'내 조건에 맞는 근무를 찾아보세요',description:'지역과 직종에 맞는 시프트를 모아 보여드려요.',href:'/shifts',tone:'primary'});
 
   // 공고 탐색 기준 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -349,12 +337,24 @@ export default function HomePage() {
 
       // 이미 지원한 shift_id 목록
       if (workerRow?.id) {
-        const { data: appData } = await supabase
+        const [{ data: appData },{data:payments}] = await Promise.all([supabase
           .from('shift_applications')
-          .select('shift_id')
+          .select('shift_id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time)')
           .eq('worker_id', workerRow.id)
-          .in('status', ['applied', 'accepted']);
-        setApplied(new Set((appData ?? []).map((a: { shift_id: string }) => a.shift_id)));
+          .in('status', ['invited','applied', 'accepted','completed']),supabase.from('wage_payment_instructions').select('status').eq('worker_id',workerRow.id).order('created_at',{ascending:false}).limit(1)]);
+        const activity=(appData??[]) as any[];
+        setApplied(new Set(activity.filter(a=>['applied','accepted'].includes(a.status)).map(a=>a.shift_id)));
+        const today=dateKST();
+        const inProgress=activity.find(a=>a.status==='accepted'&&a.checked_in_at&&!a.checked_out_at);
+        const todayReady=activity.find(a=>a.status==='accepted'&&!a.checked_in_at&&(Array.isArray(a.shifts)?a.shifts[0]?.shift_date:a.shifts?.shift_date)===today);
+        const waiting=activity.find(a=>['invited','applied'].includes(a.status));
+        const future=activity.find(a=>a.status==='accepted'&&(Array.isArray(a.shifts)?a.shifts[0]?.shift_date:a.shifts?.shift_date)>today);
+        const payment=(payments??[])[0];
+        if(inProgress)setNextAction({label:'퇴근하기',title:'현재 근무 중이에요',description:'근무를 마치면 여기서 퇴근을 기록하세요.',href:'/workplace',tone:'success'});
+        else if(todayReady)setNextAction({label:'출근하기',title:'오늘 확정된 근무가 있어요',description:'사업장에 도착하면 위치 또는 QR로 출근하세요.',href:'/workplace',tone:'primary'});
+        else if(waiting)setNextAction({label:'지원 현황 보기',title:waiting.status==='invited'?'새 근무 요청이 도착했어요':'사업장에서 지원을 확인하고 있어요',description:'현재 진행 상태와 사업장 답변을 확인하세요.',href:'/applications',tone:'primary'});
+        else if(future)setNextAction({label:'예정 근무 보기',title:'확정된 다음 근무가 있어요',description:'날짜와 출근 시간을 미리 확인하세요.',href:'/applications',tone:'primary'});
+        else if(payment&&!['cancelled','worker_confirmed'].includes(payment.status))setNextAction({label:'지급 현황 확인',title:payment.status==='paid'?'사업장에서 지급을 완료했어요':'완료한 근무의 지급을 준비하고 있어요',description:payment.status==='paid'?'계좌 입금 여부를 확인해 주세요.':'예정 금액과 처리 상태를 확인하세요.',href:'/earnings',tone:'success'});
       }
 
       // 기본 기준: GPS 가능하면 현재 위치, 아니면 첫 번째 등록 지역
@@ -422,20 +422,6 @@ export default function HomePage() {
               }
             </h1>
           </div>
-          <div className="flex-shrink-0 ml-3 mt-1 flex gap-2">
-          <Link href="/workplace">
-            <div className="flex flex-col items-center bg-success/10 border border-success/20 px-3 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
-              <span className="text-[19px] leading-tight">🕘</span>
-              <span className="text-[11px] font-bold text-success mt-0.5">내 직장</span>
-            </div>
-          </Link>
-          <Link href="/earnings">
-            <div className="flex flex-col items-center bg-primary/8 border border-primary/20 px-3.5 py-2.5 rounded-2xl active:opacity-70 transition-opacity">
-              <span className="text-[19px] leading-tight">💰</span>
-              <span className="text-[11px] font-bold text-primary mt-0.5">급여 확인</span>
-            </div>
-          </Link>
-          </div>
         </div>
         {locNotice && (
           <p role="alert" className="mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{locNotice}</p>
@@ -466,6 +452,10 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      <section className={`mx-5 mb-4 rounded-2xl p-4 ${nextAction.tone==='success'?'bg-success text-white':'bg-primary text-white'} shadow-btn`}>
+        <p className="text-[11px] font-bold text-white/75">지금 할 일</p><h2 className="mt-1 text-[17px] font-extrabold">{nextAction.title}</h2><p className="mt-1 text-[12px] text-white/80">{nextAction.description}</p><Link href={nextAction.href} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-white text-[14px] font-extrabold text-primary">{nextAction.label}</Link>
+      </section>
 
       <div className="mx-5 mb-4 rounded-2xl border border-line bg-white px-4 py-3 shadow-sm">
         <p className="text-[11px] font-bold text-sub">잇닿 이용 순서</p>

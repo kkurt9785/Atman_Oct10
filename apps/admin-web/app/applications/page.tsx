@@ -2,6 +2,7 @@ import { getPendingApplications } from '@/lib/db/applications';
 import { ApplicantCard } from './ApplicantCard';
 
 import { formatDate, formatTime } from '@/lib/format';
+import { OperationsFlow } from '@/components/OperationsFlow';
 
 const ROLE_LABEL: Record<string, string> = { rn: 'RN 간호사', na: 'NA 간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '무관' };
 
@@ -17,6 +18,7 @@ export default async function ApplicationsPage() {
           {total > 0 ? `대기 중 ${total}건` : '대기 중인 지원이 없습니다'}
         </p>
       </div>
+      <OperationsFlow active="applications"/>
 
       {total > 0 && (
         <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">

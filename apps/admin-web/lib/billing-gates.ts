@@ -87,10 +87,12 @@ export async function consumePlanUsage(
     p_idempotency_key: idempotencyKey,
   });
   if (error) throw new Error('요금제 사용량을 확인하지 못했어요. 잠시 후 다시 시도해 주세요.');
-  const result = data as { allowed?: boolean; duplicate?: boolean; used?: number; limit?: number; plan_name?: string } | null;
+  const result = data as { allowed?: boolean; duplicate?: boolean; used?: number; limit?: number; plan_name?: string; addon_price?: number } | null;
   if (result?.allowed) return result.duplicate !== true;
   const label = usageType === 'job_posting_slot' ? '월 공고' : '인력풀 반복초대 대상';
-  throw new Error(`${result?.plan_name ?? '현재'} 요금제의 ${label} 한도(${result?.limit ?? 0})에 도달했어요.`);
+  const addon = usageType === 'job_posting_slot' && Number(result?.addon_price ?? 0) > 0
+    ? ' 요금제·청구에서 추가 공고 1건(9,900원, VAT 포함)을 구매할 수 있어요.' : '';
+  throw new Error(`${result?.plan_name ?? '현재'} 요금제의 ${label} 한도(${result?.limit ?? 0})에 도달했어요.${addon}`);
 }
 
 export async function releasePlanUsage(sb: SupabaseClient, idempotencyKey: string): Promise<void> {

@@ -6,6 +6,7 @@ import { Card } from '@/components/ui';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import type { ClinicStaff } from '@/lib/db/clinic-workforce';
 import type { StaffRow } from '@/lib/db/staff';
+import type { UpcomingShiftRow } from '@/lib/db/staff';
 import { AttendanceRealtime } from './AttendanceRealtime';
 
 type Filter='all'|'working'|'issue'|'completed';
@@ -39,7 +40,7 @@ function group(status:string):Filter{
   return 'all';
 }
 
-export function AttendanceDashboard({staff,matched,failures,facilityId}:{staff:ClinicStaff[];matched:StaffRow[];failures:Failure[];facilityId:string|null}){
+export function AttendanceDashboard({staff,matched,upcoming,failures,facilityId,summaryHref}:{staff:ClinicStaff[];matched:StaffRow[];upcoming:UpcomingShiftRow[];failures:Failure[];facilityId:string|null;summaryHref:string}){
   const [filter,setFilter]=useState<Filter>('all');
   const people=useMemo<Person[]>(()=>[
     ...staff.map((s):Person=>({kind:'staff',key:`staff-${s.id}`,name:s.name,subtitle:`${s.department??s.role??'부서 미지정'} · ${s.defaultStart.slice(0,5)}~${s.defaultEnd.slice(0,5)}`,employment:ENGAGEMENT[s.engagementType]??'직원',status:s.attendanceStatus,checkInAt:s.checkInAt,checkOutAt:s.checkOutAt,method:s.checkOutMethod??s.checkInMethod,distance:s.checkOutDistanceM??s.checkInDistanceM,staff:s})),
@@ -51,6 +52,8 @@ export function AttendanceDashboard({staff,matched,failures,facilityId}:{staff:C
     issue:people.filter(p=>group(p.status)==='issue').length+failures.length,
   };
   const visible=filter==='all'?people:people.filter(p=>group(p.status)===filter);
+  const issuePeople=people.filter(person=>group(person.status)==='issue');
+  const normalVisible=visible.filter(person=>group(person.status)!=='issue');
 
   return <>
     <AttendanceRealtime facilityId={facilityId}/>
@@ -61,19 +64,23 @@ export function AttendanceDashboard({staff,matched,failures,facilityId}:{staff:C
         </button>)}
     </div>
 
-    {counts.issue>0&&<section className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-      <div className="flex items-start justify-between gap-3"><div><p className="text-[13px] font-extrabold text-amber-900">먼저 확인할 기록이 {counts.issue}건 있어요</p><p className="mt-1 text-[12px] text-amber-800">조기 퇴근 승인과 인증 실패를 처리하면 급여 검토가 정확해져요.</p></div><button onClick={()=>setFilter('issue')} className="shrink-0 text-[12px] font-extrabold text-primary">모아보기</button></div>
-    </section>}
+    <section id="approvals" className="mt-5 scroll-mt-4">
+      <div className="px-1"><p className="text-[12px] font-bold text-warn">1 · 예외 및 승인 업무</p><h2 className="mt-0.5 text-title font-extrabold">먼저 확인할 기록 {counts.issue}건</h2></div>
+      {counts.issue===0?<Card className="mt-3 py-5 text-center text-[13px] font-bold text-success">승인하거나 수정할 기록이 없어요.</Card>:<div className="mt-3 space-y-3">{issuePeople.map(person=>{
+        const staffRow=person.kind==='staff'?person.staff:null;const state=STATUS[person.status]??STATUS.scheduled;
+        return <Card key={`issue-${person.key}`} className="border border-amber-200 p-4"><div className="flex justify-between"><div><b>{person.name}</b><p className="mt-1 text-[12px] text-sub">{person.subtitle}</p></div><span className={`h-fit rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>{staffRow?.attendanceStatus==='checkout_pending'&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}}><button className="h-10 w-full rounded-lg border border-line bg-white text-[12px] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}}><button className="h-10 w-full rounded-lg bg-primary text-[12px] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}</Card>;
+      })}{failures.length>0&&<details className="rounded-2xl border border-red-100 bg-white p-4"><summary className="cursor-pointer list-none font-extrabold">인증 실패 {failures.length}건 <span className="float-right text-[12px] text-sub">확인 ›</span></summary><div className="mt-3 divide-y divide-line">{failures.map(row=><div key={row.id} className="py-3"><b className="text-[12px]">{row.worker_name??'근로자'} · {FAIL[row.failure_reason??'']??row.failure_reason}</b><p className="mt-1 text-[11px] text-sub">{AUTH[row.authentication_method??'']??row.authentication_method} · {fmt(row.created_at)}</p></div>)}</div></details>}</div>}
+    </section>
 
     <div className="mt-6 flex items-end justify-between gap-3 px-1">
-      <div><p className="text-[12px] font-bold text-primary">통합 인력</p><h2 className="text-title font-extrabold">오늘 근무자</h2></div>
+      <div><p className="text-[12px] font-bold text-primary">2 · 오늘 진행 중인 근무</p><h2 className="text-title font-extrabold">오늘 근무자</h2></div>
       <div className="flex gap-1 rounded-xl bg-white p-1 shadow-sm">
         {([['all','전체'],['working','근무 중'],['issue','확인'],['completed','퇴근']] as const).map(([key,label])=><button key={key} onClick={()=>setFilter(key)} className={`h-10 rounded-lg px-2.5 text-[11px] font-bold ${filter===key?'bg-ink text-white':'text-sub'}`}>{label}</button>)}
       </div>
     </div>
 
-    {visible.length===0?<Card className="mt-3 py-9 text-center"><p className="font-bold">{people.length?'해당 상태의 근무자가 없어요':'오늘 관리할 근무자가 없어요'}</p>{people.length===0&&<Link href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</Link>}</Card>:
-      <div className="mt-3 space-y-3">{visible.map(person=>{
+    {normalVisible.length===0?<Card className="mt-3 py-9 text-center"><p className="font-bold">{people.length?'해당 상태의 근무자가 없어요':'오늘 관리할 근무자가 없어요'}</p>{people.length===0&&<Link href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</Link>}</Card>:
+      <div className="mt-3 space-y-3">{normalVisible.map(person=>{
         const state=STATUS[person.status]??STATUS.scheduled;
         const staffRow=person.kind==='staff'?person.staff:null;
         const shiftRow=person.kind==='shift'?person.shift:null;
@@ -96,9 +103,7 @@ export function AttendanceDashboard({staff,matched,failures,facilityId}:{staff:C
         </Card>;
       })}</div>}
 
-    {failures.length>0&&<details className="mt-5 rounded-2xl border border-line bg-white p-4">
-      <summary className="cursor-pointer list-none font-extrabold">인증 실패 기록 <span className="text-red-600">{failures.length}건</span><span className="float-right text-[12px] text-sub">자세히</span></summary>
-      <div className="mt-3 divide-y divide-line">{failures.map(row=><div key={row.id} className="py-3"><div className="flex justify-between gap-2"><b className="text-[13px]">{row.worker_name??(row.target_type==='staff'?'직원':'단기인력')} · {row.action==='check_in'?'출근':'퇴근'}</b><span className="text-[11px] font-bold text-red-600">{FAIL[row.failure_reason??'']??row.failure_reason}</span></div><p className="mt-1 text-[11px] text-sub">{AUTH[row.authentication_method??'']??row.authentication_method}{row.distance_meters!=null?` · 거리 ${row.distance_meters}m`:''}{row.gps_accuracy_meters!=null?` · 오차 ±${row.gps_accuracy_meters}m`:''} · {fmt(row.created_at)}</p></div>)}</div>
-    </details>}
+    <section className="mt-7"><div className="px-1"><p className="text-[12px] font-bold text-primary">3 · 앞으로 예정된 근무</p><h2 className="mt-0.5 text-title font-extrabold">7일 내 확정 일정</h2></div>{upcoming.length===0?<Card className="mt-3 py-6 text-center text-[13px] font-bold text-sub">예정된 확정 근무가 없어요.</Card>:<Card className="mt-3 divide-y divide-line p-0">{upcoming.map(row=><div key={row.id} className="flex items-center justify-between px-4 py-3"><div><b className="text-[13px]">{row.name}</b><p className="mt-0.5 text-[11px] text-sub">{row.job}</p></div><p className="text-right text-[12px] font-bold text-primary">{row.shiftDate.slice(5).replace('-','/')}<span className="block text-[11px] text-sub">{row.startTime.slice(0,5)}~{row.endTime.slice(0,5)}</span></p></div>)}</Card>}</section>
+    <section className="mt-7"><div className="px-1"><p className="text-[12px] font-bold text-primary">4 · 월 통계와 전체 내역</p><h2 className="mt-0.5 text-title font-extrabold">근태 기록 살펴보기</h2></div><div className="mt-3 grid grid-cols-2 gap-2"><Link href={summaryHref} className="rounded-2xl bg-primary p-4 text-white"><b className="text-[14px]">월 근태 요약</b><p className="mt-1 text-[11px] text-white/75">누적시간·지각·조퇴</p></Link><Link href="/attendance-history" className="rounded-2xl bg-white p-4 shadow-card"><b className="text-[14px]">전체 근태 내역</b><p className="mt-1 text-[11px] text-sub">직원별 기록과 수정</p></Link></div></section>
   </>;
 }

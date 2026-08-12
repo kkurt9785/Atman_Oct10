@@ -111,52 +111,37 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
     || shift.required_role === 'pharmacy_staff';
 
   return (
-    <div className="bg-white rounded-card shadow-card p-5 mb-3">
-      {/* 날짜 + 자격 */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[13px] font-semibold text-sub">{dateLabel(shift.shift_date)}</span>
+    <div className="bg-white rounded-card shadow-card p-4 mb-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[13px] font-bold text-primary">{dateLabel(shift.shift_date)}</span>
         <span className="text-[12px] font-bold text-primary bg-primary-light px-2.5 py-1 rounded-full">
           {SHIFT_ROLE_LABEL[shift.required_role]}
         </span>
       </div>
 
-      <div className="flex items-center justify-between mb-1">
-        <p className="text-[15px] font-extrabold text-ink truncate">{isPharmacy?'💊':'🏥'} {facilityName(shift)}</p>
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-[16px] font-extrabold text-ink truncate">{facilityName(shift)}</p>
         <button
           onClick={(e) => { e.stopPropagation(); onFacility(); }}
           className="shrink-0 ml-2 text-[12px] font-semibold text-primary"
         >
-          사업장 보기 &gt;
+          정보 ›
         </button>
       </div>
 
-      {/* 시간 */}
-      <p className="text-[22px] font-extrabold text-ink leading-tight mb-1">
-        {timeLabel(shift)}
-      </p>
-
-      {/* 지역 / 부서 */}
-      {(area || shift.department) && (
-        <p className="text-[13px] text-tertiary mb-0.5">
-          {[area, shift.department].filter(Boolean).join(' · ')}
-        </p>
-      )}
-      <p className="text-[13px] font-semibold text-sub mb-2">{mobilityLabel(shift)}</p>
-      <p className="text-[14px] text-sub line-clamp-2 mb-4">{shift.description}</p>
-
-      {/* 야간 배지 */}
-      {shift.is_overnight && (
-        <span className="inline-flex items-center px-2.5 py-1 bg-kakao rounded-full text-[12px] font-bold text-ink mr-2 mb-3">
-          🌙 야간수당 +50%
-        </span>
-      )}
+      <p className="text-[20px] font-extrabold text-ink leading-tight">{timeLabel(shift)}</p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {area&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">📍 {area}</span>}
+        <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>
+        {shift.department&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{shift.department}</span>}
+        {shift.is_overnight&&<span className="rounded-full bg-kakao px-2.5 py-1 text-[11px] font-bold text-ink">야간 +50%</span>}
+      </div>
 
       {/* 시급 / 예상 지급액 + 지원 버튼 */}
-      <div className="flex items-center justify-between pt-4 border-t border-line">
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-line">
         <div>
-          <p className="text-[12px] text-tertiary">예상 지급액</p>
+          <p className="text-[11px] text-tertiary">예상 지급액 · 시급 {shift.hourly_wage.toLocaleString('ko-KR')}원</p>
           <p className="text-[20px] font-extrabold text-ink">₩{pay}</p>
-          <p className="text-[12px] text-tertiary">시급 {shift.hourly_wage.toLocaleString('ko-KR')}원</p>
         </div>
         <button
           onClick={onApply}
@@ -166,12 +151,6 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
         </button>
       </div>
 
-      {/* 기타 안내 */}
-      {shift.notes && (
-        <p className="mt-3 text-[12px] text-tertiary border-t border-line pt-3">
-          💡 {shift.notes}
-        </p>
-      )}
     </div>
   );
 }
