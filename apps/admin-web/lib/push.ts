@@ -9,7 +9,13 @@ function init(): boolean {
   const pub = process.env.VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   if (!subject || !pub || !priv) return false;
-  webpush.setVapidDetails(subject, pub, priv);
+  try {
+    // 값이 잘못돼도(subject 형식·키 길이) 디스패처 전체가 죽지 않게 — 행 단위 실패로 격리
+    webpush.setVapidDetails(subject, pub, priv);
+  } catch (error) {
+    console.error('[push] VAPID 설정 실패 — 환경변수 값 확인 필요', error);
+    return false;
+  }
   initialized = true;
   return true;
 }
