@@ -169,6 +169,7 @@ export default function ShiftsPage() {
 
   useEffect(() => {
     async function load() {
+      const highlightedShiftId = new URLSearchParams(window.location.search).get('highlight');
       const { data: { user } } = await supabase.auth.getUser();
       let appliedShiftIds = new Set<string>();
 
@@ -183,7 +184,16 @@ export default function ShiftsPage() {
           .order('shift_date', { ascending: true })
           .order('start_time', { ascending: true });
         if (error) console.error('[shifts] public browse failed', error);
-        setShifts((publicRows as unknown as Shift[]) ?? []);
+        const rows = (publicRows as unknown as Shift[]) ?? [];
+        setShifts(rows);
+        if (highlightedShiftId) {
+          const highlighted = rows.find((shift) => shift.id === highlightedShiftId);
+          if (highlighted) {
+            setDateFilter('all');
+            setTimeFilter('all');
+            setSelected(highlighted);
+          }
+        }
         setLoading(false);
         return;
       }
@@ -212,7 +222,30 @@ export default function ShiftsPage() {
         facilities: { name: row.facility_name as string, address_text: row.address_text as string | null },
         distance_km: typeof row.distance_m === 'number' ? row.distance_m / 1000 : null,
       })) as unknown as Shift[];
-      setShifts(mapped.filter((shift) => !appliedShiftIds.has(shift.id)));
+      let visibleShifts = mapped.filter((shift) => !appliedShiftIds.has(shift.id));
+
+      if (highlightedShiftId && !appliedShiftIds.has(highlightedShiftId)) {
+        let highlighted = visibleShifts.find((shift) => shift.id === highlightedShiftId);
+        if (!highlighted) {
+          const { data: directShift } = await supabase
+            .from('shifts')
+            .select('id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text, facility_type )')
+            .eq('id', highlightedShiftId)
+            .eq('status', 'open')
+            .eq('audience', 'public')
+            .gte('shift_date', dateKST())
+            .maybeSingle();
+          highlighted = directShift as unknown as Shift | undefined;
+          if (highlighted) visibleShifts = [highlighted, ...visibleShifts];
+        }
+        if (highlighted) {
+          setDateFilter('all');
+          setTimeFilter('all');
+          setSelected(highlighted);
+        }
+      }
+
+      setShifts(visibleShifts);
       setLoading(false);
     }
     void load();

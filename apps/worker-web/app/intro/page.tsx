@@ -13,6 +13,7 @@ export const metadata: Metadata = {
     url: 'https://itdot.co.kr/intro',
     type: 'website',
   },
+  robots: { index: true, follow: true },
 };
 
 const POINTS = [
@@ -60,7 +61,7 @@ export default function IntroPage() {
             임금은 사업장 직접 지급
           </span>
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            3개월 무료 파일럿
+            선정 사업장 3개월 무료 파일럿
           </span>
         </div>
       </header>
@@ -83,7 +84,7 @@ export default function IntroPage() {
       <section className="px-6 pb-10">
         <h2 className="text-[20px] font-extrabold text-ink">요금</h2>
         <div className="mt-4 rounded-card border border-line p-5">
-          <p className="text-[13px] text-sub">약국 · 소형 의원</p>
+          <p className="text-[13px] text-sub">약국 월 59,000원 · 소형 의원 월 69,000원</p>
           <p className="mt-1 text-[24px] font-extrabold text-ink">
             월 59,000원<span className="text-[14px] font-bold text-sub">부터</span>
           </p>
@@ -91,7 +92,7 @@ export default function IntroPage() {
             <li>· 채용 성사 수수료·중개 수수료 <b className="text-ink">0원</b></li>
             <li>· 임금은 사업장이 워커에게 직접 지급 (잇닿은 임금을 보관하지 않습니다)</li>
             <li>· 6개월 5%, 1년 10% 선결제 할인</li>
-            <li>· 지금은 <b className="text-ink">3개월 무료 + 초기 세팅 대행</b> 파일럿을 진행합니다</li>
+            <li>· 선정된 파일럿 사업장은 <b className="text-ink">3개월 무료 + 초기 세팅 대행</b>을 제공합니다</li>
           </ul>
         </div>
       </section>
@@ -144,7 +145,7 @@ export default function IntroPage() {
           <br />
           경기도 수원시 권선구 경수대로 224
           <br />
-          잇닿은 구인·구직 정보를 제공하는 직업정보제공사업자로, 특정 구인자와 구직자를
+          잇닿은 직업정보제공사업 형태로 구인·구직 정보를 제공하며, 특정 구인자와 구직자를
           직접 연결·추천하지 않으며 채용 성사에 연동된 수수료를 받지 않습니다.
         </p>
       </footer>

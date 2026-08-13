@@ -15,6 +15,7 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: '잇닿',
   },
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { supabase } from '@/lib/supabase-browser';
+import { DemoShareCard } from './DemoShareCard';
 
 // 시연용 데모 계정 — 비프로덕션 빌드에서만 노출 (NEXT_PUBLIC_은 빌드타임 고정)
 const DEMO_PASSWORD = 'Atman-demo-2026!';
@@ -109,6 +110,7 @@ function LoginInner() {
             {demoError && (
               <p role="alert" className="text-[12px] font-bold text-red-500 text-center mt-2">{demoError}</p>
             )}
+            <DemoShareCard />
           </div>
         )}
 

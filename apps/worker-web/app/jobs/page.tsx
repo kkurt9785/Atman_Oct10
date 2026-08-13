@@ -18,6 +18,7 @@ export const metadata: Metadata = {
     url: 'https://itdot.co.kr/jobs',
     type: 'website',
   },
+  robots: { index: true, follow: true },
 };
 
 export default async function PublicJobsPage() {

@@ -5,6 +5,7 @@ export type PublicShift = {
   shift_date: string;
   start_time: string;
   end_time: string;
+  created_at: string;
   hourly_wage: number;
   required_role: string;
   department: string | null;
@@ -16,7 +17,6 @@ export type PublicShift = {
 
 export type PublicShiftDetail = PublicShift & {
   estimated_total_pay: number | null;
-  notes: string | null;
 };
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -55,7 +55,7 @@ export const facilityLabel = (type: string) =>
   type === 'pharmacy' ? '약국' : type === 'care_hospital' ? '요양병원' : '병원·의원';
 
 export function formatDate(date: string) {
-  const d = new Date(`${date}T00:00:00+09:00`);
+  const d = new Date(`${date}T00:00:00Z`);
   const week = ['일', '월', '화', '수', '목', '금', '토'][d.getUTCDay()];
   return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일(${week})`;
 }

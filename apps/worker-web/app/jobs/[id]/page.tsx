@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import {
   getPublicShift, roleLabel, facilityLabel, formatDate, hhmm, shiftHours,
 } from '@/lib/public-jobs';
+import { PublicJobApplyLink } from './PublicJobApplyLink';
 
 export const revalidate = 300;
 
@@ -21,6 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     alternates: { canonical: `https://itdot.co.kr/jobs/${id}` },
     openGraph: { title, description, url: `https://itdot.co.kr/jobs/${id}`, type: 'article' },
+    robots: { index: true, follow: true },
   };
 }
 
@@ -31,6 +33,7 @@ export default async function PublicJobDetail({ params }: Props) {
 
   const hours = shiftHours(shift.start_time, shift.end_time);
   const pay = shift.estimated_total_pay ?? Math.round(shift.hourly_wage * hours);
+  const datePosted = new Date(Date.parse(shift.created_at) + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   // 구글 구인정보 리치결과용 구조화 데이터
   const jsonLd = {
@@ -40,7 +43,7 @@ export default async function PublicJobDetail({ params }: Props) {
     description:
       shift.description ??
       `${shift.facility_name} ${formatDate(shift.shift_date)} ${hhmm(shift.start_time)}~${hhmm(shift.end_time)} 근무`,
-    datePosted: new Date().toISOString().slice(0, 10),
+    datePosted,
     validThrough: `${shift.shift_date}T23:59:59+09:00`,
     employmentType: 'PART_TIME',
     hiringOrganization: {
@@ -107,11 +110,11 @@ export default async function PublicJobDetail({ params }: Props) {
         </div>
       </dl>
 
-      {(shift.description || shift.notes) && (
+      {shift.description && (
         <section className="mt-6">
           <h2 className="text-[15px] font-bold text-ink">근무 내용</h2>
           <p className="mt-2 whitespace-pre-line text-[14px] leading-6 text-sub">
-            {shift.description ?? shift.notes}
+            {shift.description}
           </p>
         </section>
       )}
@@ -122,12 +125,7 @@ export default async function PublicJobDetail({ params }: Props) {
       </p>
 
       <div className="fixed inset-x-0 bottom-0 mx-auto max-w-app border-t border-line bg-white px-5 py-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
-        <Link
-          href={`/onboarding?next=${encodeURIComponent(`/shifts?highlight=${shift.id}`)}`}
-          className="flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white"
-        >
-          앱에서 지원하기
-        </Link>
+        <PublicJobApplyLink shiftId={shift.id}/>
       </div>
     </main>
   );
