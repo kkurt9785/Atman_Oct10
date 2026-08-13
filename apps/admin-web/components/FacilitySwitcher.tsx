@@ -58,14 +58,14 @@ export function FacilitySwitcher() {
 
   if (!current) return null;
   if (facilities.length === 1) return (
-    <div className="flex max-w-[175px] items-center gap-2 rounded-xl border border-line bg-white px-2.5 py-1.5">
+    <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white px-2.5 py-1.5">
       <span aria-hidden className="text-[16px]">{isPharmacy?'💊':'🏥'}</span>
       <div className="min-w-0"><p className="truncate text-[11px] font-extrabold text-ink">{current.name}</p><p className="text-[9px] font-bold text-sub">{typeLabel}</p></div>
     </div>
   );
 
   return (
-    <label className="relative flex max-w-[185px] items-center gap-1.5 rounded-xl border border-line bg-white px-2 py-1">
+    <label className="relative flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-line bg-white px-2 py-1">
       <span aria-hidden>{isPharmacy?'💊':'🏥'}</span>
       <select
         value={selected}

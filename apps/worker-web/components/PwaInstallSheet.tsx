@@ -25,11 +25,7 @@ const STEPS = [
         <path d="M5 13l4 4L19 7" stroke="#3182F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
-    text: '오른쪽 상단 "추가" 탭',
-  },
-  {
-    icon: <span className="text-2xl">🏠</span>,
-    text: '홈 화면 잇닿 아이콘으로 앱 열기',
+    text: '오른쪽 상단 "추가"를 누르면 설치 완료',
   },
 ];
 
@@ -43,9 +39,9 @@ export function PwaInstallSheet({ onClose }: { onClose: () => void }) {
         {/* 핸들 */}
         <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
 
-        <h3 className="text-[20px] font-extrabold text-ink mb-1">알림 받는 방법</h3>
+        <h3 className="text-[20px] font-extrabold text-ink mb-1">iPhone에 잇닿 설치하기</h3>
         <p className="text-[14px] text-sub mb-6">
-          iPhone에서 알림을 받으려면 앱을 홈 화면에 추가해야 해요
+          3단계만 마치면 홈 화면에서 앱처럼 열고 알림을 받을 수 있어요
         </p>
 
         <div className="flex flex-col gap-4 mb-7">

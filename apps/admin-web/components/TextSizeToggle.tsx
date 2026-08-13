@@ -15,10 +15,10 @@ export function TextSizeToggle() {
 
   return (
     <button onClick={toggle} aria-pressed={big} aria-label="큰글씨 모드"
-      className={`flex items-center gap-1.5 px-3 py-2 rounded-full font-bold transition
-        ${big ? 'bg-primary text-white' : 'bg-bg text-sub'}`}>
-      <span className="text-title leading-none">가</span>
-      <span className="text-label">{big ? '큰글씨 켬' : '큰글씨'}</span>
+      title={big ? '기본 글씨로 보기' : '큰 글씨로 보기'}
+      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold transition
+        ${big ? 'bg-primary text-white' : 'bg-white text-sub'}`}>
+      <span className="text-[14px] leading-none">{big ? '가−' : '가+'}</span>
     </button>
   );
 }
