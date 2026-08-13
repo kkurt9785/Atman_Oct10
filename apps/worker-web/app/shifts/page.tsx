@@ -145,7 +145,7 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
         </div>
         <button
           onClick={onApply}
-          className="h-12 px-6 bg-primary text-white text-[15px] font-bold rounded-btn shadow-btn active:opacity-80"
+          className="h-12 whitespace-nowrap px-5 bg-primary text-white text-[15px] font-bold rounded-btn shadow-btn active:opacity-80"
         >
           지원하기
         </button>
