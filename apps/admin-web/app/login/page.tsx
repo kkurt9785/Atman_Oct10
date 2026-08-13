@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
 
 // 시연용 데모 계정 — 비프로덕션 빌드에서만 노출 (NEXT_PUBLIC_은 빌드타임 고정)
-const DEMO_PASSWORD = 'Atman-demo-2026!';
 const DEMO_ACCOUNTS = [
   { email: 'sales-demo-1@demo.atman.co.kr', label: '병원 · W여성병원' },
   { email: 'sales-demo-2@demo.atman.co.kr', label: '약국 · 수원 온누리약국' },
@@ -38,11 +37,20 @@ function LoginInner() {
     setDemoLoadingEmail(email);
     setDemoError('');
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password: DEMO_PASSWORD,
+      const loginRes = await fetch('/api/demo-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       });
-      if (signInError || !data.session) throw new Error('데모 계정 로그인 실패 — 시드 적용 여부 확인');
+      const loginData = await loginRes.json().catch(() => ({}));
+      if (!loginRes.ok || !loginData.accessToken || !loginData.refreshToken) {
+        throw new Error(loginData.error ?? '데모 계정 로그인 실패');
+      }
+      const { data, error: sessionError } = await supabase.auth.setSession({
+        access_token: loginData.accessToken,
+        refresh_token: loginData.refreshToken,
+      });
+      if (sessionError || !data.session) throw new Error('데모 세션을 만들지 못했어요.');
 
       const sessionRes = await fetch('/api/admin-session', {
         method: 'POST',

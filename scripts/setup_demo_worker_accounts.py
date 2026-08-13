@@ -8,6 +8,7 @@ worker-web Splash의 데모 로그인 버튼(worker-demo-1~6)이 기대하는 �
 실행: python3 scripts/setup_demo_worker_accounts.py
 """
 import json
+import os
 import sys
 import urllib.request
 import urllib.error
@@ -29,7 +30,9 @@ for line in open(ADMIN_ENV):
 BASE = (env.get("SUPABASE_URL") or env["NEXT_PUBLIC_SUPABASE_URL"]).rstrip("/")
 SERVICE = env["SUPABASE_SERVICE_ROLE_KEY"]
 ANON = env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
-PASSWORD = "Atman-demo-2026!"
+PASSWORD = os.environ.get("DEMO_ACCOUNT_PASSWORD") or env.get("DEMO_ACCOUNT_PASSWORD")
+if not PASSWORD:
+    raise RuntimeError("DEMO_ACCOUNT_PASSWORD is required")
 
 # Splash.tsx의 DEMO_WORKERS와 일치해야 함. 이미 연결된 계정은 역할을 보존한다.
 ACCOUNTS = [

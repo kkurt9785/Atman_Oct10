@@ -45,7 +45,9 @@ ADMINS = [
     ("sales-demo-2@demo.atman.co.kr", "시연 슈퍼계정 2", "sales"),
     ("sales-demo-3@demo.atman.co.kr", "시연 슈퍼계정 3", "operator"),
 ]
-PASSWORD = "Atman-demo-2026!"
+PASSWORD = os.environ.get("DEMO_ACCOUNT_PASSWORD") or env.get("DEMO_ACCOUNT_PASSWORD")
+if not PASSWORD:
+    raise RuntimeError("DEMO_ACCOUNT_PASSWORD is required")
 admin_ids = {}
 
 for email, name, _ in ADMINS:
@@ -196,4 +198,4 @@ for label, path in [
 ]:
     _, rows2 = req("GET", path)
     print(f"   {label}: {len(rows2)}건")
-print("완료 — sales-demo-1/2/3@demo.atman.co.kr / Atman-demo-2026!")
+print("완료 — sales-demo-1/2/3@demo.atman.co.kr (server-managed password)")

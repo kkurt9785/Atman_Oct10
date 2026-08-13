@@ -2,6 +2,7 @@
 import datetime as dt
 import hashlib
 import json
+import os
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,7 +25,9 @@ env.update({k: v for k, v in env_file("apps/admin-web/.env.local").items() if k 
 base = (env.get("SUPABASE_URL") or env["NEXT_PUBLIC_SUPABASE_URL"]).rstrip("/")
 anon = env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
 service = env["SUPABASE_SERVICE_ROLE_KEY"]
-password = "Atman-demo-2026!"
+password = os.environ.get("DEMO_ACCOUNT_PASSWORD") or env.get("DEMO_ACCOUNT_PASSWORD")
+if not password:
+    raise RuntimeError("DEMO_ACCOUNT_PASSWORD is required")
 
 
 def req(method, path, body=None, token=None, prefer=None):

@@ -33,7 +33,11 @@ const SUPER_ACCOUNTS: Array<[email: string, name: string, accessRole: string]> =
   ['sales-demo-2@demo.atman.co.kr', '약국 시연 관리자', 'super'],
   ['sales-demo-3@demo.atman.co.kr', '요양병원 시연 관리자', 'super'],
 ];
-const PASSWORD = 'Atman-demo-2026!';
+function demoPassword() {
+  const password = process.env.DEMO_ACCOUNT_PASSWORD;
+  if (!password || password.length < 24) throw new Error('DEMO_ACCOUNT_PASSWORD not configured');
+  return password;
+}
 
 function base(): string {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
@@ -95,7 +99,7 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   for (const [email, name] of SUPER_ACCOUNTS) {
     const created = await req<{ id?: string }>('POST', '/auth/v1/admin/users', {
       email,
-      password: PASSWORD,
+      password: demoPassword(),
       email_confirm: true,
       user_metadata: { profile_nickname: name },
     });
@@ -114,7 +118,7 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     }
     adminIds[email] = user.id;
     await req('PUT', `/auth/v1/admin/users/${user.id}`, {
-      password: PASSWORD,
+      password: demoPassword(),
       email_confirm: true,
     });
   }

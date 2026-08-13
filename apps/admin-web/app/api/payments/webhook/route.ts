@@ -15,8 +15,7 @@ function authorized(request: NextRequest): boolean {
   if (!expected || expected.length < 24) return false;
   const bearer = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? '';
   const header = request.headers.get('x-atman-webhook-token') ?? '';
-  const query = request.nextUrl.searchParams.get('token') ?? '';
-  return [bearer, header, query].some((candidate) => candidate && safeEqual(candidate, expected));
+  return [bearer, header].some((candidate) => candidate && safeEqual(candidate, expected));
 }
 
 export async function POST(request: NextRequest) {

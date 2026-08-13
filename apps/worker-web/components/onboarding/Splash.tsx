@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 
-const DEMO_PASSWORD = 'Atman-demo-2026!';
 const DEMO_WORKERS = [
   { email: 'worker-demo-1@demo.atman.co.kr', label: 'Demo 1 · W여성병원 간호사' },
   { email: 'worker-demo-2@demo.atman.co.kr', label: 'Demo 2 · 온누리약국 전산·사무직' },
@@ -44,13 +43,23 @@ export function Splash() {
     setDemoLoadingEmail(email);
     setDemoError('');
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: DEMO_PASSWORD,
+    const response = await fetch('/api/demo-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
     });
-
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.accessToken || !payload.refreshToken) {
+      setDemoError(payload.error ?? '데모 워커 로그인에 실패했습니다.');
+      setDemoLoadingEmail(null);
+      return;
+    }
+    const { error } = await supabase.auth.setSession({
+      access_token: payload.accessToken,
+      refresh_token: payload.refreshToken,
+    });
     if (error) {
-      setDemoError('데모 워커 로그인에 실패했습니다.');
+      setDemoError('데모 세션을 만들지 못했습니다.');
       setDemoLoadingEmail(null);
       return;
     }
