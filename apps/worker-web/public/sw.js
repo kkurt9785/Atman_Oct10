@@ -15,11 +15,14 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const data = event.notification.data || {};
-  const target = data.type === 'chat' && data.applicationId
+  const requestedTarget = typeof data.url === 'string' && data.url.startsWith('/') && !data.url.startsWith('//')
+    ? data.url
+    : null;
+  const target = requestedTarget ?? (data.type === 'chat' && data.applicationId
     ? `/chat/${data.applicationId}`
     : data.type === 'accepted' && data.applicationId
       ? '/applications'
-      : '/shifts';
+      : '/shifts');
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })

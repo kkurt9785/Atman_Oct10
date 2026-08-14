@@ -5,8 +5,59 @@ import { requireAdminContext } from '../admin-auth';
 import { adminClient, userClient } from '../supabase';
 import { todayKST, yesterdayKST } from '../date';
 import { requireStaffCapacity } from '../billing-gates';
+import { nudgeNotificationDispatch } from '../notify-nudge';
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
+
+async function enqueueStaffingReviewAlert(
+  facilityId: string,
+  staffId: string,
+  eventKey: string,
+  date: string,
+  reason: 'leave' | 'absent',
+) {
+  const sb = adminClient();
+  if (!sb) return;
+  const { data: staff } = await sb.from('facility_staff')
+    .select('name,role,department,default_start_time,default_end_time')
+    .eq('id', staffId).eq('facility_id', facilityId).maybeSingle();
+  if (!staff) return;
+  const { data: requirements } = await sb.from('staffing_requirements')
+    .select('id,required_role,department,start_time,end_time,weekdays')
+    .eq('facility_id', facilityId).eq('is_active', true)
+    .in('required_role', [staff.role, 'any']);
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+  const toMinute = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+  const overlaps = (startA: string, endA: string, startB: string, endB: string) => {
+    const aStart = toMinute(startA); let aEnd = toMinute(endA);
+    const bStart = toMinute(startB); let bEnd = toMinute(endB);
+    if (aEnd <= aStart) aEnd += 24 * 60;
+    if (bEnd <= bStart) bEnd += 24 * 60;
+    return aStart < bEnd && bStart < aEnd;
+  };
+  const affectsRequirement = (requirements ?? []).some((requirement: any) =>
+    (requirement.weekdays ?? []).includes(weekday)
+    && (!requirement.department || requirement.department === staff.department)
+    && overlaps(requirement.start_time, requirement.end_time, staff.default_start_time, staff.default_end_time));
+  if (!affectsRequirement) return;
+  const [{ data: facility }, { data: delegated }] = await Promise.all([
+    sb.from('facilities').select('admin_user_id').eq('id', facilityId).maybeSingle(),
+    sb.from('facility_admin_access').select('user_id').eq('facility_id', facilityId).in('access_role', ['owner','operator','super']),
+  ]);
+  const recipients = new Set<string>();
+  if (facility?.admin_user_id) recipients.add(facility.admin_user_id);
+  for (const row of delegated ?? []) if (row.user_id) recipients.add(row.user_id);
+  if (!recipients.size) return;
+  await sb.from('notification_outbox').upsert([...recipients].map((authUserId) => ({
+    worker_auth_user_id: authUserId,
+    event_type: 'staffing.gap_review',
+    dedupe_key: `staffing.gap_review:${eventKey}:${authUserId}`,
+    title: '인력 기준을 다시 확인해 주세요',
+    body: `${staff.name}님의 ${reason === 'leave' ? '휴가' : '결근'}이 반영됐어요. 부족 인원이 있는지 확인해 주세요.`,
+    data: { url: '/operations#staffing-recommendations', facilityId, staffId, date, reason },
+  })), { onConflict: 'dedupe_key', ignoreDuplicates: true });
+  await nudgeNotificationDispatch();
+}
 
 export async function addClinicStaffAction(form: FormData) {
   const context = await requireAdminContext(['owner','operator','super']);
@@ -101,7 +152,8 @@ export async function recordStaffAttendanceAction(form: FormData) {
     user_id:context.user.id,staff_id:staffId,facility_id:context.facilityId,target_type:'staff',
     action:event,authentication_method:'ADMIN',result:'SUCCESS',detail:'사업장 관리자 수동 처리',
   });
-  revalidatePath('/timesheet'); revalidatePath('/staff'); revalidatePath('/');
+  if (event === 'absent') await enqueueStaffingReviewAlert(context.facilityId, staffId, `absence:${staffId}:${requestedDate}`, requestedDate, 'absent');
+  revalidatePath('/timesheet'); revalidatePath('/staff'); revalidatePath('/operations'); revalidatePath('/');
 }
 
 export async function recordShiftAdminAttendanceAction(form:FormData){
@@ -177,8 +229,10 @@ export async function addStaffLeaveAction(form: FormData) {
   }).select('id').single();
   if (error) throw new Error('휴가를 등록하지 못했어요.');
   const deductsBalance = ['annual','half_day','quarter_day','hourly'].includes(leaveType);
+  const affectsHeadcount = ['annual','sick','other'].includes(leaveType);
   if (!deductsBalance) {
-    revalidatePath('/leave'); revalidatePath('/timesheet');
+    if (affectsHeadcount) await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${created.id}`, startDate, 'leave');
+    revalidatePath('/leave'); revalidatePath('/timesheet'); revalidatePath('/operations');
     return;
   }
   const year = Number(startDate.slice(0, 4));
@@ -197,7 +251,8 @@ export async function addStaffLeaveAction(form: FormData) {
     await sb.from('staff_leave_requests').delete().eq('id', created.id);
     throw new Error('휴가 잔여시간을 반영하지 못했어요.');
   }
-  revalidatePath('/leave'); revalidatePath('/timesheet');
+  if (affectsHeadcount) await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${created.id}`, startDate, 'leave');
+  revalidatePath('/leave'); revalidatePath('/timesheet'); revalidatePath('/operations');
 }
 
 export async function setStaffLeaveBalanceAction(form: FormData) {
@@ -231,9 +286,13 @@ export async function decideStaffLeaveAction(form: FormData) {
   const requestId = text(form, 'request_id');
   const decision = text(form, 'decision');
   if (!['approved','rejected'].includes(decision)) throw new Error('승인 여부를 확인해 주세요.');
+  const adminSb = adminClient();
+  const { data: request } = adminSb ? await adminSb.from('staff_leave_requests')
+    .select('id,staff_id,facility_id,start_date,leave_type').eq('id', requestId).eq('facility_id', context.facilityId).maybeSingle() : { data: null };
   const { error } = await sb.rpc('decide_staff_leave_request', { p_request_id: requestId, p_decision: decision });
   if (error) throw new Error('휴가 신청을 처리하지 못했어요.');
-  revalidatePath('/leave'); revalidatePath('/timesheet');
+  if (decision === 'approved' && request && ['annual','sick','other'].includes(request.leave_type)) await enqueueStaffingReviewAlert(context.facilityId, request.staff_id, `leave:${request.id}`, request.start_date, 'leave');
+  revalidatePath('/leave'); revalidatePath('/timesheet'); revalidatePath('/operations');
 }
 
 export async function decideEarlyCheckoutAction(form: FormData) {

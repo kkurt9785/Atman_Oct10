@@ -99,21 +99,21 @@ export default function IntroPage() {
 
       <section className="px-6 pb-12">
         <div className="rounded-card bg-ink px-5 py-7 text-center">
-          <p className="text-[15px] font-bold text-white">먼저 3분만 이야기 나눠보세요</p>
+          <p className="text-[15px] font-bold text-white">직접 눌러보면 더 빨리 이해할 수 있어요</p>
           <p className="mt-2 text-[13px] leading-5 text-white/70">
-            병원·약국 상황에 맞게 세팅까지 직접 도와드립니다.
+            병원·약국·요양병원 중 하나를 선택해 실제 관리자 화면을 바로 체험해 보세요.
           </p>
           <a
-            href="tel:01090455699"
+            href="https://admin.itdot.co.kr/login"
             className="mt-5 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white"
           >
-            010-9045-5699 전화하기
+            관리자 데모 3개 직접 보기
           </a>
           <a
-            href="https://admin.itdot.co.kr"
+            href="tel:01090455699"
             className="mt-2 flex h-12 items-center justify-center rounded-btn bg-white/10 text-[15px] font-bold text-white"
           >
-            관리자 화면 보기
+            도입 문의 · 010-9045-5699
           </a>
         </div>
       </section>

@@ -39,6 +39,38 @@ export type CoverageDay = {
   scheduleGap: number;
 };
 
+export type WorkforceRecommendation = {
+  key: string;
+  requirementId: string;
+  requirementName: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  role: ShiftTemplateRow['requiredRole'];
+  department: string | null;
+  shortage: number;
+  scheduled: number;
+  required: number;
+  leaveCount: number;
+  absentCount: number;
+  candidateCount: number;
+  candidateNames: string[];
+  reason: string;
+};
+
+export type StaffingRequirementRow = {
+  id: string;
+  name: string;
+  department: string | null;
+  requiredRole: ShiftTemplateRow['requiredRole'];
+  weekdays: number[];
+  startTime: string;
+  endTime: string;
+  requiredHeadcount: number;
+  replacementHourlyWage: number;
+  replacementDescription: string;
+};
+
 function addDays(date: string, days: number) {
   return new Date(Date.parse(`${date}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
 }
@@ -59,6 +91,21 @@ export async function getShiftTemplates(): Promise<ShiftTemplateRow[]> {
     id: row.id, name: row.name, requiredRole: row.required_role, weekdays: row.weekdays ?? [],
     startTime: row.start_time, endTime: row.end_time, hourlyWage: row.hourly_wage,
     description: row.description, department: row.department ?? null, requiredHeadcount: row.required_headcount ?? 1,
+  }));
+}
+
+export async function getStaffingRequirements(): Promise<StaffingRequirementRow[]> {
+  const facilityId = await getCurrentFacilityId();
+  const sb = adminClient();
+  if (!sb || !facilityId) return [];
+  const { data } = await sb.from('staffing_requirements')
+    .select('id,name,department,required_role,weekdays,start_time,end_time,required_headcount,replacement_hourly_wage,replacement_description')
+    .eq('facility_id', facilityId).eq('is_active', true).order('department').order('start_time');
+  return ((data ?? []) as any[]).map((row) => ({
+    id: row.id, name: row.name, department: row.department ?? null, requiredRole: row.required_role,
+    weekdays: row.weekdays ?? [], startTime: row.start_time, endTime: row.end_time,
+    requiredHeadcount: Number(row.required_headcount ?? 1), replacementHourlyWage: Number(row.replacement_hourly_wage),
+    replacementDescription: row.replacement_description,
   }));
 }
 
@@ -133,6 +180,115 @@ export async function getWorkforceCoverage(days = 7): Promise<CoverageDay[]> {
       scheduleGap: Math.max(0, expected - generatedTemplateShifts),
     };
   });
+}
+
+/**
+ * 설명 가능한 규칙 기반 충원 추천이다. 시설이 고정한 최소 필요 인원에서
+ * 근무 예정 고정 직원과 확정 단기 인력을 더하고 휴가·결근을 제외한다. 후보는 같은
+ * 직군의 활성 인력풀 중 같은 날 확정 근무가 없는 워커를 최근 근무순으로 제시한다.
+ */
+export async function getWorkforceRecommendations(days = 7): Promise<WorkforceRecommendation[]> {
+  const facilityId = await getCurrentFacilityId();
+  const sb = adminClient();
+  if (!sb || !facilityId) return [];
+  const today = todayKST();
+  const end = addDays(today, Math.max(1, days) - 1);
+  const [{ data: requirements }, { data: shifts }, { data: staff }, { data: leaves }, { data: attendances }, { data: pool }] = await Promise.all([
+    sb.from('staffing_requirements').select('id,name,required_role,weekdays,start_time,end_time,department,required_headcount').eq('facility_id', facilityId).eq('is_active', true),
+    sb.from('shifts').select('id,shift_date,start_time,end_time,required_role,department,status').eq('facility_id', facilityId).gte('shift_date', today).lte('shift_date', end).neq('status', 'cancelled'),
+    sb.from('facility_staff').select('id,role,department,work_weekdays,default_start_time,default_end_time,contract_start,contract_end,status').eq('facility_id', facilityId).neq('status', 'ended'),
+    sb.from('staff_leave_requests').select('staff_id,start_date,end_date,leave_type,status').eq('facility_id', facilityId).eq('status', 'approved').in('leave_type', ['annual','sick','other']).lte('start_date', end).gte('end_date', today),
+    sb.from('staff_attendances').select('staff_id,work_date,status').eq('facility_id', facilityId).gte('work_date', today).lte('work_date', end).eq('status', 'absent'),
+    sb.from('facility_worker_pool').select('worker_id,completed_shift_count,last_worked_at').eq('facility_id', facilityId).eq('status', 'active'),
+  ]);
+  const workerIds = (pool ?? []).map((row: any) => row.worker_id);
+  const [{ data: workers }, { data: busyShifts }] = await Promise.all([
+    workerIds.length ? sb.from('workers').select('id,name,role').in('id', workerIds).eq('verification_status', 'approved').is('deleted_at', null) : Promise.resolve({ data: [] }),
+    sb.from('shifts').select('id,shift_date,start_time,end_time').gte('shift_date', addDays(today, -1)).lte('shift_date', end).in('status', ['matched','in_progress']),
+  ]);
+  const busyShiftIds = (busyShifts ?? []).map((row: any) => row.id);
+  const { data: busyApplications } = busyShiftIds.length
+    ? await sb.from('shift_applications').select('worker_id,shift_id').in('shift_id', busyShiftIds).eq('status', 'accepted')
+    : { data: [] };
+  const busyShiftById = new Map((busyShifts ?? []).map((row: any) => [row.id, row]));
+  const busyByWorker = new Map<string, any[]>();
+  for (const application of (busyApplications ?? []) as any[]) {
+    const shift = busyShiftById.get(application.shift_id);
+    if (!shift) continue;
+    busyByWorker.set(application.worker_id, [...(busyByWorker.get(application.worker_id) ?? []), shift]);
+  }
+  const workerById = new Map((workers ?? []).map((row: any) => [row.id, row]));
+  const rankedPool = [...(pool ?? [])].sort((a: any, b: any) =>
+    Number(b.completed_shift_count ?? 0) - Number(a.completed_shift_count ?? 0)
+      || String(b.last_worked_at ?? '').localeCompare(String(a.last_worked_at ?? '')));
+  const recommendations: WorkforceRecommendation[] = [];
+  for (let offset = 0; offset < Math.max(1, days); offset += 1) {
+    const date = addDays(today, offset);
+    const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+    for (const requirement of (requirements ?? []) as any[]) {
+      if (!(requirement.weekdays ?? []).includes(weekday)) continue;
+      const overlaps = (startA: string, endA: string, startB: string, endB: string) => {
+        const toMinute = (value: string) => Number(value.slice(0, 2)) * 60 + Number(value.slice(3, 5));
+        const aStart = toMinute(startA); let aEnd = toMinute(endA);
+        const bStart = toMinute(startB); let bEnd = toMinute(endB);
+        if (aEnd <= aStart) aEnd += 24 * 60;
+        if (bEnd <= bStart) bEnd += 24 * 60;
+        return aStart < bEnd && bStart < aEnd;
+      };
+      const matchingStaff = ((staff ?? []) as any[]).filter((person) =>
+        person.status === 'active'
+        && (!person.contract_start || person.contract_start <= date)
+        && (!person.contract_end || person.contract_end >= date)
+        && (person.work_weekdays ?? [1,2,3,4,5]).includes(weekday)
+        && (requirement.required_role === 'any' || person.role === requirement.required_role)
+        && (!requirement.department || person.department === requirement.department)
+        && overlaps(requirement.start_time, requirement.end_time, person.default_start_time, person.default_end_time));
+      const staffOnLeave = new Set(matchingStaff.filter((person) => (leaves ?? []).some((leave: any) => leave.staff_id === person.id && leave.start_date <= date && leave.end_date >= date)).map((person) => person.id));
+      const leaveCount = staffOnLeave.size;
+      const absentCount = matchingStaff.filter((person) => !staffOnLeave.has(person.id) && (attendances ?? []).some((attendance: any) => attendance.staff_id === person.id && attendance.work_date === date)).length;
+      const availableFixedStaff = Math.max(0, matchingStaff.length - leaveCount - absentCount);
+      const committedShiftCount = ((shifts ?? []) as any[]).filter((shift) =>
+        shift.shift_date === date
+        && ['open','matched','in_progress','completed'].includes(shift.status)
+        && (shift.status !== 'open' || Date.parse(`${shift.shift_date}T${shift.start_time}+09:00`) > Date.now())
+        && (requirement.required_role === 'any' || shift.required_role === requirement.required_role)
+        && (!requirement.department || shift.department === requirement.department)
+        && overlaps(requirement.start_time, requirement.end_time, shift.start_time, shift.end_time)).length;
+      const scheduled = availableFixedStaff + committedShiftCount;
+      const required = Number(requirement.required_headcount ?? 1);
+      const shortage = Math.max(0, required - scheduled);
+      if (!shortage) continue;
+      const candidates = rankedPool.flatMap((entry: any) => {
+        const worker: any = workerById.get(entry.worker_id);
+        if (!worker) return [];
+        const proposedStart = Date.parse(`${date}T${requirement.start_time}+09:00`);
+        let proposedEnd = Date.parse(`${date}T${requirement.end_time}+09:00`);
+        if (proposedEnd <= proposedStart) proposedEnd += 86_400_000;
+        const hasConflict = (busyByWorker.get(entry.worker_id) ?? []).some((shift: any) => {
+          const busyStart = Date.parse(`${shift.shift_date}T${shift.start_time}+09:00`);
+          let busyEnd = Date.parse(`${shift.shift_date}T${shift.end_time}+09:00`);
+          if (busyEnd <= busyStart) busyEnd += 86_400_000;
+          return proposedStart < busyEnd && busyStart < proposedEnd;
+        });
+        if (hasConflict) return [];
+        if (requirement.required_role !== 'any' && worker.role !== requirement.required_role) return [];
+        return [worker];
+      });
+      const causes = [
+        leaveCount ? `승인 휴가 ${leaveCount}명` : '',
+        absentCount ? `결근 ${absentCount}명` : '',
+        shortage ? `기준 대비 ${shortage}명 부족` : '',
+      ].filter(Boolean);
+      recommendations.push({
+        key: `${requirement.id}:${date}`, requirementId: requirement.id, requirementName: requirement.name,
+        date, startTime: requirement.start_time, endTime: requirement.end_time, role: requirement.required_role,
+        department: requirement.department ?? null, shortage, scheduled, required, leaveCount, absentCount,
+        candidateCount: candidates.length, candidateNames: candidates.slice(0, 3).map((worker: any) => worker.name),
+        reason: causes.join(' · ') || `필요 ${required}명 중 ${scheduled}명 편성`,
+      });
+    }
+  }
+  return recommendations.sort((a, b) => a.date.localeCompare(b.date) || b.shortage - a.shortage || a.startTime.localeCompare(b.startTime));
 }
 
 export async function getOperationsSummary(): Promise<OperationsSummary> {

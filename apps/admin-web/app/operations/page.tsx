@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { won } from '@/lib/format';
 import { todayKST } from '@/lib/date';
-import { getOperationsAlerts, getOperationsSummary, getShiftTemplates, getWorkforceCoverage } from '@/lib/db/operations';
-import { createShiftTemplateAction, deactivateShiftTemplateAction, fillSevenDayScheduleGapsAction, generateRecurringShiftsAction, requestUrgentReplacementAction } from './actions';
+import { getOperationsAlerts, getOperationsSummary, getShiftTemplates, getWorkforceCoverage, getWorkforceRecommendations, getStaffingRequirements } from '@/lib/db/operations';
+import { approveWorkforceRecommendationAction, createShiftTemplateAction, createStaffingRequirementAction, deactivateShiftTemplateAction, deactivateStaffingRequirementAction, fillSevenDayScheduleGapsAction, generateRecurringShiftsAction, requestUrgentReplacementAction, resetFacilityLiveDemoAction } from './actions';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
@@ -18,6 +18,11 @@ const NOTICE: Record<string, string> = {
   template_off: '템플릿 사용을 중지했어요.',
   gaps_filled: '앞으로 7일의 근무표 공백을 공고로 만들고 워커에게 알렸어요.',
   no_schedule_gap: '앞으로 7일 근무표에는 새로 만들 공백이 없어요.',
+  recommendation_applied: '추천안을 승인해 공고를 만들고 대상 워커에게 알렸어요.',
+  recommendation_changed: '근무표가 갱신되어 추천안이 달라졌어요. 최신 내용을 다시 확인해 주세요.',
+  requirement_saved: '병동·직군별 필요 인원 기준을 저장했어요.',
+  requirement_off: '필요 인원 기준 사용을 중지했어요.',
+  live_demo_reset: '시연을 처음 상태로 돌렸어요. 워커 앱에서 새 공고에 직접 지원해 보세요.',
 };
 
 export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
@@ -26,7 +31,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   if (!context || context.accessRole === 'sales') {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">운영 관리 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
-  const [summary, templates, operationAlerts, coverage, shop] = await Promise.all([getOperationsSummary(), getShiftTemplates(), getOperationsAlerts(), getWorkforceCoverage(), getShop()]);
+  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop] = await Promise.all([getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(), getWorkforceCoverage(), getWorkforceRecommendations(), getShop()]);
   const isPharmacy = shop?.facilityType === 'pharmacy';
   const roleOptions: [string, string][] = isPharmacy
     ? [['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직']]
@@ -45,6 +50,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         <p className="text-label text-sub mt-2">반복 일정과 놓치기 쉬운 업무를 한곳에서 확인하세요.</p>
       </div>
 
+      {shop?.isDemo && (
+        <Card className="mb-4 border border-violet-200 bg-violet-50">
+          <div className="flex items-center justify-between gap-3"><div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[12px] leading-5 text-sub mt-1">초기화 후 워커가 지원하면 관리자 알림 → 수락 → 워커 알림 → 채팅을 직접 확인할 수 있어요.</p></div><form action={resetFacilityLiveDemoAction}><button className="min-h-11 shrink-0 rounded-xl bg-violet-600 px-4 text-[12px] font-extrabold text-white">시연 초기화</button></form></div>
+        </Card>
+      )}
+
       <Card className="shadow-sm mb-4">
         <p className="text-label text-sub">이번 달 예정 인건비</p>
         <p className="text-money font-extrabold text-ink mt-1">{won(summary.monthEstimatedCost)}</p>
@@ -54,6 +65,54 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           <div><p className="text-title font-extrabold text-ink">{alerts}</p><p className="text-[11px] text-sub">확인할 일</p></div>
         </div>
       </Card>
+
+      <section className="mb-5" aria-labelledby="staffing-recommendations">
+        <div className="flex items-end justify-between px-1 mb-3">
+          <div><p className="text-label font-bold text-primary">근무표·휴가·근태 자동 분석</p><h2 id="staffing-recommendations" className="text-title font-extrabold text-ink mt-1">인력 공백 추천</h2></div>
+          <span className="text-label font-bold text-sub">앞으로 7일</span>
+        </div>
+        {requirements.length === 0 ? (
+          <Card className="border border-primary/20 bg-primary/5"><p className="text-body font-extrabold text-ink">먼저 병동별 필요 인원을 정해 주세요</p><p className="text-label text-sub mt-1">기준을 한 번 저장하면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.</p><a href="#staffing-settings" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">필요 인원 설정</a></Card>
+        ) : recommendations.length === 0 ? (
+          <Card className="border border-success/20 bg-success/5"><p className="text-body font-extrabold text-ink">현재 확인된 인력 공백이 없어요</p><p className="text-label text-sub mt-1">고정 근무자와 확정 단기 인력이 기준 인원을 충족하고 있어요.</p></Card>
+        ) : (
+          <div className="space-y-3">
+            {recommendations.slice(0, 5).map((item) => {
+              const dateLabel = new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${item.date}T00:00:00+09:00`));
+              return <Card key={item.key} className="border border-amber-200 bg-amber-50/70">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><p className="text-[12px] font-extrabold text-warn">{dateLabel} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p><p className="text-body font-extrabold text-ink mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} {ROLE_LABEL[item.role]} {item.shortage}명이 부족해요</p><p className="text-label text-sub mt-1 leading-5">{item.reason} · 기준 {item.required}명 / 현재 반영 {item.scheduled}명</p></div>
+                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-primary">추천 {item.candidateCount}명</span>
+                </div>
+                {item.candidateNames.length > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[12px] text-sub"><b className="text-ink">우선 알림 후보</b> · {item.candidateNames.join(', ')}{item.candidateCount > item.candidateNames.length ? ` 외 ${item.candidateCount - item.candidateNames.length}명` : ''}</p>}
+                <form action={approveWorkforceRecommendationAction} className="mt-3">
+                  <input type="hidden" name="recommendation_key" value={item.key}/>
+                  <button className="w-full min-h-11 rounded-xl bg-primary px-4 text-label font-extrabold text-white">추천안 승인 · 공고와 알림 반영</button>
+                </form>
+              </Card>;
+            })}
+          </div>
+        )}
+      </section>
+
+      <section id="staffing-settings" className="scroll-mt-20 mb-6">
+        <div className="px-1 mb-3"><p className="text-label font-bold text-primary">최초 한 번 설정</p><h2 className="text-title font-extrabold text-ink mt-1">병동·시간별 필요 인원</h2><p className="text-label text-sub mt-1">공고 수가 아니라 실제 운영에 반드시 필요한 최소 인원입니다.</p></div>
+        {requirements.length > 0 && <div className="space-y-2 mb-3">{requirements.map((item) => <Card key={item.id} className="py-3.5">
+          <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-body font-extrabold text-ink">{item.name} · {item.requiredHeadcount}명</p><p className="text-[12px] text-sub mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} · {ROLE_LABEL[item.requiredRole]} · {item.weekdays.map((day) => DAY_LABEL[day]).join('·')} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p></div><form action={deactivateStaffingRequirementAction}><input type="hidden" name="requirement_id" value={item.id}/><button className="text-[11px] text-sub underline whitespace-nowrap">사용 중지</button></form></div>
+        </Card>)}</div>}
+        <details className="bg-white rounded-2xl p-5" open={requirements.length === 0}>
+          <summary className="cursor-pointer text-body font-extrabold text-ink">+ 필요 인원 기준 추가</summary>
+          <form action={createStaffingRequirementAction} className="space-y-4 mt-5">
+            <input name="name" required maxLength={80} placeholder={isPharmacy ? '예: 평일 조제 인력' : '예: 3병동 주간 인력'} className="w-full h-12 rounded-xl bg-bg px-4 text-body"/>
+            <div className="grid grid-cols-2 gap-2"><input name="department" placeholder={isPharmacy ? '조제실 (비우면 약국 전체)' : '3병동'} className="h-12 rounded-xl bg-bg px-3"/><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className="grid grid-cols-3 gap-2"><input type="time" name="start_time" defaultValue="09:00" required aria-label="시작 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="time" name="end_time" defaultValue="18:00" required aria-label="종료 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="number" name="required_headcount" min="1" max="100" defaultValue="2" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/></div>
+            <div className="flex justify-between gap-1">{Object.entries(DAY_LABEL).map(([day,label]) => <label key={day} className="flex-1"><input type="checkbox" name="weekdays" value={day} defaultChecked={Number(day) <= 5} className="sr-only peer"/><span className="h-10 rounded-xl bg-bg text-sub peer-checked:bg-primary peer-checked:text-white flex items-center justify-center text-label font-bold">{label}</span></label>)}</div>
+            <div><p className="text-[12px] font-bold text-ink mb-2">부족할 때 생성할 대체 공고 조건</p><input type="number" name="replacement_hourly_wage" min="10320" step="100" defaultValue={isPharmacy ? 35000 : 15000} required aria-label="대체 근무 시급" className="w-full h-12 rounded-xl bg-bg px-4"/></div>
+            <textarea name="replacement_description" required rows={3} placeholder={isPharmacy ? '조제 보조 및 고객 응대 업무' : '해당 병동의 단기 대체 근무'} className="w-full rounded-xl bg-bg px-4 py-3 resize-none"/>
+            <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">필요 인원 기준 저장</button>
+          </form>
+        </details>
+      </section>
 
       <section id="coverage" className="scroll-mt-20 mb-5">
         <div className="flex items-end justify-between px-1 mb-3">

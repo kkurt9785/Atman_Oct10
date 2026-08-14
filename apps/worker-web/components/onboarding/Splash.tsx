@@ -3,14 +3,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
+import { subscribeToPush } from '@/lib/push-subscribe';
 
 const DEMO_WORKERS = [
-  { email: 'worker-demo-1@demo.atman.co.kr', label: 'Demo 1 · W여성병원 간호사' },
-  { email: 'worker-demo-2@demo.atman.co.kr', label: 'Demo 2 · 온누리약국 전산·사무직' },
-  { email: 'worker-demo-3@demo.atman.co.kr', label: 'Demo 3 · 수원 권선 간호조무사' },
-  { email: 'worker-demo-4@demo.atman.co.kr', label: 'Demo 4 · 수원 팔달 간호사' },
-  { email: 'worker-demo-5@demo.atman.co.kr', label: 'Demo 5 · 수원 영통 간호조무사' },
-  { email: 'worker-demo-6@demo.atman.co.kr', label: 'Demo 6 · 온누리약국 약사' },
+  { email: 'worker-demo-1@demo.atman.co.kr', label: '간호사 · 10명 내외 병원·요양병원' },
+  { email: 'worker-demo-5@demo.atman.co.kr', label: '간호조무사 · 요양병원' },
+  { email: 'worker-demo-2@demo.atman.co.kr', label: '전산·사무직 · 약국' },
+  { email: 'worker-demo-6@demo.atman.co.kr', label: '약사 · 약국' },
 ];
 
 export function Splash() {
@@ -54,7 +53,7 @@ export function Splash() {
       setDemoLoadingEmail(null);
       return;
     }
-    const { error } = await supabase.auth.setSession({
+    const { data: sessionData, error } = await supabase.auth.setSession({
       access_token: payload.accessToken,
       refresh_token: payload.refreshToken,
     });
@@ -62,6 +61,14 @@ export function Splash() {
       setDemoError('데모 세션을 만들지 못했습니다.');
       setDemoLoadingEmail(null);
       return;
+    }
+    try {
+      const subscription = await subscribeToPush();
+      if (subscription && sessionData.user) await supabase.from('push_subscriptions').upsert({
+        worker_id: sessionData.user.id, subscription: subscription.toJSON(), updated_at: new Date().toISOString(),
+      }, { onConflict: 'worker_id' });
+    } catch {
+      // 알림을 거부해도 데모 로그인과 실제 화면 확인은 계속할 수 있다.
     }
 
     const next=window.localStorage.getItem('atman_auth_next');

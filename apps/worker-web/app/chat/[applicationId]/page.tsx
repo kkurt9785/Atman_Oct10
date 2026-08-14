@@ -85,6 +85,12 @@ export default function WorkerChatPage() {
     if (data) {
       setMessages((prev) => prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message]);
     }
+    const { data: { session } } = await supabase.auth.getSession();
+    const adminBase = process.env.NEXT_PUBLIC_ADMIN_WEB_URL
+      ?? (window.location.hostname === 'localhost' ? 'http://localhost:3002' : 'https://admin.itdot.co.kr');
+    if (session) fetch(`${adminBase}/api/attendance/nudge`, {
+      method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, keepalive: true,
+    }).catch(() => undefined);
   }
 
   return (

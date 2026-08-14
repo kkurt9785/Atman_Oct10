@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
+import { subscribeToAdminPush } from '@/lib/push-subscribe';
 
 // 시연용 데모 계정 — 비프로덕션 빌드에서만 노출 (NEXT_PUBLIC_은 빌드타임 고정)
 const DEMO_ACCOUNTS = [
@@ -51,6 +52,15 @@ function LoginInner() {
         refresh_token: loginData.refreshToken,
       });
       if (sessionError || !data.session) throw new Error('데모 세션을 만들지 못했어요.');
+
+      try {
+        const subscription = await subscribeToAdminPush();
+        if (subscription) await supabase.from('push_subscriptions').upsert({
+          worker_id: data.session.user.id, subscription: subscription.toJSON(), updated_at: new Date().toISOString(),
+        }, { onConflict: 'worker_id' });
+      } catch {
+        // 알림을 거부해도 관리자 데모 진입은 막지 않는다.
+      }
 
       const sessionRes = await fetch('/api/admin-session', {
         method: 'POST',

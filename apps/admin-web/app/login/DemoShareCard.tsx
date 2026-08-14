@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 
-const DEMO_URL = 'https://admin.itdot.co.kr/login';
+const DEMO_URL = 'https://itdot.co.kr/intro';
 
 export function DemoShareCard() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -24,7 +24,7 @@ export function DemoShareCard() {
       try {
         await navigator.share({
           title: '잇닿 관리자 데모',
-          text: '병원·약국·요양병원 관리자 데모를 바로 체험해 보세요.',
+          text: '병원·약국·요양병원의 모집·근태·급여 연결 방식을 1분 안에 확인해 보세요.',
           url: DEMO_URL,
         });
         return;
@@ -52,7 +52,7 @@ export function DemoShareCard() {
         <div className="min-w-0">
           <p className="text-[15px] font-extrabold text-ink">휴대폰으로 시연해 보세요</p>
           <p className="mt-1 text-[13px] leading-5 text-sub">
-            카메라로 찍으면 이 데모 선택 화면이 바로 열려요.
+            카메라로 찍으면 서비스 설명이 먼저 열리고, 바로 관리자 데모를 선택할 수 있어요.
           </p>
           <button
             type="button"
@@ -66,13 +66,13 @@ export function DemoShareCard() {
 
       <div className="md:hidden">
         <p className="text-[14px] font-extrabold text-ink">다른 분과 함께 볼까요?</p>
-        <p className="mt-1 text-[12px] leading-5 text-sub">데모 선택 화면을 바로 공유할 수 있어요.</p>
+        <p className="mt-1 text-[12px] leading-5 text-sub">간단한 소개와 관리자 데모가 연결된 링크예요.</p>
         <button
           type="button"
           onClick={shareDemo}
           className="mt-3 h-11 w-full rounded-xl border border-primary/20 bg-primary-light text-[14px] font-bold text-primary active:opacity-70"
         >
-          {copied ? '링크를 복사했어요' : '데모 링크 공유'}
+          {copied ? '링크를 복사했어요' : '소개·데모 링크 공유'}
         </button>
       </div>
     </div>

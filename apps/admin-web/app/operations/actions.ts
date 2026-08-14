@@ -9,11 +9,50 @@ import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '@/lib/billing-gates';
 import { todayKST } from '@/lib/date';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
+import { getWorkforceRecommendations } from '@/lib/db/operations';
 
 const VALID_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff', 'any'];
 
 function formText(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim();
+}
+
+export async function resetFacilityLiveDemoAction() {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  const { data: facility } = await sb.from('facilities')
+    .select('is_demo,business_registration_number').eq('id', context.facilityId).maybeSingle();
+  if (!facility?.is_demo || !['DEMO-TARGET-0001','DEMO-TARGET-PHARMACY','DEMO-TARGET-0026'].includes(facility.business_registration_number)) {
+    throw new Error('세 영업 데모 시설에서만 초기화할 수 있어요.');
+  }
+  const { error } = await sb.rpc('reset_three_facility_live_demo', { p_facility_id: context.facilityId });
+  if (error) throw new Error('시연 공고를 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  const { data: demoShifts } = await sb.from('shifts').select('id,shift_date,start_time,department')
+    .eq('facility_id', context.facilityId).like('notes', 'LIVE-SALES-DEMO-%').eq('status', 'open');
+  const outbox = [] as Array<Record<string, unknown>>;
+  for (const shift of demoShifts ?? []) {
+    const { data: recipients } = await sb.rpc('get_shift_notification_recipients', { p_shift_id: shift.id });
+    for (const recipient of recipients ?? []) if (recipient.auth_user_id) outbox.push({
+      worker_auth_user_id: recipient.auth_user_id,
+      event_type: 'shift.demo_ready',
+      dedupe_key: `shift.demo_ready:${shift.id}:${recipient.auth_user_id}`,
+      title: '시연용 새 근무가 도착했어요',
+      body: `${shift.shift_date} ${shift.start_time.slice(0,5)} · ${shift.department ?? '사업장 근무'}`,
+      data: { type: 'new_shift', shiftId: shift.id, url: '/shifts' },
+    });
+  }
+  if (outbox.length) {
+    const { error: outboxError } = await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
+    if (outboxError) throw new Error('시연 공고는 만들었지만 워커 알림을 저장하지 못했어요.');
+    await nudgeNotificationDispatch();
+  }
+  revalidatePath('/');
+  revalidatePath('/applications');
+  revalidatePath('/chats');
+  revalidatePath('/operations');
+  revalidatePath('/shifts');
+  redirect('/operations?notice=live_demo_reset');
 }
 
 export async function createShiftTemplateAction(formData: FormData) {
@@ -44,6 +83,47 @@ export async function createShiftTemplateAction(formData: FormData) {
   if (error) throw new Error('반복 일정 템플릿을 저장하지 못했어요.');
   revalidatePath('/operations');
   redirect('/operations?notice=template_saved');
+}
+
+export async function createStaffingRequirementAction(formData: FormData) {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  await requirePlanFeature(sb, context.facilityId, 'operations');
+  const name = formText(formData, 'name');
+  const department = formText(formData, 'department') || null;
+  const requiredRole = formText(formData, 'required_role');
+  const startTime = formText(formData, 'start_time');
+  const endTime = formText(formData, 'end_time');
+  const requiredHeadcount = Math.min(100, Math.max(1, Number.parseInt(formText(formData, 'required_headcount'), 10) || 1));
+  const hourlyWage = Number.parseInt(formText(formData, 'replacement_hourly_wage'), 10);
+  const description = formText(formData, 'replacement_description');
+  const weekdays = [...new Set(formData.getAll('weekdays').map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7))].sort();
+  if (!name || !VALID_ROLES.includes(requiredRole) || !startTime || !endTime || !description || !weekdays.length) throw new Error('필요 인원 기준의 필수 항목을 확인해 주세요.');
+  if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026 || calcEstimatedShiftPay(startTime, endTime, hourlyWage) == null) throw new Error('대체 모집 시 적용할 시간과 시급을 확인해 주세요.');
+  const { data: facility } = await sb.from('facilities').select('facility_type').eq('id', context.facilityId).single();
+  if (facility?.facility_type === 'pharmacy' && !['pharmacist', 'pharmacy_staff'].includes(requiredRole)) throw new Error('약국은 약사 또는 약국 전산·사무직 기준을 선택해 주세요.');
+  const { error } = await sb.from('staffing_requirements').insert({
+    facility_id: context.facilityId, name, department, required_role: requiredRole,
+    weekdays, start_time: startTime, end_time: endTime, required_headcount: requiredHeadcount,
+    replacement_hourly_wage: hourlyWage, replacement_description: description, created_by: context.user.id,
+  });
+  if (error?.code === '23505') throw new Error('같은 부서·직군·시간대의 필요 인원 기준이 이미 있어요.');
+  if (error) throw new Error('필요 인원 기준을 저장하지 못했어요. 마이그레이션 적용 상태를 확인해 주세요.');
+  revalidatePath('/operations');
+  redirect('/operations?notice=requirement_saved');
+}
+
+export async function deactivateStaffingRequirementAction(formData: FormData) {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  const requirementId = formText(formData, 'requirement_id');
+  const { error } = await sb.from('staffing_requirements').update({ is_active: false })
+    .eq('id', requirementId).eq('facility_id', context.facilityId);
+  if (error) throw new Error('필요 인원 기준을 중지하지 못했어요.');
+  revalidatePath('/operations');
+  redirect('/operations?notice=requirement_off');
 }
 
 export async function generateRecurringShiftsAction(formData: FormData) {
@@ -107,7 +187,7 @@ export async function generateRecurringShiftsAction(formData: FormData) {
     worker_auth_user_id: authUserId,
     event_type: 'shift.batch_created', dedupe_key: `shift.batch_created:${batchId}:${authUserId}`,
     title: `새 반복 시프트 ${rows.length}건`, body: `${template.name} · ${startDate}부터 확인해 보세요`,
-    data: { type: 'new_shift_batch', batchId },
+    data: { type: 'new_shift_batch', batchId, url: '/shifts' },
   }));
   if (outbox.length) {
     await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
@@ -182,7 +262,7 @@ export async function fillSevenDayScheduleGapsAction() {
       worker_auth_user_id: authUserId, event_type: 'shift.batch_created',
       dedupe_key: `shift.gap_batch:${batchId}:${authUserId}`,
       title: `새 근무 ${rows.length}건`, body: '내 지역에 맞는 새 근무를 확인해 보세요.',
-      data: { type: 'new_shift_batch', batchId },
+      data: { type: 'new_shift_batch', batchId, url: '/shifts' },
     })), { onConflict: 'dedupe_key', ignoreDuplicates: true });
     if (outboxError) {
       await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
@@ -195,6 +275,69 @@ export async function fillSevenDayScheduleGapsAction() {
   revalidatePath('/operations');
   revalidatePath('/shifts');
   redirect(`/operations?notice=gaps_filled&count=${rows.length}`);
+}
+
+export async function approveWorkforceRecommendationAction(formData: FormData) {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  await requirePlanFeature(sb, context.facilityId, 'operations');
+  const recommendationKey = formText(formData, 'recommendation_key');
+  const recommendation = (await getWorkforceRecommendations(7)).find((item) => item.key === recommendationKey);
+  if (!recommendation) redirect('/operations?notice=recommendation_changed');
+  const { data: requirement } = await sb.from('staffing_requirements').select('*')
+    .eq('id', recommendation.requirementId).eq('facility_id', context.facilityId).eq('is_active', true).maybeSingle();
+  if (!requirement) throw new Error('추천 기준이 된 필요 인원 설정을 찾지 못했어요.');
+  const estimatedPay = calcEstimatedShiftPay(requirement.start_time, requirement.end_time, requirement.replacement_hourly_wage);
+  if (estimatedPay == null) throw new Error('대체 모집의 근무시간과 시급을 확인해 주세요.');
+  const batchId = randomUUID();
+  const rows = Array.from({ length: recommendation.shortage }, () => ({
+    facility_id: context.facilityId, generation_batch_id: batchId,
+    audience: 'public', invited_worker_id: null, required_role: requirement.required_role,
+    shift_date: recommendation.date, start_time: requirement.start_time, end_time: requirement.end_time,
+    hourly_wage: requirement.replacement_hourly_wage, estimated_total_pay: estimatedPay,
+    description: requirement.replacement_description, department: requirement.department,
+    notes: `인력 공백 추천 승인 · ${recommendation.reason}`, posted_by: context.user.id,
+  }));
+  const { data: created, error } = await sb.from('shifts').insert(rows).select('id');
+  if (error || !created?.length) throw new Error('추천 공고를 생성하지 못했어요.');
+  const usageKey = `job_posting_batch:${context.facilityId}:${batchId}`;
+  try {
+    await consumePlanUsage(sb, context.facilityId, 'job_posting_slot', created.length, usageKey);
+  } catch (usageError) {
+    await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
+    await releasePlanUsage(sb, usageKey);
+    throw usageError;
+  }
+  const recipients = new Set<string>();
+  for (const shift of created) {
+    const { data, error: recipientError } = await sb.rpc('get_shift_notification_recipients', { p_shift_id: shift.id });
+    if (recipientError) {
+      await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
+      await releasePlanUsage(sb, usageKey);
+      throw new Error('알림 대상을 확인하지 못해 추천 반영을 취소했어요.');
+    }
+    for (const recipient of data ?? []) if (recipient.auth_user_id) recipients.add(recipient.auth_user_id as string);
+  }
+  if (recipients.size) {
+    const { error: outboxError } = await sb.from('notification_outbox').upsert([...recipients].map((authUserId) => ({
+      worker_auth_user_id: authUserId, event_type: 'shift.staffing_recommendation',
+      dedupe_key: `shift.staffing_recommendation:${batchId}:${authUserId}`,
+      title: `${recommendation.department ?? '사업장'} 대체 근무가 열렸어요`,
+      body: `${recommendation.date} ${recommendation.startTime.slice(0,5)} · 조건을 확인해 보세요.`,
+      data: { type: 'new_shift_batch', batchId, url: '/shifts' },
+    })), { onConflict: 'dedupe_key', ignoreDuplicates: true });
+    if (outboxError) {
+      await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
+      await releasePlanUsage(sb, usageKey);
+      throw new Error('워커 알림 저장에 실패해 추천 반영을 취소했어요.');
+    }
+    await nudgeNotificationDispatch();
+  }
+  revalidatePath('/');
+  revalidatePath('/operations');
+  revalidatePath('/shifts');
+  redirect(`/operations?notice=recommendation_applied&count=${created.length}`);
 }
 
 export async function requestUrgentReplacementAction(formData: FormData) {
