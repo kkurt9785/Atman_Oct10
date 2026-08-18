@@ -56,7 +56,7 @@ try {
   if (application?.credential_review_status !== 'pending_facility_check') throw new Error('application credential state is not pending');
 
   const { error: prematureAcceptError } = await admin.rpc('accept_shift_application', { p_application_id: applicationId });
-  if (!prematureAcceptError?.message.includes('원본 확인')) throw new Error('acceptance was not blocked before credential confirmation');
+  if (!prematureAcceptError?.message.includes('자격 확인')) throw new Error('acceptance was not blocked before credential confirmation');
 
   const { data: confirmed, error: confirmError } = await admin.rpc('confirm_application_credential', { p_application_id: applicationId });
   if (confirmError || confirmed !== true) throw new Error(`credential confirmation failed: ${confirmError?.message}`);

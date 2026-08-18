@@ -26,8 +26,12 @@ base = (env.get("SUPABASE_URL") or env["NEXT_PUBLIC_SUPABASE_URL"]).rstrip("/")
 anon = env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
 service = env["SUPABASE_SERVICE_ROLE_KEY"]
 password = os.environ.get("DEMO_ACCOUNT_PASSWORD") or env.get("DEMO_ACCOUNT_PASSWORD")
-if not password:
-    raise RuntimeError("DEMO_ACCOUNT_PASSWORD is required")
+# 비밀번호는 서버 env에만 있으므로(2026-08-13 하드코딩 제거), 없으면 배포된
+# 데모 로그인 API로 세션을 받아 QA를 계속한다.
+DEMO_LOGIN_ENDPOINTS = {
+    "worker": "https://itdot.co.kr/api/demo-login",
+    "admin": "https://admin.itdot.co.kr/api/demo-login",
+}
 
 
 def req(method, path, body=None, token=None, prefer=None):
@@ -46,10 +50,30 @@ def req(method, path, body=None, token=None, prefer=None):
 
 
 def login(email):
-    status, data = req("POST", "/auth/v1/token?grant_type=password", {"email": email, "password": password})
-    if status != 200:
-        raise RuntimeError("login failed " + email + " status=" + str(status))
-    return data["access_token"], data["user"]["id"]
+    if password:
+        status, data = req("POST", "/auth/v1/token?grant_type=password", {"email": email, "password": password})
+        if status == 200:
+            return data["access_token"], data["user"]["id"]
+    endpoint = DEMO_LOGIN_ENDPOINTS["admin"] if email.startswith("sales-") else DEMO_LOGIN_ENDPOINTS["worker"]
+    request = urllib.request.Request(
+        endpoint,
+        data=json.dumps({"email": email}).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=25) as response:
+            payload = json.loads(response.read())
+    except urllib.error.HTTPError as error:
+        raise RuntimeError("login failed " + email + " status=" + str(error.code))
+    token = payload.get("accessToken") or payload.get("access_token")
+    if not token:
+        raise RuntimeError("login failed " + email + " (no token)")
+    claims = token.split(".")[1]
+    claims += "=" * (-len(claims) % 4)
+    import base64
+    uid = json.loads(base64.urlsafe_b64decode(claims))["sub"]
+    return token, uid
 
 
 def get_one(path, label):
