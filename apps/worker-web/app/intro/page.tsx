@@ -25,7 +25,12 @@ const POINTS = [
   {
     icon: '🔔',
     title: '지원자 실시간 알림',
-    body: '지원이 들어오면 원장님 휴대폰으로 바로 알려드려요. 자격 확인 후 수락하면 매칭 완료.',
+    body: '지원이 들어오면 원장님 휴대폰으로 바로 알려드려요. 경력과 지원 이력을 보고 결정하시면 됩니다.',
+  },
+  {
+    icon: '✅',
+    title: '면허 확인은 원장님이 직접',
+    body: '잇닿은 자격을 대신 심사하지 않습니다. 채용을 확정하기 전에 원장님이 면허를 확인하시고, 확인하신 기록은 날짜와 담당자까지 남습니다.',
   },
   {
     icon: '📍',
@@ -35,7 +40,7 @@ const POINTS = [
   {
     icon: '₩',
     title: '근무시간 → 급여 자료 자동',
-    body: '출퇴근 기록이 월 마감과 급여 검토 자료로 그대로 이어집니다. 급여는 원장님만 열람.',
+    body: '출퇴근 기록이 월 마감과 급여 검토 자료로 그대로 이어집니다. 급여는 원장님만 열람합니다.',
   },
 ];
 
@@ -61,7 +66,7 @@ export default function IntroPage() {
             임금은 사업장 직접 지급
           </span>
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            선정 사업장 3개월 무료 파일럿
+            3개월 무료로 시작
           </span>
         </div>
       </header>
@@ -82,17 +87,13 @@ export default function IntroPage() {
       </section>
 
       <section className="px-6 pb-10">
-        <h2 className="text-[20px] font-extrabold text-ink">요금</h2>
+        <h2 className="text-[20px] font-extrabold text-ink">지금은 함께 만드는 단계입니다</h2>
         <div className="mt-4 rounded-card border border-line p-5">
-          <p className="text-[13px] text-sub">약국 월 59,000원 · 소형 의원 월 69,000원</p>
-          <p className="mt-1 text-[24px] font-extrabold text-ink">
-            월 59,000원<span className="text-[14px] font-bold text-sub">부터</span>
-          </p>
-          <ul className="mt-4 space-y-2 text-[13px] leading-5 text-sub">
-            <li>· 채용 성사 수수료·중개 수수료 <b className="text-ink">0원</b></li>
-            <li>· 임금은 사업장이 워커에게 직접 지급 (잇닿은 임금을 보관하지 않습니다)</li>
-            <li>· 6개월 5%, 1년 10% 선결제 할인</li>
-            <li>· 선정된 파일럿 사업장은 <b className="text-ink">3개월 무료 + 초기 세팅 대행</b>을 제공합니다</li>
+          <ul className="space-y-2.5 text-[13px] leading-5 text-sub">
+            <li>· 도입 사업장은 <b className="text-ink">3개월 무료</b>로 쓰시고, 초기 세팅은 저희가 직접 해드립니다</li>
+            <li>· 채용이 성사돼도 <b className="text-ink">중개 수수료는 0원</b>입니다</li>
+            <li>· 임금은 사업장이 근무자에게 직접 지급합니다 (잇닿은 임금을 보관하지 않습니다)</li>
+            <li>· 무료 기간이 끝나도 자동 결제되지 않습니다. 계속 쓰실지는 그때 정하시면 됩니다</li>
           </ul>
         </div>
       </section>
