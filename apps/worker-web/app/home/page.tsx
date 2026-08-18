@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -228,8 +228,6 @@ export default function HomePage() {
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [basis, setBasis] = useState<'gps' | string>('gps');
   const [locNotice, setLocNotice] = useState('');
-  const [reviewPending, setReviewPending] = useState(false);
-  const approvedRef = useRef(false);
 
   const [dateFilter, setDateFilter] = useState<DateFilter>('all'); // 기본 '전체' — 오늘 공고 0건이어도 첫 화면이 비지 않게
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
@@ -257,10 +255,6 @@ export default function HomePage() {
 
   // 사용자 ID·직군을 클라이언트에서 넘기지 않고 DB가 auth.uid()로 결정한다.
   const fetchShifts = useCallback(async (position: { lat: number; lng: number } | null, selectedBasis: 'gps' | string) => {
-    if (!approvedRef.current) {
-      setShifts([]);
-      return;
-    }
     const useGps = selectedBasis === 'gps' && Boolean(position);
     const { data, error } = await supabase.rpc('get_nearby_open_shifts_secure', {
       p_lat: useGps ? position!.lat : null,
@@ -325,12 +319,9 @@ export default function HomePage() {
       setRole(userRole);
       setAreas(areaLabels);
 
-      approvedRef.current = workerRow?.verification_status === 'approved';
-      setReviewPending(Boolean(workerRow) && workerRow?.verification_status !== 'approved');
-
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;
-        const credentialReady = w.role==='pharmacy_staff'||w.license_number||w.license_photo_url;
+        const credentialReady = w.role==='pharmacy_staff'||w.role==='rn'||w.role==='na'||w.license_number||w.license_photo_url;
         const incomplete = !(credentialReady && w.experience_years && w.last_workplace && (w.department_tags as string[] | null)?.length);
         setShowProfileBanner(incomplete);
       }
@@ -522,10 +513,7 @@ export default function HomePage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
             <span className="text-5xl">🔍</span>
-            <p className="text-[15px] font-bold text-ink">{reviewPending ? (role==='pharmacy_staff'?'프로필 확인 중이에요':'면허 심사 중이에요') : '조건에 맞는 시프트가 없어요'}</p>
-            {reviewPending && (
-              <p className="text-[13px] text-sub text-center leading-5">심사가 끝나면 알림으로 알려드려요.</p>
-            )}
+            <p className="text-[15px] font-bold text-ink">조건에 맞는 시프트가 없어요</p>
             <button onClick={resetFilters} className="text-[14px] text-primary font-semibold">
               필터 초기화
             </button>

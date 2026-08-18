@@ -10,10 +10,18 @@ export async function acceptApplication(
   applicationId: string,
   _shiftId?: string,
   _workerId?: string,
+  credentialConfirmed = false,
 ) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = userClient(context.accessToken);
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+
+  if (credentialConfirmed) {
+    const { error: confirmError } = await sb.rpc('confirm_application_credential', {
+      p_application_id: applicationId,
+    });
+    if (confirmError) throw new Error(confirmError.message || '자격 확인 기록을 저장하지 못했어요.');
+  }
 
   const { error } = await sb.rpc('accept_shift_application', {
     p_application_id: applicationId,

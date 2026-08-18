@@ -31,6 +31,7 @@ export function ApplicantCard({
   const [loading, setLoading] = useState<'accept' | 'reject' | null>(null);
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [credentialConfirmed, setCredentialConfirmed] = useState(false);
   const [actionError, setActionError] = useState('');
 
   async function openAcceptConfirm() {
@@ -41,7 +42,7 @@ export function ApplicantCard({
     setLoading('accept');
     setActionError('');
     try {
-      await acceptApplication(applicant.applicationId, shiftId, applicant.workerId);
+      await acceptApplication(applicant.applicationId, shiftId, applicant.workerId, credentialConfirmed);
       setConfirmOpen(false);
       router.refresh();
     } catch (error) {
@@ -64,8 +65,9 @@ export function ApplicantCard({
     }
   }
 
-  const hasProfile = applicant.experienceYears || applicant.lastWorkplace || applicant.departmentTags?.length;
   const hasLicense = applicant.licenseNumber || applicant.licensePhotoUrl;
+  const hasProfile = hasLicense || applicant.experienceYears || applicant.lastWorkplace || applicant.departmentTags?.length;
+  const needsFacilityCredentialCheck = (applicant.role === 'rn' || applicant.role === 'na') && applicant.verificationStatus !== 'approved';
 
   return (
     <div className="py-4 px-5">
@@ -90,6 +92,7 @@ export function ApplicantCard({
               {applicant.verificationStatus === 'approved' && (
                 <span className="text-[13px] text-success font-semibold">✓인증</span>
               )}
+              {needsFacilityCredentialCheck && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-bold text-amber-700">사업장 확인 필요</span>}
             </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {applicant.distanceMeters != null && (
@@ -211,10 +214,17 @@ export function ApplicantCard({
             </div>
             <p className="text-[12px] text-sub mt-3">잇닿 이용료는 이 임금과 별도로 월 SaaS 청구서에 반영됩니다.</p>
 
+            {needsFacilityCredentialCheck && (
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <input type="checkbox" checked={credentialConfirmed} onChange={(event) => setCredentialConfirmed(event.target.checked)} className="mt-0.5 h-5 w-5 accent-primary" />
+                <span><b className="block text-[14px] text-ink">면허·자격 원본을 직접 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">확인한 관리자와 시간이 감사 기록에 남습니다. 원본을 확인하기 전에는 채용을 확정할 수 없습니다.</span></span>
+              </label>
+            )}
+
             <div className="mt-5 flex flex-col gap-2">
                 <button
                   onClick={handleAccept}
-                  disabled={loading != null}
+                  disabled={loading != null || (needsFacilityCredentialCheck && !credentialConfirmed)}
                   className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl disabled:opacity-50"
                 >
                   {loading === 'accept' ? '확정 중...' : '채용 확정하기'}

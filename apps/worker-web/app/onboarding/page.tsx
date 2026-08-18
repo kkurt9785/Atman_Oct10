@@ -136,8 +136,8 @@ function OnboardingInner() {
     return () => { active = false; };
   }, [terminalDeepLink]);
 
-  const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', info: 'license', area: 'info', bank: 'area' };
-  const prevStep = PREV[step];
+  const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', area: 'info', bank: 'area' };
+  const prevStep = step === 'info' ? (role === 'rn' || role === 'na' ? 'role' : 'license') : PREV[step];
 
   return (
     <main className="min-h-screen bg-white">
@@ -156,8 +156,8 @@ function OnboardingInner() {
       )}
       {step === 'splash' && <Splash />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
-      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep('license'); }} />}
-      {/* 서류 분기: 약사=면허 필수 · 전산·사무직=이력서 필수 · 간호직=권장(건너뛰기 가능) */}
+      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep(value === 'rn' || value === 'na' ? 'info' : 'license'); }} />}
+      {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('area'); }} />}
       {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('bank'); }} />}

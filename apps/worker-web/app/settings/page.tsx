@@ -47,7 +47,7 @@ export default function SettingsPage() {
 
       if (workerProf) {
         const filled = [
-          workerProf.role==='pharmacy_staff'?true:(workerProf.license_number || workerProf.license_photo_url),
+          ['pharmacy_staff','rn','na'].includes(workerProf.role)?true:(workerProf.license_number || workerProf.license_photo_url),
           workerProf.experience_years,
           workerProf.last_workplace,
           (workerProf.department_tags as string[] | null)?.length,

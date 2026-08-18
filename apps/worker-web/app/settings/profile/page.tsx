@@ -85,8 +85,9 @@ export default function ProfileEditPage() {
 
   async function handleSave() {
     setError(null);
-    if (role !== 'pharmacy_staff' && licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해주세요.'); return; }
-    if (role !== 'pharmacy_staff' && licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해주세요.'); return; }
+    const requiresLicense = role === 'pharmacist';
+    if (requiresLicense && licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해주세요.'); return; }
+    if (requiresLicense && licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해주세요.'); return; }
     if (!experience) { setError('경력을 선택해주세요.'); return; }
     if (!lastWorkplace.trim()) { setError('최근 근무지를 입력해주세요.'); return; }
     if (deptTags.length === 0) { setError('부서 태그를 최소 1개 선택해주세요.'); return; }
@@ -155,7 +156,8 @@ export default function ProfileEditPage() {
       <div className="flex flex-col gap-5">
         {/* 면허증 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
-          <p className="text-[13px] font-bold text-sub mb-3">{role === 'pharmacy_staff' ? '이력서' : '면허증 *'}</p>
+          <p className="text-[13px] font-bold text-sub mb-1">{role === 'pharmacy_staff' ? '이력서' : role === 'rn' || role === 'na' ? '면허·자격 (선택)' : '면허증 *'}</p>
+          {(role === 'rn' || role === 'na') && <p className="mb-3 text-[12px] text-sub">미리 등록하면 사업장 확인이 빨라져요. 등록하지 않아도 지원할 수 있습니다.</p>}
 
           {/* 탭 토글 — 이력서(전산·사무직)는 파일 업로드만 */}
           {role !== 'pharmacy_staff' && <div className="flex bg-bg rounded-xl p-1 mb-4">
