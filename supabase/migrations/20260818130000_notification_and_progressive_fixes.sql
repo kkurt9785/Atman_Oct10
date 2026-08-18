@@ -116,6 +116,7 @@ BEGIN
   SELECT p.oid::regprocedure INTO fn
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public'
+    AND p.prokind = 'f'  -- 집계·윈도우 함수는 pg_get_functiondef가 에러를 낸다
     AND pg_get_functiondef(p.oid) LIKE '%''shift.checkout''%'
   LIMIT 1;
   IF fn IS NULL THEN RAISE EXCEPTION '⑤b checkout enqueue function not found'; END IF;
@@ -137,5 +138,6 @@ SELECT
   strpos(pg_get_functiondef('public.record_payment_reconciliation(text,text,jsonb,text,text)'::regprocedure), 'payment.reconciliation:') > 0 AS reconciliation_push,
   EXISTS (
     SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public' AND pg_get_functiondef(p.oid) LIKE '%''url'',''/earnings''%'
+    WHERE n.nspname = 'public' AND p.prokind = 'f'
+      AND pg_get_functiondef(p.oid) LIKE '%''url'',''/earnings''%'
   ) AS checkout_deeplink;
