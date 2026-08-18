@@ -222,6 +222,8 @@ export default function HomePage() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
+  // 플랫폼 심사를 거치는 직군(약사 등)이 미승인이면 공고가 0건인 이유를 안내해야 한다
+  const [reviewPending, setReviewPending] = useState(false);
   const [nextAction,setNextAction]=useState<NextAction>({label:'근무 찾기',title:'내 조건에 맞는 근무를 찾아보세요',description:'지역과 직종에 맞는 시프트를 모아 보여드려요.',href:'/shifts',tone:'primary'});
 
   // 공고 탐색 기준 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
@@ -321,6 +323,8 @@ export default function HomePage() {
 
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;
+        const skipsPlatformReview = w.role === 'rn' || w.role === 'na' || w.role === 'pharmacy_staff';
+        setReviewPending(!skipsPlatformReview && w.verification_status !== 'approved');
         const credentialReady = w.role==='pharmacy_staff'||w.role==='rn'||w.role==='na'||w.license_number||w.license_photo_url;
         const incomplete = !(credentialReady && w.experience_years && w.last_workplace && (w.department_tags as string[] | null)?.length);
         setShowProfileBanner(incomplete);
@@ -512,11 +516,15 @@ export default function HomePage() {
 
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 gap-3">
-            <span className="text-5xl">🔍</span>
-            <p className="text-[15px] font-bold text-ink">조건에 맞는 시프트가 없어요</p>
-            <button onClick={resetFilters} className="text-[14px] text-primary font-semibold">
-              필터 초기화
-            </button>
+            <span className="text-5xl">{reviewPending ? '⏳' : '🔍'}</span>
+            <p className="text-[15px] font-bold text-ink">{reviewPending ? '자격 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
+            {reviewPending ? (
+              <p className="text-center text-[13px] leading-5 text-sub">심사가 끝나면 알림으로 알려드리고,<br />이 화면에 지원 가능한 근무가 열려요.</p>
+            ) : (
+              <button onClick={resetFilters} className="text-[14px] text-primary font-semibold">
+                필터 초기화
+              </button>
+            )}
           </div>
         ) : (
           filtered.map((s) => (

@@ -34,7 +34,9 @@ export function ApplicantCard({
   const [credentialConfirmed, setCredentialConfirmed] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  async function openAcceptConfirm() {
+  function openAcceptConfirm() {
+    setCredentialConfirmed(alreadyConfirmed);
+    setActionError('');
     setConfirmOpen(true);
   }
 
@@ -42,7 +44,11 @@ export function ApplicantCard({
     setLoading('accept');
     setActionError('');
     try {
-      await acceptApplication(applicant.applicationId, shiftId, applicant.workerId, credentialConfirmed);
+      const result = await acceptApplication(applicant.applicationId, shiftId, applicant.workerId, credentialConfirmed);
+      if (!result.ok) {
+        setActionError(result.message);
+        return;
+      }
       setConfirmOpen(false);
       router.refresh();
     } catch (error) {
@@ -67,7 +73,13 @@ export function ApplicantCard({
 
   const hasLicense = applicant.licenseNumber || applicant.licensePhotoUrl;
   const hasProfile = hasLicense || applicant.experienceYears || applicant.lastWorkplace || applicant.departmentTags?.length;
-  const needsFacilityCredentialCheck = (applicant.role === 'rn' || applicant.role === 'na') && applicant.verificationStatus !== 'approved';
+  // 서버가 기록한 검토 상태를 우선 신뢰한다. 다른 관리자가 이미 확인했다면 재확인을 요구하지 않는다
+  // (중복 확인은 감사로그를 중복 생성한다).
+  const alreadyConfirmed = applicant.credentialReviewStatus === 'facility_confirmed'
+    || applicant.credentialReviewStatus === 'platform_verified';
+  const needsFacilityCredentialCheck = (applicant.role === 'rn' || applicant.role === 'na')
+    && applicant.verificationStatus !== 'approved'
+    && !alreadyConfirmed;
 
   return (
     <div className="py-4 px-5">
@@ -222,8 +234,12 @@ export function ApplicantCard({
             )}
 
             <div className="mt-5 flex flex-col gap-2">
+                {needsFacilityCredentialCheck && !credentialConfirmed && (
+                  <p id="credential-gate-help" className="text-[12px] font-medium text-amber-700">자격을 확인하고 위 항목에 체크해야 채용을 확정할 수 있어요.</p>
+                )}
                 <button
                   onClick={handleAccept}
+                  aria-describedby={needsFacilityCredentialCheck && !credentialConfirmed ? 'credential-gate-help' : undefined}
                   disabled={loading != null || (needsFacilityCredentialCheck && !credentialConfirmed)}
                   className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl disabled:opacity-50"
                 >

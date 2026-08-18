@@ -200,15 +200,19 @@ export default function ShiftsPage() {
 
       const { data: worker } = await supabase
         .from('workers')
-        .select('id, verification_status')
+        .select('id, role, verification_status')
         .eq('auth_user_id', user.id)
         .maybeSingle();
-      if (!worker || worker.verification_status !== 'approved') {
+      // 간호직(rn/na)은 서류 없이 탐색·지원 가능하고 자격은 사업장이 확정 전에 확인한다.
+      // 약사·약국사무는 기존대로 플랫폼 심사를 통과해야 공고가 열린다.
+      const progressiveRole = worker?.role === 'rn' || worker?.role === 'na';
+      if (!worker || (!progressiveRole && worker.verification_status !== 'approved')) {
         setShifts([]);
         setReviewPending(Boolean(worker));
         setLoading(false);
         return;
       }
+      setReviewPending(false);
 
       const [{ data: appData }, { data: secureRows, error: discoveryError }] = await Promise.all([
         supabase.from('shift_applications').select('shift_id').eq('worker_id', worker.id).in('status', ['applied', 'accepted']),

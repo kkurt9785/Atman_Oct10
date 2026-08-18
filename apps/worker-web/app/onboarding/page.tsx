@@ -129,7 +129,12 @@ function OnboardingInner() {
         setStep('splash');
       } else {
         setRole(worker.role as WorkerRole);
-        setCompletionStep(worker.verification_status === 'approved' ? 'approval' : 'review');
+        // 간호직·약국사무는 플랫폼 심사를 거치지 않으므로 '심사 중' 화면이 영구히 남는다.
+        // 자격은 사업장이 확정 전에 확인하는 구조라 완료 안내로 보낸다.
+        const skipsPlatformReview = worker.role === 'rn' || worker.role === 'na' || worker.role === 'pharmacy_staff';
+        setCompletionStep(
+          worker.verification_status === 'approved' || skipsPlatformReview ? 'approval' : 'review',
+        );
       }
       setCheckingDeepLink(false);
     })();
