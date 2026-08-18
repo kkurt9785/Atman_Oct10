@@ -77,7 +77,7 @@ export function ApplicantCard({
   // (중복 확인은 감사로그를 중복 생성한다).
   const alreadyConfirmed = applicant.credentialReviewStatus === 'facility_confirmed'
     || applicant.credentialReviewStatus === 'platform_verified';
-  const needsFacilityCredentialCheck = (applicant.role === 'rn' || applicant.role === 'na')
+  const needsFacilityCredentialCheck = (applicant.role === 'rn' || applicant.role === 'na' || applicant.role === 'pharmacist')
     && applicant.verificationStatus !== 'approved'
     && !alreadyConfirmed;
 

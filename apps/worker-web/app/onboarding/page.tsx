@@ -95,7 +95,8 @@ function OnboardingInner() {
       }
 
       // 전산·사무직은 서류(이력서)와 무관하게 프로필 완성이 승인 경로 → approval 안내 화면으로
-      setCompletionStep(role === 'pharmacy_staff' ? 'approval' : licenseFile || licenseNumber ? 'review' : 'approval');
+      // 플랫폼 심사 대기 화면은 이제 어느 직군에도 해당하지 않는다 (자격은 사업장이 확정 전 확인)
+      setCompletionStep('approval');
       setStep('notification');
     } catch (error) {
       if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
@@ -131,7 +132,7 @@ function OnboardingInner() {
         setRole(worker.role as WorkerRole);
         // 간호직·약국사무는 플랫폼 심사를 거치지 않으므로 '심사 중' 화면이 영구히 남는다.
         // 자격은 사업장이 확정 전에 확인하는 구조라 완료 안내로 보낸다.
-        const skipsPlatformReview = worker.role === 'rn' || worker.role === 'na' || worker.role === 'pharmacy_staff';
+        const skipsPlatformReview = worker.role === 'rn' || worker.role === 'na' || worker.role === 'pharmacist' || worker.role === 'pharmacy_staff';
         setCompletionStep(
           worker.verification_status === 'approved' || skipsPlatformReview ? 'approval' : 'review',
         );

@@ -323,7 +323,7 @@ export default function HomePage() {
 
       if (workerRow) {
         const w = workerRow as Record<string, unknown>;
-        const skipsPlatformReview = w.role === 'rn' || w.role === 'na' || w.role === 'pharmacy_staff';
+        const skipsPlatformReview = w.role === 'rn' || w.role === 'na' || w.role === 'pharmacist' || w.role === 'pharmacy_staff';
         setReviewPending(!skipsPlatformReview && w.verification_status !== 'approved');
         const credentialReady = w.role==='pharmacy_staff'||w.role==='rn'||w.role==='na'||w.license_number||w.license_photo_url;
         const incomplete = !(credentialReady && w.experience_years && w.last_workplace && (w.department_tags as string[] | null)?.length);

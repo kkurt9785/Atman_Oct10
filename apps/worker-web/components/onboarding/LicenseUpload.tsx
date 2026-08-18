@@ -19,7 +19,7 @@ export type LicensePayload = { file: File | null; number: string };
 // 직군별 서류 분기: 약사=면허 필수(사진/번호) · 약국 전산·사무직=이력서 필수(파일) · 간호직=면허 권장(건너뛰기 가능)
 export function LicenseUpload({ role, onNext, onSkip }: { role?: WorkerRole | null; onNext: (payload: LicensePayload) => void; onSkip: () => void }) {
   const isResume = role === 'pharmacy_staff';
-  const required = role === 'pharmacist' || isResume;
+  const required = isResume; // 약국 사무·전산직 이력서만 필수. 면허는 사업장이 채용 확정 전 확인
   const [mode, setMode] = useState<'photo' | 'text'>('photo');
   const [file, setFile] = useState<File | null>(null);
   const [number, setNumber] = useState('');

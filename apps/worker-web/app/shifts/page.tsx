@@ -203,9 +203,9 @@ export default function ShiftsPage() {
         .select('id, role, verification_status')
         .eq('auth_user_id', user.id)
         .maybeSingle();
-      // 간호직(rn/na)은 서류 없이 탐색·지원 가능하고 자격은 사업장이 확정 전에 확인한다.
-      // 약사·약국사무는 기존대로 플랫폼 심사를 통과해야 공고가 열린다.
-      const progressiveRole = worker?.role === 'rn' || worker?.role === 'na';
+      // 자격 확인은 채용 확정 전에 사업장이 직접 수행한다(잇닿은 심사기관이 아님).
+      // 약국 사무·전산직은 이력서 제출 후 자동 승인되므로 기존 경로를 그대로 둔다.
+      const progressiveRole = worker?.role === 'rn' || worker?.role === 'na' || worker?.role === 'pharmacist';
       if (!worker || (!progressiveRole && worker.verification_status !== 'approved')) {
         setShifts([]);
         setReviewPending(Boolean(worker));

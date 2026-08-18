@@ -6,7 +6,8 @@ import type { WorkerRole } from '@/lib/roles';
 export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onStart: () => void; onBrowse: () => void }) {
   void onStart;
   const isOfficeStaff = role === 'pharmacy_staff';
-  const isNursing = role === 'rn' || role === 'na';
+  // 면허 직군(간호·약사)은 서류 없이 시작하고, 자격은 사업장이 채용 확정 전에 확인한다
+  const isNursing = role === 'rn' || role === 'na' || role === 'pharmacist';
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
       <div className="flex flex-col items-center mb-8 mt-4">

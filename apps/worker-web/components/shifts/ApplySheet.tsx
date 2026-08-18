@@ -94,7 +94,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
               <p className="text-[13px] font-extrabold text-ink mb-2">지원 전 확인</p>
               <div className="flex flex-col gap-1.5 text-[13px] text-sub">
                 <p>사업장이 수락하면 채용 확정 상태로 바뀝니다.</p>
-                {(shift.required_role === 'rn' || shift.required_role === 'na') && <p>면허 미등록 상태여도 지원할 수 있으며, 채용 확정 전 사업장이 자격을 확인해요.</p>}
+                {(shift.required_role === 'rn' || shift.required_role === 'na' || shift.required_role === 'pharmacist') && <p>면허 미등록 상태여도 지원할 수 있으며, 채용 확정 전 사업장이 자격을 확인해요.</p>}
                 <p>채용 확정 후 당일 취소는 사업장과 먼저 확인해 주세요.</p>
                 {shift.notes && <p className="text-ink font-semibold">{shift.notes}</p>}
               </div>
