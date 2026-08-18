@@ -35,7 +35,9 @@ export function ApplicantCard({
   const [actionError, setActionError] = useState('');
 
   function openAcceptConfirm() {
-    setCredentialConfirmed(alreadyConfirmed);
+    // 이미 확인된 지원은 체크박스 자체가 숨겨지고, 서버 게이트는 저장된 상태로 통과한다.
+    // 여기서 true를 넘기면 확인 RPC가 재호출돼 감사로그가 중복되므로 항상 false에서 시작.
+    setCredentialConfirmed(false);
     setActionError('');
     setConfirmOpen(true);
   }
@@ -44,7 +46,10 @@ export function ApplicantCard({
     setLoading('accept');
     setActionError('');
     try {
-      const result = await acceptApplication(applicant.applicationId, shiftId, applicant.workerId, credentialConfirmed);
+      const result = await acceptApplication(
+        applicant.applicationId, shiftId, applicant.workerId,
+        credentialConfirmed && needsFacilityCredentialCheck,
+      );
       if (!result.ok) {
         setActionError(result.message);
         return;
@@ -62,7 +67,11 @@ export function ApplicantCard({
     setLoading('reject');
     setActionError('');
     try {
-      await rejectApplication(applicant.applicationId);
+      const result = await rejectApplication(applicant.applicationId);
+      if (result && result.ok === false) {
+        setActionError(result.message);
+        return;
+      }
       router.refresh();
     } catch (error) {
       setActionError(error instanceof Error ? error.message : '거절 처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
@@ -110,9 +119,7 @@ export function ApplicantCard({
               {applicant.distanceMeters != null && (
                 <span className="text-[12px] text-sub">{km(applicant.distanceMeters)}</span>
               )}
-              {applicant.matchScore != null && (
-                <span className="text-[12px] text-sub">적합도 {Math.round(applicant.matchScore)}점</span>
-              )}
+
             </div>
           </div>
         </div>
@@ -140,10 +147,10 @@ export function ApplicantCard({
       {/* 프로필 정보 */}
       {hasProfile && (
         <div className="mt-3 ml-[52px] flex flex-col gap-1.5">
-          {/* 면허증 */}
+          {/* 면허증 / 이력서 (사무직은 이력서가 license_photo_url에 저장됨) */}
           {hasLicense && (
             <div className="flex items-center gap-2">
-              <span className="text-[13px] text-sub w-12 flex-shrink-0">면허증</span>
+              <span className="text-[13px] text-sub w-12 flex-shrink-0">{applicant.role === 'pharmacy_staff' ? '이력서' : '면허증'}</span>
               {applicant.licensePhotoUrl ? (
                 <>
                   <button
@@ -160,7 +167,7 @@ export function ApplicantCard({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={applicant.licensePhotoUrl}
-                        alt="면허증"
+                        alt={applicant.role === 'pharmacy_staff' ? '이력서' : '면허증'}
                         className="max-w-full max-h-[80vh] rounded-xl object-contain"
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -229,7 +236,7 @@ export function ApplicantCard({
             {needsFacilityCredentialCheck && (
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <input type="checkbox" checked={credentialConfirmed} onChange={(event) => setCredentialConfirmed(event.target.checked)} className="mt-0.5 h-5 w-5 accent-primary" />
-                <span><b className="block text-[14px] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">원본, 공식 조회 또는 병원 내부 절차로 확인한 뒤 체크해 주세요. 확인한 관리자와 시간은 감사 기록에 남습니다.</span></span>
+                <span><b className="block text-[14px] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">원본, 공식 조회 또는 사업장 내부 절차로 확인한 뒤 체크해 주세요. 확인한 관리자와 시간은 감사 기록에 남습니다.</span></span>
               </label>
             )}
 

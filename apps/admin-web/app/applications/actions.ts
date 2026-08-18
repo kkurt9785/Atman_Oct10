@@ -42,18 +42,19 @@ export async function acceptApplication(
   return { ok: true };
 }
 
-export async function rejectApplication(applicationId: string) {
+export async function rejectApplication(applicationId: string): Promise<ActionResult> {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = userClient(context.accessToken);
-  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  if (!sb) return { ok: false, message: '서버 설정을 확인해 주세요.' };
 
   const { data, error } = await sb.rpc('reject_shift_application', {
     p_application_id: applicationId,
   });
   if (error || data !== true) {
-    throw new Error(error?.message || '지원 거절에 실패했어요.');
+    return { ok: false, message: error?.message || '지원 거절에 실패했어요.' };
   }
 
   revalidatePath('/applications');
   revalidatePath('/');
+  return { ok: true };
 }

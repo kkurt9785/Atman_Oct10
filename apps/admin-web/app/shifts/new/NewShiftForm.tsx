@@ -120,7 +120,8 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
 
     startTransition(async () => {
       try {
-        await createShiftAction(formData);
+        const result = await createShiftAction(formData);
+        if (result && result.ok === false) setError(result.message);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '';
         if (!msg.includes('NEXT_REDIRECT') && !msg.includes('digest')) {

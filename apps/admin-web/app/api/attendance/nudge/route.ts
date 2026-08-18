@@ -31,9 +31,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers });
   }
   const sb = adminClient();
-  const { data: worker } = sb ? await sb.from('workers').select('id').eq('auth_user_id', user.id)
-    .eq('verification_status', 'approved').is('deleted_at', null).maybeSingle() : { data: null };
-  if (!worker) return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers });
+  // 단계적 자격검증 직군(rn/na/pharmacist)은 approved가 되지 않으므로
+  // 실존 워커라면 통과시킨다 — 지원·채팅 직후 실시간 알림의 유일한 트리거다.
+  const { data: worker } = sb ? await sb.from('workers').select('id, role, verification_status')
+    .eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle() : { data: null };
+  const progressive = worker?.role === 'rn' || worker?.role === 'na' || worker?.role === 'pharmacist';
+  if (!worker || (!progressive && worker.verification_status !== 'approved')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers });
+  }
   const now = Date.now();
   if (now - (lastDispatchByUser.get(user.id) ?? 0) < 15_000) {
     return NextResponse.json({ ok: true, throttled: true }, { headers });

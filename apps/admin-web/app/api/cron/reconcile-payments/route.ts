@@ -16,6 +16,9 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await reconcilePendingPayments(25);
+    // reconcile_required 발생 시 관리자 푸시가 인큐된다 — 다음날 dispatch 크론을 기다리지 않게 즉시 발송
+    const { dispatchPendingNotifications } = await import('@/lib/notification-dispatch');
+    await dispatchPendingNotifications(10).catch(() => undefined);
     return NextResponse.json({ ok: result.failed === 0, ...result }, { status: result.failed === 0 ? 200 : 207 });
   } catch (error) {
     console.error('[cron/reconcile-payments]', error);

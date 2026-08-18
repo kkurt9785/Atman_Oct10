@@ -6,6 +6,8 @@ import { getOperationsAlerts, getOperationsSummary, getShiftTemplates, getWorkfo
 import { approveWorkforceRecommendationAction, createShiftTemplateAction, createStaffingRequirementAction, deactivateShiftTemplateAction, deactivateStaffingRequirementAction, fillSevenDayScheduleGapsAction, generateRecurringShiftsAction, requestUrgentReplacementAction, resetFacilityLiveDemoAction } from './actions';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
+import { hasPlanFeature } from '@/lib/billing-gates';
+import { adminClient } from '@/lib/supabase';
 import { ManageBackLink } from '@/components/ManageBackLink';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
@@ -33,6 +35,9 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   }
   const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop] = await Promise.all([getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(), getWorkforceCoverage(), getWorkforceRecommendations(), getShop()]);
   const isPharmacy = shop?.facilityType === 'pharmacy';
+  // 운영 자동화는 Pro·Pharmacy Plus 기능 — 미충족 플랜에는 실행 시점 에러 대신 먼저 안내한다
+  const gateSb = adminClient();
+  const hasOperations = !!gateSb && (await hasPlanFeature(gateSb, context.facilityId, 'operations'));
   const roleOptions: [string, string][] = isPharmacy
     ? [['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직']]
     : [['rn', '간호사 RN'], ['na', '간호조무사 NA'], ['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직'], ['any', '자격 무관']];
@@ -43,7 +48,15 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   return (
     <main className="px-4 pb-28">
       <ManageBackLink href="/more/operations" label="근무 운영" />
-      {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[13px] font-bold text-success">{notice}</p>}
+      {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[13px] font-bold text-success">{notice}
+      {!hasOperations && (
+        <Card className="mb-4 border border-amber-200 bg-amber-50">
+          <p className="text-body font-extrabold text-ink">운영 자동화는 Pro·Pharmacy Plus 요금제 기능이에요</p>
+          <p className="text-label text-sub mt-1 leading-5">반복 근무표 자동 생성, 인력 공백 알림, 긴급 대체 모집을 쓸 수 있어요. 지금 플랜에서는 화면만 미리 볼 수 있습니다.</p>
+          <Link href="/membership" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">요금제 살펴보기</Link>
+        </Card>
+      )}
+</p>}
       <div className="mt-3 mb-5 px-1">
         <p className="text-label font-bold text-primary">운영 자동화</p>
         <h1 className="text-display font-extrabold text-ink mt-1">이번 달 인력 운영</h1>
@@ -68,7 +81,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
 
       <section className="mb-5" aria-labelledby="staffing-recommendations">
         <div className="flex items-end justify-between px-1 mb-3">
-          <div><p className="text-label font-bold text-primary">근무표·휴가·근태 자동 분석</p><h2 id="staffing-recommendations" className="text-title font-extrabold text-ink mt-1">인력 공백 추천</h2></div>
+          <div><p className="text-label font-bold text-primary">근무표·휴가·근태 자동 분석</p><h2 id="staffing-recommendations" className="text-title font-extrabold text-ink mt-1">인력 공백 알림</h2></div>
           <span className="text-label font-bold text-sub">앞으로 7일</span>
         </div>
         {requirements.length === 0 ? (
@@ -82,12 +95,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
               return <Card key={item.key} className="border border-amber-200 bg-amber-50/70">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="text-[12px] font-extrabold text-warn">{dateLabel} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p><p className="text-body font-extrabold text-ink mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} {ROLE_LABEL[item.role]} {item.shortage}명이 부족해요</p><p className="text-label text-sub mt-1 leading-5">{item.reason} · 기준 {item.required}명 / 현재 반영 {item.scheduled}명</p></div>
-                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-primary">추천 {item.candidateCount}명</span>
+                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-primary">가능 인력풀 {item.candidateCount}명</span>
                 </div>
-                {item.candidateNames.length > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[12px] text-sub"><b className="text-ink">우선 알림 후보</b> · {item.candidateNames.join(', ')}{item.candidateCount > item.candidateNames.length ? ` 외 ${item.candidateCount - item.candidateNames.length}명` : ''}</p>}
+                {item.candidateCount > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[12px] text-sub">함께 일했던 인력풀 중 이 시간대에 가능한 인력이 <b className="text-ink">{item.candidateCount}명</b> 있어요. 공고를 올리면 조건이 맞는 워커 모두에게 알림이 갑니다.</p>}
                 <form action={approveWorkforceRecommendationAction} className="mt-3">
                   <input type="hidden" name="recommendation_key" value={item.key}/>
-                  <button className="w-full min-h-11 rounded-xl bg-primary px-4 text-label font-extrabold text-white">추천안 승인 · 공고와 알림 반영</button>
+                  <button className="w-full min-h-11 rounded-xl bg-primary px-4 text-label font-extrabold text-white">공고 올리고 조건 맞는 워커에게 알림</button>
                 </form>
               </Card>;
             })}

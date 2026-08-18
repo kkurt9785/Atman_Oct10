@@ -37,14 +37,14 @@ export function LicenseUpload({ role, onNext, onSkip }: { role?: WorkerRole | nu
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
-      <p className="text-[13px] font-medium text-tertiary mb-2">단계 3 / 정보 입력</p>
+      <p className="text-[13px] font-medium text-tertiary mb-2">서류 등록 / 정보 입력</p>
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">{isResume ? '이력서를 등록할게요' : '면허·자격을 등록할게요'}</h1>
       <p className="text-[15px] text-sub mb-6">
         {isResume
           ? '약국 담당자가 지원자를 확인할 때 참고하는 자료예요. PDF 또는 사진으로 올려주세요. 비공개로 보관됩니다.'
           : required
             ? '약사 공고 지원에는 면허 확인이 필요해요. 사진 또는 면허 번호로 등록해 주세요. 비공개로 보관됩니다.'
-            : '사진 또는 면허 번호 중 편한 방법으로 등록하세요. 정보는 비공개로 보관되고 심사 담당자에게만 제한적으로 표시돼요.'}
+            : '사진 또는 면허 번호 중 편한 방법으로 등록하세요. 정보는 비공개로 보관되고 지원한 사업장 담당자에게만 제한적으로 표시돼요.'}
       </p>
 
       {/* 사진 / 번호 입력 토글 — 이력서(전산·사무직)는 파일 업로드만 */}

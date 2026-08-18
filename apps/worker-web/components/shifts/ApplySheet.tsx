@@ -150,10 +150,10 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
             <span className="text-5xl">🔐</span>
             <h2 className="text-[20px] font-extrabold text-ink">로그인이 필요해요</h2>
             <p className="text-[14px] text-sub text-center">
-              시프트는 먼저 둘러볼 수 있고,<br />프로필 승인 후 지원할 수 있어요
+              시프트는 먼저 둘러볼 수 있고,<br />가입하면 바로 지원할 수 있어요
             </p>
             <button
-              onClick={() => { window.localStorage.setItem('atman_auth_next','/shifts'); window.location.href = '/onboarding?step=splash'; }}
+              onClick={() => { window.localStorage.setItem('atman_auth_next', `/shifts?highlight=${shift.id}`); window.location.href = '/onboarding?step=splash'; }}
               className="mt-4 w-full h-14 bg-primary text-white text-[17px] font-bold rounded-btn shadow-btn active:opacity-80"
             >
               카카오로 1분 가입하기
@@ -171,7 +171,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
               자격증과 신원 정보를 등록하면<br />검토 후 지원할 수 있어요
             </p>
             <button
-              onClick={() => { window.localStorage.setItem('atman_auth_next','/shifts'); window.location.href = '/onboarding'; }}
+              onClick={() => { window.localStorage.setItem('atman_auth_next', `/shifts?highlight=${shift.id}`); window.location.href = '/onboarding'; }}
               className="mt-4 w-full h-14 bg-primary text-white text-[17px] font-bold rounded-btn shadow-btn active:opacity-80"
             >
               프로필 등록하기

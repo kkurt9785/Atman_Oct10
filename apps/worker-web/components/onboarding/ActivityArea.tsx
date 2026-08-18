@@ -89,7 +89,7 @@ export function ActivityArea({
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
-      {showHeader && <p className="text-[13px] font-medium text-tertiary mb-2">단계 2 / 정보 입력</p>}
+      {showHeader && <p className="text-[13px] font-medium text-tertiary mb-2">활동 지역 / 정보 입력</p>}
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-1">
         시프트 알림 받을<br />지역을 설정해요
       </h1>

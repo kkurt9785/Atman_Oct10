@@ -69,7 +69,7 @@ export async function requirePlanFeature(
   const plan = await getFacilityPlan(sb, facilityId);
   if (plan.features[feature] === true) return;
   const label = feature === 'repeat_invite' ? '인력풀 반복초대' : '운영 자동화';
-  const required = feature === 'repeat_invite' ? 'Basic 이상' : 'Pro 이상';
+  const required = feature === 'repeat_invite' ? 'Basic·Pharmacy 이상' : 'Pro·Pharmacy Plus 이상';
   throw new Error(`${label} 기능은 ${required} 요금제에서 이용할 수 있어요. 현재 플랜: ${plan.name}`);
 }
 

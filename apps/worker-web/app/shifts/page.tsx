@@ -208,6 +208,7 @@ export default function ShiftsPage() {
       const progressiveRole = worker?.role === 'rn' || worker?.role === 'na' || worker?.role === 'pharmacist';
       if (!worker || (!progressiveRole && worker.verification_status !== 'approved')) {
         setShifts([]);
+        // pharmacy_staff는 심사가 아니라 프로필(이력서) 완성이 열쇠 — 화면에서 CTA로 안내
         setReviewPending(Boolean(worker));
         setLoading(false);
         return;
@@ -300,9 +301,14 @@ export default function ShiftsPage() {
           시프트 {filtered.length}건
         </h1>
         {isGuest && (
-          <p className="text-[13px] text-sub mt-2">
-            둘러보기는 바로 가능해요. 지원할 때 1분 가입과 인증을 진행합니다.
-          </p>
+          <>
+            <p className="text-[13px] text-sub mt-2">
+              둘러보기는 바로 가능해요. 지원할 때 1분 가입을 진행합니다.
+            </p>
+            <a href="https://itdot.co.kr/intro" className="mt-1 inline-block text-[12px] font-bold text-primary">
+              병원·약국 관리자이신가요? 사업장 안내 보기 →
+            </a>
+          </>
         )}
         </div>
         {!isGuest&&<Link href="/map" className="h-11 px-4 rounded-xl bg-primary/10 text-primary flex items-center text-[13px] font-bold whitespace-nowrap">🗺 지도 보기</Link>}
@@ -316,9 +322,12 @@ export default function ShiftsPage() {
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <span className="text-5xl">🔍</span>
-          <p className="text-[17px] font-bold text-ink">{reviewPending ? '가입 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
+          <p className="text-[17px] font-bold text-ink">{reviewPending ? '프로필을 완성하면 공고가 열려요' : '조건에 맞는 시프트가 없어요'}</p>
           {reviewPending && (
-            <p className="text-[13px] text-sub text-center leading-5">심사가 끝나면 알림으로 알려드리고,<br />이 화면에 지원 가능한 시프트가 열려요.</p>
+            <>
+              <p className="text-[13px] text-sub text-center leading-5">이력서와 경력 정보를 등록하면<br />바로 지원 가능한 공고가 이 화면에 표시돼요.</p>
+              <Link href="/settings/profile" className="mt-1 rounded-btn bg-primary px-5 py-2.5 text-[14px] font-bold text-white">프로필 완성하러 가기</Link>
+            </>
           )}
           <p className="text-[14px] text-sub text-center">
             필터를 넓히면 더 많은 공고를 볼 수 있어요

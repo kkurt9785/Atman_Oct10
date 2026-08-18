@@ -5,11 +5,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: '잇닿 — 병원·약국 인력, 앱에서 바로 구하세요',
   description:
-    '간호사·간호조무사·약사 대타 인력을 앱에서 바로 모집하세요. 매칭 수수료 0원, 임금은 사업장이 직접 지급, GPS·QR 출퇴근 인증까지.',
+    '간호사·간호조무사·약사 대타 인력을 앱에서 바로 모집하세요. 중개 수수료 0원, 임금은 사업장이 직접 지급, GPS·QR 출퇴근 인증까지.',
   alternates: { canonical: 'https://itdot.co.kr/intro' },
   openGraph: {
     title: '잇닿 — 병원·약국 인력, 앱에서 바로 구하세요',
-    description: '매칭 수수료 0원. 공고 등록부터 출퇴근 인증·급여 정리까지 한 번에.',
+    description: '중개 수수료 0원. 공고 등록부터 출퇴근 인증·급여 정리까지 한 번에.',
     url: 'https://itdot.co.kr/intro',
     type: 'website',
   },
@@ -60,7 +60,7 @@ export default function IntroPage() {
         </p>
         <div className="mt-5 flex flex-wrap gap-2">
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            매칭 수수료 0원
+            중개 수수료 0원
           </span>
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
             임금은 사업장 직접 지급

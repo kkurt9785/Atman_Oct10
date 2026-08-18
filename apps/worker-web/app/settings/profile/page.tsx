@@ -85,7 +85,8 @@ export default function ProfileEditPage() {
 
   async function handleSave() {
     setError(null);
-    const requiresLicense = role === 'pharmacist';
+    // 자격 확인은 사업장이 채용 확정 전에 수행한다 — 프로필 저장은 어떤 직군도 면허를 강제하지 않는다
+  const requiresLicense = false;
     if (requiresLicense && licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해주세요.'); return; }
     if (requiresLicense && licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해주세요.'); return; }
     if (!experience) { setError('경력을 선택해주세요.'); return; }

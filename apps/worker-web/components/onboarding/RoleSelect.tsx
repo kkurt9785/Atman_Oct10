@@ -51,7 +51,7 @@ export function RoleSelect({ onNext }: { onNext: (role: WorkerRole) => void }) {
 
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
-      <p className="text-[13px] font-medium text-tertiary mb-2">단계 1 / 정보 입력</p>
+      <p className="text-[13px] font-medium text-tertiary mb-2">기본 선택 / 정보 입력</p>
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-8">어떤 자격이신가요?</h1>
 
       <div className="flex flex-col gap-4 flex-1">
