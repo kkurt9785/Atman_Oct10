@@ -217,7 +217,7 @@ export function ApplicantCard({
             {needsFacilityCredentialCheck && (
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <input type="checkbox" checked={credentialConfirmed} onChange={(event) => setCredentialConfirmed(event.target.checked)} className="mt-0.5 h-5 w-5 accent-primary" />
-                <span><b className="block text-[14px] text-ink">면허·자격 원본을 직접 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">확인한 관리자와 시간이 감사 기록에 남습니다. 원본을 확인하기 전에는 채용을 확정할 수 없습니다.</span></span>
+                <span><b className="block text-[14px] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">원본, 공식 조회 또는 병원 내부 절차로 확인한 뒤 체크해 주세요. 확인한 관리자와 시간은 감사 기록에 남습니다.</span></span>
               </label>
             )}
 
