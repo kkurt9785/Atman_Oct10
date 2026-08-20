@@ -49,7 +49,7 @@ function RewardsContent(){
   async function share(){
     if(!data?.code)return;
     const url=`${window.location.origin}/rewards?ref=${data.code}`;
-    const text='잇닿에서 병원·약국 의료인력 시프트를 확인해 보세요. 프로필 인증과 첫 근무 완료 혜택이 있어요.';
+    const text='잇닿에서 병원·약국 의료인력 시프트를 확인해 보세요. 프로필 확인과 첫 근무 완료 혜택이 있어요.';
     if(navigator.share){
       try{await navigator.share({title:'잇닿 워커 초대',text,url});return;}catch{/* copy fallback */}
     }
@@ -61,7 +61,7 @@ function RewardsContent(){
   if(!data?.ok)return <main className="min-h-screen bg-bg px-5 pt-12"><div className="rounded-2xl bg-white p-8 text-center"><b>{data?.message??'리워드를 확인할 수 없어요.'}</b></div></main>;
 
   const steps=[
-    {label:role==='pharmacy_staff'?'프로필 인증':'프로필·면허 인증',description:role==='pharmacy_staff'?'활동지역과 본인·경력 확인을 완료해요':'활동지역과 면허 심사를 완료해요',done:data.milestones.profileVerified,reward:'커피 5천원'},
+    {label:'프로필 확인',description:role==='pharmacy_staff'?'활동지역·경력·이력서 확인을 완료해요':'활동지역·경력·최근 근무지 입력을 완료해요',done:data.milestones.profileVerified,reward:'커피 5천원'},
     {label:'첫 시프트 지원',description:'원하는 공고를 직접 선택해 지원해요',done:data.milestones.firstApplied,reward:null},
     {label:'첫 근무 완료',description:'출퇴근과 사업장 근태 확정까지 완료해요',done:data.milestones.firstShiftCompleted,reward:'2만원'},
   ];

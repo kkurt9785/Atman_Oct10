@@ -15,6 +15,7 @@ export async function acceptApplication(
   _shiftId?: string,
   _workerId?: string,
   credentialConfirmed = false,
+  credentialVerificationMethod = 'internal_hr_process',
 ): Promise<ActionResult> {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = userClient(context.accessToken);
@@ -23,6 +24,7 @@ export async function acceptApplication(
   if (credentialConfirmed) {
     const { error: confirmError } = await sb.rpc('confirm_application_credential', {
       p_application_id: applicationId,
+      p_verification_method: credentialVerificationMethod,
     });
     if (confirmError) {
       return { ok: false, message: confirmError.message || '자격 확인 기록을 저장하지 못했어요.' };

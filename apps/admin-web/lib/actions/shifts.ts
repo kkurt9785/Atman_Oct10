@@ -62,7 +62,7 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
       .select('worker_id,status,workers(id,auth_user_id,name,role,verification_status,deleted_at)')
       .eq('facility_id', context.facilityId).eq('worker_id', invitedWorkerId).eq('status', 'active').maybeSingle();
     const worker = (poolMember as any)?.workers;
-    if (!worker || worker.deleted_at || worker.verification_status !== 'approved') return { ok: false, message: '초대 가능한 인력풀 워커가 아니에요.' };
+    if (!worker || worker.deleted_at || worker.verification_status !== 'approved') return { ok: false, message: '반복 초대는 사업장 확인이 완료된 인력풀 워커만 가능해요. 미확인 워커는 공개 공고 지원으로 확인해 주세요.' };
     if (requiredRole !== 'any' && worker.role !== requiredRole) return { ok: false, message: '워커 자격과 시프트 자격이 일치하지 않아요.' };
     invitedWorker = worker;
   }

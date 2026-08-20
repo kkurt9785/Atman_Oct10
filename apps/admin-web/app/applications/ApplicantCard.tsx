@@ -32,12 +32,14 @@ export function ApplicantCard({
   const [licenseOpen, setLicenseOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [credentialConfirmed, setCredentialConfirmed] = useState(false);
+  const [credentialVerificationMethod, setCredentialVerificationMethod] = useState('original_document');
   const [actionError, setActionError] = useState('');
 
   function openAcceptConfirm() {
     // 이미 확인된 지원은 체크박스 자체가 숨겨지고, 서버 게이트는 저장된 상태로 통과한다.
     // 여기서 true를 넘기면 확인 RPC가 재호출돼 감사로그가 중복되므로 항상 false에서 시작.
     setCredentialConfirmed(false);
+    setCredentialVerificationMethod('original_document');
     setActionError('');
     setConfirmOpen(true);
   }
@@ -49,6 +51,7 @@ export function ApplicantCard({
       const result = await acceptApplication(
         applicant.applicationId, shiftId, applicant.workerId,
         credentialConfirmed && needsFacilityCredentialCheck,
+        credentialVerificationMethod,
       );
       if (!result.ok) {
         setActionError(result.message);
@@ -89,6 +92,11 @@ export function ApplicantCard({
   const needsFacilityCredentialCheck = (applicant.role === 'rn' || applicant.role === 'na' || applicant.role === 'pharmacist')
     && applicant.verificationStatus !== 'approved'
     && !alreadyConfirmed;
+  const verificationMethodLabel: Record<string, string> = {
+    original_document: '원본 확인',
+    official_lookup: '공식 조회',
+    internal_hr_process: '병원 내부 절차',
+  };
 
   return (
     <div className="py-4 px-5">
@@ -114,6 +122,7 @@ export function ApplicantCard({
                 <span className="text-[13px] text-success font-semibold">✓인증</span>
               )}
               {needsFacilityCredentialCheck && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-bold text-amber-700">사업장 확인 필요</span>}
+              {alreadyConfirmed && <span className="rounded-full bg-success/10 px-2 py-0.5 text-[12px] font-bold text-success">✓ 사업장 확인 · {verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ?? '완료'}</span>}
             </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {applicant.distanceMeters != null && (
@@ -236,7 +245,13 @@ export function ApplicantCard({
             {needsFacilityCredentialCheck && (
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <input type="checkbox" checked={credentialConfirmed} onChange={(event) => setCredentialConfirmed(event.target.checked)} className="mt-0.5 h-5 w-5 accent-primary" />
-                <span><b className="block text-[14px] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">원본, 공식 조회 또는 사업장 내부 절차로 확인한 뒤 체크해 주세요. 확인한 관리자와 시간은 감사 기록에 남습니다.</span></span>
+                <span className="min-w-0 flex-1"><b className="block text-[14px] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">확인 방법과 관리자·시간이 감사 기록에 남습니다.</span>
+                  <select value={credentialVerificationMethod} onChange={(event) => setCredentialVerificationMethod(event.target.value)} className="mt-3 h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-[13px] font-semibold text-ink">
+                    <option value="original_document">원본 확인</option>
+                    <option value="official_lookup">공식 조회</option>
+                    <option value="internal_hr_process">병원 내부 절차</option>
+                  </select>
+                </span>
               </label>
             )}
 
