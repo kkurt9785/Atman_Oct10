@@ -5,15 +5,16 @@ import { getShop } from '@/lib/db/shop';
 import { getStaff } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
 import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
-import { getClinicStaff } from '@/lib/db/clinic-workforce';
+import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-workforce';
 import { getAdminContext } from '@/lib/admin-auth';
 import { OperationsFlow } from '@/components/OperationsFlow';
 
 export default async function Home() {
-  const [shop, staff, clinicStaff, pendingCount, ops, alerts, context] = await Promise.all([
+  const [shop, staff, clinicStaff, attendanceFailures, pendingCount, ops, alerts, context] = await Promise.all([
     getShop(),
     getStaff(),
     getClinicStaff(),
+    getTodayAttendanceFailures(),
     getPendingCount(),
     getOperationsSummary(),
     getOperationsAlerts(),
@@ -25,7 +26,7 @@ export default async function Home() {
 
   const isPharmacy = shop.facilityType === 'pharmacy';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
-  const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount;
+  const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + attendanceFailures.length;
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
   const todayCount=clinicStaff.length+shiftStaff.length;
   const workingCount=clinicStaff.filter(s=>['working','late','checkout_pending'].includes(s.attendanceStatus??'')).length
@@ -52,7 +53,7 @@ export default async function Home() {
         <Card className="divide-y divide-line p-0 overflow-hidden">
           {[
             {label:'새 지원자',description:'지원자를 확인하고 근무를 확정해요',count:pendingCount,href:'/applications'},
-            {label:'출퇴근 확인',description:'조기 퇴근·미출근 기록을 확인해요',count:attendanceReviewCount,href:'/timesheet'},
+            {label:'출퇴근 확인',description:'조기 퇴근·미출근·인증 실패를 확인해요',count:attendanceReviewCount,href:'/timesheet'},
             {label:'지급 대기',description:canViewPayroll?'근무시간을 확인하고 지급을 완료해요':'급여 담당자에게 확인을 요청해요',count:canViewPayroll?ops.pendingWageCount:0,href:canViewPayroll?'/payroll':'/timesheet'},
           ].map((item)=><Link key={item.label} href={item.href} className="flex min-h-[72px] items-center justify-between gap-3 px-5 py-3 active:bg-bg">
             <div><p className="text-body font-extrabold text-ink">{item.label}</p><p className="mt-0.5 text-[12px] text-sub">{item.description}</p></div>

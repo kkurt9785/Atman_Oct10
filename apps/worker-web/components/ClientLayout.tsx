@@ -16,7 +16,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }, []);
   const showNav = path.startsWith('/home') || path.startsWith('/shifts') || path.startsWith('/map') || path.startsWith('/applications')
     || (path.startsWith('/workplace') && !path.startsWith('/workplace/qr'))
-    || path.startsWith('/earnings') || path.startsWith('/rewards') || path.startsWith('/settings');
+    || path.startsWith('/earnings') || path.startsWith('/rewards') || path.startsWith('/settings') || path.startsWith('/notifications');
   return (
     <>
       <div className={showNav ? 'pb-[calc(56px+env(safe-area-inset-bottom))]' : ''}>{children}</div>

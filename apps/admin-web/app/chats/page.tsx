@@ -14,6 +14,7 @@ type ChatRow = {
   status: string;
   lastMessage: string | null;
   lastAt: string | null;
+  unread: boolean;
 };
 
 async function getChatRows(facilityId: string): Promise<ChatRow[]> {
@@ -34,11 +35,11 @@ async function getChatRows(facilityId: string): Promise<ChatRow[]> {
   const ids = apps.map((a) => a.id);
   const { data: lastMsgs } = await sb
     .from('chat_messages')
-    .select('application_id, body, created_at')
+    .select('application_id, body, sender_type, created_at')
     .in('application_id', ids)
     .order('created_at', { ascending: false });
 
-  const lastByApp = new Map<string, { body: string; created_at: string }>();
+  const lastByApp = new Map<string, { body: string; sender_type: string; created_at: string }>();
   for (const m of lastMsgs ?? []) {
     if (!lastByApp.has(m.application_id)) lastByApp.set(m.application_id, m);
   }
@@ -55,6 +56,7 @@ async function getChatRows(facilityId: string): Promise<ChatRow[]> {
       status: a.status,
       lastMessage: last?.body ?? null,
       lastAt: last?.created_at ?? null,
+      unread: last?.sender_type === 'worker',
     };
   });
 }
@@ -92,6 +94,7 @@ export default async function ChatsPage() {
                   }`}>
                     {row.status === 'accepted' ? '채용확정' : '완료'}
                   </span>
+                  {row.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-extrabold text-white">새 메시지</span>}
                 </div>
                 <p className="text-label text-sub truncate mt-0.5">
                   {row.lastMessage ?? `${row.shiftDate} ${row.startTime} 근무`}

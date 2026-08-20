@@ -39,6 +39,10 @@ export function WorkerNav() {
           </Link>
         );
       })}
+      <Link href="/notifications" aria-current={path.startsWith('/notifications') ? 'page' : undefined} aria-label="알림" className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-3 min-h-[56px] ${path.startsWith('/notifications') ? 'text-primary' : 'text-tertiary'}`}>
+        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+        <span className="text-[11px] font-semibold">알림</span>
+      </Link>
     </nav>
   );
 }
