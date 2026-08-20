@@ -117,6 +117,14 @@ function WorkplaceContent() {
     if(!error) window.setTimeout(()=>window.location.reload(),700);
   }
 
+  async function cancelLeave(id:string){
+    setMessage('');
+    const {error}=await supabase.rpc('cancel_staff_leave_request',{p_request_id:id});
+    if(error){setMessage(error.message.replace(/^.*?: /,''));return;}
+    setLeaves(current=>current.map(item=>item.id===id?{...item,status:'cancelled'}:item));
+    setMessage('휴가 신청을 취소했어요. 기록은 내역에 남아 있습니다.');
+  }
+
   useEffect(()=>{void (async()=>{
     if(!selectedStaffId){setLeaveMinutes(0);setLeaves([]);return;}
     const year=new Date().getFullYear();
@@ -136,7 +144,7 @@ function WorkplaceContent() {
   return <main className="min-h-screen bg-bg px-4 pt-6 pb-28">
     <p className="text-[13px] font-bold text-primary">내 직장</p><h1 className="text-[26px] font-extrabold text-ink mt-1">출퇴근·휴가</h1>
     {loading?<div className="mt-6 bg-white rounded-2xl p-8 text-center text-sub">근태를 확인하고 있어요...</div>:
-      !staff&&shiftTarget?(()=>{const shift=Array.isArray(shiftTarget.shifts)?shiftTarget.shifts[0]:shiftTarget.shifts;const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;const mode=attendanceModes[facility?.id]??'gps_or_qr';const action=shiftTarget.checked_in_at?'check_out':'check_in';return <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><p className="text-[13px] font-bold text-primary">오늘 확정된 단기근무</p><h2 className="mt-1 text-[18px] font-extrabold">{facility?.name}</h2><p className="mt-1 text-[13px] text-sub">{shift.shift_date} · {shift.start_time.slice(0,5)}~{shift.end_time.slice(0,5)}</p>{!shiftTarget.checked_out_at?<AttendanceActionButton key={action} targetType="shift" targetId={shiftTarget.id} action={action} qrToken={attendanceToken} mode={mode} onSuccess={(response)=>{if(response.status!=='pending')setShiftTarget(current=>current?{...current,[action==='check_in'?'checked_in_at':'checked_out_at']:new Date().toISOString()}:current);}}/>:<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">근무가 완료됐어요.</p>}</section>})():
+      !staff&&shiftTarget?(()=>{const shift=Array.isArray(shiftTarget.shifts)?shiftTarget.shifts[0]:shiftTarget.shifts;const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;const mode=attendanceModes[facility?.id]??'gps_or_qr';const action=shiftTarget.checked_in_at?'check_out':'check_in';return <><section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><p className="text-[13px] font-bold text-primary">오늘 확정된 단기근무</p><h2 className="mt-1 text-[18px] font-extrabold">{facility?.name}</h2><p className="mt-1 text-[13px] text-sub">{shift.shift_date} · {shift.start_time.slice(0,5)}~{shift.end_time.slice(0,5)}</p>{!shiftTarget.checked_out_at?<AttendanceActionButton key={action} targetType="shift" targetId={shiftTarget.id} action={action} qrToken={attendanceToken} mode={mode} onSuccess={(response)=>{if(response.status!=='pending')setShiftTarget(current=>current?{...current,[action==='check_in'?'checked_in_at':'checked_out_at']:new Date().toISOString()}:current);}}/>:<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">근무가 완료됐어요.</p>}</section><section className="mt-5 rounded-2xl bg-white p-5 shadow-sm"><h2 className="text-[18px] font-extrabold">내 근태 내역</h2><div className="mt-3"><MyAttendanceCalendar staffId={null}/></div></section></>})():
       !staff?<div className="mt-6 bg-white rounded-2xl p-8 text-center"><b>연결된 사업장 직원 정보가 없어요</b><p className="text-[13px] text-sub mt-2">사업장 관리자에게 잇닿 계정 연결을 요청해 주세요.</p></div>:
       <>
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
@@ -166,7 +174,7 @@ function WorkplaceContent() {
             <label className="col-span-2 text-[12px] text-sub">사유<input name="reason" className="mt-1 w-full h-12 border border-line rounded-xl px-3" placeholder="선택 입력"/></label>
             <button className="col-span-2 h-12 rounded-xl bg-primary text-white font-bold">관리자에게 신청</button>
           </form>
-          {leaves.length>0&&<div className="mt-5 border-t border-line pt-4"><p className="text-[13px] font-bold">최근 신청</p><div className="mt-2 divide-y divide-line">{leaves.map(l=><div key={l.id} className="py-2.5 flex justify-between gap-2 text-[12px]"><span>{l.start_date}{l.end_date!==l.start_date?`~${l.end_date.slice(5)}`:''} · {l.requested_minutes/60}시간</span><b className={l.status==='approved'?'text-success':l.status==='rejected'?'text-red-600':'text-amber-600'}>{l.status==='approved'?'승인':l.status==='rejected'?'반려':'대기'}</b></div>)}</div></div>}
+          {leaves.length>0&&<div className="mt-5 border-t border-line pt-4"><p className="text-[13px] font-bold">최근 신청</p><div className="mt-2 divide-y divide-line">{leaves.map(l=><div key={l.id} className="flex items-center justify-between gap-2 py-2.5 text-[12px]"><span>{l.start_date}{l.end_date!==l.start_date?`~${l.end_date.slice(5)}`:''} · {l.requested_minutes/60}시간</span><span className="flex items-center gap-2"><b className={l.status==='approved'?'text-success':l.status==='rejected'?'text-red-600':l.status==='cancelled'?'text-sub':'text-amber-600'}>{l.status==='approved'?'승인':l.status==='rejected'?'반려':l.status==='cancelled'?'취소됨':'대기'}</b>{l.status==='pending'&&<button type="button" onClick={()=>void cancelLeave(l.id)} className="rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-sub">취소</button>}</span></div>)}</div></div>}
         </section>}
       </>}
     {message&&<p role="status" className="mt-4 rounded-xl bg-white border border-line p-3 text-[13px] font-bold">{message}</p>}
