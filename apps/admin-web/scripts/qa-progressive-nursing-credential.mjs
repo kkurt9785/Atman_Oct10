@@ -81,6 +81,13 @@ try {
   const { data: confirmedApplication } = await service.from('shift_applications')
     .select('credential_verification_method').eq('id', applicationId).single();
   if (confirmedApplication?.credential_verification_method !== 'official_lookup') throw new Error('verification method audit value missing');
+  const { data: confirmationNotifications, error: notificationError } = await service
+    .from('notification_outbox').select('event_type,dedupe_key')
+    .or(`dedupe_key.like.credential.confirmed:${applicationId}:%,dedupe_key.like.credential.confirmed.admin:${applicationId}:%`);
+  if (notificationError || !(confirmationNotifications ?? []).some((row) => row.event_type === 'credential.confirmed')
+    || !(confirmationNotifications ?? []).some((row) => row.event_type === 'credential.confirmed.admin')) {
+    throw new Error(`credential confirmation notifications missing: ${notificationError?.message ?? 'fanout incomplete'}`);
+  }
   const { error: acceptError } = await admin.rpc('accept_shift_application', { p_application_id: applicationId });
   if (acceptError) throw new Error(`accept after credential confirmation failed: ${acceptError.message}`);
 
@@ -92,6 +99,7 @@ try {
     prematureAcceptanceBlocked: true,
     facilityCredentialAudit: true,
     verificationMethodAudited: true,
+    confirmationNotificationsFanout: true,
     acceptedAfterConfirmation: true,
   }, null, 2));
 } finally {
@@ -104,6 +112,6 @@ try {
     await service.from('shift_applications').update({ status: row.status }).eq('id', row.id);
   }
   if (applicationId) {
-    await service.from('notification_outbox').delete().or(`dedupe_key.eq.shift.applied:${applicationId},dedupe_key.eq.shift.accepted:${applicationId}`);
+    await service.from('notification_outbox').delete().or(`dedupe_key.eq.shift.applied:${applicationId},dedupe_key.eq.shift.accepted:${applicationId},dedupe_key.like.credential.confirmed:${applicationId}:%,dedupe_key.like.credential.confirmed.admin:${applicationId}:%`);
   }
 }

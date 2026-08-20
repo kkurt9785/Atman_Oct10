@@ -10,6 +10,8 @@ export type Applicant = {
   verificationStatus: string;
   credentialReviewStatus: string;
   credentialVerificationMethod: string | null;
+  credentialConfirmedBy: string | null;
+  credentialConfirmedAt: string | null;
   distanceMeters: number | null;
   matchScore: number | null;
   appliedAt: string;
@@ -52,7 +54,7 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
   // 2. 해당 시프트의 대기 중 지원자
   const { data: apps } = await sb
     .from('shift_applications')
-    .select('id, shift_id, worker_id, distance_meters, match_score, applied_at, credential_review_status, credential_verification_method, workers ( name, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags, is_demo )')
+    .select('id, shift_id, worker_id, distance_meters, match_score, applied_at, credential_review_status, credential_verification_method, credential_confirmed_by, credential_confirmed_at, workers ( name, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags, is_demo )')
     .eq('status', 'applied')
     .in('shift_id', shiftIds)
     .order('applied_at', { ascending: true });
@@ -85,6 +87,8 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
       verificationStatus: row.workers.verification_status,
       credentialReviewStatus: row.credential_review_status,
       credentialVerificationMethod: row.credential_verification_method ?? null,
+      credentialConfirmedBy: row.credential_confirmed_by ?? null,
+      credentialConfirmedAt: row.credential_confirmed_at ?? null,
       distanceMeters: row.distance_meters,
       matchScore: row.match_score,
       appliedAt: row.applied_at,

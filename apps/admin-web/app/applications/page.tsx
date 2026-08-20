@@ -6,9 +6,16 @@ import { OperationsFlow } from '@/components/OperationsFlow';
 
 const ROLE_LABEL: Record<string, string> = { rn: 'RN 간호사', na: 'NA 간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '무관' };
 
-export default async function ApplicationsPage() {
+export default async function ApplicationsPage({ searchParams }: { searchParams?: Promise<{ filter?: string }> }) {
   const groups = await getPendingApplications();
-  const total = groups.reduce((s, g) => s + g.applicants.length, 0);
+  const filter = (await searchParams)?.filter ?? 'all';
+  const filteredGroups = groups.map((group) => ({
+    ...group,
+    applicants: group.applicants.filter((applicant) => filter === 'all'
+      || (filter === 'needs_check' && applicant.credentialReviewStatus === 'pending_facility_check')
+      || (filter === 'confirmed' && ['facility_confirmed', 'platform_verified'].includes(applicant.credentialReviewStatus))),
+  })).filter((group) => group.applicants.length > 0);
+  const total = filteredGroups.reduce((s, g) => s + g.applicants.length, 0);
 
   return (
     <main className="px-4 pb-6">
@@ -19,6 +26,12 @@ export default async function ApplicationsPage() {
         </p>
       </div>
       <OperationsFlow active="applications"/>
+
+      <nav aria-label="지원자 필터" className="mb-4 flex gap-2 overflow-x-auto pb-1">
+        {[['all', '전체'], ['needs_check', '확인 필요'], ['confirmed', '확인 완료']].map(([value, label]) => (
+          <a key={value} href={`/applications${value === 'all' ? '' : `?filter=${value}`}`} className={`shrink-0 rounded-full px-3 py-2 text-[12px] font-extrabold ${filter === value ? 'bg-ink text-white' : 'bg-bg text-sub'}`}>{label}</a>
+        ))}
+      </nav>
 
       {total > 0 && (
         <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
@@ -38,7 +51,7 @@ export default async function ApplicationsPage() {
       )}
 
       <div className="flex flex-col gap-4">
-        {groups.map((group) => (
+        {filteredGroups.map((group) => (
           <div key={group.shiftId} className="bg-white rounded-2xl overflow-hidden shadow-sm">
             {/* 시프트 헤더 */}
             <div className="px-5 py-4 border-b border-line">
@@ -67,6 +80,10 @@ export default async function ApplicationsPage() {
                   applicant={applicant}
                   shiftId={group.shiftId}
                   estimatedPay={group.estimatedTotalPay}
+                  shiftDate={group.shiftDate}
+                  startTime={group.startTime}
+                  endTime={group.endTime}
+                  requiredRole={group.requiredRole}
                   disabled={group.shiftStatus !== 'open'}
                 />
               ))}

@@ -20,11 +20,19 @@ export function ApplicantCard({
   applicant,
   shiftId,
   estimatedPay,
+  shiftDate,
+  startTime,
+  endTime,
+  requiredRole,
   disabled,
 }: {
   applicant: Applicant;
   shiftId: string;
   estimatedPay: number;
+  shiftDate: string;
+  startTime: string;
+  endTime: string;
+  requiredRole: string;
   disabled: boolean;
 }) {
   const router = useRouter();
@@ -239,8 +247,26 @@ export function ApplicantCard({
                 <span className="text-sub">사업장 직접 지급 예상액</span>
                 <span className="font-bold text-primary">{won(estimatedPay)}</span>
               </div>
+              <div className="flex justify-between gap-4 text-[13px]
+              ">
+                <span className="text-sub">근무 일정</span>
+                <span className="text-right font-bold text-ink">{shiftDate} · {startTime.slice(0, 5)}–{endTime.slice(0, 5)}</span>
+              </div>
+              <div className="flex justify-between text-[13px]">
+                <span className="text-sub">직무</span>
+                <span className="font-bold text-ink">{ROLE_LABEL[requiredRole] ?? requiredRole}</span>
+              </div>
             </div>
             <p className="text-[12px] text-sub mt-3">잇닿 이용료는 이 임금과 별도로 월 SaaS 청구서에 반영됩니다.</p>
+
+            {alreadyConfirmed && (
+              <details className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                <summary className="cursor-pointer text-[13px] font-extrabold text-emerald-700">사업장 확인 기록 보기</summary>
+                <p className="mt-2 text-[12px] leading-5 text-emerald-800">확인 방식: {verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ?? '기존 확인 기록'}</p>
+                <p className="text-[12px] leading-5 text-emerald-800">확인 시각: {applicant.credentialConfirmedAt ? new Date(applicant.credentialConfirmedAt).toLocaleString('ko-KR') : '기록된 시간 없음'}</p>
+                <p className="break-all text-[11px] leading-5 text-emerald-700">확인 관리자 ID: {applicant.credentialConfirmedBy ?? '기록된 관리자 없음'}</p>
+              </details>
+            )}
 
             {needsFacilityCredentialCheck && (
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
