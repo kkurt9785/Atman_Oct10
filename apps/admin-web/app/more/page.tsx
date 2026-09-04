@@ -12,7 +12,7 @@ const SECTION_ICONS = {
 export default async function MorePage(){
   const context=await getAdminContext();
   const sections=visibleManageSections(context?.canViewPayroll===true);
-  return <main className="px-4"><div className="px-1 mt-2 mb-5"><p className="text-label font-bold text-primary">사업장 관리</p><h1 className="mt-1 text-display font-extrabold text-ink">무엇을 관리할까요?</h1><p className="mt-2 text-body text-sub">자주 쓰는 업무는 하단 메뉴에서, 세부 설정은 여기에서 관리해요.</p></div>
+  return <main className="px-4"><div className="px-1 mt-2 mb-5"><p className="text-label font-bold text-primary">사업장 관리</p><h1 className="mt-1 text-display font-extrabold text-ink">무엇을 관리할까요?</h1><p className="mt-2 text-body text-sub">기준 총원과 근무 기준을 잡고, 부족 인원과 반복 공백을 여기에서 관리해요.</p></div>
     <div className="space-y-3">{sections.map(section=><Link key={section.slug} href={section.href??`/more/${section.slug}`} className="block active:opacity-80"><Card className="flex items-center gap-4 p-5"><div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{SECTION_ICONS[section.icon]}</svg></div><div className="min-w-0 flex-1"><p className="text-label font-bold text-primary">{section.eyebrow}</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">{section.title}</h2><p className="mt-1 text-label leading-5 text-sub">{section.description}</p></div><span className="text-sub">›</span></Card></Link>)}</div>
   </main>;
 }

@@ -6,6 +6,7 @@ import { getAdminContext, requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
 
 export type FacilityProfile = {
+  employee_count: number | null;
   bed_count: number | null;
   main_department: string | null;
   has_parking: boolean;
@@ -35,7 +36,7 @@ export async function getFacilityProfile(): Promise<FacilityProfile | null> {
 
   const [{ data, error },{data:attendance}] = await Promise.all([sb
     .from('facilities')
-    .select('bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro, pharmacy_type, pharmacy_system, average_daily_prescriptions, handover_minutes')
+    .select('employee_count, bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro, pharmacy_type, pharmacy_system, average_daily_prescriptions, handover_minutes')
     .eq('id', context.facilityId)
     .single(),sb.from('facility_attendance_settings').select('*').eq('facility_id',context.facilityId).maybeSingle()]);
 
@@ -66,6 +67,11 @@ export async function saveFacilityProfile(formData: FormData) {
   if (bedCount !== null && (!Number.isInteger(bedCount) || bedCount < 0 || bedCount > 10000)) {
     throw new Error('병상 수를 다시 확인해 주세요.');
   }
+  const employeeRaw = String(formData.get('employee_count') ?? '').trim();
+  const employeeCount = employeeRaw ? Number.parseInt(employeeRaw, 10) : null;
+  if (employeeCount !== null && (!Number.isInteger(employeeCount) || employeeCount < 0 || employeeCount > 10000)) {
+    throw new Error('사업장 총원을 다시 확인해 주세요.');
+  }
 
   const intro = String(formData.get('intro') ?? '').trim();
   const prescriptionRaw=String(formData.get('average_daily_prescriptions')??'').trim();
@@ -75,6 +81,7 @@ export async function saveFacilityProfile(formData: FormData) {
   if(averageDailyPrescriptions!==null&&(!Number.isInteger(averageDailyPrescriptions)||averageDailyPrescriptions<0||averageDailyPrescriptions>10000))throw new Error('일평균 처방전 수를 확인해 주세요.');
   if(handoverMinutes!==null&&(!Number.isInteger(handoverMinutes)||handoverMinutes<0||handoverMinutes>240))throw new Error('인수인계 시간을 확인해 주세요.');
   const patch = {
+    employee_count: employeeCount,
     bed_count: bedCount,
     main_department: String(formData.get('main_department') ?? '').trim().slice(0, 100) || null,
     has_parking: formData.get('has_parking') === 'on',

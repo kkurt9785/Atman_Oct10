@@ -82,12 +82,28 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
     <form onSubmit={handleSubmit} className="px-4 pb-24">
       <div className="pt-8 pb-4 px-1">
         <h1 className="text-[24px] font-extrabold text-ink">{facilityWord} 프로필</h1>
-        <p className="text-[13px] text-sub mt-1">워커가 시프트 지원 전 {facilityWord} 정보를 확인해요</p>
+        <p className="text-[13px] text-sub mt-1">총원과 운영 기준을 입력하면 인력 공백을 먼저 보여드려요</p>
       </div>
 
       {/* 기본 정보 */}
       <section className="bg-white rounded-2xl p-5 mb-4">
         <p className="text-[13px] font-bold text-sub mb-4">기본 정보</p>
+
+        <div className="mb-4">
+          <label className="block text-[13px] text-sub mb-1.5">운영 기준 총원</label>
+          <input
+            type="number"
+            name="employee_count"
+            defaultValue={profile?.employee_count ?? ''}
+            placeholder={isPharmacy ? '예: 5' : '예: 18'}
+            min={0}
+            max={10000}
+            className="w-full border border-line rounded-xl px-4 py-3 text-[15px] outline-none focus:border-primary"
+          />
+          <p className="mt-1.5 text-[11px] leading-5 text-tertiary">
+            상시 근무가 필요한 전체 인원 기준입니다. 등록 직원 수와 비교해 부족 인원과 요금제 한도를 계산해요.
+          </p>
+        </div>
 
         {!isPharmacy&&<><div className="mb-4">
           <label className="block text-[13px] text-sub mb-1.5">병상 수</label>
