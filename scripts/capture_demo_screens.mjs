@@ -91,7 +91,14 @@ async function main() {
   await cdp.send('Page.enable'); await cdp.send('Runtime.enable');
   await cdp.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
   async function go(url) { await cdp.send('Page.navigate', { url }); await sleep(2200); }
-  async function shot(name) { const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false }); await fs.writeFile(`${root}/${name}.png`, Buffer.from(data, 'base64')); }
+  async function shot(name) {
+    // The PWA install banner is fixed to the bottom and would cover every frame;
+    // dismiss it right before capturing (no-op on admin, which has no banner).
+    await cdp.send('Runtime.evaluate', { expression: `document.querySelector('button[aria-label="설치 안내 닫기"]')?.click(); true` });
+    await sleep(250);
+    const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    await fs.writeFile(`${root}/${name}.png`, Buffer.from(data, 'base64'));
+  }
   if (target === 'worker' || target === 'worker-live') {
     await go(`${workerOrigin}/worker-intro`); await shot('01-worker-intro');
     await go(`${workerOrigin}/onboarding?step=splash`); await shot('02-worker-register');
@@ -111,13 +118,23 @@ async function main() {
     await go(`${workerOrigin}/home`); await shot('04-home');
     await go(`${workerOrigin}/shifts`); await shot('05-shifts');
     await go(`${workerOrigin}/applications`); await shot('06-applications');
-    const chatHref = await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('a[href^="/chat/"]')).map((node) => node.getAttribute('href')).find(Boolean) ?? null`, returnByValue: true });
-    const href = chatHref?.result?.value;
+    // Chat links only render on accepted/completed cards, which live under the
+    // "확정 근무" tab — the default "진행 중" tab shows pending applications without them.
+    await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.trim().startsWith('확정 근무'))?.click(); true` });
+    await sleep(1200);
+    // The applications list loads asynchronously on production; poll for the
+    // chat link instead of assuming it is present after the fixed navigation wait.
+    let href = null;
+    for (let attempt = 0; attempt < 16 && typeof href !== 'string'; attempt += 1) {
+      const chatHref = await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('a[href^="/chat/"]')).map((node) => node.getAttribute('href')).find(Boolean) ?? null`, returnByValue: true });
+      href = chatHref?.result?.value;
+      if (typeof href !== 'string') await sleep(500);
+    }
     if (typeof href === 'string') {
       await go(`${workerOrigin}${href}`);
-      // Use one of the app's own quick replies so the chat scene demonstrates
-      // the real worker → facility notification path, not an empty thread.
-      await cdp.send('Runtime.evaluate', { expression: `(async () => { for (const reply of ['확인했습니다. 감사합니다.','예정 시간에 도착하겠습니다.','준비물을 다시 알려주세요.']) { const quick = Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.trim() === reply); quick?.click(); await new Promise((resolve) => setTimeout(resolve, 120)); const send = Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.trim() === '전송'); send?.click(); await new Promise((resolve) => setTimeout(resolve, 650)); } return true; })()`, awaitPromise: true });
+      // The seeded showcase already holds a facility → worker exchange, which is
+      // the cleanest chat frame. Do not send quick replies here: every capture run
+      // would append more worker bubbles and the scene turns into a monologue.
       await sleep(700); await shot('07-chat');
     }
     await go(`${workerOrigin}/workplace`); await shot('08-workplace');

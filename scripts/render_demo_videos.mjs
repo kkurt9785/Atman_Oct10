@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const downloads = path.join(os.homedir(), 'Downloads');
-const date = '20260823';
+const date = '20260907';
 
 const stories = {
   admin: {
@@ -24,7 +24,7 @@ const stories = {
     source: '/private/tmp/atman-video-worker-live',
     output: path.join(downloads, `itdot_worker_demo_${date}_latest.mp4`),
     scenes: [
-      ['01-worker-intro', '등록하면 바로, 내게 맞는 일자리', '원하는 지역과 시간의 단기근무를 한 앱에서', '잇닿은 워커가 기본 정보를 등록한 뒤 앱을 열면, 원하는 지역과 시간에 맞는 병원, 약국, 요양병원 일자리를 바로 찾아 지원할 수 있는 서비스입니다.'],
+      ['01-worker-intro', '등록하면 바로, 내게 맞는 일자리', '원하는 지역과 시간의 단기근무를 한 앱에서', '잇닿은 기본 정보만 등록하면, 원하는 지역과 시간에 맞는 병원, 약국, 요양병원 일자리를 바로 찾아 지원할 수 있는 워커 앱입니다.'],
       ['02-worker-register', '1. 워커 등록', '카카오로 가입하고 직군 정보를 등록', '처음에는 카카오로 가입한 뒤, 내가 가능한 직군과 기본 정보만 등록합니다.'],
       ['03-activity-area', '2. 활동 지역 활성화', '일할 지역과 이동 반경을 한 번만 설정', '활동 지역을 정하면 내 직군과 반경에 맞는 새 시프트 알림을 받을 수 있습니다.'],
       ['05-shifts', '3. 시프트 확인과 지원', '시간·거리·업무·예상 지급액을 먼저 확인', '시간과 거리, 업무, 시급과 예상 지급액을 확인한 뒤 원하는 공고에만 직접 지원합니다.'],
