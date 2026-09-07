@@ -46,7 +46,7 @@ export default function ClaimFacilityPage() {
   const visibleResults=typeFilter==='all'?results
     :results.filter(f=>typeFilter==='pharmacy'?isPharmacyType(f.facilityType):typeFilter==='care'?isCareType(f.facilityType):!isPharmacyType(f.facilityType)&&!isCareType(f.facilityType));
   const hiddenByFilter=results.length-visibleResults.length;
-  const hiraUnavailable=searched&&sources.hira&&sources.hira!=='ok';
+  const mapSearchUnavailable=searched&&sources.kakao&&sources.kakao!=='ok';
 
   async function handleSearch() {
     if (query.trim().length < 2 || searching) return;
@@ -159,8 +159,8 @@ export default function ClaimFacilityPage() {
               : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4"/><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>}
           </button>
         </div>
-        <p className="-mt-4 px-1 text-[12px] text-sub">예: W여성, 수원 온누리 — 전국 병원·약국 정보(심평원)에서 찾아드려요</p>
-        {hiraUnavailable&&<p role="status" className="-mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-700">전국 요양기관 조회가 잠시 불가해 잇닿에 등록된 사업장만 보여요. 없으면 아래 등록 요청을 이용해 주세요.</p>}
+        <p className="-mt-4 px-1 text-[12px] text-sub">예: 수원 온누리약국, 아주대학교병원 — 지역과 이름을 함께 넣으면 정확해요</p>
+        {mapSearchUnavailable&&<p role="status" className="-mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-700">지도 검색이 잠시 불가해 잇닿에 등록된 사업장만 보여요. 없으면 아래 등록 요청을 이용해 주세요.</p>}
 
         {/* 유형 필터 칩 — 결과를 거르기만 하고, 기본 '전체'라 아무것도 숨기지 않는다 */}
         {searched && results.length > 0 && (
@@ -269,12 +269,12 @@ export default function ClaimFacilityPage() {
             <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line"/>
             <h2 id="register-title" className="text-[19px] font-extrabold">이 사업장으로 등록할게요</h2>
             <p className="mt-1 text-[12px] leading-5 text-sub">
-              {registerHit.source==='hira'?'심평원 요양기관 정보로 기본값을 채웠어요. ':'지도 검색 정보로 기본값을 채웠어요. '}
-              등록 후 잇닿이 확인하면 공고 등록이 열려요. 사업자등록번호는 설정에서 입력합니다.
+              지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정합니다.
+              등록 후 잇닿이 확인하면 공고 등록이 열려요.
             </p>
             <div className="mt-4 rounded-xl bg-surface px-4 py-3 text-[12px] text-sub">
               <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-primary">{TYPE_LABEL[registerHit.facilityType]??registerHit.typeLabel}</span>
-              <span className="ml-2">{registerHit.source==='hira'?'심평원 요양기관기호 '+registerHit.hiraYkiho:'카카오 지도 검색'}</span>
+              <span className="ml-2">{registerHit.source==='hira'?'심평원 요양기관기호 '+registerHit.hiraYkiho:registerHit.address}</span>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <label className="col-span-2 text-[12px] font-bold text-sub">사업장명<input value={registerForm.name} onChange={e=>setRegisterForm(c=>({...c,name:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]"/></label>
@@ -284,7 +284,7 @@ export default function ClaimFacilityPage() {
             <p className="mt-4 text-[12px] font-bold text-sub">출퇴근 인증 위치 <span className="font-medium">· 기본 반경 30m, 설정에서 변경 가능</span></p>
             <FacilityPinMap className="mt-1" lng={registerForm.lng} lat={registerForm.lat} radiusMeters={30} onChange={({lng,lat})=>setRegisterForm(c=>({...c,lng,lat}))}/>
             {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-600">{error}</p>}
-            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?'등록 중...':'사업장 등록하고 시작하기'}</button>
+            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?'요양기관 정보 대조 중...':'사업장 등록하고 시작하기'}</button>
             <p className="mt-2 text-center text-[11px] text-sub">이미 다른 관리자가 등록한 사업장이면 초대 코드 연결로 안내돼요</p>
           </section>
         </>

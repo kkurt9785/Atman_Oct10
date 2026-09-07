@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { findHiraMatch } from './hira';
 import { cache } from 'react';
 import { adminClient, userClient } from './supabase';
 import {
@@ -148,11 +149,21 @@ export async function registerFacilitySelf(input: {
     const session = await requireAdminSession();
     const sb = userClient(session.accessToken);
     if (!sb) return { ok: false, error: '서버 설정 오류' };
+    // 카카오 결과로 등록할 때 같은 자리(150m)의 심평원 요양기관을 찾아 기호·종별을 붙인다. 못 찾거나 느리면 카카오 정보로 등록.
+    let { facilityType, hiraYkiho, hiraClCd, source } = input;
+    const hiraKey = process.env.HIRA_SERVICE_KEY;
+    if (!hiraYkiho && hiraKey) {
+      const { match } = await findHiraMatch({
+        name: input.name, phone: input.phone ?? null, lng: input.lng, lat: input.lat, key: hiraKey,
+        kind: facilityType === 'pharmacy' ? 'pharmacy' : 'hospital', radiusMeters: 150, timeoutMs: 9000,
+      });
+      if (match) { hiraYkiho = match.ykiho; hiraClCd = match.clCd; facilityType = match.facilityType; source = 'self_hira'; }
+    }
     const { data, error } = await sb.rpc('register_facility_self', {
-      p_name: input.name, p_facility_type: input.facilityType, p_address_text: input.addressText,
+      p_name: input.name, p_facility_type: facilityType, p_address_text: input.addressText,
       p_lng: input.lng, p_lat: input.lat, p_phone: input.phone ?? null,
-      p_hira_ykiho: input.hiraYkiho ?? null, p_hira_cl_cd: input.hiraClCd ?? null,
-      p_bed_count: input.bedCount ?? null, p_source: input.source,
+      p_hira_ykiho: hiraYkiho ?? null, p_hira_cl_cd: hiraClCd ?? null,
+      p_bed_count: input.bedCount ?? null, p_source: source,
     });
     if (error || !data) return { ok: false, error: (error?.message ?? '사업장을 등록하지 못했어요.').replace(/^.*?: /, '') };
     await setFacilityContextCookie(data as string, session.user.id);
