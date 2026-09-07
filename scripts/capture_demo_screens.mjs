@@ -178,6 +178,22 @@ async function main() {
     })()`, awaitPromise: true, returnByValue: true });
     console.log('ADMIN_VIEW', JSON.stringify(adminView?.result?.value ?? {}));
     await shot('02-home');
+    // 0. 사업장 등록 — 이름 검색(카카오·잇닿 DB) → 지도 결과 카드 → 등록 시트(핀 조정 지도).
+    // 등록 버튼은 누르지 않는다(시연 계정은 이미 사업장을 소유). 검색어는 지역어+이름 조합이 결과가 좋다.
+    await go(`${adminOrigin}/setup/claim-facility`);
+    await cdp.send('Runtime.evaluate', { expression: `document.querySelector('input[aria-label="사업장명 검색"]')?.focus(); true` });
+    await cdp.send('Input.insertText', { text: '수원 온누리약국' });
+    await sleep(300);
+    await cdp.send('Runtime.evaluate', { expression: `document.querySelector('button[aria-label="검색"]')?.click(); true` });
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const count = await cdp.send('Runtime.evaluate', { expression: `document.querySelectorAll('ul li button').length`, returnByValue: true });
+      if ((count?.result?.value ?? 0) > 0) break;
+      await sleep(500);
+    }
+    await sleep(400); await shot('00-facility-search');
+    await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('ul li button')).find((node) => node.textContent?.includes('바로 등록 가능'))?.click(); true` });
+    await sleep(4000); // 카카오맵 타일·핀·반경 원 렌더 대기
+    await shot('00-facility-register');
     await go(`${adminOrigin}/shifts/new`); await shot('02-shift-create');
     await go(`${adminOrigin}/applications`); await shot('03-applications');
     await go(`${adminOrigin}/chats`); await shot('04-chats');
