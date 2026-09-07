@@ -14,6 +14,7 @@ type PaymentRow = {
   created_at: string;
   dispute_reason: string | null;
   shifts: { shift_date: string; start_time: string; end_time: string; facilities: { name: string } | null } | null;
+  shift_attendances: { application_id: string | null } | { application_id: string | null }[] | null;
 };
 
 const STATUS: Record<string, { label: string; style: string }> = {
@@ -27,6 +28,10 @@ const STATUS: Record<string, { label: string; style: string }> = {
 };
 
 function won(value: number) { return `₩${Math.round(value).toLocaleString('ko-KR')}`; }
+function attendanceApplicationId(value: PaymentRow['shift_attendances']) {
+  const attendance = Array.isArray(value) ? value[0] : value;
+  return attendance?.application_id ?? null;
+}
 
 export default function EarningsPage() {
   const router = useRouter();
@@ -45,7 +50,7 @@ export default function EarningsPage() {
     if (!user) { router.replace('/'); return; }
     const { data, error: queryError } = await supabase
       .from('wage_payment_instructions')
-      .select('id,gross_amount,net_amount,deduction_status,due_date,status,created_at,dispute_reason,shifts(shift_date,start_time,end_time,facilities(name))')
+      .select('id,gross_amount,net_amount,deduction_status,due_date,status,created_at,dispute_reason,shifts(shift_date,start_time,end_time,facilities(name)),shift_attendances(application_id)')
       .order('created_at', { ascending: false });
     if (queryError) setLoadError('지급 현황을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
     setRows((data ?? []) as unknown as PaymentRow[]);
@@ -84,19 +89,26 @@ export default function EarningsPage() {
       <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-[12px] text-sub">지급 완료</p><p className="text-[20px] font-extrabold text-primary mt-1">{won(paid)}</p></div>
     </section>
 
+    <section className="mx-5 mb-5 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3" aria-label="지급 문의 안내">
+      <p className="text-[13px] font-extrabold text-ink">지급 일정·금액 문의는 근무한 사업장에 해주세요</p>
+      <p className="mt-1 text-[12px] leading-5 text-sub">잇닿은 근무시간과 지급 상태를 보여드리며, 임금은 채용 사업장이 직접 지급합니다. 금액이나 입금에 문제가 있으면 아래에서 확인 요청을 남길 수 있어요.</p>
+    </section>
+
     {actionError && <p role="alert" className="mx-5 mb-3 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-bold text-red-600">{actionError}</p>}
     <section className="px-5">
       {loading ? <div className="bg-white rounded-2xl p-8 text-center text-[13px] text-sub">지급 내역을 불러오는 중...</div>
       : loadError ? <div role="alert" className="bg-white rounded-2xl border border-red-200 p-8 text-center"><p className="font-bold text-red-600">지급 현황을 불러오지 못했어요</p><p className="text-[12px] text-sub mt-2">{loadError}</p><button type="button" onClick={() => void load()} className="mt-4 h-10 px-4 rounded-xl bg-ink text-white text-[13px] font-bold">다시 불러오기</button></div>
-      : rows.length === 0 ? <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2">근무 체크아웃이 완료되면 사업장 지급 요청이 여기에 표시돼요.</p></div>
+      : rows.length === 0 ? <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2 leading-5">근무 체크아웃이 완료된 뒤 사업장이 지급 요청을 만들면 여기에 표시돼요. 지급 일정은 근무한 사업장에 문의해 주세요.</p></div>
       : <div className="space-y-3">{rows.map((row) => {
         const shift = row.shifts; const state = STATUS[row.status] ?? STATUS.draft;
+        const applicationId = attendanceApplicationId(row.shift_attendances);
         return <article key={row.id} className="bg-white rounded-2xl p-4 shadow-card">
           <div className="flex items-start justify-between gap-3"><div><p className="text-[15px] font-extrabold text-ink">{shift?.facilities?.name ?? '채용 사업장'}</p><p className="text-[12px] text-sub mt-1">{shift?.shift_date ?? new Date(row.created_at).toLocaleDateString('ko-KR')} · {shift?.start_time?.slice(0,5)}–{shift?.end_time?.slice(0,5)}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>
           <div className="mt-4 rounded-xl bg-bg p-3 space-y-2 text-[12px]"><div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>{won(row.gross_amount)}</b></div><div className="flex justify-between"><span className="text-sub">공제</span><b>{row.deduction_status === 'unconfirmed' ? '사업장 확인 예정' : '사업장 확인'}</b></div><div className="flex justify-between border-t border-line pt-2"><span className="font-bold">지급 예정액</span><b className="text-primary">{won(row.net_amount)}</b></div>{row.due_date && <div className="flex justify-between"><span className="text-sub">지급 예정일</span><b>{row.due_date}</b></div>}</div>
           {row.status === 'paid' && <button disabled={busyId===row.id} onClick={() => void act(row.id,'confirm')} className="mt-3 w-full h-11 rounded-xl bg-primary text-white text-[13px] font-extrabold disabled:opacity-50">내 계좌 입금 확인</button>}
           {row.status==='worker_confirmed'&&confirmedId===row.id&&<p role="status" className="mt-3 rounded-xl bg-green-50 px-3 py-3 text-center text-[13px] font-extrabold text-green-700">입금 확인이 완료되었습니다.</p>}
           {['approved','exported','paid'].includes(row.status) && <button disabled={busyId===row.id} onClick={() => { setDisputeTarget(row.id); setDisputeReason(''); }} className="mt-2 w-full py-2 text-[12px] font-bold text-sub disabled:opacity-50">금액·입금 문제 확인 요청</button>}
+          {applicationId && <button type="button" onClick={() => router.push(`/chat/${applicationId}`)} className="mt-2 w-full py-2 text-[12px] font-bold text-primary">근무 사업장에 문의</button>}
           {row.dispute_reason && <p className="mt-2 rounded-lg bg-red-50 p-2 text-[11px] text-red-600">요청 내용: {row.dispute_reason}</p>}
         </article>;
       })}</div>}

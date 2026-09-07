@@ -101,6 +101,13 @@ function matchesDept(shift: Shift, f: DeptFilter) {
   return (shift.department ?? '').includes(f) || (shift.description ?? '').includes(f);
 }
 
+function minutesUntilKstTime(time: string) {
+  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const [hour, minute] = time.slice(0, 5).split(':').map(Number);
+  return hour * 60 + minute - nowMinutes;
+}
+
 // ─── 서브 컴포넌트 ─────────────────────────────────────────────
 function ChipRow<T extends string>({
   options, value, onChange,
@@ -346,7 +353,13 @@ export default function HomePage() {
         const future=activity.find(a=>a.status==='accepted'&&(Array.isArray(a.shifts)?a.shifts[0]?.shift_date:a.shifts?.shift_date)>today);
         const payment=(payments??[])[0];
         if(inProgress)setNextAction({label:'퇴근하기',title:'현재 근무 중이에요',description:'근무를 마치면 여기서 퇴근을 기록하세요.',href:'/workplace',tone:'success'});
-        else if(todayReady)setNextAction({label:'출근하기',title:'오늘 확정된 근무가 있어요',description:'사업장에 도착하면 위치 또는 QR로 출근하세요.',href:'/workplace',tone:'primary'});
+        else if(todayReady){
+          const shift=Array.isArray(todayReady.shifts)?todayReady.shifts[0]:todayReady.shifts;
+          const minutes=minutesUntilKstTime(shift?.start_time??'00:00');
+          if(minutes>30)setNextAction({label:'근무 준비 보기',title:`오늘 ${shift?.start_time?.slice(0,5)??''} 근무가 있어요`,description:'시작 30분 전부터 출근 준비와 출근 버튼을 앱에서 확인할 수 있어요.',href:'/applications',tone:'primary'});
+          else if(minutes>=-5)setNextAction({label:'출근하기',title:'출근을 준비해 주세요',description:minutes>0?`${minutes}분 뒤 근무가 시작돼요. 사업장에 도착하면 위치 또는 QR로 출근하세요.`:'근무 시작 시간이에요. 위치 또는 QR로 출근하세요.',href:'/workplace',tone:'primary'});
+          else setNextAction({label:'출근 상태 확인',title:'출근 확인이 필요해요',description:'관리자도 이 근무의 출근 상태를 확인하고 있어요. 지금 출근 인증을 진행해 주세요.',href:'/workplace',tone:'primary'});
+        }
         else if(waiting)setNextAction({label:'지원 현황 보기',title:waiting.status==='invited'?'새 근무 요청이 도착했어요':'사업장에서 지원을 확인하고 있어요',description:'현재 진행 상태와 사업장 답변을 확인하세요.',href:'/applications',tone:'primary'});
         else if(future)setNextAction({label:'예정 근무 보기',title:'확정된 다음 근무가 있어요',description:'날짜와 출근 시간을 미리 확인하세요.',href:'/applications',tone:'primary'});
         else if(payment&&!['cancelled','worker_confirmed'].includes(payment.status))setNextAction({label:'지급 현황 확인',title:payment.status==='paid'?'사업장에서 지급을 완료했어요':'완료한 근무의 지급을 준비하고 있어요',description:payment.status==='paid'?'계좌 입금 여부를 확인해 주세요.':'예정 금액과 처리 상태를 확인하세요.',href:'/earnings',tone:'success'});

@@ -24,9 +24,9 @@ export function NotificationSetup({ onNext }: { onNext: () => void }) {
         return;
       }
       const { error } = await supabase.from('push_subscriptions').upsert({
-        worker_id: user.id,
+        worker_id: user.id, endpoint: subscription.endpoint,
         subscription: subscription.toJSON(),
-      });
+      }, { onConflict: 'worker_id,endpoint' });
       if (error) {
         await unsubscribeFromPush().catch(() => undefined);
         throw error;

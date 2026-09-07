@@ -56,8 +56,8 @@ function LoginInner() {
       try {
         const subscription = await subscribeToAdminPush();
         if (subscription) await supabase.from('push_subscriptions').upsert({
-          worker_id: data.session.user.id, subscription: subscription.toJSON(), updated_at: new Date().toISOString(),
-        }, { onConflict: 'worker_id' });
+          worker_id: data.session.user.id, endpoint: subscription.endpoint, subscription: subscription.toJSON(), updated_at: new Date().toISOString(),
+        }, { onConflict: 'worker_id,endpoint' });
       } catch {
         // 알림을 거부해도 관리자 데모 진입은 막지 않는다.
       }

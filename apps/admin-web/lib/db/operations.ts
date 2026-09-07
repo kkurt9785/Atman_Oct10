@@ -24,8 +24,12 @@ export type OperationsSummary = {
 };
 
 export type OperationsAlert = {
-  shiftId: string;
+  shiftId: string | null;
+  staffId: string | null;
+  personName: string;
+  employment: 'shift' | 'staff';
   kind: 'unfilled' | 'no_show';
+  replacementEligible: boolean;
   shiftDate: string;
   startTime: string;
   department: string | null;
@@ -117,30 +121,55 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
   const today = todayKST(now);
   const alertStart = addDays(today, -1);
   const urgentEnd = addDays(today, 2);
-  const { data: shifts } = await sb.from('shifts').select('id,shift_date,start_time,end_time,is_overnight,department,status,is_replacement')
+  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay() || 7;
+  const [{ data: shifts }, { data: staff }, { data: staffAttendances }, { data: leaves }] = await Promise.all([
+    sb.from('shifts').select('id,shift_date,start_time,end_time,is_overnight,department,status,is_replacement')
     .eq('facility_id', facilityId).gte('shift_date', alertStart).lte('shift_date', urgentEnd)
-    .in('status', ['open','matched']).order('shift_date').order('start_time');
-  if (!shifts?.length) return [];
-  const ids = shifts.map((row: any) => row.id);
+    .in('status', ['open','matched']).order('shift_date').order('start_time'),
+    sb.from('facility_staff').select('id,name,department,work_weekdays,default_start_time,contract_start,contract_end,status')
+      .eq('facility_id', facilityId).eq('status', 'active'),
+    sb.from('staff_attendances').select('staff_id,check_in_at').eq('facility_id', facilityId).eq('work_date', today),
+    sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId).eq('status', 'approved')
+      .lte('start_date', today).gte('end_date', today),
+  ]);
+  const ids = (shifts ?? []).map((row: any) => row.id);
   const [{ data: apps }, { data: attendances }] = await Promise.all([
-    sb.from('shift_applications').select('shift_id,status').in('shift_id', ids).in('status', ['applied','accepted']),
-    sb.from('shift_attendances').select('shift_id,check_in_at').in('shift_id', ids).not('check_in_at', 'is', null),
+    ids.length ? sb.from('shift_applications').select('shift_id,status,workers(name)').in('shift_id', ids).in('status', ['applied','accepted']) : Promise.resolve({ data: [] }),
+    ids.length ? sb.from('shift_attendances').select('shift_id,check_in_at').in('shift_id', ids).not('check_in_at', 'is', null) : Promise.resolve({ data: [] }),
   ]);
   const appByShift = new Set((apps ?? []).map((row: any) => row.shift_id));
   const checkedIn = new Set((attendances ?? []).map((row: any) => row.shift_id));
+  const acceptedWorkerName = new Map((apps ?? []).filter((row: any) => row.status === 'accepted').map((row: any) => {
+    const worker = Array.isArray(row.workers) ? row.workers[0] : row.workers;
+    return [row.shift_id, worker?.name ?? '확정 워커'];
+  }));
+  const staffCheckedIn = new Set((staffAttendances ?? []).filter((row: any) => row.check_in_at).map((row: any) => row.staff_id));
+  const staffOnLeave = new Set((leaves ?? []).map((row: any) => row.staff_id));
   const nowMs = now.getTime();
   const alerts: OperationsAlert[] = [];
   for (const shift of shifts as any[]) {
     if (shift.shift_date < today && !shift.is_overnight) continue;
     const startMs = Date.parse(`${shift.shift_date}T${shift.start_time}+09:00`);
     if (shift.status === 'open' && startMs >= nowMs && !appByShift.has(shift.id)) {
-      alerts.push({ shiftId: shift.id, kind: 'unfilled', shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
+      alerts.push({ shiftId: shift.id, staffId: null, personName: '지원자 없음', employment: 'shift', kind: 'unfilled', replacementEligible: false, shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
       continue;
     }
-    if (shift.status === 'matched' && !checkedIn.has(shift.id) && nowMs >= startMs + 30 * 60_000) {
-      alerts.push({ shiftId: shift.id, kind: 'no_show', shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
+    if (shift.status === 'matched' && !checkedIn.has(shift.id) && nowMs >= startMs + 5 * 60_000) {
+      alerts.push({ shiftId: shift.id, staffId: null, personName: acceptedWorkerName.get(shift.id) ?? '확정 워커', employment: 'shift', kind: 'no_show', replacementEligible: nowMs >= startMs + 30 * 60_000, shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
     }
   }
+  for (const person of (staff ?? []) as any[]) {
+    if (staffOnLeave.has(person.id) || staffCheckedIn.has(person.id)) continue;
+    if ((person.contract_start && person.contract_start > today) || (person.contract_end && person.contract_end < today)) continue;
+    const workdays = Array.isArray(person.work_weekdays) && person.work_weekdays.length ? person.work_weekdays : [1, 2, 3, 4, 5];
+    if (!workdays.includes(weekday)) continue;
+    const startTime = String(person.default_start_time ?? '09:00:00');
+    const startMs = Date.parse(`${today}T${startTime}+09:00`);
+    if (nowMs >= startMs + 5 * 60_000) {
+      alerts.push({ shiftId: null, staffId: person.id, personName: person.name ?? '직원', employment: 'staff', kind: 'no_show', replacementEligible: false, shiftDate: today, startTime, department: person.department ?? null });
+    }
+  }
+  alerts.sort((a, b) => a.shiftDate.localeCompare(b.shiftDate) || a.startTime.localeCompare(b.startTime) || a.personName.localeCompare(b.personName, 'ko'));
   return alerts;
 }
 

@@ -65,8 +65,8 @@ export function Splash() {
     try {
       const subscription = await subscribeToPush();
       if (subscription && sessionData.user) await supabase.from('push_subscriptions').upsert({
-        worker_id: sessionData.user.id, subscription: subscription.toJSON(), updated_at: new Date().toISOString(),
-      }, { onConflict: 'worker_id' });
+        worker_id: sessionData.user.id, endpoint: subscription.endpoint, subscription: subscription.toJSON(), updated_at: new Date().toISOString(),
+      }, { onConflict: 'worker_id,endpoint' });
     } catch {
       // 알림을 거부해도 데모 로그인과 실제 화면 확인은 계속할 수 있다.
     }

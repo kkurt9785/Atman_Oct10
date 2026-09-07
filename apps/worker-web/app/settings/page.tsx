@@ -70,10 +70,14 @@ export default function SettingsPage() {
     setPushLoading(true);
     try {
       if (pushEnabled) {
+        const currentSubscription = await getExistingSubscription();
         await unsubscribeFromPush();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('로그인이 만료됐어요.');
-        const { error: deleteError } = await supabase.from('push_subscriptions').delete().eq('worker_id', user.id);
+        const deleteQuery = supabase.from('push_subscriptions').delete().eq('worker_id', user.id);
+        const { error: deleteError } = currentSubscription
+          ? await deleteQuery.eq('endpoint', currentSubscription.endpoint)
+          : await deleteQuery;
         if (deleteError) throw deleteError;
         setPushEnabled(false);
       } else {
@@ -82,9 +86,9 @@ export default function SettingsPage() {
           const { data: { user } } = await supabase.auth.getUser();
           if (user) {
             const { error: upsertError } = await supabase.from('push_subscriptions').upsert({
-              worker_id: user.id,
+              worker_id: user.id, endpoint: sub.endpoint,
               subscription: sub.toJSON(),
-            });
+            }, { onConflict: 'worker_id,endpoint' });
             if (upsertError) {
               await unsubscribeFromPush().catch(() => undefined);
               throw upsertError;
@@ -206,12 +210,12 @@ export default function SettingsPage() {
         onClick={handlePushToggle}
         role="switch"
         aria-checked={pushEnabled}
-        aria-label="새 시프트 알림"
+        aria-label="이 기기의 시프트 알림"
         disabled={pushLoading}
         className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
       >
         <div className="text-left">
-          <p className="text-[15px] font-bold text-ink">시프트 알림</p>
+          <p className="text-[15px] font-bold text-ink">이 기기 시프트 알림</p>
           <p className="text-[13px] text-tertiary mt-0.5">
             {pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 시프트를 바로 받아요'}
           </p>

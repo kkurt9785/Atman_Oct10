@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-workforce';
+import { getOperationsAlerts } from '@/lib/db/operations';
 import { getStaff, getUpcomingMatchedShifts } from '@/lib/db/staff';
 import { AttendanceDashboard } from './AttendanceDashboard';
 import { getShop } from '@/lib/db/shop';
@@ -7,11 +8,12 @@ import { getCurrentFacilityId } from '@/lib/facility';
 import { OperationsFlow } from '@/components/OperationsFlow';
 
 export default async function TimesheetPage(){
-  const [staff,matched,upcoming,failures,shop,facilityId]=await Promise.all([
+  const [staff,matched,upcoming,failures,arrivalAlerts,shop,facilityId]=await Promise.all([
     getClinicStaff(),
     getStaff(),
     getUpcomingMatchedShifts(),
     getTodayAttendanceFailures(),
+    getOperationsAlerts(),
     getShop(),
     getCurrentFacilityId(),
   ]);
@@ -33,7 +35,7 @@ export default async function TimesheetPage(){
       <Link href="/leave" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">휴가 관리</Link>
     </div>
     <div className="mt-3"><OperationsFlow active="attendance"/></div>
-    <AttendanceDashboard staff={staff} matched={matched} upcoming={upcoming} failures={failures} facilityId={facilityId} summaryHref={summaryHref}/>
+    <AttendanceDashboard staff={staff} matched={matched} upcoming={upcoming} failures={failures} arrivalAlerts={arrivalAlerts.filter((alert) => alert.kind === 'no_show')} facilityId={facilityId} summaryHref={summaryHref}/>
     <p className="mt-4 px-1 text-[11px] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 운영 기록입니다. 법정 휴가와 임금의 최종 판단은 사업장의 계약 및 취업규칙을 기준으로 확인해 주세요.</p>
   </main>;
 }

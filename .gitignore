@@ -28,3 +28,5 @@ coverage/
 # personal
 docs/career/
 deliverables/
+.vercel
+quote-ai-fixtures*/

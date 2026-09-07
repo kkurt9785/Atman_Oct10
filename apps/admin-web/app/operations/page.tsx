@@ -174,10 +174,10 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       {operationAlerts.length > 0 && (
         <div className="space-y-2 mb-5">
           {operationAlerts.slice(0, 8).map((alert) => (
-            <Card key={`${alert.kind}:${alert.shiftId}`} className={alert.kind === 'no_show' ? 'border border-red-200' : 'border border-amber-200'}>
+            <Card key={`${alert.kind}:${alert.shiftId ?? alert.staffId}`} className={alert.kind === 'no_show' ? 'border border-red-200' : 'border border-amber-200'}>
               <div className="flex items-center justify-between gap-3">
-                <div><p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? '출근 30분 경과 · 노쇼 확인' : '48시간 내 지원자 없음'}</p><p className="text-body font-bold mt-1">{alert.shiftDate} {alert.startTime.slice(0,5)} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p></div>
-                <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[12px] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form>
+                <div><p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 5분 경과 · 출근 확인 필요') : '48시간 내 지원자 없음'}</p><p className="text-body font-bold mt-1">{alert.personName} · {alert.shiftDate} {alert.startTime.slice(0,5)}</p><p className="mt-0.5 text-[11px] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 시프트'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p></div>
+                {alert.kind === 'no_show' && !alert.replacementEligible ? <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[12px] font-bold whitespace-nowrap text-white">출근 확인</Link> : alert.shiftId ? <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[12px] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form> : <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[12px] font-bold whitespace-nowrap text-white">근태 확인</Link>}
               </div>
             </Card>
           ))}

@@ -40,7 +40,7 @@ export async function getWorkforcePool(): Promise<WorkforceMember[]> {
   const { data: pool, error } = await sb
     .from('facility_worker_pool')
     .select('id,worker_id,status,last_worked_at,completed_shift_count,total_worked_minutes,workers(name,role,experience_years,department_tags,deleted_at)')
-    .eq('facility_id', facilityId)
+    .eq('facility_id', facilityId).gt('completed_shift_count', 0)
     .order('last_worked_at', { ascending: false, nullsFirst: false });
   if (error || !pool?.length) return [];
 

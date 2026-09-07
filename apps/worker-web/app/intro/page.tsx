@@ -19,33 +19,18 @@ export const metadata: Metadata = {
 const POINTS = [
   {
     icon: '📋',
-    title: '공고 등록 1분',
-    body: '날짜와 시간만 정하면 등록 끝. 조건에 맞는 워커에게 알림이 바로 갑니다.',
-  },
-  {
-    icon: '🔔',
-    title: '지원·채팅 알림을 놓치지 않게',
-    body: '지원과 채팅은 푸시로 알려드리고, 권한을 끈 경우에도 앱 알림 받은함에서 다시 확인할 수 있어요.',
-  },
-  {
-    icon: '✅',
-    title: '면허 확인은 원장님이 직접',
-    body: '잇닿은 자격을 대신 심사하지 않습니다. 채용을 확정하기 전에 원장님이 면허를 확인하시고, 확인하신 기록은 날짜와 담당자까지 남습니다.',
+    title: '공고부터 지원 수락까지 빠르게',
+    body: '날짜와 시간만 정하면 공고가 열리고, 지원자 확인과 근무 확정은 같은 흐름에서 처리합니다.',
   },
   {
     icon: '📍',
-    title: 'GPS 우선 · 동적 QR 보완 출퇴근',
-    body: '워커는 버튼 한 번으로 위치를 확인하고, 실내 GPS가 불안정할 때만 60초 동적 QR을 사용합니다. 사업장 정책에 따라 Wi-Fi·관리자 승인도 선택할 수 있어요.',
+    title: '출퇴근과 월 근태를 함께',
+    body: '위치 우선 인증과 동적 QR 보완으로 출퇴근을 남기고, 지각·조퇴·휴가까지 한 달 단위로 확인합니다.',
   },
   {
     icon: '₩',
-    title: '근태 → 월 마감 → 급여 검토',
-    body: '정상근무·지각·조퇴·휴가·결근과 인증 실패를 한 달 단위로 모아 봅니다. 급여는 사업장이 워커에게 직접 지급합니다.',
-  },
-  {
-    icon: '✅',
-    title: '오늘 처리할 일만 먼저',
-    body: '새 지원자·출퇴근 확인·지급 대기를 홈에 모아 한 번의 클릭으로 처리합니다. 전체 직원과 통계는 관리 메뉴에서 확인해요.',
+    title: '지급 확인까지 하나의 기록으로',
+    body: '근무 기록을 바탕으로 지급을 검토하고, 사업장 직접 지급 후 워커의 입금 확인까지 이어집니다.',
   },
 ];
 
@@ -63,6 +48,14 @@ export default function IntroPage() {
           간호사·간호조무사·약사 대타 인력을 등록된 워커에게 즉시 알리고,
           출퇴근 인증과 급여 자료까지 한 번에 정리하세요.
         </p>
+        <div className="mt-6 grid grid-cols-2 gap-2">
+          <a href="#admin-demo" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[14px] font-extrabold text-white">
+            1분 시연 보기
+          </a>
+          <a href="tel:01090455699" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[14px] font-extrabold text-primary">
+            도입 상담
+          </a>
+        </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
             중개 수수료 0원
@@ -76,9 +69,36 @@ export default function IntroPage() {
         </div>
       </header>
 
+      <section id="admin-demo" className="border-y border-line bg-bg px-6 py-10 scroll-mt-4" aria-labelledby="admin-demo-title">
+        <p className="text-[13px] font-bold text-primary">1분 시연</p>
+        <h2 id="admin-demo-title" className="mt-1 text-[20px] font-extrabold text-ink">
+          공고부터 지급 확인까지,
+          <br />
+          실제 화면으로 보세요
+        </h2>
+        <p className="mt-2 text-[13px] leading-5 text-sub">
+          빈 근무 공고를 만들고 워커를 수락한 뒤, 출퇴근 기록과 지급 확인까지 이어지는 관리자 흐름입니다.
+        </p>
+        <div className="mt-5 overflow-hidden rounded-card border border-line bg-black shadow-card">
+          <video
+            className="block aspect-[9/16] w-full bg-black"
+            controls
+            playsInline
+            preload="metadata"
+            poster="/demo/itdot-admin-demo-poster.jpg"
+            aria-label="잇닿 관리자 서비스 시연 영상"
+          >
+            <source src="/demo/itdot-admin-demo.mp4" type="video/mp4" />
+            브라우저가 동영상 재생을 지원하지 않습니다.
+          </video>
+        </div>
+        <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 10초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+      </section>
+
       <section className="px-6 py-10">
-        <h2 className="text-[20px] font-extrabold text-ink">이런 게 됩니다</h2>
-        <div className="mt-5 space-y-4">
+        <p className="text-[13px] font-bold text-primary">하나의 운영 흐름</p>
+        <h2 className="mt-1 text-[20px] font-extrabold text-ink">사람을 구한 뒤의 일까지 연결합니다</h2>
+        <div className="mt-5 space-y-3">
           {POINTS.map((p) => (
             <div key={p.title} className="flex gap-3 rounded-card bg-bg p-4">
               <span className="text-[20px] leading-none">{p.icon}</span>
@@ -105,21 +125,21 @@ export default function IntroPage() {
 
       <section className="px-6 pb-12">
         <div className="rounded-card bg-ink px-5 py-7 text-center">
-          <p className="text-[15px] font-bold text-white">직접 눌러보면 더 빨리 이해할 수 있어요</p>
+          <p className="text-[15px] font-bold text-white">내 사업장 흐름으로 직접 설명해드릴게요</p>
           <p className="mt-2 text-[13px] leading-5 text-white/70">
-            병원·약국·요양병원 중 하나를 선택해 실제 관리자 화면을 바로 체험해 보세요.
+            병원·약국·요양병원 중 어떤 곳인지 알려주시면, 실제 운영 흐름에 맞춰 초기 세팅과 시연을 도와드립니다.
           </p>
           <a
-            href="https://admin.itdot.co.kr/login"
+            href="tel:01090455699"
             className="mt-5 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white"
           >
-            관리자 데모 3개 직접 보기
+            도입 상담 · 010-9045-5699
           </a>
           <a
-            href="tel:01090455699"
+            href="#admin-demo"
             className="mt-2 flex h-12 items-center justify-center rounded-btn bg-white/10 text-[15px] font-bold text-white"
           >
-            도입 문의 · 010-9045-5699
+            관리자 시연 영상 다시 보기
           </a>
         </div>
       </section>
@@ -137,10 +157,10 @@ export default function IntroPage() {
             공고 보기
           </Link>
           <Link
-            href="/onboarding"
+            href="/worker-intro"
             className="flex h-11 flex-1 items-center justify-center rounded-btn bg-primary text-[14px] font-bold text-white"
           >
-            워커 시작하기
+            워커 안내 보기
           </Link>
         </div>
       </section>

@@ -59,10 +59,10 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
       return { ok: false, message: error instanceof Error ? error.message : '요금제를 확인해 주세요.' };
     }
     const { data: poolMember } = await sb.from('facility_worker_pool')
-      .select('worker_id,status,workers(id,auth_user_id,name,role,verification_status,deleted_at)')
+      .select('worker_id,status,completed_shift_count,workers(id,auth_user_id,name,role,verification_status,deleted_at)')
       .eq('facility_id', context.facilityId).eq('worker_id', invitedWorkerId).eq('status', 'active').maybeSingle();
     const worker = (poolMember as any)?.workers;
-    if (!worker || worker.deleted_at || worker.verification_status !== 'approved') return { ok: false, message: '반복 초대는 사업장 확인이 완료된 인력풀 워커만 가능해요. 미확인 워커는 공개 공고 지원으로 확인해 주세요.' };
+    if (!worker || Number((poolMember as any)?.completed_shift_count ?? 0) < 1 || worker.deleted_at || worker.verification_status !== 'approved') return { ok: false, message: '반복 초대는 이 사업장에서 근무를 완료한 인력에게만 가능해요. 처음 만나는 워커는 공개 공고로 모집해 주세요.' };
     if (requiredRole !== 'any' && worker.role !== requiredRole) return { ok: false, message: '워커 자격과 시프트 자격이 일치하지 않아요.' };
     invitedWorker = worker;
   }

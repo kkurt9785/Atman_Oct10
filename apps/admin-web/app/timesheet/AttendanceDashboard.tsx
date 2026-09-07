@@ -15,6 +15,10 @@ type Failure={
   distance_meters:number|null; gps_accuracy_meters:number|null; failure_reason:string|null;
   created_at:string; worker_name?:string|null;
 };
+type ArrivalAlert={
+  shiftId:string|null;staffId:string|null;personName:string;employment:'shift'|'staff';
+  replacementEligible:boolean;shiftDate:string;startTime:string;department:string|null;
+};
 type Person =
   | {kind:'staff';key:string;name:string;subtitle:string;employment:string;status:string;checkInAt:string|null;checkOutAt:string|null;method:string|null;distance:number|null;staff:ClinicStaff}
   | {kind:'shift';key:string;name:string;subtitle:string;employment:string;status:string;checkInAt:string|null;checkOutAt:string|null;method:string|null;distance:number|null;shift:StaffRow};
@@ -40,7 +44,7 @@ function group(status:string):Filter{
   return 'all';
 }
 
-export function AttendanceDashboard({staff,matched,upcoming,failures,facilityId,summaryHref}:{staff:ClinicStaff[];matched:StaffRow[];upcoming:UpcomingShiftRow[];failures:Failure[];facilityId:string|null;summaryHref:string}){
+export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAlerts,facilityId,summaryHref}:{staff:ClinicStaff[];matched:StaffRow[];upcoming:UpcomingShiftRow[];failures:Failure[];arrivalAlerts:ArrivalAlert[];facilityId:string|null;summaryHref:string}){
   const [filter,setFilter]=useState<Filter>('all');
   const people=useMemo<Person[]>(()=>[
     ...staff.map((s):Person=>({kind:'staff',key:`staff-${s.id}`,name:s.name,subtitle:`${s.department??s.role??'부서 미지정'} · ${s.defaultStart.slice(0,5)}~${s.defaultEnd.slice(0,5)}`,employment:ENGAGEMENT[s.engagementType]??'직원',status:s.attendanceStatus,checkInAt:s.checkInAt,checkOutAt:s.checkOutAt,method:s.checkOutMethod??s.checkInMethod,distance:s.checkOutDistanceM??s.checkInDistanceM,staff:s})),
@@ -49,7 +53,7 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,facilityId,
   const counts={
     working:people.filter(p=>p.status==='working').length,
     completed:people.filter(p=>p.status==='completed').length,
-    issue:people.filter(p=>group(p.status)==='issue').length+failures.length,
+    issue:people.filter(p=>group(p.status)==='issue').length+failures.length+arrivalAlerts.length,
   };
   const visible=filter==='all'?people:people.filter(p=>group(p.status)===filter);
   const issuePeople=people.filter(person=>group(person.status)==='issue');
@@ -66,7 +70,7 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,facilityId,
 
     <section id="approvals" className="mt-5 scroll-mt-4">
       <div className="px-1"><p className="text-[12px] font-bold text-warn">1 · 예외 및 승인 업무</p><h2 className="mt-0.5 text-title font-extrabold">먼저 확인할 기록 {counts.issue}건</h2></div>
-      {counts.issue===0?<Card className="mt-3 py-5 text-center text-[13px] font-bold text-success">승인하거나 수정할 기록이 없어요.</Card>:<div className="mt-3 space-y-3">{issuePeople.map(person=>{
+      {counts.issue===0?<Card className="mt-3 py-5 text-center text-[13px] font-bold text-success">승인하거나 수정할 기록이 없어요.</Card>:<div className="mt-3 space-y-3">{arrivalAlerts.map(alert=><Card key={`arrival-${alert.shiftId??alert.staffId}`} className="border border-red-200 bg-red-50/40 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[12px] font-extrabold text-red-600">시작 5분 경과 · 출근 확인 필요</p><p className="mt-1 text-body font-extrabold text-ink">{alert.personName}</p><p className="mt-1 text-[12px] leading-5 text-sub">{alert.employment==='staff'?'기존 직원':'단기 시프트'} · {alert.startTime.slice(0,5)} 시작{alert.department?` · ${alert.department}`:''}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-red-600">미출근</span></div><p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[12px] leading-5 text-sub">출근 기록이 들어오면 이 항목은 자동으로 사라집니다. 연락 또는 관리자 직접 처리 후 근태를 확정해 주세요.</p></Card>)}{issuePeople.map(person=>{
         const staffRow=person.kind==='staff'?person.staff:null;const state=STATUS[person.status]??STATUS.scheduled;
         return <Card key={`issue-${person.key}`} className="border border-amber-200 p-4"><div className="flex justify-between"><div><b>{person.name}</b><p className="mt-1 text-[12px] text-sub">{person.subtitle}</p></div><span className={`h-fit rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>{staffRow?.attendanceStatus==='checkout_pending'&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}}><button className="h-10 w-full rounded-lg border border-line bg-white text-[12px] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}}><button className="h-10 w-full rounded-lg bg-primary text-[12px] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}</Card>;
       })}{failures.length>0&&<details className="rounded-2xl border border-red-100 bg-white p-4"><summary className="cursor-pointer list-none font-extrabold">인증 실패 {failures.length}건 <span className="float-right text-[12px] text-sub">확인 ›</span></summary><div className="mt-3 divide-y divide-line">{failures.map(row=><div key={row.id} className="py-3"><b className="text-[12px]">{row.worker_name??'근로자'} · {FAIL[row.failure_reason??'']??row.failure_reason}</b><p className="mt-1 text-[11px] text-sub">{AUTH[row.authentication_method??'']??row.authentication_method} · {fmt(row.created_at)}</p></div>)}</div></details>}</div>}

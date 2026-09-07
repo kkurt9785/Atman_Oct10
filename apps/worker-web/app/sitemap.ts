@@ -9,6 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const shifts = await listPublicShifts(200);
   return [
     { url: `${BASE}/intro`, changeFrequency: 'monthly', priority: 1 },
+    { url: `${BASE}/worker-intro`, changeFrequency: 'monthly', priority: 0.95 },
     { url: `${BASE}/jobs`, changeFrequency: 'daily', priority: 0.9 },
     ...shifts.map((s) => ({
       url: `${BASE}/jobs/${s.id}`,
