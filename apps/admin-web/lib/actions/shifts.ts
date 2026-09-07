@@ -42,7 +42,11 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   const context = await requireAdminContext(['owner','operator','super']);
   const sb = adminClient();
   if (sb) {
-    const { data: facility } = await sb.from('facilities').select('facility_type').eq('id', context.facilityId).maybeSingle();
+    const { data: facility } = await sb.from('facilities').select('facility_type, approved_at, registration_source').eq('id', context.facilityId).maybeSingle();
+    // 셀프 등록 사업장은 잇닿 확인(approved_at) 전까지 공고를 열지 않는다 — 초대코드 사업장은 등록 시점에 이미 확인됨
+    if (facility && facility.approved_at == null && String(facility.registration_source ?? '').startsWith('self_')) {
+      return { ok: false, message: '사업장 확인이 끝나면 공고를 등록할 수 있어요. 보통 1영업일 안에 완료돼요.' };
+    }
     if (requiredRole === 'pharmacy_staff' && facility?.facility_type !== 'pharmacy') {
       return { ok: false, message: '약국 전산·사무직 공고는 약국 사업장에서만 등록할 수 있어요.' };
     }

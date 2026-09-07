@@ -137,3 +137,28 @@ export async function listAccessibleFacilities() {
 
   return Array.from(map.values());
 }
+
+// 심평원/카카오 검색 결과로 사업장을 즉시 등록한다. approved_at은 NULL(잇닿 승인 대기).
+export async function registerFacilitySelf(input: {
+  name: string; facilityType: string; addressText: string; lng: number; lat: number;
+  phone?: string | null; hiraYkiho?: string | null; hiraClCd?: string | null; bedCount?: number | null;
+  source: 'self_hira' | 'self_kakao';
+}): Promise<{ ok: boolean; facilityId?: string; error?: string }> {
+  try {
+    const session = await requireAdminSession();
+    const sb = userClient(session.accessToken);
+    if (!sb) return { ok: false, error: '서버 설정 오류' };
+    const { data, error } = await sb.rpc('register_facility_self', {
+      p_name: input.name, p_facility_type: input.facilityType, p_address_text: input.addressText,
+      p_lng: input.lng, p_lat: input.lat, p_phone: input.phone ?? null,
+      p_hira_ykiho: input.hiraYkiho ?? null, p_hira_cl_cd: input.hiraClCd ?? null,
+      p_bed_count: input.bedCount ?? null, p_source: input.source,
+    });
+    if (error || !data) return { ok: false, error: (error?.message ?? '사업장을 등록하지 못했어요.').replace(/^.*?: /, '') };
+    await setFacilityContextCookie(data as string, session.user.id);
+    revalidatePath('/');
+    return { ok: true, facilityId: data as string };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : '사업장을 등록하지 못했어요.' };
+  }
+}

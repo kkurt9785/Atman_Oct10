@@ -37,6 +37,14 @@ export default async function Home() {
 
   return (
     <main className="px-4">
+      {shop.approvedAt === null && shop.registrationSource.startsWith('self_') && (
+        <section role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-[14px] font-bold text-amber-800">사업장 확인 중이에요</p>
+          <p className="mt-1 text-[12px] leading-5 text-amber-700">
+            잇닿이 사업장 정보를 확인하면 공고 등록이 열려요. 보통 1영업일 안에 끝나요. 그동안 인력 등록과 근태 설정은 바로 쓸 수 있어요.
+          </p>
+        </section>
+      )}
       <div className="px-1 mt-2 mb-4">
         <p className="text-body text-sub">{shop.name}</p>
         <h1 className="text-display font-extrabold text-ink mt-1">{isPharmacy?'약국장님':'원장님'}, 안녕하세요 👋</h1>
