@@ -23,7 +23,7 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
       window.kakao.maps.load(() => {
         if (!mapEl.current || mapRef.current) return;
         const center = new window.kakao.maps.LatLng(lat, lng);
-        const map = new window.kakao.maps.Map(mapEl.current, { center, level: 3 });
+        const map = new window.kakao.maps.Map(mapEl.current, { center, level: 2 }); // 30m 원이 보이도록 확대
         const marker = new window.kakao.maps.Marker({ map, position: center, draggable: true });
         const circle = new window.kakao.maps.Circle({ map, center, radius: radiusMeters, strokeWeight: 1, strokeColor: '#3182F6', strokeOpacity: 0.8, fillColor: '#3182F6', fillOpacity: 0.12 });
         window.kakao.maps.event.addListener(marker, 'dragend', () => {
