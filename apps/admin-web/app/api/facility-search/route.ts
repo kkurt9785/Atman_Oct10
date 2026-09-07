@@ -64,8 +64,14 @@ export async function GET(req: NextRequest) {
 
   const dbPromise = (async () => {
     if (!sb) return [] as FacilitySearchHit[];
-    const { data, error } = await sb.rpc('search_claimable_facilities', { p_query: q });
+    let { data, error } = await sb.rpc('search_claimable_facilities', { p_query: q });
     if (error) throw error;
+    // DB 검색은 이름 부분일치라 "W여성병원 광주"처럼 지역어가 붙으면 0건 → 가장 긴 토큰으로 재시도
+    const tokens = q.split(/\s+/).filter((t) => t.length >= 2).sort((a, b) => b.length - a.length);
+    if ((data ?? []).length === 0 && tokens.length > 1) {
+      const retry = await sb.rpc('search_claimable_facilities', { p_query: tokens[0] });
+      if (!retry.error) data = retry.data;
+    }
     return ((data ?? []) as Array<{ id: string; name: string; facility_type: string; address_text: string }>).map((f) => ({
       source: 'db' as const, id: f.id, name: f.name, facilityType: f.facility_type,
       typeLabel: DB_TYPE_LABEL[f.facility_type] ?? f.facility_type, address: f.address_text ?? '',
@@ -84,8 +90,10 @@ export async function GET(req: NextRequest) {
   else if (kakaoResult.status === 'fulfilled') { sources.kakao = 'ok'; kakaoHits = kakaoResult.value ?? []; }
   else { sources.kakao = 'error'; detail.kakao = String((kakaoResult.reason as Error)?.message ?? kakaoResult.reason).slice(0, 160); console.error('[facility-search] kakao', detail.kakao); }
 
-  // 같은 이름이 DB(초대코드 연결)에 이미 있으면 카카오 카드는 뒤로 — 같은 사업장을 두 번 보여주지 않기 위한 최소 정리
-  const dbNames = new Set(dbHits.map((d) => d.name.replace(/\s+/g, '')));
-  const ordered = [...dbHits, ...kakaoHits.filter((k) => !dbNames.has(k.name.replace(/\s+/g, ''))), ...kakaoHits.filter((k) => dbNames.has(k.name.replace(/\s+/g, '')))];
+  // 같은 이름이 DB(초대코드 연결)에 이미 있으면 카카오 카드는 '바로 등록'이 아니라 '초대코드 연결'로 표시 — 중복 사업장 생성 방지
+  const norm = (n: string) => n.replace(/[\s·\-_.()]/g, '');
+  const dbByName = new Map(dbHits.map((d) => [norm(d.name), d.id]));
+  const merged = kakaoHits.map((k) => ({ ...k, registeredFacilityId: dbByName.get(norm(k.name)) ?? null }));
+  const ordered = [...dbHits, ...merged.filter((k) => !k.registeredFacilityId), ...merged.filter((k) => k.registeredFacilityId)];
   return NextResponse.json({ hits: ordered, sources, detail });
 }
