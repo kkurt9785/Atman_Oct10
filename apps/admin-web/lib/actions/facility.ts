@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
-import { getAdminContext, requireAdminContext } from '../admin-auth';
-import { adminClient } from '../supabase';
+import { getAdminContext, requireAdminContext, requireAdminSession } from '../admin-auth';
+import { adminClient, userClient } from '../supabase';
 
 export type FacilityProfile = {
   employee_count: number | null;
@@ -262,4 +262,36 @@ export async function setAdminPayrollVisibility(targetUserId: string, allow: boo
   revalidatePath('/settings');
   revalidatePath('/payroll');
   revalidatePath('/');
+}
+
+// ── 사업장 기본 정보·위치(핀) ─────────────────────────────────────────────
+export type FacilityLocation = { name: string; addressText: string; phone: string; lng: number | null; lat: number | null };
+
+export async function getFacilityLocation(): Promise<FacilityLocation | null> {
+  const context = await requireAdminContext();
+  const session = await requireAdminSession();
+  const sb = userClient(session.accessToken);
+  if (!sb) return null;
+  const { data, error } = await sb.rpc('get_facility_location', { p_facility_id: context.facilityId });
+  const row = (data as Array<{ name: string; address_text: string | null; contact_phone: string | null; lng: number | null; lat: number | null }> | null)?.[0];
+  if (error || !row) return null;
+  return { name: row.name, addressText: row.address_text ?? '', phone: row.contact_phone ?? '', lng: row.lng, lat: row.lat };
+}
+
+export async function saveFacilityLocation(input: { name: string; addressText: string; phone: string; lng: number; lat: number }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const context = await requireAdminContext(['owner', 'operator', 'super']);
+    const session = await requireAdminSession();
+    const sb = userClient(session.accessToken);
+    if (!sb) return { ok: false, error: '서버 설정을 확인해 주세요.' };
+    const { error } = await sb.rpc('update_facility_location', {
+      p_facility_id: context.facilityId, p_name: input.name, p_address_text: input.addressText, p_phone: input.phone,
+      p_lng: input.lng, p_lat: input.lat,
+    });
+    if (error) return { ok: false, error: error.message.replace(/^.*?: /, '') };
+    revalidatePath('/settings'); revalidatePath('/');
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : '저장하지 못했어요.' };
+  }
 }

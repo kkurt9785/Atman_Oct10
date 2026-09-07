@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { getFacilityProfile, getFacilityAdmins } from '@/lib/actions/facility';
+import { getFacilityProfile, getFacilityAdmins, getFacilityLocation } from '@/lib/actions/facility';
+import { getAdminContext } from '@/lib/admin-auth';
+import { FacilityLocationSection } from './FacilityLocationSection';
 import { FacilityProfileForm } from './FacilityProfileForm';
 import { AdminAccessSection } from './AdminAccessSection';
 import { getShop } from '@/lib/db/shop';
@@ -7,7 +9,8 @@ import { ManageBackLink } from '@/components/ManageBackLink';
 import { facilityTypeLabel } from '@/lib/facility-label';
 
 export default async function SettingsPage() {
-  const [profile, shop, admins] = await Promise.all([getFacilityProfile(), getShop(), getFacilityAdmins()]);
+  const [profile, shop, admins, location, context] = await Promise.all([getFacilityProfile(), getShop(), getFacilityAdmins(), getFacilityLocation(), getAdminContext()]);
+  const canEditLocation = ['owner', 'operator', 'super'].includes(context?.accessRole ?? '');
   const facilityWord = facilityTypeLabel(shop?.facilityType);
 
   return (
@@ -23,6 +26,7 @@ export default async function SettingsPage() {
         </Link>
       </section>
       {admins && admins.length > 0 && <AdminAccessSection admins={admins} facilityWord={facilityWord} />}
+      {location && <FacilityLocationSection initial={location} facilityWord={facilityWord} gpsRadiusMeters={profile?.gps_radius_meters ?? 30} canEdit={canEditLocation} />}
       <FacilityProfileForm profile={profile} facilityType={shop?.facilityType??'clinic'} />
     </div>
   );

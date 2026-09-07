@@ -23,6 +23,7 @@ async function signedIn(email) {
 const results = {};
 let createdId = null;
 let qaUserId = null;
+let strangerId = null;
 try {
   const { data: created, error: createError } = await service.auth.admin.createUser({ email: adminEmail, email_confirm: true });
   if (createError || !created?.user) throw new Error(`qa admin create: ${createError?.message}`);
@@ -48,6 +49,17 @@ try {
   results.invalidCoordsBlocked = /위치를 지도에서/.test(badGeo?.message ?? '');
   const { error: secondFacility } = await admin.rpc('register_facility_self', { ...args, p_hira_ykiho: `${ykiho}-C` });
   results.secondFacilityBlocked = /이미 운영 중인 사업장/.test(secondFacility?.message ?? '');
+  const { error: moveError } = await admin.rpc('update_facility_location', { p_facility_id: id, p_name: 'QA 셀프등록 요양병원(이전)', p_address_text: '경기 수원시 권선구 금곡로 2', p_phone: '', p_lng: 126.951, p_lat: 37.271 });
+  const { data: moved } = await admin.rpc('get_facility_location', { p_facility_id: id });
+  results.locationEditable = !moveError && Math.abs((moved?.[0]?.lng ?? 0) - 126.951) < 1e-6 && moved?.[0]?.name === 'QA 셀프등록 요양병원(이전)' && moved?.[0]?.contact_phone === null;
+  // 타 사업장 관리자(super 접근 없음)가 남의 핀을 옮기지 못하는지 — 데모 super는 전역 권한이라 별도 임시 관리자로 검사
+  const { data: stranger } = await service.auth.admin.createUser({ email: `qa-stranger-${Date.now()}@demo.atman.co.kr`, email_confirm: true });
+  strangerId = stranger?.user?.id ?? null;
+  if (strangerId) await service.from('profiles').upsert({ id: strangerId, role: 'admin', onboarding_done: true });
+  const strangerClient = await signedIn(stranger.user.email);
+  const { error: foreignMove } = await strangerClient.rpc('update_facility_location', { p_facility_id: id, p_name: '탈취 시도 병원', p_address_text: 'hijack address 12345', p_phone: '', p_lng: 127, p_lat: 37 });
+  const { data: afterForeign } = await admin.rpc('get_facility_location', { p_facility_id: id });
+  results.foreignLocationEditBlocked = /권한이 없어요/.test(foreignMove?.message ?? '') && afterForeign?.[0]?.name === 'QA 셀프등록 요양병원(이전)';
   const owner = await signedIn(ownerEmail);
   const { error: ownerError } = await owner.rpc('register_facility_self', { ...args, p_hira_ykiho: `${ykiho}-D` });
   results.existingOwnerBlocked = /이미 운영 중인 사업장/.test(ownerError?.message ?? '');
@@ -59,9 +71,10 @@ try {
     const fac = await service.from('facilities').delete().eq('id', f.id);
     if (subs.error || fac.error) console.error('cleanup facility failed', f.id, subs.error?.message ?? fac.error?.message);
   }
-  if (qaUserId) {
-    const { error } = await service.auth.admin.deleteUser(qaUserId);
-    if (error) console.error('cleanup user failed', qaUserId, error.message);
+  for (const uid of [qaUserId, strangerId]) {
+    if (!uid) continue;
+    const { error } = await service.auth.admin.deleteUser(uid);
+    if (error) console.error('cleanup user failed', uid, error.message);
   }
 }
 console.log(JSON.stringify(results, null, 2));
