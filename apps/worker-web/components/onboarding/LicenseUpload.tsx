@@ -4,11 +4,13 @@ import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import type { WorkerRole } from '@/lib/roles';
 
+// 모바일 카메라·일부 안드로이드 선택기는 file.type이 비어 온다 → 확장자로 보정
+const guessMime = (name: string) => ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', heic: 'image/heic', heif: 'image/heif', pdf: 'application/pdf' } as Record<string, string>)[name.split('.').pop()?.toLowerCase() ?? ''] ?? '';
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'application/pdf']);
 const MAX_BYTES = 10 * 1024 * 1024;
 
 export function validateLicenseFile(file: File): string | null {
-  if (!ALLOWED_TYPES.has(file.type)) return 'JPG, PNG, WEBP, HEIC 또는 PDF 파일만 등록할 수 있어요.';
+  if (!ALLOWED_TYPES.has(file.type || guessMime(file.name))) return 'JPG, PNG, WEBP, HEIC 또는 PDF 파일만 등록할 수 있어요.';
   if (file.size > MAX_BYTES) return '파일 크기는 10MB 이하여야 해요.';
   if (file.size === 0) return '빈 파일은 등록할 수 없어요.';
   return null;
@@ -69,7 +71,7 @@ export function LicenseUpload({ role, onNext, onSkip }: { role?: WorkerRole | nu
 
       {mode === 'photo' || isResume ? (
         <>
-          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="hidden" onChange={(e) => choose(e.target.files?.[0])} />
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => choose(e.target.files?.[0])} />
           <button type="button" onClick={() => inputRef.current?.click()} className="w-full rounded-[20px] border-2 border-dashed border-primary bg-primary-light flex flex-col items-center justify-center gap-3 mb-3 transition-opacity active:opacity-70" style={{ height: 200 }}>
             {file ? <p className="text-[15px] font-medium text-primary px-4 text-center break-all">{file.name}</p> : <><span className="text-4xl">📋</span><span className="text-[16px] font-semibold text-primary">{isResume ? '이력서 파일을 올려주세요' : '사진을 올려주세요'}</span></>}
           </button>

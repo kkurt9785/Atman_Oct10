@@ -3,6 +3,8 @@ import { getPlatformAdminSession } from '@/lib/platform-admin';
 import { listSelfRegisteredFacilities, listRegistrationRequests } from '@/lib/actions/platform';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { ApprovalCard, RequestCard } from './ApprovalCard';
+import { getPendingWorkers } from '@/lib/db/workers';
+import { WorkerApprovalCard } from '@/app/staff/WorkerApprovalCard';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,10 +12,11 @@ export const dynamic = 'force-dynamic';
 export default async function PlatformFacilitiesPage() {
   const session = await getPlatformAdminSession();
   if (!session) notFound();
-  const [pending, recent, requests] = await Promise.all([
+  const [pending, recent, requests, pendingWorkers] = await Promise.all([
     listSelfRegisteredFacilities(true),
     listSelfRegisteredFacilities(false).then((rows) => rows.filter((r) => r.approved_at).slice(0, 10)),
     listRegistrationRequests(),
+    getPendingWorkers(),
   ]);
 
   return (
@@ -38,6 +41,13 @@ export default async function PlatformFacilitiesPage() {
           ? <p className="rounded-2xl bg-white p-5 text-center text-[14px] text-sub">검토할 요청이 없어요.</p>
           : <div className="space-y-3">{requests.map((r) => <RequestCard key={r.id} request={r} />)}</div>}
         <p className="mt-2 px-1 text-[11px] leading-4 text-tertiary">요청은 사업장 계정이 없을 때 남긴 것이라, 연락해서 셀프 등록을 안내하거나 잇닿이 직접 등록한 뒤 초대 코드를 보내요.</p>
+      </section>
+
+      <section className="mt-8">
+        <p className="mb-2 px-1 text-label font-bold text-sub">워커 자격 심사 대기 {pendingWorkers.length}건</p>
+        {pendingWorkers.length === 0
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[14px] text-sub">심사할 워커가 없어요. 간호사·간호조무사·약사는 사업장이 채용 전 직접 확인하고, 약국 전산·사무직만 여기서 이력서를 확인해요.</p>
+          : <div className="space-y-3">{pendingWorkers.map((w) => <WorkerApprovalCard key={w.id} worker={w} />)}</div>}
       </section>
 
       {recent.length > 0 && (

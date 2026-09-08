@@ -163,7 +163,7 @@ export default function ShiftsPage() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [facilityInfo, setFacilityInfo] = useState<{ id: string; name: string } | null>(null);
   const [isGuest, setIsGuest] = useState(false);
-  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [visibleLimit, setVisibleLimit] = useState(10);
 
@@ -175,16 +175,24 @@ export default function ShiftsPage() {
 
       if (!user) {
         setIsGuest(true);
-        const { data: publicRows, error } = await supabase
-          .from('shifts')
-          .select('id, facility_id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, facilities ( name, address_text, facility_type )')
-          .eq('status', 'open')
-          .eq('audience', 'public')
-          .gte('shift_date', dateKST())
-          .order('shift_date', { ascending: true })
-          .order('start_time', { ascending: true });
+        // 비로그인 둘러보기는 공개 RPC(list_public_shifts)만 쓴다 — 데모 사업장·연락처·좌표 제외.
+        // shifts 테이블 직접 조회는 데모 공고까지 그대로 노출됐다.
+        const { data: publicRows, error } = await supabase.rpc('list_public_shifts', { p_limit: 100 });
         if (error) console.error('[shifts] public browse failed', error);
-        const rows = (publicRows as unknown as Shift[]) ?? [];
+        const rows = ((publicRows ?? []) as Array<Record<string, unknown>>).map((row) => {
+          const start = String(row.start_time ?? ''); const end = String(row.end_time ?? '');
+          const isOvernight = end !== '' && start !== '' && end <= start;
+          const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+          const minutes = start && end ? (toMin(end) - toMin(start) + (isOvernight ? 1440 : 0)) : 0;
+          const wage = Number(row.hourly_wage ?? 0);
+          return {
+            id: String(row.id), facility_id: '', shift_date: String(row.shift_date), start_time: start, end_time: end,
+            is_overnight: isOvernight, required_role: row.required_role, hourly_wage: wage,
+            estimated_total_pay: Number(row.estimated_total_pay ?? Math.round((minutes / 60) * wage)),
+            description: String(row.description ?? ''), department: (row.department as string | null) ?? null, notes: null,
+            facilities: { name: String(row.facility_name ?? ''), address_text: (row.region as string | null) ?? null, facility_type: (row.facility_type as string | null) ?? null },
+          } as unknown as Shift;
+        });
         setShifts(rows);
         if (highlightedShiftId) {
           const highlighted = rows.find((shift) => shift.id === highlightedShiftId);

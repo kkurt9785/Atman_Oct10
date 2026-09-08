@@ -1,4 +1,5 @@
 import { getAdminContext } from '../admin-auth';
+import { getPlatformAdminSession } from '../platform-admin';
 import { adminClient } from '../supabase';
 import { createLicenseSignedUrl } from '../license-storage';
 
@@ -18,8 +19,8 @@ export type PendingWorker = {
  * service-role 조회 전에 현재 세션의 플랫폼 역할을 확인한다.
  */
 export async function getPendingWorkers(): Promise<PendingWorker[]> {
-  const context = await getAdminContext();
-  if (context?.accessRole !== 'super') return [];
+  const [context, platform] = await Promise.all([getAdminContext(), getPlatformAdminSession()]);
+  if (context?.accessRole !== 'super' && !platform) return [];
 
   const sb = adminClient();
   if (!sb) return [];

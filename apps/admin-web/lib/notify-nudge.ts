@@ -4,9 +4,11 @@
 export async function nudgeNotificationDispatch(timeoutMs = 1_500): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   if (!secret) return false;
-  const base = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : 'http://localhost:3002';
+  // VERCEL_URL은 *.vercel.app 배포 호스트라 배포 보호(인증 벽)에 막혀 302로 조용히 실패한다(프로덕션 실측).
+  // 반드시 공개 도메인으로 보낸다: ADMIN_BASE_URL > VERCEL_PROJECT_PRODUCTION_URL > 로컬.
+  const base = process.env.ADMIN_BASE_URL
+    ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
+    ?? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3002');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

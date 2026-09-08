@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
@@ -18,7 +18,16 @@ export function Splash() {
   const [demoError, setDemoError] = useState('');
   // 테스트 배포에서도 환경변수 하나로 데모 진입을 열고 닫는다.
   // 공개 종료 시 NEXT_PUBLIC_ENABLE_DEMO_LOGIN=0으로 즉시 숨길 수 있다.
-  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
+  // 실제 워커에게는 숨긴다: 플래그가 켜져 있어도 ?demo=1 로 연 기기에서만 보인다(시연용). 한 번 열면 이 기기에 기억.
+  const [demoUnlocked, setDemoUnlocked] = useState(false);
+  useEffect(() => {
+    try {
+      const wants = new URLSearchParams(window.location.search).get('demo') === '1';
+      if (wants) localStorage.setItem('atman_demo_panel', '1');
+      setDemoUnlocked(wants || localStorage.getItem('atman_demo_panel') === '1');
+    } catch { setDemoUnlocked(false); }
+  }, []);
+  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && demoUnlocked;
   // 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 플래그 하나로만 제어 (출시 시 0으로)
   const visibleDemoWorkers = DEMO_WORKERS;
 

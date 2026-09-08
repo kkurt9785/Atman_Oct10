@@ -209,7 +209,7 @@ export default function ProfileEditPage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
                 className="hidden"
                 onChange={handleFileChange}
               />
