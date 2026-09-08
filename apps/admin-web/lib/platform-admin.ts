@@ -12,8 +12,19 @@ export function isPlatformAdminEmail(email: string | null | undefined): boolean 
   return platformAdminEmails().includes(e) && !e.endsWith('@demo.atman.co.kr');
 }
 
+// 카카오 로그인은 이메일 동의가 없으면 email이 NULL로 들어온다 → 사용자 ID로도 지정할 수 있게 한다.
+// PLATFORM_ADMIN_USER_IDS="uuid,uuid"
+export function platformAdminUserIds(): string[] {
+  return (process.env.PLATFORM_ADMIN_USER_IDS ?? '').split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+}
+
+export function isPlatformAdminUser(user: { id: string; email?: string | null } | null | undefined): boolean {
+  if (!user) return false;
+  return isPlatformAdminEmail(user.email) || platformAdminUserIds().includes(user.id.toLowerCase());
+}
+
 export async function getPlatformAdminSession(): Promise<AdminSession | null> {
   const session = await getAdminSession();
-  if (!session || !isPlatformAdminEmail(session.user.email)) return null;
+  if (!session || !isPlatformAdminUser(session.user)) return null;
   return session;
 }

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Card } from '@/components/ui';
 import { getShop } from '@/lib/db/shop';
-import { isPlatformAdminEmail } from '@/lib/platform-admin';
+import { isPlatformAdminUser } from '@/lib/platform-admin';
 import { getStaff } from '@/lib/db/staff';
 import { getPendingCount } from '@/lib/db/applications';
 import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
@@ -24,7 +24,7 @@ export default async function Home() {
   const canViewPayroll = context?.canViewPayroll ?? false;
 
   // 잇닿 운영 계정은 사업장이 없어도 승인 화면으로 바로 간다. 일반 관리자는 사업장 연결부터.
-  if (!shop) redirect(isPlatformAdminEmail(context?.user.email) ? '/ops/facilities' : '/setup/claim-facility');
+  if (!shop) redirect(isPlatformAdminUser(context?.user) ? '/ops/facilities' : '/setup/claim-facility');
 
   const isPharmacy = shop.facilityType === 'pharmacy';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
