@@ -257,6 +257,12 @@ try:
         attendance_ids.append(attendance_id)
     passed("1-5 중복 출근 차단", checkin.get("ok") is True and dup_in.get("reason") == "DUPLICATE_ATTENDANCE")
     passed("1-6 중복 퇴근 차단", checkout.get("ok") is True and dup_out.get("reason") == "DUPLICATE_ATTENDANCE")
+    # 종료 전 퇴근은 직원·단기 시프트 모두 관리자 승인 뒤에만 확정/급여 생성된다.
+    if checkout.get("status") == "pending":
+        approve_status, approve_result = rpc(admin_token, "decide_shift_early_checkout", {"p_application_id": app_id, "p_decision": "approved"})
+        passed("1-7 단기 조기퇴근 관리자 승인", approve_status == 200 and approve_result.get("ok") is True)
+    else:
+        passed("1-7 단기 조기퇴근 관리자 승인", checkout.get("status") == "approved")
     _, wages = req("GET", "/rest/v1/wage_calculations?attendance_id=eq." + attendance_id + "&select=id,gross", token=service)
     _, payments = req("GET", "/rest/v1/wage_payment_instructions?attendance_id=eq." + attendance_id + "&select=id,status", token=service)
     passed("4-1 임금 자동 계산", len(wages or []) == 1)
