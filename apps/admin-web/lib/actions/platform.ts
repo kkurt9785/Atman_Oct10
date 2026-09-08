@@ -53,7 +53,7 @@ export async function listRegistrationRequests(): Promise<RegistrationRequest[]>
 export async function approveSelfRegisteredFacility(input: { facilityId: string; brn: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const { session, sb } = await requirePlatform();
-    const result = await approveFacilityCore(sb, { id: session.user.id, email: session.user.email ?? null }, input);
+    const result = await approveFacilityCore(sb, { id: session.user.id, email: session.user.email ?? null, name: (session.user.user_metadata?.name as string | undefined) ?? null }, input);
     if (result.ok) { revalidatePath('/ops/facilities'); revalidatePath('/'); }
     return result;
   } catch (error) {
@@ -64,7 +64,7 @@ export async function approveSelfRegisteredFacility(input: { facilityId: string;
 export async function rejectSelfRegisteredFacility(input: { facilityId: string; reason: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const { session, sb } = await requirePlatform();
-    const result = await rejectFacilityCore(sb, { id: session.user.id, email: session.user.email ?? null }, input);
+    const result = await rejectFacilityCore(sb, { id: session.user.id, email: session.user.email ?? null, name: (session.user.user_metadata?.name as string | undefined) ?? null }, input);
     if (result.ok) revalidatePath('/ops/facilities');
     return result;
   } catch (error) {

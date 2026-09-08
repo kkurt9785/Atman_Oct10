@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 // 승인/반려 핵심 로직. 서버 액션(lib/actions/platform.ts)과 QA 스크립트가 같은 함수를 쓴다.
 // sb는 service-role 클라이언트, actor는 운영자(잇닿) 계정.
-export type Actor = { id: string; email: string | null };
+export type Actor = { id: string; email: string | null; name?: string | null };
 export type Result = { ok: boolean; error?: string };
 
 export function normalizeBrn(raw: string): string | null {
@@ -38,7 +38,7 @@ export async function approveFacilityCore(sb: SupabaseClient, actor: Actor, inpu
     actor_type: 'admin', actor_id: actor.id, action: 'facility.self_registration.approve',
     entity_type: 'facility', entity_id: input.facilityId,
     before_data: { business_registration_number: before.business_registration_number, approved_at: null },
-    after_data: { business_registration_number: brn, approved_at: now, approved_by_email: actor.email },
+    after_data: { business_registration_number: brn, approved_at: now, approved_by_email: actor.email, approved_by: actor.email ?? actor.name ?? actor.id },
   });
   await notify(sb, before.admin_user_id, 'facility.approved', `facility.approved:${input.facilityId}`,
     '사업장 확인이 끝났어요', `${before.name} 확인이 완료됐어요. 이제 공고를 올릴 수 있어요.`, { facility_id: input.facilityId, url: '/' });
@@ -65,7 +65,7 @@ export async function rejectFacilityCore(sb: SupabaseClient, actor: Actor, input
     actor_type: 'admin', actor_id: actor.id, action: 'facility.self_registration.reject',
     entity_type: 'facility', entity_id: input.facilityId,
     before_data: { name: before.name, admin_user_id: before.admin_user_id, address_text: before.address_text, hira_ykiho: before.hira_ykiho },
-    after_data: { reason, rejected_by_email: actor.email, deleted_at: now },
+    after_data: { reason, rejected_by_email: actor.email, rejected_by: actor.email ?? actor.name ?? actor.id, deleted_at: now },
   });
   await notify(sb, before.admin_user_id, 'facility.rejected', `facility.rejected:${input.facilityId}`,
     '사업장 등록을 확인하지 못했어요', `${before.name}: ${reason}`, { facility_id: input.facilityId, url: '/setup/claim-facility' });
