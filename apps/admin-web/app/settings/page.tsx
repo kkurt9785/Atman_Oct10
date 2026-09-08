@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { getFacilityProfile, getFacilityAdmins, getFacilityLocation } from '@/lib/actions/facility';
 import { getAdminContext } from '@/lib/admin-auth';
 import { FacilityLocationSection } from './FacilityLocationSection';
+import { BrnDocumentSection } from './BrnDocumentSection';
 import { FacilityProfileForm } from './FacilityProfileForm';
 import { AdminAccessSection } from './AdminAccessSection';
 import { getShop } from '@/lib/db/shop';
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
         </Link>
       </section>
       {admins && admins.length > 0 && <AdminAccessSection admins={admins} facilityWord={facilityWord} />}
+      {shop && context && shop.approvedAt === null && shop.registrationSource.startsWith('self_') && <BrnDocumentSection facilityId={context.facilityId} brnSubmitted={shop.brnSubmitted} hasDocument={Boolean(shop.brnDocumentPath)} />}
       {location && <FacilityLocationSection initial={location} facilityWord={facilityWord} gpsRadiusMeters={profile?.gps_radius_meters ?? 30} canEdit={canEditLocation} />}
       <FacilityProfileForm profile={profile} facilityType={shop?.facilityType??'clinic'} />
     </div>

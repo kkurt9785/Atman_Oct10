@@ -14,7 +14,7 @@ function formatBrn(v: string) {
 }
 
 export function ApprovalCard({ facility: f }: { facility: SelfRegisteredFacility }) {
-  const [brn, setBrn] = useState('');
+  const [brn, setBrn] = useState(f.brn_submitted ? formatBrn(f.brn_submitted) : '');
   const [reason, setReason] = useState('');
   const [mode, setMode] = useState<'idle' | 'reject'>('idle');
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -58,6 +58,8 @@ export function ApprovalCard({ facility: f }: { facility: SelfRegisteredFacility
         <dt className="text-sub">등록 관리자</dt><dd className="truncate text-ink">{f.admin_email ?? '없음'}</dd>
         <dt className="text-sub">등록 경로</dt><dd className="text-ink">{f.registration_source === 'self_hira' ? `심평원 대조됨${f.hira_cl_cd ? ` · ${CL_LABEL[f.hira_cl_cd] ?? f.hira_cl_cd}` : ''}` : '지도 검색(심평원 미대조)'}</dd>
         <dt className="text-sub">요양기관기호</dt><dd className="truncate font-mono text-ink">{f.hira_ykiho ?? '—'}</dd>
+        <dt className="text-sub">원장 제출 번호</dt><dd className="font-mono text-ink">{f.brn_submitted ?? '미제출'}</dd>
+        <dt className="text-sub">등록증</dt><dd className="text-ink">{f.documentUrl ? <a href={f.documentUrl} target="_blank" rel="noreferrer" className="font-bold text-primary underline">열어 보기</a> : f.brn_document_path ? '있음(열람 URL 발급 실패)' : '미제출'}</dd>
         <dt className="text-sub">등록일</dt><dd className="text-ink">{new Date(f.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</dd>
       </dl>
       <div className="mt-3 flex flex-wrap gap-2">
@@ -66,9 +68,15 @@ export function ApprovalCard({ facility: f }: { facility: SelfRegisteredFacility
         <a href={`https://www.ftc.go.kr/bizCommPop.do?wrkr_no=`} target="_blank" rel="noreferrer" className="rounded-lg border border-line px-3 py-1.5 text-[12px] font-bold text-ink">사업자 조회(공정위)</a>
       </div>
 
+      {f.documentUrl && !/\.pdf($|\?)/i.test(f.brn_document_path ?? '') && (
+        <a href={f.documentUrl} target="_blank" rel="noreferrer" className="mt-3 block overflow-hidden rounded-xl border border-line">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={f.documentUrl} alt={`${f.name} 사업자등록증`} className="max-h-72 w-full object-contain bg-surface" />
+        </a>
+      )}
       {mode === 'idle' ? (
         <>
-          <label className="mt-4 block text-[12px] font-bold text-sub">사업자등록번호 (사업자등록증 확인 후 입력)
+          <label className="mt-4 block text-[12px] font-bold text-sub">사업자등록번호 {f.brn_submitted ? '(원장 제출값 — 등록증과 대조 후 승인)' : '(사업자등록증 확인 후 입력)'}
             <input inputMode="numeric" value={brn} onChange={(e) => setBrn(formatBrn(e.target.value))} placeholder="000-00-00000" className="mt-1 h-11 w-full rounded-xl border border-line px-3 font-mono text-[15px] tracking-wider outline-none focus:border-primary" />
           </label>
           {message && <p role="alert" className="mt-2 text-[12px] font-bold text-warn">{message.text}</p>}

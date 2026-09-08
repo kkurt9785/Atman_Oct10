@@ -10,6 +10,8 @@ export type ShopInfo = {
   isDemo: boolean;
   approvedAt: string | null;       // NULL = 셀프 등록 후 잇닿 승인 대기
   registrationSource: string;
+  brnSubmitted: string | null;
+  brnDocumentPath: string | null;
 };
 
 export async function getShop(): Promise<ShopInfo | null> {
@@ -19,7 +21,7 @@ export async function getShop(): Promise<ShopInfo | null> {
 
   const facilityRes = await sb
     .from('facilities')
-    .select('name, facility_type, employee_count, is_5plus, plan_code, is_demo, approved_at, registration_source')
+    .select('name, facility_type, employee_count, is_5plus, plan_code, is_demo, approved_at, registration_source, brn_submitted, brn_document_path')
     .eq('id', facilityId)
     .single();
 
@@ -35,5 +37,7 @@ export async function getShop(): Promise<ShopInfo | null> {
     isDemo: f.is_demo ?? false,
     approvedAt: f.approved_at ?? null,
     registrationSource: f.registration_source ?? 'invite',
+    brnSubmitted: f.brn_submitted ?? null,
+    brnDocumentPath: f.brn_document_path ?? null,
   };
 }

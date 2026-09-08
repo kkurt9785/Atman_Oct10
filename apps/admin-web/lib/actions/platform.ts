@@ -10,6 +10,8 @@ export type SelfRegisteredFacility = {
   hira_ykiho: string | null; hira_cl_cd: string | null; registration_source: string; business_registration_number: string;
   approved_at: string | null; is_active: boolean; created_at: string;
   admin_user_id: string | null; admin_email: string | null; lng: number | null; lat: number | null;
+  brn_submitted: string | null; brn_document_path: string | null;
+  documentUrl?: string | null; // 서버에서 서명한 열람 URL(10분)
 };
 
 export type RegistrationRequest = {
@@ -29,7 +31,14 @@ export async function listSelfRegisteredFacilities(pendingOnly = true): Promise<
   const { sb } = await requirePlatform();
   const { data, error } = await sb.rpc('platform_list_self_registered_facilities', { p_pending_only: pendingOnly });
   if (error) throw new Error(error.message);
-  return (data ?? []) as SelfRegisteredFacility[];
+  const rows = (data ?? []) as SelfRegisteredFacility[];
+  // 등록증은 비공개 버킷 — 운영자 화면에서만 10분짜리 서명 URL로 연다
+  await Promise.all(rows.map(async (row) => {
+    if (!row.brn_document_path) { row.documentUrl = null; return; }
+    const { data: signed } = await sb.storage.from('facility-documents').createSignedUrl(row.brn_document_path, 600);
+    row.documentUrl = signed?.signedUrl ?? null;
+  }));
+  return rows;
 }
 
 export async function listRegistrationRequests(): Promise<RegistrationRequest[]> {

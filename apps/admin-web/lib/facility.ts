@@ -173,3 +173,20 @@ export async function registerFacilitySelf(input: {
     return { ok: false, error: error instanceof Error ? error.message : '사업장을 등록하지 못했어요.' };
   }
 }
+
+// 승인 전 사업자등록번호·등록증 제출 (등록 직후 또는 설정에서). 파일은 브라우저가 올리고 여기서는 경로만 기록.
+export async function submitFacilityBrnDocument(input: { facilityId: string; brn?: string | null; documentPath?: string | null }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const session = await requireAdminSession();
+    const sb = userClient(session.accessToken);
+    if (!sb) return { ok: false, error: '서버 설정 오류' };
+    const { error } = await sb.rpc('submit_facility_brn_document', {
+      p_facility_id: input.facilityId, p_brn_submitted: input.brn?.trim() || null, p_document_path: input.documentPath ?? null,
+    });
+    if (error) return { ok: false, error: error.message.replace(/^.*?: /, '') };
+    revalidatePath('/'); revalidatePath('/settings');
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : '제출하지 못했어요.' };
+  }
+}

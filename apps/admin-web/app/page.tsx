@@ -45,6 +45,9 @@ export default async function Home() {
           <p className="mt-1 text-[12px] leading-5 text-amber-700">
             잇닿이 사업장 정보를 확인하면 공고 등록이 열려요. 보통 1영업일 안에 끝나요. 그동안 인력 등록과 근태 설정은 바로 쓸 수 있어요.
           </p>
+          {!shop.brnSubmitted && !shop.brnDocumentPath && (
+            <Link href="/settings#brn-document" className="mt-2 inline-block rounded-lg bg-amber-600 px-3 py-1.5 text-[12px] font-bold text-white">사업자등록번호·등록증 올리기 →</Link>
+          )}
         </section>
       )}
       <div className="px-1 mt-2 mb-4">

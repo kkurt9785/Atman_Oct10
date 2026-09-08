@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { claimFacility, registerFacilitySelf, requestFacilityRegistration } from '@/lib/facility';
+import { claimFacility, registerFacilitySelf, requestFacilityRegistration, submitFacilityBrnDocument } from '@/lib/facility';
+import { BrnDocumentFields } from '@/components/BrnDocumentFields';
+import { uploadBrnDocument } from '@/lib/brn-document-client';
 import { FacilityPinMap } from '@/components/FacilityPinMap';
 import type { FacilitySearchHit } from '@/app/api/facility-search/route';
 
@@ -38,6 +40,7 @@ export default function ClaimFacilityPage() {
   // 즉시 등록 시트 — 검색 결과(심평원/카카오)를 확인·핀 조정 후 등록
   const [registerHit,setRegisterHit]=useState<Hit|null>(null);
   const [registerForm,setRegisterForm]=useState({name:'',address:'',phone:'',lng:0,lat:0});
+  const [brnForm,setBrnForm]=useState<{brn:string;file:File|null}>({brn:'',file:null});
   const isPharmacyType=(t:string)=>t==='pharmacy';
   const isCareType=(t:string)=>t==='care_hospital';
   const pharmacyCount=results.filter(f=>isPharmacyType(f.facilityType)).length;
@@ -74,7 +77,7 @@ export default function ClaimFacilityPage() {
     if(hit.lng==null||hit.lat==null){setError('이 사업장은 좌표가 없어 바로 등록할 수 없어요. 등록 요청으로 보내 주세요.');return;}
     setSelected(null);
     setRegisterHit(hit);
-    setRegisterForm({name:hit.name,address:hit.address,phone:hit.phone??'',lng:hit.lng,lat:hit.lat});
+    setRegisterForm({name:hit.name,address:hit.address,phone:hit.phone??'',lng:hit.lng,lat:hit.lat});setBrnForm({brn:'',file:null});
   }
 
   async function handleClaim() {
@@ -100,8 +103,15 @@ export default function ClaimFacilityPage() {
         hiraYkiho:registerHit.hiraYkiho,hiraClCd:registerHit.hiraClCd,bedCount:registerHit.bedCount,
         source:registerHit.source==='hira'?'self_hira':'self_kakao',
       });
-      if(result.ok)router.replace('/');
-      else setError(result.error??'사업장을 등록하지 못했어요.');
+      if(!result.ok||!result.facilityId){setError(result.error??'사업장을 등록하지 못했어요.');return;}
+      // 사업장이 생긴 뒤에 서류를 올린다(경로에 사업장 id가 들어감). 실패해도 등록은 유지 — 홈 배너가 설정에서 다시 올리도록 안내한다.
+      if(brnForm.brn||brnForm.file){
+        try{
+          const documentPath=brnForm.file?await uploadBrnDocument(brnForm.file,result.facilityId):null;
+          await submitFacilityBrnDocument({facilityId:result.facilityId,brn:brnForm.brn,documentPath});
+        }catch(e){console.error('[claim] brn document',e);}
+      }
+      router.replace('/');
     });
   }
 
@@ -281,10 +291,12 @@ export default function ClaimFacilityPage() {
               <label className="col-span-2 text-[12px] font-bold text-sub">주소<input value={registerForm.address} onChange={e=>setRegisterForm(c=>({...c,address:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="도로명 주소"/><span className="mt-1 block text-[11px] font-medium text-sub">이전했거나 주소가 다르면 고쳐 주세요. 주소를 바꿔도 핀은 따로 옮겨야 해요.</span></label>
               <label className="col-span-2 text-[12px] font-bold text-sub">대표 전화 (선택)<input inputMode="tel" value={registerForm.phone} onChange={e=>setRegisterForm(c=>({...c,phone:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="031-000-0000"/></label>
             </div>
+            <p className="mt-4 text-[12px] font-bold text-sub">사업자 확인 <span className="font-medium">· 지금 올리면 확인이 빨라요. 나중에 설정에서도 가능</span></p>
+            <div className="mt-1"><BrnDocumentFields brn={brnForm.brn} file={brnForm.file} onBrn={v=>setBrnForm(c=>({...c,brn:v}))} onFile={(f,err)=>{setBrnForm(c=>({...c,file:f}));if(err)setError(err);else setError('');}} disabled={isPending}/></div>
             <p className="mt-4 text-[12px] font-bold text-sub">출퇴근 인증 위치 <span className="font-medium">· 기본 반경 30m, 설정에서 변경 가능</span></p>
             <FacilityPinMap className="mt-1" lng={registerForm.lng} lat={registerForm.lat} radiusMeters={30} onChange={({lng,lat})=>setRegisterForm(c=>({...c,lng,lat}))}/>
             {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-600">{error}</p>}
-            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?'요양기관 정보 대조 중...':'사업장 등록하고 시작하기'}</button>
+            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?(brnForm.file?'등록·서류 올리는 중...':'요양기관 정보 대조 중...'):'사업장 등록하고 시작하기'}</button>
             <p className="mt-2 text-center text-[11px] text-sub">이미 다른 관리자가 등록한 사업장이면 초대 코드 연결로 안내돼요</p>
           </section>
         </>

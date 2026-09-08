@@ -40,6 +40,27 @@ try {
   const { data: anonTry } = await a.client.rpc('platform_list_self_registered_facilities', { p_pending_only: true });
   results.listHiddenFromFacilityAdmin = !anonTry;
 
+  // 사업자등록증 업로드(본인 폴더) → 제출 RPC → 목록에 노출 → 타인 열람·타인 제출·경로 위조 차단
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+  const docPath = `${a.id}/${fa}/brn-qa.png`;
+  const { error: upErr } = await a.client.storage.from('facility-documents').upload(docPath, png, { contentType: 'image/png', upsert: false });
+  results.documentUploadOwnFolder = !upErr;
+  const { error: strangerUp } = await b.client.storage.from('facility-documents').upload(`${a.id}/${fa}/hijack.png`, png, { contentType: 'image/png' });
+  results.documentUploadForeignFolderBlocked = Boolean(strangerUp);
+  const { data: strangerRead } = await b.client.storage.from('facility-documents').download(docPath).catch(() => ({ data: null }));
+  results.documentPrivateFromStranger = !strangerRead;
+  const { error: submitErr } = await a.client.rpc('submit_facility_brn_document', { p_facility_id: fa, p_brn_submitted: '123 45 67890', p_document_path: docPath });
+  results.brnDocumentSubmitted = !submitErr;
+  const { error: spoof } = await a.client.rpc('submit_facility_brn_document', { p_facility_id: fa, p_document_path: `${b.id}/${fa}/x.png` });
+  results.documentPathSpoofBlocked = /경로가 올바르지/.test(spoof?.message ?? '');
+  const { error: foreignSubmit } = await b.client.rpc('submit_facility_brn_document', { p_facility_id: fa, p_brn_submitted: '9999999999' });
+  results.foreignSubmitBlocked = /권한이 없어요/.test(foreignSubmit?.message ?? '');
+  const { data: pending2 } = await service.rpc('platform_list_self_registered_facilities', { p_pending_only: true });
+  const rowA2 = (pending2 ?? []).find((r) => r.id === fa);
+  results.listShowsSubmittedBrnAndDoc = rowA2?.brn_submitted === '123-45-67890' && rowA2?.brn_document_path === docPath;
+  const { data: signed } = await service.storage.from('facility-documents').createSignedUrl(docPath, 60);
+  results.operatorSignedUrl = Boolean(signed?.signedUrl);
+
   results.brnNormalized = normalizeBrn('123 45 67890') === '123-45-67890' && normalizeBrn('12345') === null;
   const bad = await approveFacilityCore(service, actor, { facilityId: fa, brn: '12345' });
   results.badBrnBlocked = !bad.ok;
@@ -63,6 +84,13 @@ try {
   const { data: notifB } = await service.from('notification_outbox').select('body').eq('dedupe_key', `facility.rejected:${fb}`).maybeSingle();
   results.rejectionNotificationCarriesReason = /QA 반려 사유/.test(notifB?.body ?? '');
 } finally {
+  for (const uid of users) {
+    const { data: objs } = await service.storage.from('facility-documents').list(uid, { limit: 100 });
+    for (const o of objs ?? []) {
+      const { data: inner } = await service.storage.from('facility-documents').list(`${uid}/${o.name}`, { limit: 100 });
+      if (inner?.length) await service.storage.from('facility-documents').remove(inner.map((i) => `${uid}/${o.name}/${i.name}`));
+    }
+  }
   const { data: leftovers } = await service.from('facilities').select('id').like('hira_ykiho', `QA-APPR-%`);
   for (const f of leftovers ?? []) {
     await service.from('facility_subscriptions').delete().eq('facility_id', f.id);
