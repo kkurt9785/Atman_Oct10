@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { issueDynamicAttendanceQr } from './actions';
+import { QrCanvas } from '@/components/QrCanvas';
 
 export function DynamicQrPanel({workerOrigin}:{workerOrigin:string}){
   const [token,setToken]=useState('');
@@ -18,10 +19,11 @@ export function DynamicQrPanel({workerOrigin}:{workerOrigin:string}){
     }),1000);
     return ()=>window.clearInterval(timer);
   },[refresh]);
-  const src=token?`${workerOrigin}/workplace/qr?attendanceToken=${encodeURIComponent(token)}`:'';
+  // 워커 앱이 스캔 후 여는 주소 그대로를 QR에 담는다 (워커 /workplace/qr 페이지와 동일한 값)
+  const src=token?`${workerOrigin}/workplace?attendanceToken=${encodeURIComponent(token)}`:'';
   return <section className="mt-5 rounded-3xl bg-white p-5 text-center shadow-card">
     <div className="flex items-center justify-between text-left"><div><p className="text-title font-extrabold">동적 출퇴근 QR</p><p className="mt-1 text-[12px] text-sub">직원이 휴대폰 카메라로 스캔해요.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-bold text-primary">{seconds}초</span></div>
-    {src?<iframe title="동적 출퇴근 QR" src={src} className="mt-4 h-[310px] w-full border-0 bg-white"/>:<div className="py-20 text-sub">{error||'QR 생성 중...'}</div>}
+    {src?<div className="mt-4 flex h-[310px] items-center justify-center"><QrCanvas value={src} size={280} label="동적 출퇴근 QR"/></div>:<div className="py-20 text-sub">{error||'QR 생성 중...'}</div>}
     <button onClick={()=>void refresh()} className="h-11 w-full rounded-xl border border-line font-bold">새 QR로 갱신</button>
     <p className="mt-3 text-[11px] leading-5 text-sub">60초마다 자동 갱신됩니다. QR 원문은 저장하지 않고 해시만 서버에 보관합니다.</p>
   </section>;

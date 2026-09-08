@@ -3,6 +3,7 @@ import { getFacilityAttendanceQr } from '@/lib/db/clinic-workforce';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { PrintButton } from './PrintButton';
 import { DynamicQrPanel } from './DynamicQrPanel';
+import { QrCanvas } from '@/components/QrCanvas';
 import { getFacilityProfile } from '@/lib/actions/facility';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
@@ -18,7 +19,7 @@ export default async function AttendanceQrPage(){
   const [token,profile,shop]=await Promise.all([getFacilityAttendanceQr(),getFacilityProfile(),getShop()]);
   const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL
     ?? (process.env.NODE_ENV === 'production' ? 'https://itdot.co.kr' : 'http://localhost:3003');
-  const qrSrc=token?`${workerOrigin}/workplace/qr?token=${encodeURIComponent(token)}`:null;
+  const qrSrc=token?`${workerOrigin}/workplace?token=${encodeURIComponent(token)}`:null;
   const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':'병원';
   const mode=profile?.attendance_mode??'gps_or_qr';
   const networkCount=profile?.allowed_ips?.length??0;
@@ -46,7 +47,7 @@ export default async function AttendanceQrPage(){
       <summary className="cursor-pointer list-none text-[13px] font-bold text-sub">기존 고정 QR · 호환용 <span className="float-right">펼치기</span></summary>
       <p className="mt-2 text-[12px] leading-5 text-sub">기존에 인쇄한 QR을 계속 써야 할 때만 사용하세요. 외부 촬영 위험이 있어 신규 설치에는 위 동적 QR을 권장합니다.</p>
     <section className="mt-4 rounded-2xl bg-bg p-5 text-center">
-      {qrSrc?<iframe title="직원 출퇴근 QR" src={qrSrc} className="w-full h-[320px] border-0 bg-white"/>:<p className="py-20 text-sub">QR을 만들지 못했어요.</p>}
+      {qrSrc?<div className="flex h-[320px] items-center justify-center"><QrCanvas value={qrSrc} size={280} label="직원 출퇴근 QR"/></div>:<p className="py-20 text-sub">QR을 만들지 못했어요.</p>}
       <p className="text-title font-extrabold">잇닿 직원 출퇴근</p>
       <p className="text-label text-sub mt-2 leading-5">로그인한 직원만 기록할 수 있습니다.<br/>예정 퇴근시간 전 요청은 관리자 승인이 필요합니다.</p>
       <PrintButton/>
