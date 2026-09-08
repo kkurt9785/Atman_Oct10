@@ -64,7 +64,7 @@ export default function IntroPage() {
             임금은 사업장 직접 지급
           </span>
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            3개월 무료로 시작
+            가입 즉시 30일 무료
           </span>
         </div>
       </header>
@@ -115,10 +115,10 @@ export default function IntroPage() {
         <h2 className="text-[20px] font-extrabold text-ink">지금은 함께 만드는 단계입니다</h2>
         <div className="mt-4 rounded-card border border-line p-5">
           <ul className="space-y-2.5 text-[13px] leading-5 text-sub">
-            <li>· 도입 사업장은 <b className="text-ink">3개월 무료</b>로 쓰시고, 초기 세팅은 저희가 직접 해드립니다</li>
+            <li>· 가입하면 <b className="text-ink">30일 무료 체험</b>이 시작되며, 자동으로 유료 전환되지 않습니다</li>
+            <li>· 직접 도입을 함께하는 <b className="text-ink">선정 파일럿 사업장</b>은 초기 세팅과 3개월 이용을 지원합니다</li>
             <li>· 채용이 성사돼도 <b className="text-ink">중개 수수료는 0원</b>입니다</li>
             <li>· 임금은 사업장이 근무자에게 직접 지급합니다 (잇닿은 임금을 보관하지 않습니다)</li>
-            <li>· 무료 기간이 끝나도 자동 결제되지 않습니다. 계속 쓰실지는 그때 정하시면 됩니다</li>
           </ul>
         </div>
       </section>

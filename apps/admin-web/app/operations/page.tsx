@@ -48,15 +48,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   return (
     <main className="px-4 pb-28">
       <ManageBackLink href="/more/operations" label="근무 운영" />
-      {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[13px] font-bold text-success">{notice}
+      {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[13px] font-bold text-success">{notice}</p>}
       {!hasOperations && (
-        <Card className="mb-4 border border-amber-200 bg-amber-50">
+        <Card className="mt-3 mb-4 border border-amber-200 bg-amber-50">
           <p className="text-body font-extrabold text-ink">운영 자동화는 Pro·Pharmacy Plus 요금제 기능이에요</p>
           <p className="text-label text-sub mt-1 leading-5">반복 근무표 자동 생성, 인력 공백 알림, 긴급 대체 모집을 쓸 수 있어요. 지금 플랜에서는 화면만 미리 볼 수 있습니다.</p>
           <Link href="/membership" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">요금제 살펴보기</Link>
         </Card>
       )}
-</p>}
       <div className="mt-3 mb-5 px-1">
         <p className="text-label font-bold text-primary">운영 자동화</p>
         <h1 className="text-display font-extrabold text-ink mt-1">이번 달 인력 운영</h1>
@@ -79,6 +78,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         </div>
       </Card>
 
+      <div className={!hasOperations ? 'pointer-events-none select-none opacity-60' : ''} aria-disabled={!hasOperations}>
       <section className="mb-5" aria-labelledby="staffing-recommendations">
         <div className="flex items-end justify-between px-1 mb-3">
           <div><p className="text-label font-bold text-primary">근무표·휴가·근태 자동 분석</p><h2 id="staffing-recommendations" className="text-title font-extrabold text-ink mt-1">인력 공백 알림</h2></div>
@@ -219,6 +219,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">템플릿 저장</button>
         </form>
       </details>
+      </div>
     </main>
   );
 }

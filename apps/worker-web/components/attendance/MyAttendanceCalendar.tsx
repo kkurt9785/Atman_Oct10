@@ -17,7 +17,7 @@ const timeOf = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString('k
 const worked = (r: Row) => r.check_in_at && r.check_out_at ? Math.max(0, Math.round((Date.parse(r.check_out_at) - Date.parse(r.check_in_at)) / 60000) - Number(r.break_minutes ?? 0)) : 0;
 const statusRank: Record<string, number> = { absent: 7, late: 6, checkout_pending: 5, working: 4, leave: 3, completed: 2, scheduled: 1 };
 
-export function MyAttendanceCalendar({ staffId }: { staffId: string | null }) {
+export function MyAttendanceCalendar({ staffId, refreshKey = 0 }: { staffId: string | null; refreshKey?: number }) {
   const today = kstToday(); const current = today.slice(0, 7);
   const [month, setMonth] = useState(current); const [rows, setRows] = useState<Row[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [retry, setRetry] = useState(0); const [selected, setSelected] = useState<string | null>(null);
   useEffect(() => { void (async () => {
@@ -29,14 +29,14 @@ export function MyAttendanceCalendar({ staffId }: { staffId: string | null }) {
     if (userData.user) {
       const { data: worker } = await supabase.from('workers').select('id').eq('auth_user_id', userData.user.id).maybeSingle();
       if (worker) {
-        const { data: shifts, error: shiftError } = await supabase.from('shift_attendances').select('id,check_in_at,check_out_at,check_in_method,check_out_method,shifts!inner(shift_date)').eq('worker_id', worker.id).gte('shifts.shift_date', `${month}-01`).lte('shifts.shift_date', end);
+        const { data: shifts, error: shiftError } = await supabase.from('shift_attendances').select('id,check_in_at,check_out_at,checkout_requested_at,check_in_method,check_out_method,late_minutes,early_leave_minutes,shifts!inner(shift_date)').eq('worker_id', worker.id).gte('shifts.shift_date', `${month}-01`).lte('shifts.shift_date', end);
         if (shiftError) { setError('단기 시프트 근태를 불러오지 못했어요.'); setLoading(false); return; }
-        workerRows = ((shifts ?? []) as any[]).map((r) => { const s = Array.isArray(r.shifts) ? r.shifts[0] : r.shifts; return { key: `shift-${r.id}`, work_date: s.shift_date, check_in_at: r.check_in_at, check_out_at: r.check_out_at, status: r.check_out_at ? 'completed' : r.check_in_at ? 'working' : 'scheduled', break_minutes: 0, late_minutes: 0, early_leave_minutes: 0, check_in_method: r.check_in_method, check_out_method: r.check_out_method, source: '단기 시프트' }; });
+        workerRows = ((shifts ?? []) as any[]).map((r) => { const s = Array.isArray(r.shifts) ? r.shifts[0] : r.shifts; return { key: `shift-${r.id}`, work_date: s.shift_date, check_in_at: r.check_in_at, check_out_at: r.check_out_at, status: r.check_out_at ? 'completed' : r.checkout_requested_at ? 'checkout_pending' : r.check_in_at ? 'working' : 'scheduled', break_minutes: 0, late_minutes: Number(r.late_minutes??0), early_leave_minutes: Number(r.early_leave_minutes??0), check_in_method: r.check_in_method, check_out_method: r.check_out_method, source: '단기 시프트' }; });
       }
     }
     const list: Row[] = [ ...((staffRows ?? []) as any[]).map((r) => ({ ...r, key: `staff-${r.work_date}`, source: '직원 근무' })), ...workerRows ];
     setRows(list); const dates = list.map((r) => r.work_date); setSelected(month === current && dates.includes(today) ? today : dates[0] ?? null); setLoading(false);
-  })(); }, [staffId, month, current, today, retry]);
+  })(); }, [staffId, month, current, today, retry, refreshKey]);
   const byDate = new Map<string, Row[]>(); rows.forEach((r) => byDate.set(r.work_date, [...(byDate.get(r.work_date) ?? []), r]));
   const [y, m] = month.split('-').map(Number); const firstDow = new Date(Date.UTC(y, m - 1, 1)).getUTCDay();
   const cells: (string | null)[] = [...Array.from({ length: firstDow }, () => null), ...Array.from({ length: new Date(Date.UTC(y, m, 0)).getUTCDate() }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`)];

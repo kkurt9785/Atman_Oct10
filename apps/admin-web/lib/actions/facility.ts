@@ -102,7 +102,7 @@ export async function saveFacilityProfile(formData: FormData) {
   const allowedModes=['gps','gps_qr','qr','network','admin','gps_or_qr'];
   const radius=Number(formData.get('gps_radius_meters')??30);
   const accuracy=Number(formData.get('max_gps_accuracy_meters')??80);
-  if(!allowedModes.includes(mode)||![10,20,30,50,100].includes(radius)||accuracy<10||accuracy>500){
+  if(!allowedModes.includes(mode)||![10,20,30,50,100,200].includes(radius)||accuracy<10||accuracy>500){
     throw new Error('근태 인증 설정을 다시 확인해 주세요.');
   }
   if(mode==='network'){

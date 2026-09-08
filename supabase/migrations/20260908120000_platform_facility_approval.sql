@@ -1,6 +1,8 @@
 -- 잇닿 운영자 승인 화면용 목록 RPC. service_role 전용(앱 서버에서 PLATFORM_ADMIN_EMAILS 게이트 뒤에서만 호출).
 -- 좌표는 ST_X/ST_Y로 풀어 주고, 등록 관리자 이메일은 auth.users에서 붙인다.
-CREATE OR REPLACE FUNCTION public.platform_list_self_registered_facilities(p_pending_only boolean DEFAULT true)
+-- SQL Editor에서 선행 설치된 구버전은 OUT 컬럼이 달라 OR REPLACE가 실패할 수 있다.
+DROP FUNCTION IF EXISTS public.platform_list_self_registered_facilities(boolean);
+CREATE FUNCTION public.platform_list_self_registered_facilities(p_pending_only boolean DEFAULT true)
 RETURNS TABLE (
   id uuid, name text, facility_type text, address_text text, contact_phone text,
   hira_ykiho text, hira_cl_cd text, registration_source text, business_registration_number text,

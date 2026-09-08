@@ -122,28 +122,42 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
   const alertStart = addDays(today, -1);
   const urgentEnd = addDays(today, 2);
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay() || 7;
-  const [{ data: shifts }, { data: staff }, { data: staffAttendances }, { data: leaves }] = await Promise.all([
+  const [shiftResult, staffResult, staffAttendanceResult, leaveResult] = await Promise.all([
     sb.from('shifts').select('id,shift_date,start_time,end_time,is_overnight,department,status,is_replacement')
     .eq('facility_id', facilityId).gte('shift_date', alertStart).lte('shift_date', urgentEnd)
     .in('status', ['open','matched']).order('shift_date').order('start_time'),
     sb.from('facility_staff').select('id,name,department,work_weekdays,default_start_time,contract_start,contract_end,status')
       .eq('facility_id', facilityId).eq('status', 'active'),
-    sb.from('staff_attendances').select('staff_id,check_in_at').eq('facility_id', facilityId).eq('work_date', today),
+    sb.from('staff_attendances').select('staff_id,check_in_at,status').eq('facility_id', facilityId).eq('work_date', today),
     sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId).eq('status', 'approved')
       .lte('start_date', today).gte('end_date', today),
   ]);
+  const baseError=[shiftResult.error,staffResult.error,staffAttendanceResult.error,leaveResult.error].find(Boolean);
+  if(baseError)throw new Error(`오늘 운영 알림을 불러오지 못했어요: ${baseError.message}`);
+  const shifts=shiftResult.data;
+  const staff=staffResult.data;
+  const staffAttendances=staffAttendanceResult.data;
+  const leaves=leaveResult.data;
   const ids = (shifts ?? []).map((row: any) => row.id);
-  const [{ data: apps }, { data: attendances }] = await Promise.all([
+  const [applicationResult,attendanceResult] = await Promise.all([
     ids.length ? sb.from('shift_applications').select('shift_id,status,workers(name)').in('shift_id', ids).in('status', ['applied','accepted']) : Promise.resolve({ data: [] }),
     ids.length ? sb.from('shift_attendances').select('shift_id,check_in_at').in('shift_id', ids).not('check_in_at', 'is', null) : Promise.resolve({ data: [] }),
   ]);
+  if('error' in applicationResult&&applicationResult.error)throw new Error(`시프트 지원 현황을 불러오지 못했어요: ${applicationResult.error.message}`);
+  if('error' in attendanceResult&&attendanceResult.error)throw new Error(`시프트 출근 현황을 불러오지 못했어요: ${attendanceResult.error.message}`);
+  const apps=applicationResult.data;
+  const attendances=attendanceResult.data;
   const appByShift = new Set((apps ?? []).map((row: any) => row.shift_id));
   const checkedIn = new Set((attendances ?? []).map((row: any) => row.shift_id));
   const acceptedWorkerName = new Map((apps ?? []).filter((row: any) => row.status === 'accepted').map((row: any) => {
     const worker = Array.isArray(row.workers) ? row.workers[0] : row.workers;
     return [row.shift_id, worker?.name ?? '확정 워커'];
   }));
-  const staffCheckedIn = new Set((staffAttendances ?? []).filter((row: any) => row.check_in_at).map((row: any) => row.staff_id));
+  // 출근했거나 관리자가 결근·휴가로 처리한 직원은 '미출근' 알림 대상이 아니다 (이중 카운트 방지)
+  const staffCheckedIn = new Set((staffAttendances ?? []).filter((row: any) => row.check_in_at || ['absent','leave'].includes(row.status)).map((row: any) => row.staff_id));
+  const staffAlreadyResolved = new Set((staffAttendances ?? [])
+    .filter((row: any) => ['absent','leave','completed','checkout_pending'].includes(row.status))
+    .map((row: any) => row.staff_id));
   const staffOnLeave = new Set((leaves ?? []).map((row: any) => row.staff_id));
   const nowMs = now.getTime();
   const alerts: OperationsAlert[] = [];
@@ -159,7 +173,7 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
     }
   }
   for (const person of (staff ?? []) as any[]) {
-    if (staffOnLeave.has(person.id) || staffCheckedIn.has(person.id)) continue;
+    if (staffOnLeave.has(person.id) || staffCheckedIn.has(person.id) || staffAlreadyResolved.has(person.id)) continue;
     if ((person.contract_start && person.contract_start > today) || (person.contract_end && person.contract_end < today)) continue;
     const workdays = Array.isArray(person.work_weekdays) && person.work_weekdays.length ? person.work_weekdays : [1, 2, 3, 4, 5];
     if (!workdays.includes(weekday)) continue;
@@ -329,18 +343,26 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
   const monthEnd = lastDayOfMonth(today);
   const urgentEnd = addDays(today, 2);
 
-  const [{ data: shifts }, { data: urgent }, { data: pool }, { count: pendingWageCount }, { count: pendingStaffWageCount }] = await Promise.all([
+  const [shiftResult, urgentResult, poolResult, pendingWageResult, pendingStaffWageResult] = await Promise.all([
     sb.from('shifts').select('estimated_total_pay,status').eq('facility_id', facilityId).gte('shift_date', monthStart).lte('shift_date', monthEnd).neq('status', 'cancelled'),
     sb.from('shifts').select('id').eq('facility_id', facilityId).eq('status', 'open').gte('shift_date', today).lte('shift_date', urgentEnd),
     sb.from('facility_worker_pool').select('worker_id').eq('facility_id', facilityId).eq('status', 'active'),
     sb.from('wage_payment_instructions').select('id', { count: 'exact', head: true }).eq('facility_id', facilityId).in('status', ['draft','approved','exported','disputed']),
     sb.from('staff_wage_payments').select('id',{count:'exact',head:true}).eq('facility_id',facilityId).in('status',['draft','approved','exported']),
   ]);
+  const summaryError = [shiftResult.error, urgentResult.error, poolResult.error, pendingWageResult.error, pendingStaffWageResult.error].find(Boolean);
+  if (summaryError) throw new Error(`운영 현황을 불러오지 못했어요: ${summaryError.message}`);
+  const shifts = shiftResult.data;
+  const urgent = urgentResult.data;
+  const pool = poolResult.data;
+  const pendingWageCount = pendingWageResult.count;
+  const pendingStaffWageCount = pendingStaffWageResult.count;
 
   const urgentIds = (urgent ?? []).map((row: any) => row.id);
   let urgentUnfilledCount = urgentIds.length;
   if (urgentIds.length) {
-    const { data: apps } = await sb.from('shift_applications').select('shift_id').in('shift_id', urgentIds).eq('status', 'applied');
+    const { data: apps, error } = await sb.from('shift_applications').select('shift_id').in('shift_id', urgentIds).eq('status', 'applied');
+    if (error) throw new Error(`긴급 미충원 현황을 불러오지 못했어요: ${error.message}`);
     const withApplicant = new Set((apps ?? []).map((row: any) => row.shift_id));
     urgentUnfilledCount = urgentIds.filter((id: string) => !withApplicant.has(id)).length;
   }
@@ -349,8 +371,9 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
   let expiringCredentialCount = 0;
   if (workerIds.length) {
     const limit = addDays(today, 30);
-    const { count } = await sb.from('worker_credentials').select('id', { count: 'exact', head: true })
+    const { count, error } = await sb.from('worker_credentials').select('id', { count: 'exact', head: true })
       .in('worker_id', workerIds).lte('expires_at', limit).in('verification_status', ['approved','expired']);
+    if (error) throw new Error(`자격 만료 현황을 불러오지 못했어요: ${error.message}`);
     expiringCredentialCount = count ?? 0;
   }
 

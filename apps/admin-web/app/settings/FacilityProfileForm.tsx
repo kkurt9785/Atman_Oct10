@@ -186,7 +186,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         <div className="grid grid-cols-2 gap-3">
           <label className="text-[12px] text-sub">GPS 반경
             <select name="gps_radius_meters" defaultValue={profile?.gps_radius_meters??30} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">
-              {[10,20,30,50,100].map(v=><option key={v} value={v}>{v}m</option>)}
+              {[10,20,30,50,100,200].map(v=><option key={v} value={v}>{v}m{v>=100?' (대형 건물·실내)':''}</option>)}
             </select>
           </label>
           <label className="text-[12px] text-sub">허용 정확도
@@ -197,7 +197,9 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
           <label className="text-[12px] text-sub">퇴근 전(분)<input name="check_out_before_minutes" type="number" min="0" max="360" defaultValue={profile?.check_out_before_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
           <label className="text-[12px] text-sub">퇴근 후(분)<input name="check_out_after_minutes" type="number" min="0" max="720" defaultValue={profile?.check_out_after_minutes??120} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
         </div>
-        {(attendanceMode==='gps'||attendanceMode==='gps_or_qr')&&<label className="mt-4 flex items-center gap-2 text-[13px] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>위치 인증 실패 시 동적 QR 보완 허용</label>}
+        {(attendanceMode==='gps'||attendanceMode==='gps_or_qr')
+          ?<label className="mt-4 flex items-center gap-2 text-[13px] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>위치 인증 실패 시 동적 QR 보완 허용</label>
+          :(profile?.qr_fallback_enabled??true)&&<input type="hidden" name="qr_fallback_enabled" value="on"/>}
 
         <div className="mt-5 border-t border-line pt-4">
           <p className="text-[13px] font-bold text-ink">{facilityWord} 네트워크 인증</p>

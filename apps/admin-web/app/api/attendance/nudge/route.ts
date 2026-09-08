@@ -45,7 +45,9 @@ export async function POST(request: NextRequest) {
   }
   lastDispatchByUser.set(user.id, now);
   try {
-    return NextResponse.json({ ok: true, ...(await dispatchPendingNotifications(5)) }, { headers });
+    // 방금 발생한 실사용 출퇴근 알림이 오래된 outbox 소량에 밀리지 않도록
+    // 기본 디스패처와 같은 크기의 배치를 즉시 처리한다.
+    return NextResponse.json({ ok: true, ...(await dispatchPendingNotifications(25)) }, { headers });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Dispatch failed' }, { status: 500, headers });
   }

@@ -344,12 +344,17 @@ export default function HomePage() {
           .select('shift_id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time)')
           .eq('worker_id', workerRow.id)
           .in('status', ['invited','applied', 'accepted','completed']),supabase.from('wage_payment_instructions').select('status').eq('worker_id',workerRow.id).order('created_at',{ascending:false}).limit(1)]);
-        const activity=(appData??[]) as any[];
+        const activity=[...((appData??[]) as any[])].sort((left,right)=>{
+          const leftShift=Array.isArray(left.shifts)?left.shifts[0]:left.shifts;
+          const rightShift=Array.isArray(right.shifts)?right.shifts[0]:right.shifts;
+          return `${leftShift?.shift_date??'9999-12-31'}T${leftShift?.start_time??'23:59'}`
+            .localeCompare(`${rightShift?.shift_date??'9999-12-31'}T${rightShift?.start_time??'23:59'}`);
+        });
         setApplied(new Set(activity.filter(a=>['applied','accepted'].includes(a.status)).map(a=>a.shift_id)));
         const today=dateKST();
         const inProgress=activity.find(a=>a.status==='accepted'&&a.checked_in_at&&!a.checked_out_at);
         const todayReady=activity.find(a=>a.status==='accepted'&&!a.checked_in_at&&(Array.isArray(a.shifts)?a.shifts[0]?.shift_date:a.shifts?.shift_date)===today);
-        const waiting=activity.find(a=>['invited','applied'].includes(a.status));
+        const waiting=activity.find(a=>a.status==='invited')??activity.find(a=>a.status==='applied');
         const future=activity.find(a=>a.status==='accepted'&&(Array.isArray(a.shifts)?a.shifts[0]?.shift_date:a.shifts?.shift_date)>today);
         const payment=(payments??[])[0];
         if(inProgress)setNextAction({label:'퇴근하기',title:'현재 근무 중이에요',description:'근무를 마치면 여기서 퇴근을 기록하세요.',href:'/workplace',tone:'success'});
@@ -361,8 +366,8 @@ export default function HomePage() {
           else setNextAction({label:'출근 상태 확인',title:'출근 확인이 필요해요',description:'관리자도 이 근무의 출근 상태를 확인하고 있어요. 지금 출근 인증을 진행해 주세요.',href:'/workplace',tone:'primary'});
         }
         else if(waiting)setNextAction({label:'지원 현황 보기',title:waiting.status==='invited'?'새 근무 요청이 도착했어요':'사업장에서 지원을 확인하고 있어요',description:'현재 진행 상태와 사업장 답변을 확인하세요.',href:'/applications',tone:'primary'});
-        else if(future)setNextAction({label:'예정 근무 보기',title:'확정된 다음 근무가 있어요',description:'날짜와 출근 시간을 미리 확인하세요.',href:'/applications',tone:'primary'});
         else if(payment&&!['cancelled','worker_confirmed'].includes(payment.status))setNextAction({label:'지급 현황 확인',title:payment.status==='paid'?'사업장에서 지급을 완료했어요':'완료한 근무의 지급을 준비하고 있어요',description:payment.status==='paid'?'계좌 입금 여부를 확인해 주세요.':'예정 금액과 처리 상태를 확인하세요.',href:'/earnings',tone:'success'});
+        else if(future)setNextAction({label:'예정 근무 보기',title:'확정된 다음 근무가 있어요',description:'가장 가까운 확정 근무의 날짜와 출근 시간을 확인하세요.',href:'/applications',tone:'primary'});
       }
 
       // 기본 기준: GPS 가능하면 현재 위치, 아니면 첫 번째 등록 지역

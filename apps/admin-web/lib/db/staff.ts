@@ -8,7 +8,7 @@ export type StaffRow = {
   applicationId:string|null;
   name: string;
   job: string;
-  todayStatus: '근무중' | '퇴근' | '예정' | '결근';
+  todayStatus: '근무중' | '퇴근' | '예정' | '결근' | '승인대기';
   monthMinutes: number;
   hourlyWage: number;
   isDemo: boolean;
@@ -18,6 +18,8 @@ export type StaffRow = {
   checkOutMethod?:string|null;
   checkInDistanceM?:number|null;
   checkOutDistanceM?:number|null;
+  checkoutRequestedAt?:string|null;
+  earlyLeaveMinutes?:number;
 };
 
 export type SummaryInfo = {
@@ -31,9 +33,10 @@ export type UpcomingShiftRow={id:string;shiftDate:string;startTime:string;endTim
 export async function getUpcomingMatchedShifts(days=7):Promise<UpcomingShiftRow[]>{
   const facilityId=await getCurrentFacilityId();const sb=adminClient();if(!sb||!facilityId)return [];
   const today=todayKST();const end=new Date(Date.parse(`${today}T00:00:00Z`)+days*86400000).toISOString().slice(0,10);
-  const {data}=await sb.from('shifts').select('id,shift_date,start_time,end_time,required_role,matched_worker_id,workers!shifts_matched_worker_id_fkey(name)')
+  const {data,error}=await sb.from('shifts').select('id,shift_date,start_time,end_time,required_role,matched_worker_id,workers!shifts_matched_worker_id_fkey(name)')
     .eq('facility_id',facilityId).gt('shift_date',today).lte('shift_date',end).not('matched_worker_id','is',null)
     .in('status',['matched','open']).order('shift_date').order('start_time').limit(8);
+  if(error)throw new Error(`예정된 확정 근무를 불러오지 못했어요: ${error.message}`);
   return ((data??[]) as any[]).map(row=>({id:row.id,shiftDate:row.shift_date,startTime:row.start_time,endTime:row.end_time,name:(Array.isArray(row.workers)?row.workers[0]?.name:row.workers?.name)??'확정 근무자',job:roleLabel(row.required_role)}));
 }
 
@@ -64,21 +67,17 @@ export async function getStaff(): Promise<StaffRow[]> {
     .eq('shift_date', today)
     .not('matched_worker_id', 'is', null);
 
-  if (error || !todayShifts || todayShifts.length === 0) return [];
+  if(error)throw new Error(`오늘 확정 시프트를 불러오지 못했어요: ${error.message}`);
+  if (!todayShifts || todayShifts.length === 0) return [];
 
   const shiftIds  = (todayShifts as any[]).map((s) => s.id);
   const workerIds = [...new Set((todayShifts as any[]).map((s) => s.matched_worker_id as string))];
 
   // 병렬 조회
-  const [
-    { data: workers },
-    { data: attendances },
-    { data: wages },
-    { data: applications },
-  ] = await Promise.all([
+  const [workerResult,attendanceResult,wageResult,applicationResult] = await Promise.all([
     sb.from('workers').select('id, name, role, is_demo').in('id', workerIds),
     sb.from('shift_attendances')
-      .select('shift_id, worker_id, check_in_at, check_out_at,check_in_method,check_out_method,check_in_distance_m,check_out_distance_m')
+      .select('shift_id, worker_id, check_in_at, check_out_at,checkout_requested_at,early_leave_minutes,check_in_method,check_out_method,check_in_distance_m,check_out_distance_m')
       .in('shift_id', shiftIds),
     sb.from('wage_calculations')            // ← payroll_ledger 대신 wage_calculations
       .select('worker_id, worked_minutes')
@@ -87,6 +86,12 @@ export async function getStaff(): Promise<StaffRow[]> {
       .in('worker_id', workerIds),
     sb.from('shift_applications').select('id,shift_id,worker_id').in('shift_id',shiftIds).eq('status','accepted'),
   ]);
+  const loadError=[workerResult.error,attendanceResult.error,wageResult.error,applicationResult.error].find(Boolean);
+  if(loadError)throw new Error(`단기인력 근태를 불러오지 못했어요: ${loadError.message}`);
+  const workers=workerResult.data;
+  const attendances=attendanceResult.data;
+  const wages=wageResult.data;
+  const applications=applicationResult.data;
 
   // 인덱싱
   const attByShift: Record<string, any>  = {};
@@ -110,6 +115,7 @@ export async function getStaff(): Promise<StaffRow[]> {
 
       let todayStatus: StaffRow['todayStatus'] = '예정';
       if (att?.check_in_at && att?.check_out_at) todayStatus = '퇴근';
+      else if(att?.check_in_at&&att?.checkout_requested_at) todayStatus='승인대기';
       else if (att?.check_in_at) todayStatus = '근무중';
 
       return {
@@ -126,6 +132,7 @@ export async function getStaff(): Promise<StaffRow[]> {
         checkOutAt:   att?.check_out_at ?? null,
         checkInMethod:att?.check_in_method??null,checkOutMethod:att?.check_out_method??null,
         checkInDistanceM:att?.check_in_distance_m??null,checkOutDistanceM:att?.check_out_distance_m??null,
+        checkoutRequestedAt:att?.checkout_requested_at??null,earlyLeaveMinutes:Number(att?.early_leave_minutes??0),
       } satisfies StaffRow;
     })
     .filter(Boolean) as StaffRow[];

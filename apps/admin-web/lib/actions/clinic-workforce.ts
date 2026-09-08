@@ -140,8 +140,13 @@ export async function recordStaffAttendanceAction(form: FormData) {
   if(event==='check_in'&&attendance?.check_in_at) throw new Error('이미 출근 처리된 직원이에요.');
   if(event==='check_out'&&(!attendance?.check_in_at||attendance?.check_out_at)) throw new Error('출근 기록이 없거나 이미 퇴근 처리됐어요.');
   if(event==='absent'&&attendance?.check_in_at) throw new Error('출근한 직원은 결근 처리할 수 없어요.');
-  if (event === 'check_in') Object.assign(base, { check_in_at: now, status: 'working',check_in_method:'ADMIN',check_in_status:'SUCCESS' });
-  if (event === 'check_out') Object.assign(base, { check_out_at: now, status: 'completed',check_out_method:'ADMIN',check_out_status:'SUCCESS' });
+  // 관리자 수동 처리도 예정 시간 대비 지각·조퇴 분을 남긴다 (요약·급여 검토에서 사람이 찍은 기록과 같은 기준)
+  const startAt = new Date(`${requestedDate}T${staff.default_start_time}+09:00`);
+  const endAt = new Date(`${requestedDate}T${staff.default_end_time}+09:00`); if (overnight) endAt.setDate(endAt.getDate() + 1);
+  const lateMinutes = Math.max(0, Math.round((Date.now() - startAt.getTime()) / 60000));
+  const earlyLeaveMinutes = Math.max(0, Math.round((endAt.getTime() - Date.now()) / 60000));
+  if (event === 'check_in') Object.assign(base, { check_in_at: now, status: lateMinutes > 0 ? 'late' : 'working', check_in_method:'ADMIN', check_in_status:'SUCCESS', late_minutes: lateMinutes });
+  if (event === 'check_out') Object.assign(base, { check_out_at: now, status: 'completed', check_out_method:'ADMIN', check_out_status:'SUCCESS', early_leave_minutes: earlyLeaveMinutes });
   if (event === 'absent') Object.assign(base, { status: 'absent' });
   const query=event==='check_out'
     ? sb.from('staff_attendances').update(base).eq('id',attendance!.id)
@@ -312,7 +317,32 @@ export async function decideEarlyCheckoutAction(form: FormData) {
     : { checkout_requested_at: null, status: 'working', corrected_by: context.user.id, correction_reason: '관리자 조기 퇴근 반려', updated_at: new Date().toISOString() };
   const { error } = await sb.from('staff_attendances').update(patch).eq('id', attendance.id);
   if (error) throw new Error('조기 퇴근 요청을 처리하지 못했어요.');
+  // 결정 결과를 워커에게 알린다 — 워커 화면은 새로고침 전까지 '승인 대기 중'이라 푸시가 유일한 신호
+  const { data: staffRow } = await sb.from('facility_staff').select('name, worker_id, workers(auth_user_id)').eq('id', staffId).maybeSingle();
+  const authUserId = (Array.isArray(staffRow?.workers) ? staffRow?.workers[0] : staffRow?.workers)?.auth_user_id as string | undefined;
+  if (authUserId) {
+    await sb.from('notification_outbox').insert({
+      worker_auth_user_id: authUserId, event_type: 'attendance.checkout_decided',
+      dedupe_key: `attendance.checkout_decided:${attendance.id}:${decision}:${Date.now()}`,
+      title: decision === 'approved' ? '조기 퇴근이 승인됐어요' : '조기 퇴근 요청이 반려됐어요',
+      body: decision === 'approved' ? '요청한 시각으로 퇴근이 확정됐어요. 근무시간이 반영됩니다.' : '관리자가 반려했어요. 근무를 이어가고 예정 시간에 다시 퇴근을 눌러 주세요.',
+      data: { url: '/workplace', kind: 'attendance.checkout_decided', decision },
+    });
+    await nudgeNotificationDispatch();
+  }
   revalidatePath('/timesheet'); revalidatePath('/staff'); revalidatePath('/');
+}
+
+export async function decideShiftEarlyCheckoutAction(form:FormData){
+  const context=await requireAdminContext(['owner','operator','super']);
+  const sb=userClient(context.accessToken);
+  if(!sb)throw new Error('서버 설정을 확인해 주세요.');
+  const applicationId=text(form,'application_id');
+  const decision=text(form,'decision');
+  if(!applicationId||!['approved','rejected'].includes(decision))throw new Error('단기근로자 조기 퇴근 승인 정보를 확인해 주세요.');
+  const {error}=await sb.rpc('decide_shift_early_checkout',{p_application_id:applicationId,p_decision:decision});
+  if(error)throw new Error(error.message||'단기근로자 조기 퇴근 요청을 처리하지 못했어요.');
+  revalidatePath('/timesheet');revalidatePath('/payroll');revalidatePath('/');
 }
 
 export async function createStaffInviteAction(form:FormData){
@@ -363,13 +393,13 @@ export async function setStaffPayAction(form:FormData){
   revalidatePath('/staff');revalidatePath('/payroll');
 }
 
-export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay';
+export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay';
 export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string}>{
   try{
     const actions:Record<WorkforceActionKind,(data:FormData)=>Promise<unknown>>={
       add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,shift_attendance:recordShiftAdminAttendanceAction,add_leave:addStaffLeaveAction,
       set_balance:setStaffLeaveBalanceAction,decide_leave:decideStaffLeaveAction,
-      early_checkout:decideEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
+      early_checkout:decideEarlyCheckoutAction,shift_early_checkout:decideShiftEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
       convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,set_staff_pay:setStaffPayAction,
     };
     await actions[kind](form);

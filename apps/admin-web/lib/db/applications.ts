@@ -41,23 +41,25 @@ export async function getPendingApplications(): Promise<ApplicationGroup[]> {
   if (!sb || !facilityId) return [];
 
   // 1. 이 시설의 시프트 ID 목록
-  const { data: shiftRows } = await sb
+  const { data: shiftRows, error: shiftError } = await sb
     .from('shifts')
     .select('id, shift_date, start_time, end_time, department, required_role, status, estimated_total_pay')
     .eq('facility_id', facilityId)
     .eq('status', 'open');
+  if (shiftError) throw new Error(`모집 공고를 불러오지 못했어요: ${shiftError.message}`);
 
   if (!shiftRows?.length) return [];
   const shiftIds = shiftRows.map((s: any) => s.id);
   const shiftMap = Object.fromEntries(shiftRows.map((s: any) => [s.id, s]));
 
   // 2. 해당 시프트의 대기 중 지원자
-  const { data: apps } = await sb
+  const { data: apps, error: applicationError } = await sb
     .from('shift_applications')
     .select('id, shift_id, worker_id, distance_meters, match_score, applied_at, credential_review_status, credential_verification_method, credential_confirmed_by, credential_confirmed_at, workers ( name, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags, is_demo )')
     .eq('status', 'applied')
     .in('shift_id', shiftIds)
     .order('applied_at', { ascending: true });
+  if (applicationError) throw new Error(`지원 현황을 불러오지 못했어요: ${applicationError.message}`);
 
   if (!apps?.length) return [];
 
@@ -111,19 +113,21 @@ export async function getPendingCount(): Promise<number> {
   const sb = adminClient();
   if (!sb || !facilityId) return 0;
 
-  const { data: shiftRows } = await sb
+  const { data: shiftRows, error: shiftError } = await sb
     .from('shifts')
     .select('id')
     .eq('facility_id', facilityId)
     .eq('status', 'open');
+  if (shiftError) throw new Error(`지원 건수를 불러오지 못했어요: ${shiftError.message}`);
 
   if (!shiftRows?.length) return 0;
 
-  const { count } = await sb
+  const { count, error } = await sb
     .from('shift_applications')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'applied')
     .in('shift_id', shiftRows.map((s: any) => s.id));
+  if (error) throw new Error(`지원 건수를 불러오지 못했어요: ${error.message}`);
 
   return count ?? 0;
 }
