@@ -20,7 +20,9 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
     const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
     if (!key) { setError('지도 키가 설정되지 않았어요.'); return; }
     function draw() {
+      if (!window.kakao?.maps?.load) { setError('지도를 불러오지 못했어요. 검색된 위치로 등록되고, 위치는 나중에 설정에서 옮길 수 있어요.'); return; }
       window.kakao.maps.load(() => {
+        try {
         if (!mapEl.current || mapRef.current) return;
         const center = new window.kakao.maps.LatLng(lat, lng);
         const map = new window.kakao.maps.Map(mapEl.current, { center, level: 2 }); // 30m 원이 보이도록 확대
@@ -37,6 +39,7 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
           onChange({ lng: p.getLng(), lat: p.getLat() });
         });
         mapRef.current = map; markerRef.current = marker; circleRef.current = circle;
+        } catch (e) { console.error('[FacilityPinMap]', e); setError('지도를 불러오지 못했어요. 검색된 위치로 등록되고, 위치는 나중에 설정에서 옮길 수 있어요.'); }
       });
     }
     if (window.kakao?.maps) { draw(); return; }

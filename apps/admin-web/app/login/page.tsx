@@ -94,7 +94,7 @@ function LoginInner() {
 
       {error === 'unauthorized' && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
-          <p role="alert" className="text-[13px] text-red-600 text-center">등록된 관리자 계정이 아닙니다.<br />담당자에게 문의해주세요.</p>
+          <p role="alert" className="text-[13px] text-red-600 text-center">이 카카오 계정은 근무자용으로 가입돼 있어요.<br />사업장 계정은 다른 카카오 계정으로 로그인해 주세요.</p>
         </div>
       )}
 

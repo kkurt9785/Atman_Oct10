@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { adminClient } from '../supabase';
 import { getPlatformAdminSession } from '../platform-admin';
 import { approveFacilityCore, rejectFacilityCore } from '../platform-approval';
+import { nudgeNotificationDispatch } from '../notify-nudge';
 
 export type SelfRegisteredFacility = {
   id: string; name: string; facility_type: string; address_text: string | null; contact_phone: string | null;
@@ -54,7 +55,7 @@ export async function approveSelfRegisteredFacility(input: { facilityId: string;
   try {
     const { session, sb } = await requirePlatform();
     const result = await approveFacilityCore(sb, { id: session.user.id, email: session.user.email ?? null, name: (session.user.user_metadata?.name as string | undefined) ?? null }, input);
-    if (result.ok) { revalidatePath('/ops/facilities'); revalidatePath('/'); }
+    if (result.ok) { revalidatePath('/ops/facilities'); revalidatePath('/'); await nudgeNotificationDispatch(); }
     return result;
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : '승인하지 못했어요.' };
@@ -65,7 +66,7 @@ export async function rejectSelfRegisteredFacility(input: { facilityId: string; 
   try {
     const { session, sb } = await requirePlatform();
     const result = await rejectFacilityCore(sb, { id: session.user.id, email: session.user.email ?? null, name: (session.user.user_metadata?.name as string | undefined) ?? null }, input);
-    if (result.ok) revalidatePath('/ops/facilities');
+    if (result.ok) { revalidatePath('/ops/facilities'); await nudgeNotificationDispatch(); }
     return result;
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : '반려하지 못했어요.' };

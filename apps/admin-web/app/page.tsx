@@ -10,7 +10,8 @@ import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-work
 import { getAdminContext } from '@/lib/admin-auth';
 import { OperationsFlow } from '@/components/OperationsFlow';
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
+  const brnFailed = (await searchParams).brn === 'failed';
   const [shop, staff, clinicStaff, attendanceFailures, pendingCount, ops, alerts, context] = await Promise.all([
     getShop(),
     getStaff(),
@@ -45,6 +46,7 @@ export default async function Home() {
           <p className="mt-1 text-[12px] leading-5 text-amber-700">
             잇닿이 사업장 정보를 확인하면 공고 등록이 열려요. 보통 1영업일 안에 끝나요. 그동안 인력 등록과 근태 설정은 바로 쓸 수 있어요.
           </p>
+          {brnFailed && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">방금 올린 사업자 서류 전송이 실패했어요. 설정에서 다시 올려 주세요.</p>}
           {!shop.brnSubmitted && !shop.brnDocumentPath && (
             <Link href="/settings#brn-document" className="mt-2 inline-block rounded-lg bg-amber-600 px-3 py-1.5 text-[12px] font-bold text-white">사업자등록번호·등록증 올리기 →</Link>
           )}
