@@ -1,5 +1,6 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
+import { monthEnd } from '../month';
 
 export type AttendanceHistoryRow={
   id:string;kind:'staff'|'shift';staffId:string|null;name:string;employment:string;role:string;workDate:string;
@@ -7,7 +8,6 @@ export type AttendanceHistoryRow={
   breakMinutes:number;workedMinutes:number;status:string;method:string|null;
   lateMinutes:number;earlyLeaveMinutes:number;correctionReason:string|null;
 };
-function monthEnd(month:string){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+1);return new Date(d.getTime()-86400000).toISOString().slice(0,10);}
 
 export async function getAttendanceHistory(month:string){
   const facilityId=await getCurrentFacilityId();const sb=adminClient();

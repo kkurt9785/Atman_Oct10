@@ -26,6 +26,8 @@ export type FacilityProfile = {
   check_in_after_minutes: number;
   check_out_before_minutes: number;
   check_out_after_minutes: number;
+  late_grace_minutes: number;
+  early_leave_grace_minutes: number;
   allowed_ips: string[];
 };
 
@@ -53,6 +55,8 @@ export async function getFacilityProfile(): Promise<FacilityProfile | null> {
     check_in_after_minutes:attendance?.check_in_after_minutes??60,
     check_out_before_minutes:attendance?.check_out_before_minutes??60,
     check_out_after_minutes:attendance?.check_out_after_minutes??120,
+    late_grace_minutes:attendance?.late_grace_minutes??20,
+    early_leave_grace_minutes:attendance?.early_leave_grace_minutes??10,
     allowed_ips:attendance?.allowed_ips??[],
   } as FacilityProfile;
 }
@@ -102,8 +106,16 @@ export async function saveFacilityProfile(formData: FormData) {
   const allowedModes=['gps','gps_qr','qr','network','admin','gps_or_qr'];
   const radius=Number(formData.get('gps_radius_meters')??30);
   const accuracy=Number(formData.get('max_gps_accuracy_meters')??80);
+  const lateGrace=Number(formData.get('late_grace_minutes')??20);
+  const earlyGrace=Number(formData.get('early_leave_grace_minutes')??10);
   if(!allowedModes.includes(mode)||![10,20,30,50,100,200].includes(radius)||accuracy<10||accuracy>500){
     throw new Error('근태 인증 설정을 다시 확인해 주세요.');
+  }
+  if(!Number.isInteger(lateGrace)||lateGrace<0||lateGrace>120){
+    throw new Error('지각 유예 시간은 0~120분 사이로 입력해 주세요.');
+  }
+  if(!Number.isInteger(earlyGrace)||earlyGrace<0||earlyGrace>120){
+    throw new Error('조퇴 유예 시간은 0~120분 사이로 입력해 주세요.');
   }
   if(mode==='network'){
     const {data:networkSettings}=await sb.from('facility_attendance_settings')
@@ -119,6 +131,8 @@ export async function saveFacilityProfile(formData: FormData) {
     check_in_after_minutes:Number(formData.get('check_in_after_minutes')??60),
     check_out_before_minutes:Number(formData.get('check_out_before_minutes')??60),
     check_out_after_minutes:Number(formData.get('check_out_after_minutes')??120),
+    late_grace_minutes:lateGrace,
+    early_leave_grace_minutes:earlyGrace,
     updated_by:context.user.id,updated_at:new Date().toISOString(),
   };
   const {error:attendanceError}=await sb.from('facility_attendance_settings').upsert(attendancePatch,{onConflict:'facility_id'});

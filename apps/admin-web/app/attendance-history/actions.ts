@@ -2,6 +2,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
+import { monthEnd } from '@/lib/month';
 
 const text=(f:FormData,k:string)=>String(f.get(k)??'').trim();
 const validMonth=(v:string)=>/^\d{4}-(0[1-9]|1[0-2])$/.test(v);
@@ -15,7 +16,10 @@ export async function setAttendancePeriodAction(form:FormData){
   if(action==='close'&&month>=currentMonth)throw new Error('이번 달 근태는 다음 달부터 마감할 수 있어요.');
   if(action==='close'){
     // 퇴근 누락·조기퇴근 승인 대기가 남아 있으면 급여에서 0분으로 빠지므로 마감 전에 정리하게 한다
-    const {count}=await sb.from('staff_attendances').select('id',{count:'exact',head:true}).eq('facility_id',context.facilityId).gte('work_date',`${month}-01`).lte('work_date',`${month}-31`).in('status',['working','checkout_pending']);
+    const {count,error:pendingError}=await sb.from('staff_attendances').select('id',{count:'exact',head:true}).eq('facility_id',context.facilityId).gte('work_date',`${month}-01`).lte('work_date',monthEnd(month)).in('status',['working','checkout_pending']);
+    // 조회가 실패하면 검사를 통과시키면 안 된다. 예전 `${month}-31` 은 30일 달·2월에 잘못된 날짜라 질의가 깨졌고,
+    // error 를 버리는 바람에 count 가 null 이 되어 마감이 그냥 통과했다.
+    if(pendingError)throw new Error(`마감 전 확인이 필요한 근태를 조회하지 못했어요: ${pendingError.message}`);
     if((count??0)>0)throw new Error(`퇴근 누락·승인 대기 기록 ${count}건을 먼저 정리해야 마감할 수 있어요. 목록에서 '확인 필요' 필터로 찾아 퇴근시간을 입력해 주세요.`);
   }
   const now=new Date().toISOString();

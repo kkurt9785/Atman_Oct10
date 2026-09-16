@@ -196,7 +196,11 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
           <label className="text-[12px] text-sub">출근 후(분)<input name="check_in_after_minutes" type="number" min="0" max="360" defaultValue={profile?.check_in_after_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
           <label className="text-[12px] text-sub">퇴근 전(분)<input name="check_out_before_minutes" type="number" min="0" max="360" defaultValue={profile?.check_out_before_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
           <label className="text-[12px] text-sub">퇴근 후(분)<input name="check_out_after_minutes" type="number" min="0" max="720" defaultValue={profile?.check_out_after_minutes??120} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
+          <label className="text-[12px] text-sub">지각 유예(분)<input name="late_grace_minutes" type="number" min="0" max="120" defaultValue={profile?.late_grace_minutes??20} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
+          <label className="text-[12px] text-sub">조퇴 유예(분)<input name="early_leave_grace_minutes" type="number" min="0" max="120" defaultValue={profile?.early_leave_grace_minutes??10} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
         </div>
+        <p className="mt-2 text-[12px] leading-5 text-tertiary">예정 출근시각에서 <b className="text-ink">지각 유예</b>까지는 지각으로 기록하지 않아요. 기본 20분이고, 0분으로 두면 1분만 늦어도 지각으로 남습니다.</p>
+        <p className="mt-1 text-[12px] leading-5 text-tertiary">예정 퇴근시각에서 <b className="text-ink">조퇴 유예</b> 안에 퇴근을 누르면 승인 없이 바로 퇴근이 확정돼요. 일이 예정보다 조금 일찍 끝나는 경우를 위한 값이라 기본 10분입니다. 유예를 넘겨 퇴근하면 지금처럼 관리자 승인 대기로 남고, <b className="text-ink">승인하지 않으면 그날 근무는 급여에 0분으로 잡힙니다.</b> 0분으로 두면 1분만 일찍 눌러도 승인이 필요해요.</p>
         {(attendanceMode==='gps'||attendanceMode==='gps_or_qr')
           ?<label className="mt-4 flex items-center gap-2 text-[13px] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>위치 인증 실패 시 동적 QR 보완 허용</label>
           :(profile?.qr_fallback_enabled??true)&&<input type="hidden" name="qr_fallback_enabled" value="on"/>}

@@ -8,6 +8,10 @@ import { requireStaffCapacity } from '../billing-gates';
 import { nudgeNotificationDispatch } from '../notify-nudge';
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
+// 시설이 따로 정하지 않았을 때의 지각 유예. DB(facility_attendance_settings.late_grace_minutes) 기본값과 같게 유지할 것.
+const DEFAULT_LATE_GRACE_MINUTES = 20;
+// 시설이 따로 정하지 않았을 때의 조퇴 유예. DB(facility_attendance_settings.early_leave_grace_minutes) 기본값과 같게 유지할 것.
+const DEFAULT_EARLY_LEAVE_GRACE_MINUTES = 10;
 
 async function enqueueStaffingReviewAlert(
   facilityId: string,
@@ -141,10 +145,16 @@ export async function recordStaffAttendanceAction(form: FormData) {
   if(event==='check_out'&&(!attendance?.check_in_at||attendance?.check_out_at)) throw new Error('출근 기록이 없거나 이미 퇴근 처리됐어요.');
   if(event==='absent'&&attendance?.check_in_at) throw new Error('출근한 직원은 결근 처리할 수 없어요.');
   // 관리자 수동 처리도 예정 시간 대비 지각·조퇴 분을 남긴다 (요약·급여 검토에서 사람이 찍은 기록과 같은 기준)
+  // 계산은 워커가 직접 찍는 record_unified_attendance 와 같아야 한다 — 내림(floor) + 시설별 지각 유예.
+  // 반올림이면 30초만 지나도 1분 지각이 되어 관리자 수동 출근이 사실상 항상 지각으로 찍혔다.
+  const { data: graceSetting } = await sb.from('facility_attendance_settings')
+    .select('late_grace_minutes,early_leave_grace_minutes').eq('facility_id', context.facilityId).maybeSingle();
+  const graceMinutes = Math.max(0, Number(graceSetting?.late_grace_minutes ?? DEFAULT_LATE_GRACE_MINUTES));
+  const earlyGraceMinutes = Math.max(0, Number(graceSetting?.early_leave_grace_minutes ?? DEFAULT_EARLY_LEAVE_GRACE_MINUTES));
   const startAt = new Date(`${requestedDate}T${staff.default_start_time}+09:00`);
   const endAt = new Date(`${requestedDate}T${staff.default_end_time}+09:00`); if (overnight) endAt.setDate(endAt.getDate() + 1);
-  const lateMinutes = Math.max(0, Math.round((Date.now() - startAt.getTime()) / 60000));
-  const earlyLeaveMinutes = Math.max(0, Math.round((endAt.getTime() - Date.now()) / 60000));
+  const lateMinutes = Math.max(0, Math.floor((Date.now() - startAt.getTime()) / 60000) - graceMinutes);
+  const earlyLeaveMinutes = Math.max(0, Math.floor((endAt.getTime() - Date.now()) / 60000) - earlyGraceMinutes);
   if (event === 'check_in') Object.assign(base, { check_in_at: now, status: lateMinutes > 0 ? 'late' : 'working', check_in_method:'ADMIN', check_in_status:'SUCCESS', late_minutes: lateMinutes });
   if (event === 'check_out') Object.assign(base, { check_out_at: now, status: 'completed', check_out_method:'ADMIN', check_out_status:'SUCCESS', early_leave_minutes: earlyLeaveMinutes });
   if (event === 'absent') Object.assign(base, { status: 'absent' });
@@ -323,7 +333,9 @@ export async function decideEarlyCheckoutAction(form: FormData) {
   if (authUserId) {
     await sb.from('notification_outbox').insert({
       worker_auth_user_id: authUserId, event_type: 'attendance.checkout_decided',
-      dedupe_key: `attendance.checkout_decided:${attendance.id}:${decision}:${Date.now()}`,
+      // Date.now() 를 넣으면 호출할 때마다 키가 달라져 중복 방지가 아예 동작하지 않는다.
+      // 요청 시각을 쓰면 같은 요청·같은 결정은 한 번만 나가고, 반려 후 재요청은 새 알림이 된다.
+      dedupe_key: `attendance.checkout_decided:${attendance.id}:${decision}:${attendance.checkout_requested_at}`,
       title: decision === 'approved' ? '조기 퇴근이 승인됐어요' : '조기 퇴근 요청이 반려됐어요',
       body: decision === 'approved' ? '요청한 시각으로 퇴근이 확정됐어요. 근무시간이 반영됩니다.' : '관리자가 반려했어요. 근무를 이어가고 예정 시간에 다시 퇴근을 눌러 주세요.',
       data: { url: '/workplace', kind: 'attendance.checkout_decided', decision },
@@ -342,6 +354,8 @@ export async function decideShiftEarlyCheckoutAction(form:FormData){
   if(!applicationId||!['approved','rejected'].includes(decision))throw new Error('단기근로자 조기 퇴근 승인 정보를 확인해 주세요.');
   const {error}=await sb.rpc('decide_shift_early_checkout',{p_application_id:applicationId,p_decision:decision});
   if(error)throw new Error(error.message||'단기근로자 조기 퇴근 요청을 처리하지 못했어요.');
+  // RPC 가 notification_outbox 에 결과 알림을 넣는다. 워커 화면은 새로고침 전까지 '승인 대기 중'이라 푸시가 유일한 신호.
+  await nudgeNotificationDispatch();
   revalidatePath('/timesheet');revalidatePath('/payroll');revalidatePath('/');
 }
 
