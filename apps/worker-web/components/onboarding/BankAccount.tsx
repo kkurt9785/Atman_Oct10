@@ -16,7 +16,9 @@ const BANKS = [
 
 export type BankAccountValue = { bankCode: string; bankName: string; accountNumber: string };
 
-export function BankAccount({ onNext, submitting, submitError }: { onNext: (value: BankAccountValue) => void; submitting?: boolean; submitError?: string }) {
+// onSkip 이 오면 계좌 없이 가입을 끝낼 수 있다. 사업장이 초대한 직원은 급여를
+// 사업장에서 직접 받으므로 가입 첫날 계좌를 요구할 이유가 없다.
+export function BankAccount({ onNext, onSkip, submitting, submitError }: { onNext: (value: BankAccountValue) => void; onSkip?: () => void; submitting?: boolean; submitError?: string }) {
   const [bankCode, setBankCode] = useState('');
   const [account, setAccount] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -42,6 +44,11 @@ export function BankAccount({ onNext, submitting, submitError }: { onNext: (valu
       <div className="mt-auto">
         {submitError && <p role="alert" className="text-[13px] font-bold text-red-600 text-center mb-3">{submitError}</p>}
         <Button onClick={() => selected && onNext({ bankCode: selected.code, bankName: selected.name, accountNumber: account })} disabled={!selected || account.length < 8 || submitting}>{submitting ? '처리 중...' : '등록하고 시작하기'}</Button>
+        {onSkip && (
+          <button type="button" onClick={onSkip} disabled={submitting} className="mt-3 h-11 w-full text-[14px] font-bold text-sub disabled:opacity-50">
+            계좌 없이 시작하기 · 나중에 등록
+          </button>
+        )}
       </div>
     </div>
   );

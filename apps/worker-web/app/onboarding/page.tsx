@@ -13,7 +13,7 @@ import { BankAccount, type BankAccountValue } from '@/components/onboarding/Bank
 import { ReviewPending } from '@/components/onboarding/ReviewPending';
 import { Approval } from '@/components/onboarding/Approval';
 import { NotificationSetup } from '@/components/onboarding/NotificationSetup';
-import type { WorkerRole } from '@/lib/roles';
+import { LICENSED_ROLES, type WorkerRole } from '@/lib/roles';
 
 type Step = 'splash' | 'terms' | 'role' | 'license' | 'info' | 'area' | 'bank' | 'notification' | 'review' | 'approval';
 const VALID_STEPS = new Set<Step>(['splash','terms','role','license','info','area','bank','notification','review','approval']);
@@ -45,9 +45,11 @@ function OnboardingInner() {
     }
   };
 
-  async function handleSubmit(bank: BankAccountValue) {
+  // bank 가 null 이면 계좌를 건너뛴 것이다. 급여를 사업장이 직접 주는 근태 전용
+  // 사용자는 계좌를 등록할 이유가 없다. 알바 정산이 필요해지면 '내 정보'에서 넣는다.
+  async function handleSubmit(bank: BankAccountValue | null) {
     if (submitting) return;
-    if (!terms || !role || areas.length < 1 || !basicInfo) {
+    if (!terms || !role || !basicInfo) {
       setSubmitError('가입 정보가 일부 누락됐어요. 처음부터 다시 확인해 주세요.');
       return;
     }
@@ -76,10 +78,10 @@ function OnboardingInner() {
         p_birth_date: terms.birthDate,
         p_areas: areas,
         p_license_path: uploadedPath,
-        p_bank_code: bank.bankCode,
-        p_bank_name: bank.bankName,
-        p_account_number: bank.accountNumber,
-        p_account_holder_name: basicInfo.name,
+        p_bank_code: bank?.bankCode ?? null,
+        p_bank_name: bank?.bankName ?? null,
+        p_account_number: bank?.accountNumber ?? null,
+        p_account_holder_name: bank ? basicInfo.name : null,
         p_consents: terms.consents,
       });
       if (rpcError) throw new Error(rpcError.message.replace(/^.*?: /, ''));
@@ -132,7 +134,8 @@ function OnboardingInner() {
         setRole(worker.role as WorkerRole);
         // 간호직·약국사무는 플랫폼 심사를 거치지 않으므로 '심사 중' 화면이 영구히 남는다.
         // 자격은 사업장이 확정 전에 확인하는 구조라 완료 안내로 보낸다.
-        const skipsPlatformReview = worker.role === 'rn' || worker.role === 'na' || worker.role === 'pharmacist' || worker.role === 'pharmacy_staff';
+        // 플랫폼 심사 대기 화면은 어느 직군에도 걸리지 않는다. 자격은 사업장이 확정 전 확인한다.
+        const skipsPlatformReview = typeof worker.role === 'string' && worker.role.length > 0;
         setCompletionStep(
           worker.verification_status === 'approved' || skipsPlatformReview ? 'approval' : 'review',
         );
@@ -143,7 +146,7 @@ function OnboardingInner() {
   }, [terminalDeepLink]);
 
   const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', area: 'info', bank: 'area' };
-  const prevStep = step === 'info' ? (role === 'rn' || role === 'na' ? 'role' : 'license') : PREV[step];
+  const prevStep = step === 'info' ? (role && LICENSED_ROLES.includes(role) ? 'license' : 'role') : PREV[step];
 
   return (
     <main className="min-h-screen bg-white">
@@ -162,12 +165,12 @@ function OnboardingInner() {
       )}
       {step === 'splash' && <Splash />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
-      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep(value === 'rn' || value === 'na' ? 'info' : 'license'); }} />}
+      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
       {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('area'); }} />}
-      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('bank'); }} />}
-      {step === 'bank' && <BankAccount onNext={handleSubmit} submitting={submitting} submitError={submitError} />}
+      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('bank'); }} onSkip={() => { setAreas([]); setStep('bank'); }} />}
+      {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={() => handleSubmit(null)} submitting={submitting} submitError={submitError} />}
       {step === 'notification' && <NotificationSetup onNext={() => setStep(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
       {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}

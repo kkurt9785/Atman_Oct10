@@ -44,6 +44,20 @@ const ROLES: Array<{
     desc: '전산 입력 보조·서류·재고·매대·고객 안내',
     icon: <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-50 text-[16px]" aria-hidden>⌨</span>,
   },
+  {
+    id: 'care_worker',
+    title: '요양보호사',
+    desc: '요양보호사 자격증 소지자 · 요양병원·주야간보호',
+    icon: <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-50 text-[16px]" aria-hidden>🤝</span>,
+  },
+  {
+    // 초대받은 직원이 조리·영양·사무·시설처럼 위 목록에 없는 일을 할 때의 자리.
+    // 자격 확인은 사업장이 이미 했으므로 서류를 받지 않는다.
+    id: 'other',
+    title: '기타 직군',
+    desc: '조리·영양·사무·시설 등 · 사업장이 자격을 확인해요',
+    icon: <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[16px]" aria-hidden>🧩</span>,
+  },
 ];
 
 export function RoleSelect({ onNext }: { onNext: (role: WorkerRole) => void }) {

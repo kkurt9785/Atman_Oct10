@@ -49,13 +49,17 @@ const SUGGESTIONS = ['수원 장안구', '수원 권선구', '수원 팔달구',
 
 export type AreaPref = { label: string; radius_km: number; lat?: number; lng?: number };
 
+// onSkip 이 오면 '나중에' 버튼이 붙는다. 사업장이 초대한 직원은 근무를 찾을 일이
+// 없으므로 활동 지역을 물을 이유가 없다. 알바를 볼 마음이 생기면 '내 정보'에서 정한다.
 export function ActivityArea({
   onNext,
+  onSkip,
   initialLocations,
   buttonLabel = '다음 단계',
   showHeader = true,
 }: {
   onNext: (areas: AreaPref[]) => void;
+  onSkip?: () => void;
   initialLocations?: AreaPref[];
   buttonLabel?: string;
   showHeader?: boolean;
@@ -208,6 +212,11 @@ export function ActivityArea({
           });
           onNext(result);
         }}>{buttonLabel}</Button>
+        {onSkip && (
+          <button type="button" onClick={onSkip} className="mt-3 h-11 w-full text-[14px] font-bold text-sub">
+            근무를 찾을 생각이 없어요 · 나중에
+          </button>
+        )}
       </div>
     </div>
   );

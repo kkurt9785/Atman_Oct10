@@ -65,8 +65,66 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
   return (
     <div className={className}>
       <div ref={mapEl} className="h-56 w-full rounded-xl bg-[#E8EDF2]" aria-label="사업장 위치 지도" />
+      <CurrentLocationButton className="mt-2" radiusMeters={radiusMeters} onChange={onChange} />
       {error ? <p role="alert" className="mt-2 text-[12px] text-warn">{error}</p>
-        : <p className="mt-2 text-[12px] text-sub">핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰 주세요. 원은 출퇴근 인증 반경 미리보기예요.</p>}
+        : <p className="mt-2 text-[12px] text-sub">사업장 안에서 위 버튼을 누르면 가장 정확해요. 핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰도 됩니다. 원은 출퇴근 인증 반경 미리보기예요.</p>}
+    </div>
+  );
+}
+
+// 주소를 받아 핀을 찾아 옮기는 대신, 사업장에 서 있는 관리자의 현재 위치를 그대로
+// 사업장 좌표로 삼는다. 출퇴근 인증이 대조하는 값도 같은 GPS라 서로 어긋날 일이 없다.
+// 다만 실내에서는 오차가 커지므로, 오차가 인증 반경보다 크면 그대로 쓰지 말라고 알린다.
+export function CurrentLocationButton({ radiusMeters = 30, onChange, className, label = '지금 있는 곳을 사업장으로' }: {
+  radiusMeters?: number;
+  onChange: (next: { lng: number; lat: number }) => void;
+  className?: string;
+  label?: string;
+}) {
+  const [locating, setLocating] = useState(false);
+  const [note, setNote] = useState('');
+
+  function capture() {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setNote('이 브라우저에서는 현재 위치를 쓸 수 없어요. 지도를 탭해 지정해 주세요.');
+      return;
+    }
+    setLocating(true); setNote('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        const { latitude, longitude, accuracy } = pos.coords;
+        onChange({ lng: longitude, lat: latitude });
+        const rounded = Math.round(accuracy);
+        setNote(
+          rounded > radiusMeters
+            ? `위치를 가져왔지만 오차가 약 ${rounded}m로 인증 반경(${radiusMeters}m)보다 큽니다. 창가나 건물 밖에서 다시 누르거나, 지도에서 출입구로 맞춰 주세요.`
+            : `현재 위치로 맞췄어요 · 오차 약 ${rounded}m`,
+        );
+      },
+      (err) => {
+        setLocating(false);
+        setNote(
+          err.code === err.PERMISSION_DENIED
+            ? '위치 권한이 거부돼 있어요. 브라우저 설정에서 이 사이트의 위치 권한을 허용해 주세요.'
+            : '현재 위치를 가져오지 못했어요. 잠시 뒤 다시 눌러 주세요.',
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+    );
+  }
+
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        onClick={capture}
+        disabled={locating}
+        className="flex h-11 w-full items-center justify-center rounded-xl border border-primary bg-white text-[14px] font-bold text-primary disabled:opacity-60"
+      >
+        {locating ? '위치를 확인하는 중…' : label}
+      </button>
+      {note && <p role="status" className="mt-2 text-[12px] text-sub">{note}</p>}
     </div>
   );
 }
