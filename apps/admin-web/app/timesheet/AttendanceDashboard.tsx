@@ -33,7 +33,7 @@ const STATUS:Record<string,{label:string;style:string}>={
   leave:{label:'휴가',style:'bg-purple-50 text-purple-600'},
 };
 const AUTH:Record<string,string>={GPS:'위치 인증',GPS_QR:'위치 + 동적 QR',QR:'동적 QR',QR_FALLBACK:'QR 보완 인증',WORKPLACE_NET:'사업장 네트워크',ADMIN:'관리자 처리',qr:'기존 QR',button:'원터치'};
-const FAIL:Record<string,string>={OUT_OF_RANGE:'사업장 반경 밖',GPS_ERROR:'위치 확인 실패',GPS_ACCURACY_LOW:'GPS 정확도 낮음',QR_EXPIRED:'QR 만료',QR_INVALID:'QR 무효',HOSPITAL_MISMATCH:'사업장 정보 불일치',TIME_NOT_ALLOWED:'인증 가능시간 아님',DUPLICATE_ATTENDANCE:'중복 요청',NOT_ASSIGNED:'배정 정보 없음',INVALID_STATE:'처리 순서 오류',ADMIN_REQUIRED:'관리자 승인 필요'};
+const FAIL:Record<string,string>={OUT_OF_RANGE:'사업장 반경 밖',GPS_ERROR:'위치 확인 실패',GPS_ACCURACY_LOW:'GPS 정확도 낮음',QR_EXPIRED:'QR 만료',QR_INVALID:'QR 무효',HOSPITAL_MISMATCH:'사업장 정보 불일치',TIME_NOT_ALLOWED:'인증 가능시간 아님',DUPLICATE_ATTENDANCE:'중복 요청',NOT_ASSIGNED:'배정 정보 없음',NOT_SCHEDULED:'오늘 근무 일정 없음',INVALID_STATE:'처리 순서 오류',ADMIN_REQUIRED:'관리자 승인 필요'};
 const ENGAGEMENT:Record<string,string>={regular:'상시 직원',fixed_term:'기간제',temporary:'임시 계약',daily:'단기 근무'};
 const fmt=(iso:string|null|undefined)=>iso?new Date(iso).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
 
@@ -45,12 +45,12 @@ function group(status:string):Filter{
   return 'all';
 }
 
-export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAlerts,facilityId,summaryHref}:{staff:ClinicStaff[];matched:StaffRow[];upcoming:UpcomingShiftRow[];failures:Failure[];arrivalAlerts:ArrivalAlert[];facilityId:string|null;summaryHref:string}){
+export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAlerts,facilityId,summaryHref,isGigworker=false}:{staff:ClinicStaff[];matched:StaffRow[];upcoming:UpcomingShiftRow[];failures:Failure[];arrivalAlerts:ArrivalAlert[];facilityId:string|null;summaryHref:string;isGigworker?:boolean}){
   const [filter,setFilter]=useState<Filter>('all');
   const people=useMemo<Person[]>(()=>[
-    ...staff.map((s):Person=>({kind:'staff',key:`staff-${s.id}`,name:s.name,subtitle:`${s.department??s.role??'부서 미지정'} · ${s.defaultStart.slice(0,5)}~${s.defaultEnd.slice(0,5)}`,employment:ENGAGEMENT[s.engagementType]??'직원',status:s.attendanceStatus,checkInAt:s.checkInAt,checkOutAt:s.checkOutAt,method:s.checkOutMethod??s.checkInMethod,distance:s.checkOutDistanceM??s.checkInDistanceM,staff:s})),
+    ...staff.filter((s)=>s.scheduledToday||s.attendanceStatus!=='off').map((s):Person=>({kind:'staff',key:`staff-${s.id}`,name:s.name,subtitle:`${s.department??s.role??'업무 미지정'} · ${s.defaultStart.slice(0,5)}~${s.defaultEnd.slice(0,5)}`,employment:isGigworker?'긱워커':ENGAGEMENT[s.engagementType]??'직원',status:s.attendanceStatus,checkInAt:s.checkInAt,checkOutAt:s.checkOutAt,method:s.checkOutMethod??s.checkInMethod,distance:s.checkOutDistanceM??s.checkInDistanceM,staff:s})),
     ...matched.map((s):Person=>({kind:'shift',key:`shift-${s.shiftId}`,name:s.name,subtitle:`${s.job} · 오늘 확정 시프트`,employment:'단기 시프트',status:s.todayStatus==='근무중'?'working':s.todayStatus==='승인대기'?'checkout_pending':s.todayStatus==='퇴근'?'completed':s.todayStatus==='결근'?'absent':'scheduled',checkInAt:s.checkInAt??null,checkOutAt:s.checkOutAt??null,method:s.checkOutMethod??s.checkInMethod??null,distance:s.checkOutDistanceM??s.checkInDistanceM??null,shift:s})),
-  ],[staff,matched]);
+  ],[staff,matched,isGigworker]);
   const counts={
     working:people.filter(p=>p.status==='working'||p.status==='late').length,
     completed:people.filter(p=>p.status==='completed').length,
@@ -109,7 +109,7 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
         </Card>;
       })}</div>}
 
-    <section className="mt-7"><div className="px-1"><p className="text-[12px] font-bold text-primary">3 · 앞으로 예정된 근무</p><h2 className="mt-0.5 text-title font-extrabold">7일 내 확정 일정</h2></div>{upcoming.length===0?<Card className="mt-3 py-6 text-center text-[13px] font-bold text-sub">예정된 확정 근무가 없어요.</Card>:<Card className="mt-3 divide-y divide-line p-0">{upcoming.map(row=><div key={row.id} className="flex items-center justify-between px-4 py-3"><div><b className="text-[13px]">{row.name}</b><p className="mt-0.5 text-[11px] text-sub">{row.job}</p></div><p className="text-right text-[12px] font-bold text-primary">{row.shiftDate.slice(5).replace('-','/')}<span className="block text-[11px] text-sub">{row.startTime.slice(0,5)}~{row.endTime.slice(0,5)}</span></p></div>)}</Card>}</section>
-    <section className="mt-7"><div className="px-1"><p className="text-[12px] font-bold text-primary">4 · 월 통계와 전체 내역</p><h2 className="mt-0.5 text-title font-extrabold">근태 기록 살펴보기</h2></div><div className="mt-3 grid grid-cols-2 gap-2"><Link href={summaryHref} className="rounded-2xl bg-primary p-4 text-white"><b className="text-[14px]">월 근태 요약</b><p className="mt-1 text-[11px] text-white/75">누적시간·지각·조퇴</p></Link><Link href="/attendance-history" className="rounded-2xl bg-white p-4 shadow-card"><b className="text-[14px]">전체 근태 내역</b><p className="mt-1 text-[11px] text-sub">직원별 기록과 수정</p></Link></div></section>
+    {!isGigworker&&<section className="mt-7"><div className="px-1"><p className="text-[12px] font-bold text-primary">3 · 앞으로 예정된 근무</p><h2 className="mt-0.5 text-title font-extrabold">7일 내 확정 일정</h2></div>{upcoming.length===0?<Card className="mt-3 py-6 text-center text-[13px] font-bold text-sub">예정된 확정 근무가 없어요.</Card>:<Card className="mt-3 divide-y divide-line p-0">{upcoming.map(row=><div key={row.id} className="flex items-center justify-between px-4 py-3"><div><b className="text-[13px]">{row.name}</b><p className="mt-0.5 text-[11px] text-sub">{row.job}</p></div><p className="text-right text-[12px] font-bold text-primary">{row.shiftDate.slice(5).replace('-','/')}<span className="block text-[11px] text-sub">{row.startTime.slice(0,5)}~{row.endTime.slice(0,5)}</span></p></div>)}</Card>}</section>}
+    <section className="mt-7"><div className="px-1"><p className="text-[12px] font-bold text-primary">{isGigworker?'3':'4'} · 월 통계와 전체 내역</p><h2 className="mt-0.5 text-title font-extrabold">근태 기록 살펴보기</h2></div><div className="mt-3 grid grid-cols-2 gap-2"><Link href={summaryHref} className="rounded-2xl bg-primary p-4 text-white"><b className="text-[14px]">월 근태 요약</b><p className="mt-1 text-[11px] text-white/75">누적시간·지각·조퇴</p></Link><Link href="/attendance-history" className="rounded-2xl bg-white p-4 shadow-card"><b className="text-[14px]">전체 근태 내역</b><p className="mt-1 text-[11px] text-sub">근무자별 기록과 수정</p></Link></div></section>
   </>;
 }

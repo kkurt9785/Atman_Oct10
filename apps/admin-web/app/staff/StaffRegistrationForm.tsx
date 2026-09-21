@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
+import { CopyInviteButton } from './CopyInviteButton';
 
 const inputClass='mt-2 w-full h-12 rounded-xl border border-line bg-white px-3 text-body text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/10';
 const toDateKey=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
@@ -47,12 +48,71 @@ function ContractRangePicker(){
   </div>;
 }
 
-export function StaffRegistrationForm({facilityType='clinic',initialEngagementType}:{facilityType?:string;initialEngagementType?:string}){
+type CreatedStaff={inviteToken?:string|null;linked?:boolean};
+
+export function StaffRegistrationForm({facilityType='clinic',initialEngagementType,workerOrigin}:{facilityType?:string;initialEngagementType?:string;workerOrigin?:string}){
   const [engagementType,setEngagementType]=useState(initialEngagementType??'');
   const [payBasis,setPayBasis]=useState(initialEngagementType?'hourly':'monthly');
+  const [scheduleMode,setScheduleMode]=useState<'single'|'repeat'>('single');
+  const [singleDate,setSingleDate]=useState('');
+  const [inviteUrl,setInviteUrl]=useState('');
+  const [linked,setLinked]=useState(false);
   const needsContract=engagementType&&engagementType!=='regular';
   const isPharmacy=facilityType==='pharmacy';
   const isGigworker=facilityType==='gigworker';
+
+  if(isGigworker){
+    return <WorkforceActionForm kind="add_staff" successMessage="근무자와 초대 정보를 만들었어요." onSuccess={(raw)=>{
+      const result=(raw??{}) as CreatedStaff;
+      setLinked(Boolean(result.linked));
+      setInviteUrl(result.inviteToken&&workerOrigin?`${workerOrigin}/workplace/join?token=${result.inviteToken}`:'');
+    }} className="px-5 pb-6">
+      <input type="hidden" name="role" value="other"/>
+      <input type="hidden" name="engagement_type" value={scheduleMode==='single'?'daily':'temporary'}/>
+      <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
+        <h3 className="col-span-2 text-[13px] font-extrabold text-ink">누가 근무하나요?</h3>
+        <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
+        <label className="col-span-2 text-label font-medium text-sub">휴대전화 <span className="font-normal text-tertiary">· 초대받은 번호와 가입 번호가 같아야 해요</span><input name="phone" required inputMode="tel" className={inputClass} placeholder="010-0000-0000"/></label>
+        <label className="col-span-2 text-label font-medium text-sub">근무 내용 <span className="font-normal text-tertiary">· 선택</span><input name="department" className={inputClass} placeholder="예: 행사 안내, 포장, 매장 보조"/></label>
+      </section>
+
+      <section className="mt-7 rounded-2xl bg-bg p-4">
+        <h3 className="text-[13px] font-extrabold text-ink">언제 근무하나요?</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="근무 일정 방식">
+          <button type="button" onClick={()=>setScheduleMode('single')} aria-pressed={scheduleMode==='single'} className={`h-11 rounded-xl text-[13px] font-extrabold ${scheduleMode==='single'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>하루 근무</button>
+          <button type="button" onClick={()=>setScheduleMode('repeat')} aria-pressed={scheduleMode==='repeat'} className={`h-11 rounded-xl text-[13px] font-extrabold ${scheduleMode==='repeat'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>반복 근무</button>
+        </div>
+        {scheduleMode==='single'?<div className="mt-4">
+          <label className="text-label font-medium text-sub">근무 날짜<input type="date" required value={singleDate} onChange={(event)=>setSingleDate(event.target.value)} className={inputClass}/></label>
+          <input type="hidden" name="contract_start" value={singleDate}/><input type="hidden" name="contract_end" value={singleDate}/>
+          <p className="mt-2 text-[11px] leading-4 text-sub">선택한 날짜의 요일이 자동 적용돼요.</p>
+        </div>:<>
+          <ContractRangePicker/>
+          <fieldset className="mt-4"><legend className="mb-3 text-label font-medium text-sub">반복 요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-white text-[12px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
+        </>}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="text-label font-medium text-sub">출근시간<input name="default_start_time" type="time" defaultValue="09:00" required className={inputClass}/></label>
+          <label className="text-label font-medium text-sub">퇴근시간<input name="default_end_time" type="time" defaultValue="18:00" required className={inputClass}/></label>
+        </div>
+        <label className="mt-4 block text-label font-medium text-sub">휴게시간<select name="default_break_minutes" defaultValue="60" className={inputClass}><option value="0">없음</option><option value="30">30분</option><option value="60">1시간</option><option value="90">1시간 30분</option></select></label>
+      </section>
+
+      <details className="mt-5 rounded-2xl border border-line bg-white p-4">
+        <summary className="cursor-pointer text-[13px] font-extrabold text-sub">급여 기준도 함께 기록하기 · 선택</summary>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" className={inputClass} defaultValue=""><option value="">선택 안 함</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
+          <label className="text-label font-medium text-sub">금액<input name="pay_rate" type="number" min="1" step="100" className={inputClass} placeholder="예: 15000"/></label>
+        </div>
+      </details>
+
+      {(inviteUrl||linked)&&<section className="mt-5 rounded-2xl border border-success/30 bg-success/5 p-4">
+        <p className="text-[14px] font-extrabold text-ink">{linked?'이미 가입한 번호라 바로 연결됐어요.':'등록 완료 · 이제 초대만 보내세요'}</p>
+        {!linked&&<><p className="mt-1 text-[12px] leading-5 text-sub">근무자가 링크를 열어 조건을 확인하고 카카오로 등록하면 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div></>}
+      </section>}
+      <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 초대 만들기</button>
+      <p className="mt-2 text-center text-[11px] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>
+    </WorkforceActionForm>;
+  }
 
   return <WorkforceActionForm kind="add_staff" resetOnSuccess successMessage="직원을 등록했어요." className="px-5 pb-6">
     <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">

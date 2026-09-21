@@ -27,7 +27,17 @@ function num(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-async function searchKakao(query: string, key: string): Promise<FacilitySearchHit[]> {
+async function searchKakao(query: string, key: string, gigworkerMode = false): Promise<FacilitySearchHit[]> {
+  if (gigworkerMode) {
+    const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&size=15`;
+    const data = await fetchJsonWithTimeout(url, { headers: { Authorization: `KakaoAK ${key}` }, timeoutMs: 5000 });
+    const docs = (data as { documents?: Array<Record<string, string>> }).documents ?? [];
+    return docs.map((d) => ({
+      source: 'kakao' as const, id: `kakao:${d.id}`, name: d.place_name ?? '', facilityType: 'gigworker', typeLabel: '근무지',
+      address: d.road_address_name || d.address_name || '', phone: d.phone || null,
+      lng: num(d.x), lat: num(d.y), bedCount: null, hiraYkiho: null, hiraClCd: null, registeredFacilityId: null,
+    }));
+  }
   const run = async (code: 'HP8' | 'PM9') => {
     const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(query)}&category_group_code=${code}&size=10`;
     const data = await fetchJsonWithTimeout(url, { headers: { Authorization: `KakaoAK ${key}` }, timeoutMs: 5000 });
@@ -55,6 +65,7 @@ export async function GET(req: NextRequest) {
   const session = await getAdminSession();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim();
+  const gigworkerMode = req.nextUrl.searchParams.get('mode') === 'gigworker';
   if (q.length < 2) return NextResponse.json({ hits: [], sources: {} });
 
   const kakaoKey = process.env.KAKAO_REST_API_KEY ?? process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
@@ -63,6 +74,7 @@ export async function GET(req: NextRequest) {
   const sb = userClient(session.accessToken);
 
   const dbPromise = (async () => {
+    if (gigworkerMode) return [] as FacilitySearchHit[];
     if (!sb) return [] as FacilitySearchHit[];
     let { data, error } = await sb.rpc('search_claimable_facilities', { p_query: q });
     if (error) throw error;
@@ -78,7 +90,7 @@ export async function GET(req: NextRequest) {
       phone: null, lng: null, lat: null, bedCount: null, hiraYkiho: null, hiraClCd: null, registeredFacilityId: f.id,
     }));
   })();
-  const kakaoPromise = kakaoKey ? searchKakao(q, kakaoKey) : Promise.resolve(null);
+  const kakaoPromise = kakaoKey ? searchKakao(q, kakaoKey, gigworkerMode) : Promise.resolve(null);
 
   const [dbResult, kakaoResult] = await Promise.allSettled([dbPromise, kakaoPromise]);
   const dbHits = dbResult.status === 'fulfilled' ? dbResult.value : [];

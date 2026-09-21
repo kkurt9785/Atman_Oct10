@@ -13,6 +13,8 @@ export type ClinicStaff = {
   engagementType: 'regular' | 'fixed_term' | 'temporary' | 'daily';
   contractStart: string | null;
   contractEnd: string | null;
+  workWeekdays: number[];
+  scheduledToday: boolean;
   defaultStart: string;
   defaultEnd: string;
   status: 'active' | 'leave' | 'ended';
@@ -80,12 +82,18 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   return ((staff ?? []) as any[]).map((row) => {
     const att: any = attendanceMap.get(row.id);
     const invite:any=inviteMap.get(row.id);
+    const workWeekdays=(row.work_weekdays??[1,2,3,4,5]).map(Number);
+    const weekday=new Date(`${today}T00:00:00Z`).getUTCDay()||7;
+    const inContract=(!row.contract_start||row.contract_start<=today)&&(!row.contract_end||row.contract_end>=today);
+    const hasOpenAttendance=Boolean(att?.check_in_at&&!att?.check_out_at);
+    const scheduledToday=row.status==='active'&&inContract&&workWeekdays.includes(weekday);
     return {
       id: row.id, workerId: row.worker_id, phone: row.phone, name: row.name, role: row.role, department: row.department,
       source: row.source, engagementType: row.engagement_type,
       contractStart: row.contract_start, contractEnd: row.contract_end,
+      workWeekdays, scheduledToday:scheduledToday||hasOpenAttendance,
       defaultStart: row.default_start_time, defaultEnd: row.default_end_time,
-      status: row.status, attendanceStatus: att?.status ?? (row.status === 'leave' || leaveSet.has(row.id) ? 'leave' : 'scheduled'),
+      status: row.status, attendanceStatus: att?.status ?? (row.status === 'leave' || leaveSet.has(row.id) ? 'leave' : scheduledToday ? 'scheduled' : 'off'),
       checkInAt: att?.check_in_at ?? null, checkOutAt: att?.check_out_at ?? null,
       checkoutRequestedAt: att?.checkout_requested_at ?? null,
       workDate: att?.work_date ?? today,

@@ -3,6 +3,7 @@ import { Card } from '@/components/ui';
 import { getAdminContext } from '@/lib/admin-auth';
 import { visibleManageSections } from '@/lib/manage-menu';
 import { isPlatformAdminUser } from '@/lib/platform-admin';
+import { getShop } from '@/lib/db/shop';
 
 const SECTION_ICONS = {
   operations: <><path d="M4 7h10M17 7h3M4 12h3M10 12h10M4 17h8M15 17h5"/><circle cx="15.5" cy="7" r="1.5"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="13.5" cy="17" r="1.5"/></>,
@@ -11,9 +12,16 @@ const SECTION_ICONS = {
 };
 
 export default async function MorePage(){
-  const context=await getAdminContext();
+  const [context,shop]=await Promise.all([getAdminContext(),getShop()]);
+  const isGigworker=shop?.registrationSource==='gigworker_trial';
   const sections=visibleManageSections(context?.canViewPayroll===true);
   const isPlatform=isPlatformAdminUser(context?.user);
+  if(isGigworker)return <main className="px-4 pb-28"><div className="px-1 mt-2 mb-5"><p className="text-label font-bold text-primary">긱워커 근태</p><h1 className="mt-1 text-display font-extrabold text-ink">무엇을 관리할까요?</h1><p className="mt-2 text-body text-sub">근무지 인증과 출퇴근 기록, 무료 베타 이용 상태를 관리해요.</p></div><div className="space-y-3">{[
+    {href:'/attendance-qr',eyebrow:'현장 인증',title:'출퇴근 인증 설정',description:'GPS 반경과 동적 QR 보완 방식을 확인해요.',icon:'operations' as const},
+    {href:'/attendance-history',eyebrow:'근태 기록',title:'전체 출퇴근 내역',description:'근무자별 시간과 지각·조퇴 기록을 확인해요.',icon:'billing' as const},
+    {href:'/settings',eyebrow:'근무지·서비스',title:'근무지 설정',description:'위치와 인증 반경, 관리자 권한을 관리해요.',icon:'account' as const},
+    {href:'/membership',eyebrow:'무료 베타',title:'이용 현황',description:'근무자 3명 한도와 데이터 보관 정책을 확인해요.',icon:'billing' as const},
+  ].map(item=><Link key={item.href} href={item.href} className="block active:opacity-80"><Card className="flex items-center gap-4 p-5"><div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{SECTION_ICONS[item.icon]}</svg></div><div className="min-w-0 flex-1"><p className="text-label font-bold text-primary">{item.eyebrow}</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">{item.title}</h2><p className="mt-1 text-label leading-5 text-sub">{item.description}</p></div><span className="text-sub">›</span></Card></Link>)}</div></main>;
   return <main className="px-4"><div className="px-1 mt-2 mb-5"><p className="text-label font-bold text-primary">사업장 관리</p><h1 className="mt-1 text-display font-extrabold text-ink">무엇을 관리할까요?</h1><p className="mt-2 text-body text-sub">기준 총원과 근무 기준을 잡고, 부족 인원과 반복 공백을 여기에서 관리해요.</p></div>
     <div className="space-y-3">{sections.map(section=><Link key={section.slug} href={section.href??`/more/${section.slug}`} className="block active:opacity-80"><Card className="flex items-center gap-4 p-5"><div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{SECTION_ICONS[section.icon]}</svg></div><div className="min-w-0 flex-1"><p className="text-label font-bold text-primary">{section.eyebrow}</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">{section.title}</h2><p className="mt-1 text-label leading-5 text-sub">{section.description}</p></div><span className="text-sub">›</span></Card></Link>)}</div>
     {isPlatform&&<Link href="/ops/facilities" className="mt-3 block active:opacity-80"><Card className="flex items-center gap-4 border border-primary/30 p-5"><div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-primary text-white"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20V8l8-4 8 4v12"/><path d="M9 20v-6h6v6"/><path d="m8 11 2 2 4-4"/></svg></div><div className="min-w-0 flex-1"><p className="text-label font-bold text-primary">잇닿 운영자 전용</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">등록 심사</h2><p className="mt-1 text-label leading-5 text-sub">다른 사업장이 셀프 등록한 건을 확인·승인하고 수동 등록 요청을 검토해요. 내 사업장 설정과는 별개예요.</p></div><span className="text-sub">›</span></Card></Link>}

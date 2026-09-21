@@ -37,7 +37,7 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
     setSearching(true);
     setError('');
     try {
-      const response = await fetch(`/api/facility-search?q=${encodeURIComponent(query.trim())}`, { cache: 'no-store' });
+      const response = await fetch(`/api/facility-search?mode=gigworker&q=${encodeURIComponent(query.trim())}`, { cache: 'no-store' });
       if (!response.ok) throw new Error('search failed');
       const data = await response.json() as { hits?: FacilitySearchHit[] };
       // 긱워커는 기존 잇닿 사업장을 연결하거나 심평원 분류를 쓰지 않는다. 카카오 장소 좌표만 사용한다.
@@ -91,7 +91,7 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
       <div className="mx-auto w-full max-w-md">
         <button type="button" onClick={onBack} className="mb-7 text-[14px] font-bold text-sub">← 시작 방식 다시 선택</button>
         <div className="rounded-3xl bg-white p-5 shadow-card">
-          <p className="text-[13px] font-bold text-primary">긱워커 근태 체험</p>
+          <p className="text-[13px] font-bold text-primary">긱워커 근태 무료 베타</p>
           <h1 className="mt-1 text-[24px] font-extrabold text-ink">근무지와 출퇴근 기준을 정해요</h1>
           <p className="mt-2 text-[13px] leading-5 text-sub">사업자등록이나 병원·약국 인증 없이, 단기근로자를 초대해 바로 근태를 시작할 수 있어요.</p>
 
@@ -102,8 +102,8 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
 
           <section className="mt-6 rounded-2xl bg-primary/5 p-4">
             <h2 className="text-[15px] font-extrabold text-ink">근무지 위치</h2>
-            <p className="mt-1 text-[12px] leading-5 text-sub">이 위치 반경 30m 안에서 출퇴근을 인증해요.</p>
-            <CurrentLocationButton className="mt-3" label="현재 위치를 근무지로 설정" radiusMeters={30} onChange={useCurrentLocation} />
+            <p className="mt-1 text-[12px] leading-5 text-sub">이 위치 반경 100m 안에서 출퇴근을 인증해요. 실내에서는 동적 QR로 보완할 수 있어요.</p>
+            <CurrentLocationButton className="mt-3" label="현재 위치를 근무지로 설정" radiusMeters={100} onChange={useCurrentLocation} />
             <div className="my-4 flex items-center gap-2 text-[11px] text-sub"><span className="h-px flex-1 bg-primary/15" />또는<span className="h-px flex-1 bg-primary/15" /></div>
             <label className="block text-[12px] font-bold text-ink">지도에서 근무지 위치 검색</label>
             <div className="mt-2 flex gap-2">
@@ -117,12 +117,12 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
           {point && <section className="mt-5">
             <div className="mb-2 flex items-center justify-between gap-3"><h2 className="text-[14px] font-extrabold text-ink">핀과 인증 반경 확인</h2>{naverMapUrl && <a href={naverMapUrl} target="_blank" rel="noreferrer" className="text-[12px] font-bold text-primary underline">네이버 지도에서 보기</a>}</div>
             {address && <p className="mb-2 text-[12px] text-sub">{address}</p>}
-            <FacilityPinMap lng={point.lng} lat={point.lat} radiusMeters={30} onChange={setPoint} />
+            <FacilityPinMap lng={point.lng} lat={point.lat} radiusMeters={100} onChange={setPoint} />
           </section>}
 
           {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-3 py-3 text-[12px] font-bold text-red-600">{error}</p>}
           <button type="button" onClick={submit} disabled={isPending} className="mt-6 h-12 w-full rounded-xl bg-ink text-[15px] font-extrabold text-white disabled:opacity-50">{isPending ? '근태 공간을 만드는 중…' : '긱워커 근태 시작하기'}</button>
-          <p className="mt-3 text-center text-[11px] leading-4 text-sub">30일 동안 최대 3명의 단기근로자를 초대할 수 있어요. 인력 모집 공고는 병원·약국 사업장 등록 후 이용할 수 있습니다.</p>
+          <p className="mt-3 text-center text-[11px] leading-4 text-sub">무료 베타에서는 최대 3명의 단기근로자를 연결할 수 있어요. 근무지와 출퇴근 기록은 계속 보관됩니다.</p>
         </div>
       </div>
     </main>

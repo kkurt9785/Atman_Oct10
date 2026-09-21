@@ -60,9 +60,9 @@ function OnboardingInner() {
 
   // bank 가 null 이면 계좌를 건너뛴 것이다. 급여를 사업장이 직접 주는 근태 전용
   // 사용자는 계좌를 등록할 이유가 없다. 알바 정산이 필요해지면 '내 정보'에서 넣는다.
-  async function handleSubmit(bank: BankAccountValue | null) {
+  async function handleSubmit(bank: BankAccountValue | null, infoOverride: BasicInfoValue | null = basicInfo, roleOverride: WorkerRole | null = role) {
     if (submitting) return;
-    if (!terms || !role || !basicInfo) {
+    if (!terms || !roleOverride || !infoOverride) {
       setSubmitError('가입 정보가 일부 누락됐어요. 처음부터 다시 확인해 주세요.');
       return;
     }
@@ -85,16 +85,16 @@ function OnboardingInner() {
       }
 
       const { error: rpcError } = await supabase.rpc('complete_worker_onboarding', {
-        p_role: role,
-        p_name: basicInfo.name,
-        p_phone: basicInfo.phone,
+        p_role: roleOverride,
+        p_name: infoOverride.name,
+        p_phone: infoOverride.phone,
         p_birth_date: terms.birthDate,
         p_areas: areas,
         p_license_path: uploadedPath,
         p_bank_code: bank?.bankCode ?? null,
         p_bank_name: bank?.bankName ?? null,
         p_account_number: bank?.accountNumber ?? null,
-        p_account_holder_name: bank ? basicInfo.name : null,
+        p_account_holder_name: bank ? infoOverride.name : null,
         p_consents: terms.consents,
       });
       if (rpcError) throw new Error(rpcError.message.replace(/^.*?: /, ''));
@@ -112,7 +112,11 @@ function OnboardingInner() {
       // 전산·사무직은 서류(이력서)와 무관하게 프로필 완성이 승인 경로 → approval 안내 화면으로
       // 플랫폼 심사 대기 화면은 이제 어느 직군에도 해당하지 않는다 (자격은 사업장이 확정 전 확인)
       setCompletionStep('approval');
-      go('notification');
+      if (attendanceInvite) {
+        finishOnboarding();
+      } else {
+        go('notification');
+      }
     } catch (error) {
       if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
       setSubmitError(error instanceof Error ? error.message : '가입 정보 저장에 실패했어요.');
@@ -171,7 +175,7 @@ function OnboardingInner() {
   }, [terminalDeepLink]);
 
   const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', area: 'info', bank: 'area' };
-  const prevStep = step === 'info' ? (role && LICENSED_ROLES.includes(role) ? 'license' : 'role') : PREV[step];
+  const prevStep = step === 'info' ? (attendanceInvite ? 'terms' : role && LICENSED_ROLES.includes(role) ? 'license' : 'role') : PREV[step];
 
   return (
     <main className="min-h-screen bg-white">
@@ -189,11 +193,11 @@ function OnboardingInner() {
         </button>
       )}
       {step === 'splash' && <Splash attendanceInvite={attendanceInvite} />}
-      {step === 'terms' && <Terms onNext={(value) => { setTerms(value); go('role'); }} />}
+      {step === 'terms' && <Terms onNext={(value) => { setTerms(value); if (attendanceInvite) { setRole('other'); go('info'); } else { go('role'); } }} />}
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); go(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
       {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); go('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); go('info'); }} />}
-      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); go(attendanceInvite ? 'bank' : 'area'); }} />}
+      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} attendanceInvite={attendanceInvite} submitting={submitting} submitError={submitError} onNext={(value) => { setBasicInfo(value); if (attendanceInvite) { void handleSubmit(null, value, 'other'); } else { go('area'); } }} />}
       {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); go('bank'); }} onSkip={() => { setAreas([]); go('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={() => handleSubmit(null)} submitting={submitting} submitError={submitError} />}
       {step === 'notification' && <NotificationSetup onNext={() => go(completionStep)} />}

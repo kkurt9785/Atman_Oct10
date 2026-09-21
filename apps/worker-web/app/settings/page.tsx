@@ -25,6 +25,7 @@ export default function SettingsPage() {
   const [pushNotice, setPushNotice] = useState('');
   const [showPwaGuide, setShowPwaGuide] = useState(false);
   const [locationSaved, setLocationSaved] = useState(false);
+  const [isGigworker, setIsGigworker] = useState(false);
 
   useEffect(() => {
     setLocationSaved(new URLSearchParams(window.location.search).get('locationSaved') === '1');
@@ -34,13 +35,20 @@ export default function SettingsPage() {
 
       setName(user.user_metadata?.profile_nickname ?? '사용자');
 
-      const [{ data: locPref }, { data: workerProf }] = await Promise.all([
+      const [{ data: locPref }, { data: workerProf }, { data: staffLinks }] = await Promise.all([
         supabase.from('worker_location_prefs').select('locations').single(),
         supabase.from('workers')
           .select('role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
+        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
       ]);
+
+      const gigworkerLinked = (staffLinks ?? []).some((row: any) => {
+        const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
+        return facility?.registration_source === 'gigworker_trial';
+      });
+      setIsGigworker(gigworkerLinked && workerProf?.role === 'other');
 
       setRole(workerProf?.role ?? '');
       setLocations(locPref?.locations ?? []);
@@ -126,6 +134,7 @@ export default function SettingsPage() {
       )}
       <div className="px-1 mt-2 mb-6">
         <h1 className="text-[24px] font-extrabold text-ink">내 정보</h1>
+        {isGigworker && <p className="mt-1 text-[13px] text-sub">근무 초대 계정과 출근 알림을 관리해요.</p>}
       </div>
 
       {/* 프로필 카드 */}
@@ -134,9 +143,9 @@ export default function SettingsPage() {
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-3xl">👤</div>
           <div>
             <p className="text-[18px] font-bold text-ink">{name || '...'}</p>
-            {roleLabel && (
+            {(isGigworker || roleLabel) && (
               <span className="text-[13px] font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
-                {roleLabel}
+                {isGigworker ? '긱워커' : roleLabel}
               </span>
             )}
           </div>
@@ -144,7 +153,7 @@ export default function SettingsPage() {
       </div>
 
       {/* 내 프로필 카드 */}
-      <Link href="/settings/profile">
+      {!isGigworker && <Link href="/settings/profile">
         <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
@@ -169,10 +178,10 @@ export default function SettingsPage() {
           </div>
           <span className="text-tertiary ml-3">›</span>
         </div>
-      </Link>
+      </Link>}
 
       {/* 활동 지역 */}
-      <Link href="/settings/location">
+      {!isGigworker && <Link href="/settings/location">
         <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
           <div>
             <p className="text-[15px] font-bold text-ink mb-1.5">활동 지역</p>
@@ -190,9 +199,9 @@ export default function SettingsPage() {
           </div>
           <span className="text-tertiary ml-3">›</span>
         </div>
-      </Link>
+      </Link>}
 
-      <Link href="/rewards">
+      {!isGigworker && <Link href="/rewards">
         <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
           <div>
             <div className="flex items-center gap-2">
@@ -203,23 +212,25 @@ export default function SettingsPage() {
           </div>
           <span className="text-tertiary ml-3">›</span>
         </div>
-      </Link>
+      </Link>}
 
       {/* 시프트 알림 */}
       <button
         onClick={handlePushToggle}
         role="switch"
         aria-checked={pushEnabled}
-        aria-label="이 기기의 시프트 알림"
+        aria-label={isGigworker ? '이 기기의 출근 알림' : '이 기기의 시프트 알림'}
         disabled={pushLoading}
         className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
       >
         <div className="text-left">
-          <p className="text-[15px] font-bold text-ink">이 기기 시프트 알림</p>
+          <p className="text-[15px] font-bold text-ink">{isGigworker ? '이 기기 출근 알림' : '이 기기 시프트 알림'}</p>
           <p className="text-[13px] text-tertiary mt-0.5">
-            {pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 시프트를 바로 받아요'}
+            {isGigworker
+              ? pushEnabled ? '근무 시작 전 출근 안내를 보내드려요' : '알림을 켜면 출근 시간을 놓치지 않아요'
+              : pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 시프트를 바로 받아요'}
           </p>
-          <p className="mt-1 text-[11px] leading-4 text-sub">새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요</p>
+          <p className="mt-1 text-[11px] leading-4 text-sub">{isGigworker ? '근무 30분 전 안내와 근태 알림을 앱 푸시로 받아요' : '새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요'}</p>
         </div>
         <div className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 flex items-center px-1 ${pushEnabled ? 'bg-primary' : 'bg-line'}`}>
           <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />

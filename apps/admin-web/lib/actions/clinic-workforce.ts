@@ -76,43 +76,54 @@ export async function addClinicStaffAction(form: FormData) {
   const normalizedPhone = phone?.replace(/\D/g,'') ?? '';
   const payBasis = text(form,'pay_basis');
   const payRate = Number(text(form,'pay_rate'));
+  const breakMinutes = Number(text(form,'default_break_minutes') || '60');
   const bankName=text(form,'bank_name')||null;
   const accountLast4=text(form,'account_last4')||null;
-  if (!name || !['rn','na','pharmacist','pharmacy_staff','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   const { data: facility } = await sb.from('facilities').select('facility_type').eq('id',context.facilityId).maybeSingle();
+  const isGigworker=facility?.facility_type==='gigworker';
+  if (!name || !['rn','na','pharmacist','pharmacy_staff','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if(facility?.facility_type==='pharmacy'&&!['pharmacist','pharmacy_staff','admin','other'].includes(role)){
     throw new Error('약국 직원은 약사·약국 전산/사무직·관리 직종으로 등록해 주세요.');
   }
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
-  if (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
+  if ((!isGigworker||payBasis||payRate) && (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0)) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
+  if(!Number.isInteger(breakMinutes)||breakMinutes<0||breakMinutes>720)throw new Error('휴게시간을 확인해 주세요.');
   if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
-  if (phone && normalizedPhone.length < 10) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
+  if (isGigworker && !phone) throw new Error('초대 링크를 연결할 휴대전화 번호를 입력해 주세요.');
+  if (phone && (isGigworker ? !/^010\d{8}$/.test(normalizedPhone) : normalizedPhone.length < 10)) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
+  let workWeekdays = form.getAll('work_weekdays').map(Number).filter((day)=>day>=1&&day<=7);
+  if(isGigworker&&contractStart&&contractStart===contractEnd){
+    workWeekdays=[new Date(`${contractStart}T00:00:00Z`).getUTCDay()||7];
+  }
+  if(isGigworker&&contractStart!==contractEnd&&workWeekdays.length===0)throw new Error('반복 근무 요일을 하나 이상 선택해 주세요.');
   await requireStaffCapacity(sb, context.facilityId);
   const { data: linkedWorker } = phone
     ? await sb.from('workers').select('id').eq('phone', phone).is('deleted_at', null).limit(1).maybeSingle()
     : { data: null };
-  const workWeekdays = form.getAll('work_weekdays').map(Number).filter((day)=>day>=1&&day<=7);
   const { data: created, error } = await sb.from('facility_staff').insert({
     facility_id: context.facilityId, worker_id: linkedWorker?.id ?? null, name, phone,
     role, department: text(form, 'department') || null, source: 'direct',
     engagement_type: engagementType, contract_start: contractStart, contract_end: contractEnd,
     default_start_time: text(form, 'default_start_time') || '09:00',
     default_end_time: text(form, 'default_end_time') || '18:00',
-    default_break_minutes: Number(text(form, 'default_break_minutes')) || 60,
-    pay_basis: payBasis, pay_rate: payRate, bank_name:bankName, account_last4:accountLast4,
+    default_break_minutes: breakMinutes,
+    pay_basis: payBasis||null, pay_rate:Number.isInteger(payRate)&&payRate>0?payRate:null, bank_name:bankName, account_last4:accountLast4,
     work_weekdays: workWeekdays.length ? workWeekdays : [1,2,3,4,5],
     created_by: context.user.id,
   }).select('id,worker_id').single();
   if (error) throw new Error('직원을 등록하지 못했어요.');
+  let inviteToken:string|null=null;
   if (!created.worker_id && phone) {
-    const { error: inviteError } = await sb.from('facility_staff_invites').insert({
+    const { data:invite,error: inviteError } = await sb.from('facility_staff_invites').insert({
       facility_id: context.facilityId, staff_id: created.id,
       phone_normalized: normalizedPhone, created_by: context.user.id,
-    });
+    }).select('token').single();
     if (inviteError) throw new Error('직원은 등록됐지만 초대 링크를 만들지 못했어요. 직원 목록에서 다시 발급해 주세요.');
+    inviteToken=invite?.token??null;
   }
   revalidatePath('/staff'); revalidatePath('/timesheet');
+  return {staffId:created.id,inviteToken,linked:Boolean(created.worker_id)};
 }
 
 export async function recordStaffAttendanceAction(form: FormData) {
@@ -408,7 +419,7 @@ export async function setStaffPayAction(form:FormData){
 }
 
 export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay';
-export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string}>{
+export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string;data?:unknown}>{
   try{
     const actions:Record<WorkforceActionKind,(data:FormData)=>Promise<unknown>>={
       add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,shift_attendance:recordShiftAdminAttendanceAction,add_leave:addStaffLeaveAction,
@@ -416,8 +427,8 @@ export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData)
       early_checkout:decideEarlyCheckoutAction,shift_early_checkout:decideShiftEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
       convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,set_staff_pay:setStaffPayAction,
     };
-    await actions[kind](form);
-    return {ok:true};
+    const data=await actions[kind](form);
+    return {ok:true,data};
   }catch(error){
     return {ok:false,error:error instanceof Error?error.message:'처리하지 못했어요. 다시 시도해 주세요.'};
   }

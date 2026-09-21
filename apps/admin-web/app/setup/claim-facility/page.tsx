@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { claimFacility, registerFacilitySelf, requestFacilityRegistration, submitFacilityBrnDocument } from '@/lib/facility';
 import { BrnDocumentFields } from '@/components/BrnDocumentFields';
@@ -55,6 +55,10 @@ export default function ClaimFacilityPage() {
   const hiddenByFilter=results.length-visibleResults.length;
   const mapSearchUnavailable=searched&&sources.kakao&&sources.kakao!=='ok';
   const canSearch=entryChoice==='recruit';
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('mode') === 'gigworker') setEntryChoice('gigworker');
+  }, []);
 
   function chooseEntry(choice:EntryChoice){
     setEntryChoice(choice);

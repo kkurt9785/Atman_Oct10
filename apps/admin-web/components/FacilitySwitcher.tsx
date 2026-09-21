@@ -17,7 +17,8 @@ export function FacilitySwitcher() {
   const [selected, setSelected] = useState('');
   const current=facilities.find(facility=>facility.id===selected);
   const isPharmacy=current?.facility_type==='pharmacy';
-  const typeLabel=isPharmacy?'약국':current?.facility_type==='care_hospital'?'요양병원':'병원·의원';
+  const isGigworker=current?.facility_type==='gigworker';
+  const typeLabel=isGigworker?'긱워커 근태':isPharmacy?'약국':current?.facility_type==='care_hospital'?'요양병원':'병원·의원';
 
   useEffect(() => {
     async function load() {
@@ -53,20 +54,21 @@ export function FacilitySwitcher() {
       setSelected(previous);
       return;
     }
+    window.dispatchEvent(new Event('atman:facility-changed'));
     router.refresh();
   }
 
   if (!current) return null;
   if (facilities.length === 1) return (
     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white px-2.5 py-1.5">
-      <span aria-hidden className="text-[16px]">{isPharmacy?'💊':'🏥'}</span>
+      <span aria-hidden className="text-[16px]">{isGigworker?'📍':isPharmacy?'💊':'🏥'}</span>
       <div className="min-w-0"><p className="truncate text-[11px] font-extrabold text-ink">{current.name}</p><p className="text-[9px] font-bold text-sub">{typeLabel}</p></div>
     </div>
   );
 
   return (
     <label className="relative flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-line bg-white px-2 py-1">
-      <span aria-hidden>{isPharmacy?'💊':'🏥'}</span>
+      <span aria-hidden>{isGigworker?'📍':isPharmacy?'💊':'🏥'}</span>
       <select
         value={selected}
         onChange={(event) => void handleChange(event.target.value)}
@@ -74,7 +76,7 @@ export function FacilitySwitcher() {
         aria-label="사업장 선택"
       >
         {facilities.map((facility) => (
-          <option key={facility.id} value={facility.id}>{facility.facility_type==='pharmacy'?'💊':'🏥'} {facility.name} · {facility.facility_type==='pharmacy'?'약국':facility.facility_type==='care_hospital'?'요양병원':'병원·의원'}</option>
+          <option key={facility.id} value={facility.id}>{facility.facility_type==='gigworker'?'📍':facility.facility_type==='pharmacy'?'💊':'🏥'} {facility.name} · {facility.facility_type==='gigworker'?'긱워커 근태':facility.facility_type==='pharmacy'?'약국':facility.facility_type==='care_hospital'?'요양병원':'병원·의원'}</option>
         ))}
       </select>
       <span className="pointer-events-none absolute right-2 text-[10px] text-sub">⌄</span>

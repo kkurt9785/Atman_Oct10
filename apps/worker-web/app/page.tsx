@@ -15,12 +15,18 @@ function RootInner() {
         router.replace('/onboarding');
         return;
       }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('onboarding_done')
-        .single();
+      const [{ data: profile }, { data: staffLinks }, { data: worker }] = await Promise.all([
+        supabase.from('profiles').select('onboarding_done').single(),
+        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
+        supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+      ]);
       if (profile?.onboarding_done) {
-        router.replace('/home');
+        const hasGigworker = worker?.role === 'other' && (staffLinks ?? []).some((row: any) => {
+          const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
+          return facility?.registration_source === 'gigworker_trial';
+        });
+        if (hasGigworker) window.localStorage.setItem('atman_gigworker_mode', '1');
+        router.replace(hasGigworker ? '/workplace' : '/home');
       } else {
         router.replace('/onboarding?step=terms');
       }

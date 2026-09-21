@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { runWorkforceAction, type WorkforceActionKind } from '@/lib/actions/clinic-workforce';
 
 export function WorkforceActionForm({
-  kind, values, className, children, resetOnSuccess=false, successMessage,
+  kind, values, className, children, resetOnSuccess=false, successMessage,onSuccess,
 }:{
   kind:WorkforceActionKind;
   values?:Record<string,string>;
@@ -13,6 +13,7 @@ export function WorkforceActionForm({
   children:React.ReactNode;
   resetOnSuccess?:boolean;
   successMessage?:string;
+  onSuccess?:(data:unknown)=>void;
 }){
   const formRef=useRef<HTMLFormElement>(null);
   const router=useRouter();
@@ -29,6 +30,7 @@ export function WorkforceActionForm({
     if(!result.ok){setError(result.error??'처리하지 못했어요.');return;}
     if(resetOnSuccess)formRef.current?.reset();
     setMessage(successMessage??'처리됐어요.');
+    onSuccess?.(result.data);
     router.refresh();
   }
   return <form ref={formRef} onSubmit={submit} className={className}>

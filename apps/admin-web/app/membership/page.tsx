@@ -58,14 +58,14 @@ export default async function MembershipPage(){
   const {plans,subscription,invoices,usage,error,isGigworker}=await getBilling(context.facilityId);
   const canPay = context.accessRole === 'owner' || context.accessRole === 'super';
   const usageMap=usage.reduce((m:any,r:any)=>{m[r.usage_type]=(m[r.usage_type]??0)+r.quantity;return m;},{});
-  const isExpiredTrial = subscription?.status === 'expired' && subscription?.plan_code === 'gigworker_trial';
-  const isTrial = !isExpiredTrial && Boolean(subscription?.trial_ends_at && !subscription?.trial_converted_at);
+  const isExpiredTrial = !isGigworker && subscription?.status === 'expired' && subscription?.plan_code === 'gigworker_trial';
+  const isTrial = !isGigworker && !isExpiredTrial && Boolean(subscription?.trial_ends_at && !subscription?.trial_converted_at);
   const trialDaysLeft = isTrial ? Math.max(1, Math.ceil((Date.parse(`${subscription.trial_ends_at}T23:59:59+09:00`)-Date.now())/86_400_000)) : 0;
   return <main className="px-4 pb-28">
     <ManageBackLink href="/settings" label="사업장 설정" />
-    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{isGigworker?'긱워커 근태 체험':'임금과 완전히 분리된 요금'}</p><h1 className="text-display font-extrabold text-ink">{isGigworker?'체험 기간':'요금제·청구'}</h1><p className="text-label text-sub mt-2 leading-5">{isGigworker?'근태 확인과 단기근로자 초대만 이용할 수 있어요. 인력 모집은 병원·약국 사업장을 등록한 뒤 시작할 수 있습니다.':'잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.'}</p></div>
+    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{isGigworker?'긱워커 근태 무료 베타':'임금과 완전히 분리된 요금'}</p><h1 className="text-display font-extrabold text-ink">{isGigworker?'이용 현황':'요금제·청구'}</h1><p className="text-label text-sub mt-2 leading-5">{isGigworker?'최대 3명의 단기근로자를 연결해 근태를 관리할 수 있어요. 근무지와 출퇴근 기록은 베타 중에도 계속 보관됩니다.':'잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.'}</p></div>
     {error ? <div className="bg-white rounded-2xl p-8 text-center border border-red-200"><p role="alert" className="text-body font-bold text-red-600">청구 정보를 불러오지 못했어요</p><p className="text-label text-sub mt-2">{error}</p><a href="/membership" className="inline-flex mt-4 px-4 h-10 items-center rounded-xl bg-ink text-white text-label font-bold">다시 불러오기</a></div> : <>
-    <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[12px] text-white/70">{isExpiredTrial?'체험 종료 · 데이터 보관 중':isTrial?'무료 체험 중':'현재 구독'}</p><div className="mt-1 flex items-end justify-between gap-3"><p className="text-[22px] font-extrabold">{subscription?.service_plans?.name??'Free 파일럿'}</p><p className="shrink-0 text-[14px] font-extrabold">{Number(subscription?.service_plans?.monthly_fee??0)>0?`${won(Number(subscription.service_plans.monthly_fee))}/월`:'무료'}</p></div><p className="text-[12px] text-white/70 mt-2">{isExpiredTrial?'근무지·초대한 워커·출퇴근 기록은 그대로 보관돼요. 다시 시작할 때 이어서 이용할 수 있어요.':isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 데이터는 보관돼요`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'} · 부가세 별도`:'공고 월 1건 제한 파일럿'}</p></div>
+    <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[12px] text-white/70">{isGigworker?'무료 베타 이용 중':isExpiredTrial?'체험 종료 · 데이터 보관 중':isTrial?'무료 체험 중':'현재 구독'}</p><div className="mt-1 flex items-end justify-between gap-3"><p className="text-[22px] font-extrabold">{subscription?.service_plans?.name??'Free 파일럿'}</p><p className="shrink-0 text-[14px] font-extrabold">{Number(subscription?.service_plans?.monthly_fee??0)>0?`${won(Number(subscription.service_plans.monthly_fee))}/월`:'무료'}</p></div><p className="text-[12px] text-white/70 mt-2">{isGigworker?'최대 3명 연결 · 별도 종료일 없음 · 근태 데이터 계속 보관':isExpiredTrial?'근무지·초대한 워커·출퇴근 기록은 그대로 보관돼요. 다시 시작할 때 이어서 이용할 수 있어요.':isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 데이터는 보관돼요`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'} · 부가세 별도`:'공고 월 1건 제한 파일럿'}</p></div>
     {!canPay&&<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">청구서 결제는 사업장 소유자 또는 결제 승인 담당자에게 요청해 주세요.</p></div>}
     <h2 className="text-title font-extrabold px-1 mb-3">요금제</h2>
     <PlanCards plans={plans} currentPlanCode={subscription?.plan_code}/>
@@ -77,15 +77,15 @@ export default async function MembershipPage(){
       <JobPostingAddonButton />
       <p className="mt-2 text-[11px] leading-4 text-tertiary">VAT 포함 · 결제한 달에만 사용 · 추가 4건 이상이면 상위 요금제가 더 유리할 수 있어요.</p>
     </section>}
-    <div className="mb-7 bg-primary/5 border border-primary/15 rounded-2xl p-4">
+    {!isGigworker&&<div className="mb-7 bg-primary/5 border border-primary/15 rounded-2xl p-4">
       <p className="text-label font-bold text-primary">💡 임금은 사업장이 직접 지급 = 중개 수수료 0원</p>
       <p className="text-[13px] text-sub leading-5 mt-1">잇닿은 근무 횟수나 임금에 비례한 수수료 대신 정액 이용료를 받습니다. 사업장은 지급할 임금과 서비스 비용을 명확하게 구분할 수 있어요.</p>
-    </div>
+    </div>}
     <h2 className="text-title font-extrabold px-1 mb-3">이번 달 사용량</h2>
     <div className="bg-white rounded-2xl shadow-card p-4 mb-7">{Object.keys(usageMap).length===0?<p className="text-label text-sub py-4 text-center">이번 달 기록된 초과 사용량이 없어요.</p>:Object.entries(usageMap).map(([key,value])=><div key={key} className="flex justify-between py-2 border-b border-line last:border-0 text-label"><span className="text-sub">{USAGE[key]??'기타 사용량'}</span><b>{String(value)}건</b></div>)}</div>
-    <h2 id="invoices" className="text-title font-extrabold px-1 mb-3 scroll-mt-4">청구서</h2>
+    {!isGigworker&&<><h2 id="invoices" className="text-title font-extrabold px-1 mb-3 scroll-mt-4">청구서</h2>
     {invoices.length===0?<div className="bg-white rounded-2xl p-8 text-center text-label text-sub">발행된 서비스 청구서가 없어요.</div>:<div className="space-y-3">{invoices.map(invoice=><article key={invoice.id} className="bg-white rounded-2xl p-4 shadow-card"><div className="flex justify-between gap-3"><div><p className="text-body font-bold">{invoice.invoice_number}</p><p className="text-[13px] text-sub mt-1">{formatDate(invoice.period_start)} – {formatDate(invoice.period_end)}</p></div><div className="text-right"><p className="font-extrabold">{won(invoice.total_amount)}</p><p className="text-[13px] text-sub mt-1">{INVOICE[invoice.status]??'확인 중'}</p></div></div>{canPay&&['issued','overdue'].includes(invoice.status)&&<div className="mt-3"><ServiceInvoicePayButton invoiceId={invoice.id} amount={invoice.total_amount}/></div>}</article>)}</div>}
-    <div className="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-4"><p className="text-label font-bold text-ink">별도 부가서비스</p><p className="text-[13px] text-sub leading-5 mt-1">공고 Boost, SMS·푸시 초과 사용, 추가 관리자·반복초대 대상, API·ERP 연동은 청구서에 항목별로 표시됩니다. 기본 자격 확인에는 별도 비용이 없습니다.</p></div>
+    <div className="mt-6 bg-blue-50 border border-blue-100 rounded-2xl p-4"><p className="text-label font-bold text-ink">별도 부가서비스</p><p className="text-[13px] text-sub leading-5 mt-1">공고 Boost, SMS·푸시 초과 사용, 추가 관리자·반복초대 대상, API·ERP 연동은 청구서에 항목별로 표시됩니다. 기본 자격 확인에는 별도 비용이 없습니다.</p></div></>}
     </>}
   </main>;
 }

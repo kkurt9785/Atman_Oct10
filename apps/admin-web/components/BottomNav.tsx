@@ -1,12 +1,19 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 
-const TABS = [
+const DEFAULT_TABS = [
   { href: '/', icon: 'home', label: '홈' },
   { href: '/shifts', icon: 'recruit', label: '인력 모집' },
   { href: '/timesheet', icon: 'clock', label: '근무 관리' },
   { href: '/staff', icon: 'staff', label: '직원' },
+  { href: '/more', icon: 'manage', label: '관리' },
+];
+const GIGWORKER_TABS = [
+  { href: '/', icon: 'home', label: '홈' },
+  { href: '/staff?view=contract&entry=gigworker', icon: 'staff', label: '근무자' },
+  { href: '/timesheet', icon: 'clock', label: '오늘 근태' },
   { href: '/more', icon: 'manage', label: '관리' },
 ];
 
@@ -19,6 +26,7 @@ const ICONS={
 };
 
 function isActive(path:string,href:string){
+  href=href.split('?')[0];
   if(href==='/')return path==='/';
   if(href==='/shifts')return path.startsWith('/shifts')||path.startsWith('/applications')||path.startsWith('/chats');
   if(href==='/timesheet')return path.startsWith('/timesheet')||path.startsWith('/attendance-')||path.startsWith('/leave');
@@ -28,9 +36,24 @@ function isActive(path:string,href:string){
 
 export function BottomNav() {
   const path = usePathname();
+  const [gigworkerMode,setGigworkerMode]=useState(false);
+  useEffect(()=>{
+    let active=true;
+    const load=async()=>{
+      const response=await fetch('/api/facilities',{cache:'no-store'}).catch(()=>null);
+      if(!response?.ok||!active)return;
+      const data=await response.json();
+      const current=(data.facilities??[]).find((row:{id:string})=>row.id===data.currentFacilityId);
+      setGigworkerMode(current?.facility_type==='gigworker');
+    };
+    void load();
+    window.addEventListener('atman:facility-changed',load);
+    return()=>{active=false;window.removeEventListener('atman:facility-changed',load);};
+  },[]);
+  const tabs=gigworkerMode?GIGWORKER_TABS:DEFAULT_TABS;
   return (
     <nav aria-label="주요 메뉴" className="fixed bottom-0 inset-x-0 z-30 mx-auto max-w-app bg-white border-t border-line flex pb-[env(safe-area-inset-bottom)]">
-      {TABS.map((t) => {
+      {tabs.map((t) => {
         const active = isActive(path,t.href);
         return (
           <Link key={t.href} href={t.href} aria-current={active ? 'page' : undefined}

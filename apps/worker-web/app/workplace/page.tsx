@@ -61,6 +61,14 @@ function WorkplaceContent() {
     }
     const {data}=await supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source)').neq('status','ended').order('created_at',{ascending:false});
     const linked=(data??[]) as Staff[];
+    const hasGigworker=linked.some((item)=>{
+      const facility=Array.isArray(item.facilities)?item.facilities[0]:item.facilities;
+      return facility?.registration_source==='gigworker_trial';
+    });
+    if(hasGigworker){
+      window.localStorage.setItem('atman_gigworker_mode','1');
+      window.dispatchEvent(new Event('atman:workplace-linked'));
+    }
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id??'');
     if(linked.length){
@@ -168,7 +176,7 @@ function WorkplaceContent() {
           <button type="button" onClick={()=>setTab('history')} aria-pressed={tab==='history'} className={`h-11 rounded-xl text-[13px] font-extrabold ${tab==='history'?'bg-primary text-white':'text-sub'}`}>근태 내역</button>
           <button type="button" onClick={()=>setTab('leave')} aria-pressed={tab==='leave'} className={`h-11 rounded-xl text-[13px] font-extrabold ${tab==='leave'?'bg-primary text-white':'text-sub'}`}>휴가 신청</button>
         </nav>}
-        {tab==='history'&&<section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
+        {tab==='history'&&<section id="history" className="mt-3 scroll-mt-5 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-[18px] font-extrabold">내 근태 내역</h2>
           <div className="mt-3"><MyAttendanceCalendar staffId={staff.id} refreshKey={refreshKey}/></div>
           <p className="mt-3 text-[11px] leading-5 text-sub">수정이 필요한 기록은 사업장 관리자에게 요청하세요. 월 마감 후에는 급여 자료에 반영됩니다.</p>

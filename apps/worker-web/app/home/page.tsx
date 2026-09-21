@@ -310,6 +310,20 @@ export default function HomePage() {
         return;
       }
 
+      const [{ data: staffLinks }, { data: attendanceOnlyWorker }] = await Promise.all([
+        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
+        supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+      ]);
+      const hasGigworker = attendanceOnlyWorker?.role === 'other' && (staffLinks ?? []).some((row: any) => {
+        const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
+        return facility?.registration_source === 'gigworker_trial';
+      });
+      if (hasGigworker) {
+        window.localStorage.setItem('atman_gigworker_mode', '1');
+        router.replace('/workplace');
+        return;
+      }
+
       setName(user.user_metadata?.profile_nickname ?? '사용자');
 
       const [
