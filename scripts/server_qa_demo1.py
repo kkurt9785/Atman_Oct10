@@ -132,6 +132,7 @@ challenge_ids = []
 outbox_ids = []
 template_ids = []
 original_settings = None
+qa_started_at = dt.datetime.now(dt.timezone.utc).isoformat()
 try:
     worker_token, worker_uid = login("worker-demo-1@demo.atman.co.kr")
     other_token, _ = login("worker-demo-2@demo.atman.co.kr")
@@ -318,9 +319,40 @@ finally:
     if original_settings:
         restore = {k: v for k, v in original_settings.items() if k not in ("created_at", "updated_at")}
         req("POST", "/rest/v1/facility_attendance_settings?on_conflict=facility_id", [restore], token=service, prefer="resolution=merge-duplicates")
+
+    # 시프트·출퇴근 검증 중 DB 트리거가 자동으로 만든 알림도 테스트 데이터다.
+    # 이를 남기면 데모 관리자/워커에게 가짜 푸시가 발송되고 다음 QA의 outbox 상태도 오염된다.
+    qa_attendance_ids = set(attendance_ids)
+    qa_auth_log_ids = set()
+    attendance_by_application = {}
     for app_id in application_ids:
         _, atts = req("GET", "/rest/v1/shift_attendances?application_id=eq." + str(app_id) + "&select=id", token=service)
-        for att in atts or []:
+        attendance_by_application[app_id] = atts or []
+        qa_attendance_ids.update(att["id"] for att in atts or [])
+        _, auth_logs = req("GET", "/rest/v1/attendance_auth_logs?application_id=eq." + str(app_id) + "&select=id", token=service)
+        qa_auth_log_ids.update(log["id"] for log in auth_logs or [])
+
+    _, recent_outbox = req(
+        "GET",
+        "/rest/v1/notification_outbox?created_at=gte." + urllib.parse.quote(qa_started_at, safe="")
+        + "&select=id,dedupe_key,data&limit=500",
+        token=service,
+    )
+    qa_outbox_ids = set(outbox_ids)
+    for row in recent_outbox or []:
+        data = row.get("data") or {}
+        dedupe_key = str(row.get("dedupe_key") or "")
+        if (
+            data.get("applicationId") in application_ids
+            or data.get("attendanceAuthLogId") in qa_auth_log_ids
+            or any(dedupe_key.startswith("attendance.shift_checkout_decided:" + attendance_id + ":") for attendance_id in qa_attendance_ids)
+        ):
+            qa_outbox_ids.add(row["id"])
+    for outbox_id in qa_outbox_ids:
+        req("DELETE", "/rest/v1/notification_outbox?id=eq." + outbox_id, token=service)
+
+    for app_id in application_ids:
+        for att in attendance_by_application.get(app_id, []):
             req("DELETE", "/rest/v1/wage_payment_instructions?attendance_id=eq." + att["id"], token=service)
             req("DELETE", "/rest/v1/wage_calculations?attendance_id=eq." + att["id"], token=service)
         req("DELETE", "/rest/v1/attendance_auth_logs?application_id=eq." + str(app_id), token=service)
@@ -331,8 +363,6 @@ finally:
         req("DELETE", "/rest/v1/shifts?id=eq." + str(shift_id), token=service)
     for challenge_id in challenge_ids:
         req("DELETE", "/rest/v1/facility_attendance_qr_challenges?id=eq." + challenge_id, token=service)
-    for outbox_id in outbox_ids:
-        req("DELETE", "/rest/v1/notification_outbox?id=eq." + outbox_id, token=service)
     for template_id in template_ids:
         req("DELETE", "/rest/v1/shift_templates?id=eq." + template_id, token=service)
 
