@@ -6,11 +6,11 @@ import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
 import { subscribeToAdminPush } from '@/lib/push-subscribe';
 
-// 시연용 데모 계정 — 비프로덕션 빌드에서만 노출 (NEXT_PUBLIC_은 빌드타임 고정)
+// 시연용 계정. 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN으로 빌드 시 결정된다.
 const DEMO_ACCOUNTS = [
-  { email: 'sales-demo-1@demo.atman.co.kr', label: '병원 · W여성병원' },
-  { email: 'sales-demo-2@demo.atman.co.kr', label: '약국 · 수원 온누리약국' },
-  { email: 'sales-demo-3@demo.atman.co.kr', label: '요양병원 · 수원요양병원' },
+  { email: 'sales-demo-1@demo.atman.co.kr', label: '병원 시연 시작', detail: 'W여성병원' },
+  { email: 'sales-demo-2@demo.atman.co.kr', label: '약국 시연', detail: '수원 온누리약국' },
+  { email: 'sales-demo-3@demo.atman.co.kr', label: '요양병원 시연', detail: '수원요양병원' },
 ];
 
 function LoginInner() {
@@ -21,7 +21,7 @@ function LoginInner() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
 
-  // 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 플래그 하나로만 제어 (출시 시 0으로 — 체크리스트 2번)
+  // 공개 시연 여부는 환경변수로만 제어한다.
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
   function handleKakaoLogin() {
@@ -111,17 +111,19 @@ function LoginInner() {
         </button>
 
         {showDemoLogin && (
-          <div className="mt-2 pt-4 border-t border-line">
-            <p className="text-[12px] text-tertiary text-center mb-2">시연용 데모 계정</p>
+          <div className="mt-2 rounded-2xl border border-primary/20 bg-primary/5 p-3">
+            <p className="text-[14px] font-extrabold text-ink">로그인 없이 빠른 시연</p>
+            <p className="mt-0.5 text-[12px] text-sub">대표 화면을 바로 보여드릴 수 있어요. 실제 데이터에는 반영되지 않아요.</p>
             <div className="flex flex-col gap-2">
-              {DEMO_ACCOUNTS.map((account) => (
+              {DEMO_ACCOUNTS.map((account, index) => (
                 <button
                   key={account.email}
                   onClick={() => handleDemoLogin(account.email)}
                   disabled={loading || !!demoLoadingEmail}
-                  className="w-full h-11 rounded-xl bg-bg text-ink text-[14px] font-bold disabled:opacity-60"
+                  className={`flex h-11 w-full items-center justify-between rounded-xl px-3 text-[14px] font-bold disabled:opacity-60 ${index === 0 ? 'bg-primary text-white shadow-sm' : 'border border-line bg-white text-ink'}`}
                 >
-                  {demoLoadingEmail === account.email ? '로그인 중...' : `${account.label} 로그인`}
+                  <span>{demoLoadingEmail === account.email ? '시연 화면 여는 중...' : account.label}</span>
+                  {demoLoadingEmail !== account.email && <span className={`text-[11px] font-semibold ${index === 0 ? 'text-white/75' : 'text-sub'}`}>{account.detail}</span>}
                 </button>
               ))}
             </div>
