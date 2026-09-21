@@ -35,6 +35,14 @@ function OnboardingInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [completionStep, setCompletionStep] = useState<'review' | 'approval'>('approval');
+
+  // 가입 중 브라우저 뒤로가기를 눌러도 입력값을 유지한 채 이전 단계로 돌아간다.
+  // Next 라우팅 대신 history만 갱신해 이 페이지의 로컬 입력 상태를 보존한다.
+  const go = (next: Step) => {
+    setStep(next);
+    window.history.pushState({ onboardingStep: next }, '', `/onboarding?step=${next}`);
+  };
+
   const finishOnboarding=()=>{
     const next=window.localStorage.getItem('atman_auth_next');
     if(next?.startsWith('/')){
@@ -99,7 +107,7 @@ function OnboardingInner() {
       // 전산·사무직은 서류(이력서)와 무관하게 프로필 완성이 승인 경로 → approval 안내 화면으로
       // 플랫폼 심사 대기 화면은 이제 어느 직군에도 해당하지 않는다 (자격은 사업장이 확정 전 확인)
       setCompletionStep('approval');
-      setStep('notification');
+      go('notification');
     } catch (error) {
       if (uploadedPath) await supabase.storage.from('license-photos').remove([uploadedPath]).catch(() => undefined);
       setSubmitError(error instanceof Error ? error.message : '가입 정보 저장에 실패했어요.');
@@ -108,11 +116,23 @@ function OnboardingInner() {
     }
   }
 
-  // ?step= 딥링크로 선행 상태 없이 진입하면 백지가 되므로 스플래시로 되돌린다
+  // ?step= 딥링크로 선행 상태 없이 진입하면 백지가 되므로 스플래시로 되돌린다.
   useEffect(() => {
     const needsTerms: Step[] = ['role', 'license', 'info', 'area', 'bank'];
-    if (needsTerms.includes(step) && !terms) setStep('splash');
+    if (needsTerms.includes(step) && !terms) {
+      setStep('splash');
+      window.history.replaceState({ onboardingStep: 'splash' }, '', '/onboarding');
+    }
   }, [step, terms]);
+
+  useEffect(() => {
+    const restoreStep = () => {
+      const restored = new URLSearchParams(window.location.search).get('step') as Step | null;
+      setStep(restored && VALID_STEPS.has(restored) ? restored : 'splash');
+    };
+    window.addEventListener('popstate', restoreStep);
+    return () => window.removeEventListener('popstate', restoreStep);
+  }, []);
 
   useEffect(() => {
     if (!terminalDeepLink) return;
@@ -157,21 +177,21 @@ function OnboardingInner() {
         <button
           type="button"
           aria-label="이전 단계로"
-          onClick={() => setStep(prevStep)}
+          onClick={() => go(prevStep)}
           className="fixed top-[calc(env(safe-area-inset-top)+8px)] left-4 z-40 w-10 h-10 rounded-full bg-bg text-ink text-[18px] flex items-center justify-center active:opacity-70"
         >
           ←
         </button>
       )}
       {step === 'splash' && <Splash />}
-      {step === 'terms' && <Terms onNext={(value) => { setTerms(value); setStep('role'); }} />}
-      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); setStep(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
+      {step === 'terms' && <Terms onNext={(value) => { setTerms(value); go('role'); }} />}
+      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); go(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
       {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}
-      {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); setStep('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); setStep('info'); }} />}
-      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); setStep('area'); }} />}
-      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); setStep('bank'); }} onSkip={() => { setAreas([]); setStep('bank'); }} />}
+      {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); go('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); go('info'); }} />}
+      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); go('area'); }} />}
+      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); go('bank'); }} onSkip={() => { setAreas([]); go('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={() => handleSubmit(null)} submitting={submitting} submitError={submitError} />}
-      {step === 'notification' && <NotificationSetup onNext={() => setStep(completionStep)} />}
+      {step === 'notification' && <NotificationSetup onNext={() => go(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
       {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}
       </>}

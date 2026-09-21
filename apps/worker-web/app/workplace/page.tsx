@@ -8,7 +8,6 @@ import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalend
 
 type FacilityRef={id:string;name:string};
 type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; facilities:FacilityRef|FacilityRef[] };
-type Result = { action:'check_in'|'check_out'; status:'approved'|'pending'; facility_name:string; staff_id:string; work_date:string };
 type Leave = { id:string; leave_type:string; start_date:string; end_date:string; requested_minutes:number; status:string };
 type AttendanceState={staff_id:string;check_in_at:string|null;check_out_at:string|null;work_date:string;status?:string;break_minutes?:number};
 type ShiftAttendanceRef={checkout_requested_at:string|null};
@@ -21,13 +20,12 @@ const TYPES = [
 
 function WorkplaceContent() {
   const params = useSearchParams();
-  const token = params.get('token');
+  const legacyToken = params.get('token');
   const attendanceToken=params.get('attendanceToken');
   const [staffList,setStaffList]=useState<Staff[]>([]);
   const [selectedStaffId,setSelectedStaffId]=useState('');
   const [loading,setLoading]=useState(true);
   const [message,setMessage]=useState('');
-  const [result,setResult]=useState<Result|null>(null);
   const [leaveType,setLeaveType]=useState('annual');
   const [leaves,setLeaves]=useState<Leave[]>([]);
   const [leaveMinutes,setLeaveMinutes]=useState(0);
@@ -41,7 +39,6 @@ function WorkplaceContent() {
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){
       const query=new URLSearchParams();
-      if(token)query.set('token',token);
       if(attendanceToken)query.set('attendanceToken',attendanceToken);
       // 로그인 후 복귀는 atman_auth_next(localStorage) 패턴 — ?next= 파라미터는 읽는 곳이 없다
       window.localStorage.setItem('atman_auth_next',`/workplace${query.size?`?${query}`:''}`);
@@ -94,27 +91,9 @@ function WorkplaceContent() {
         }
       }
     }
-    if(token){
-      let coords:{latitude:number;longitude:number}|null=null;
-      try {
-        const position=await new Promise<GeolocationPosition>((resolve,reject)=>navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:8000,maximumAge:30000}));
-        coords=position.coords;
-      } catch {
-        setMessage('사업장에서 출퇴근하려면 브라우저 위치 권한을 허용해 주세요.');
-        setLoading(false);
-        return;
-      }
-      const {data:attendance,error}=await supabase.rpc('record_staff_qr_attendance',{p_token:token,p_lat:coords.latitude,p_lng:coords.longitude});
-      if(error) setMessage(error.message.replace(/^.*?: /,''));
-      else {
-        const next=attendance as Result;
-        setResult(next);
-        const matched=linked.find(item=>item.id===next.staff_id);
-        if(matched)setSelectedStaffId(matched.id);
-      }
-    }
+    if(legacyToken) setMessage('이전 정적 QR은 운영 종료됐어요. 사업장 관리자 화면의 동적 QR을 다시 스캔해 주세요.');
     setLoading(false);
-  })();},[token,attendanceToken]);
+  })();},[legacyToken,attendanceToken]);
 
   async function requestLeave(formData:FormData){
     setMessage('');
@@ -162,9 +141,8 @@ function WorkplaceContent() {
       <>
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
           {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=Array.isArray(item.facilities)?item.facilities[0]?.name:item.facilities?.name;return <option key={item.id} value={item.id}>{name??'사업장'} · {item.name}</option>;})}</select></label>}
-          {result&&<div className={`mt-4 rounded-xl p-4 ${result.status==='pending'?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}><b>{result.action==='check_in'?'출근이 기록됐어요':result.status==='pending'?'조기 퇴근 승인을 요청했어요':'퇴근이 기록됐어요'}</b><p className="text-[12px] mt-1">{result.status==='pending'?'예정 퇴근시간 전이라 관리자 승인 후 확정됩니다.':'사업장 근태 기록에 바로 반영됐습니다.'}</p></div>}
-          {!token&&<div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[12px] font-bold text-primary">{currentAttendance?.check_in_at?'현재 근무 중':'출근 전'}</p><p className="mt-1 text-[13px] text-sub">버튼 한 번으로 사업장 위치를 확인해요. 실내에서 위치가 불안정하면 사업장의 동적 QR로 인증할 수 있어요.</p></div>}
-          {!token&&!currentAttendance?.check_out_at&&currentAttendance?.status!=='checkout_pending'&&<AttendanceActionButton key={currentAttendance?.check_in_at?'check_out':'check_in'} targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken} mode={staffAttendanceMode} onSuccess={(response:AttendanceResult)=>{const now=new Date().toISOString();const checkingOut=Boolean(currentAttendance?.check_in_at);setAttendance(current=>({...current,[staff.id]:{...(current[staff.id]??{staff_id:staff.id,work_date:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10),check_in_at:null,check_out_at:null}),...(checkingOut?(response.status==='pending'?{status:'checkout_pending'}:{check_out_at:response.checkOutAt??now,status:'completed'}):{check_in_at:response.checkInAt??now,status:'working'})}}));setRefreshKey(k=>k+1);}}/>}
+          <div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[12px] font-bold text-primary">{currentAttendance?.check_in_at?'현재 근무 중':'출근 전'}</p><p className="mt-1 text-[13px] text-sub">버튼 한 번으로 사업장 위치를 확인해요. 실내에서 위치가 불안정하면 사업장의 동적 QR로 인증할 수 있어요.</p></div>
+          {!currentAttendance?.check_out_at&&currentAttendance?.status!=='checkout_pending'&&<AttendanceActionButton key={currentAttendance?.check_in_at?'check_out':'check_in'} targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken} mode={staffAttendanceMode} onSuccess={(response:AttendanceResult)=>{const now=new Date().toISOString();const checkingOut=Boolean(currentAttendance?.check_in_at);setAttendance(current=>({...current,[staff.id]:{...(current[staff.id]??{staff_id:staff.id,work_date:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10),check_in_at:null,check_out_at:null}),...(checkingOut?(response.status==='pending'?{status:'checkout_pending'}:{check_out_at:response.checkOutAt??now,status:'completed'}):{check_in_at:response.checkInAt??now,status:'working'})}}));setRefreshKey(k=>k+1);}}/>}
           {currentAttendance?.status==='checkout_pending'&&<p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간이 확정됩니다.</p>}
           {currentAttendance?.check_out_at&&<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">오늘 출퇴근이 완료됐어요.</p>}
           {attendanceToken&&<p className="mt-2 text-center text-[11px] font-bold text-primary">동적 QR을 확인했어요. 위치 확인 후 사업장 정책에 맞게 인증합니다.</p>}
