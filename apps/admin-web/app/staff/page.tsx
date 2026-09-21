@@ -18,8 +18,10 @@ const PAY:Record<string,string>={monthly:'월급',hourly:'시급',daily:'일급'
 
 type StaffView='all'|'regular'|'contract'|'shift';
 
-export default async function StaffPage({searchParams}:{searchParams:Promise<{view?:string}>}) {
-  const requested=(await searchParams).view;
+export default async function StaffPage({searchParams}:{searchParams:Promise<{view?:string;entry?:string}>}) {
+  const params=await searchParams;
+  const requested=params.view;
+  const isGigworkerEntry=params.entry==='gigworker';
   const view:StaffView=['regular','contract','shift'].includes(requested??'')?requested as StaffView:'all';
   const context = await getAdminContext();
   const canReviewWorkers = context?.accessRole === 'super';
@@ -59,11 +61,12 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
       <Link href="/leave" className="min-h-tap rounded-xl bg-white border border-line flex items-center justify-center text-body font-bold">휴가 관리</Link>
     </div>
 
-    <details className="mt-5 bg-white rounded-2xl shadow-card group">
+    <details open={isGigworkerEntry} className="mt-5 bg-white rounded-2xl shadow-card group">
       <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between">
-        <span className="font-bold text-body">＋ 기존 직원 직접 등록</span><span className="text-sub group-open:rotate-180">⌄</span>
+        <span className="font-bold text-body">＋ {isGigworkerEntry?'긱워커 등록':'기존 직원 직접 등록'}</span><span className="text-sub group-open:rotate-180">⌄</span>
       </summary>
-      <StaffRegistrationForm facilityType={shop?.facilityType}/>
+      {isGigworkerEntry&&<p className="px-5 text-[12px] leading-5 text-sub">당근 등에서 직접 만난 단기근로자를 등록하고, 기간·시간을 정한 뒤 초대 링크를 보내세요.</p>}
+      <StaffRegistrationForm facilityType={shop?.facilityType} initialEngagementType={isGigworkerEntry?'temporary':undefined}/>
     </details>
 
     {view!=='shift'&&<><SectionTitle>{view==='regular'?'상시 직원':view==='contract'?'계약·임시 직원':'관리 중인 직원'}</SectionTitle>

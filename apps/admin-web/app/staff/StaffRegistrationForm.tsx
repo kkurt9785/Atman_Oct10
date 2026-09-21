@@ -47,9 +47,9 @@ function ContractRangePicker(){
   </div>;
 }
 
-export function StaffRegistrationForm({facilityType='clinic'}:{facilityType?:string}){
-  const [engagementType,setEngagementType]=useState('');
-  const [payBasis,setPayBasis]=useState('monthly');
+export function StaffRegistrationForm({facilityType='clinic',initialEngagementType}:{facilityType?:string;initialEngagementType?:string}){
+  const [engagementType,setEngagementType]=useState(initialEngagementType??'');
+  const [payBasis,setPayBasis]=useState(initialEngagementType?'hourly':'monthly');
   const needsContract=engagementType&&engagementType!=='regular';
   const isPharmacy=facilityType==='pharmacy';
 
