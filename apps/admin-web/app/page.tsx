@@ -28,6 +28,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   if (!shop) redirect(isPlatformAdminUser(context?.user) ? '/ops/facilities' : '/setup/claim-facility');
 
   const isPharmacy = shop.facilityType === 'pharmacy';
+  const isGigworker = shop.registrationSource === 'gigworker_trial';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
   const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + attendanceFailures.length;
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
@@ -37,6 +38,16 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   const registeredShortage = targetStaffCount > 0 ? Math.max(0, targetStaffCount - activeStaffCount) : 0;
   const workingCount=clinicStaff.filter(s=>['working','late','checkout_pending'].includes(s.attendanceStatus??'')).length
     +shiftStaff.filter(s=>s.todayStatus==='근무중').length;
+
+  if (isGigworker) {
+    return <main className="px-4 pb-28">
+      <div className="px-1 mt-4 mb-5"><p className="text-body text-sub">{shop.name}</p><h1 className="text-display font-extrabold text-ink mt-1">긱워커 근태 👋</h1><p className="mt-2 text-[13px] leading-5 text-sub">초대한 단기근로자의 출퇴근만 간단히 관리하는 체험 공간이에요.</p></div>
+      <Card className="mb-4 bg-primary text-white shadow-btn"><p className="text-[12px] font-bold text-white/70">오늘 근태</p><div className="mt-2 flex items-end justify-between gap-4"><div><p className="text-[28px] leading-tight font-extrabold">{clinicStaff.length}명 예정</p><p className="mt-1 text-[13px] text-white/80">지금 {workingCount}명이 근무 중이에요</p></div><Link href="/timesheet" className="text-[13px] font-extrabold">현황 보기 →</Link></div></Card>
+      <section className="grid grid-cols-2 gap-3"><Link href="/staff?view=contract&entry=gigworker" className="rounded-2xl bg-ink px-5 py-5 text-white"><span className="text-[20px]">＋</span><p className="mt-2 text-[17px] font-extrabold">긱워커 등록</p><p className="mt-1 text-[12px] leading-5 text-white/75">기간·시간을 정하고 초대 링크를 보내요</p></Link><Link href="/timesheet" className="rounded-2xl bg-white px-5 py-5 shadow-card"><span className="text-[20px]">✓</span><p className="mt-2 text-[17px] font-extrabold text-ink">근태 확인</p><p className="mt-1 text-[12px] leading-5 text-sub">출퇴근과 인증 요청을 확인해요</p></Link></section>
+      <section className="mt-4 rounded-2xl bg-white p-5 shadow-card"><p className="text-[14px] font-extrabold text-ink">오늘 확인할 일</p><div className="mt-3 divide-y divide-line"><Link href="/timesheet" className="flex items-center justify-between py-3"><span><b className="text-[14px] text-ink">출퇴근 확인</b><span className="ml-2 text-[12px] text-sub">조기 퇴근·미출근·인증 실패</span></span><b className="text-primary">{attendanceReviewCount}건 ›</b></Link><Link href="/staff?view=contract&entry=gigworker" className="flex items-center justify-between py-3"><span><b className="text-[14px] text-ink">초대할 긱워커</b><span className="ml-2 text-[12px] text-sub">등록 후 링크를 보내세요</span></span><b className="text-primary">등록 →</b></Link></div></section>
+      <Link href="/membership" className="mt-5 flex items-center justify-between rounded-xl bg-bg px-4 py-3 text-[12px] text-sub"><span>긱워커 근태 체험 · 최대 3명 · 30일</span><b className="text-primary">체험 기간 →</b></Link>
+    </main>;
+  }
 
   return (
     <main className="px-4">

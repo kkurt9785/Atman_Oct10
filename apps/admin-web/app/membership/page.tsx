@@ -15,23 +15,25 @@ type Invoice={id:string;invoice_number:string;period_start:string;period_end:str
 
 async function getBilling(facilityId:string) {
   const sb=adminClient();
-  if(!sb) return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'서버 연결 정보를 확인하지 못했어요.'};
+  if(!sb) return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'서버 연결 정보를 확인하지 못했어요.',isGigworker:false};
   const [plans,subscription,invoices,usage,facility]=await Promise.all([
     sb.from('service_plans').select('*').eq('is_active',true).order('sort_order'),
     sb.from('facility_subscriptions').select('status,current_period_end,plan_code,trial_started_at,trial_ends_at,trial_converted_at,service_plans(name,monthly_fee)').eq('facility_id',facilityId).in('status',['pending','active','past_due']).or(`trial_ends_at.is.null,trial_ends_at.gte.${todayKST()}`).order('updated_at',{ascending:false}).limit(1).maybeSingle(),
     sb.from('service_invoices').select('id,invoice_number,period_start,period_end,total_amount,status,due_date').eq('facility_id',facilityId).order('created_at',{ascending:false}).limit(12),
     sb.from('service_usage_events').select('usage_type,quantity,metadata').eq('facility_id',facilityId).gte('occurred_at',new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString()),
-    sb.from('facilities').select('facility_type').eq('id',facilityId).maybeSingle(),
+    sb.from('facilities').select('facility_type,registration_source').eq('id',facilityId).maybeSingle(),
   ]);
   const failed = [plans, subscription, invoices, usage,facility].find((result) => result.error);
   if (failed?.error) {
-    return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'요금제와 청구 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'};
+    return {plans:[] as Plan[],invoices:[] as Invoice[],subscription:null as any,usage:[] as any[],error:'요금제와 청구 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',isGigworker:false};
   }
   const isPharmacy=facility.data?.facility_type==='pharmacy';
   const isCareHospital=facility.data?.facility_type==='care_hospital';
+  const isGigworker=facility.data?.registration_source==='gigworker_trial';
   // 최초 등록 업종에 맞는 가격표만 노출한다.
   const availablePlans = ((plans.data??[]) as Plan[]).filter(plan=>
-    isPharmacy ? ['free','pharmacy','pharmacy_plus'].includes(plan.code)
+    isGigworker ? plan.code==='gigworker_trial'
+      : isPharmacy ? ['free','pharmacy','pharmacy_plus'].includes(plan.code)
       : isCareHospital ? ['free','basic','pro','enterprise'].includes(plan.code)
       : !['pharmacy','pharmacy_plus'].includes(plan.code));
   const free = availablePlans.find((plan)=>plan.code==='free');
@@ -42,7 +44,7 @@ async function getBilling(facilityId:string) {
   } : null);
   const currentPlanCode = effectiveSubscription?.plan_code;
   const currentPlanUsage = (usage.data??[]).filter((row:any)=>row.metadata?.plan_code===currentPlanCode);
-  return {plans:availablePlans,subscription:effectiveSubscription,invoices:(invoices.data??[]) as Invoice[],usage:currentPlanUsage,error:null};
+  return {plans:availablePlans,subscription:effectiveSubscription,invoices:(invoices.data??[]) as Invoice[],usage:currentPlanUsage,error:null,isGigworker};
 }
 
 const USAGE:Record<string,string>={active_worker:'이번 달 반복초대 대상',attendance_slot:'근태관리',job_posting_slot:'공고 게시',license_verification:'면허 검증',notification_usage:'알림',api_usage:'API',job_boost:'공고 Boost'};
@@ -52,20 +54,20 @@ const INVOICE:Record<string,string>={draft:'작성 중',issued:'결제 대기',p
 export default async function MembershipPage(){
   const context = await getAdminContext();
   if (!context) redirect('/setup/claim-facility');
-  const {plans,subscription,invoices,usage,error}=await getBilling(context.facilityId);
+  const {plans,subscription,invoices,usage,error,isGigworker}=await getBilling(context.facilityId);
   const canPay = context.accessRole === 'owner' || context.accessRole === 'super';
   const usageMap=usage.reduce((m:any,r:any)=>{m[r.usage_type]=(m[r.usage_type]??0)+r.quantity;return m;},{});
   const isTrial = Boolean(subscription?.trial_ends_at && !subscription?.trial_converted_at);
   const trialDaysLeft = isTrial ? Math.max(1, Math.ceil((Date.parse(`${subscription.trial_ends_at}T23:59:59+09:00`)-Date.now())/86_400_000)) : 0;
   return <main className="px-4 pb-28">
     <ManageBackLink href="/settings" label="사업장 설정" />
-    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">임금과 완전히 분리된 요금</p><h1 className="text-display font-extrabold text-ink">요금제·청구</h1><p className="text-label text-sub mt-2 leading-5">잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.</p></div>
+    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{isGigworker?'긱워커 근태 체험':'임금과 완전히 분리된 요금'}</p><h1 className="text-display font-extrabold text-ink">{isGigworker?'체험 기간':'요금제·청구'}</h1><p className="text-label text-sub mt-2 leading-5">{isGigworker?'근태 확인과 단기근로자 초대만 이용할 수 있어요. 인력 모집은 병원·약국 사업장을 등록한 뒤 시작할 수 있습니다.':'잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준입니다. 워커 임금이나 채용 성공액에 연동되지 않습니다.'}</p></div>
     {error ? <div className="bg-white rounded-2xl p-8 text-center border border-red-200"><p role="alert" className="text-body font-bold text-red-600">청구 정보를 불러오지 못했어요</p><p className="text-label text-sub mt-2">{error}</p><a href="/membership" className="inline-flex mt-4 px-4 h-10 items-center rounded-xl bg-ink text-white text-label font-bold">다시 불러오기</a></div> : <>
     <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[12px] text-white/70">{isTrial?'무료 체험 중':'현재 구독'}</p><div className="mt-1 flex items-end justify-between gap-3"><p className="text-[22px] font-extrabold">{subscription?.service_plans?.name??'Free 파일럿'}</p><p className="shrink-0 text-[14px] font-extrabold">{Number(subscription?.service_plans?.monthly_fee??0)>0?`${won(Number(subscription.service_plans.monthly_fee))}/월`:'무료'}</p></div><p className="text-[12px] text-white/70 mt-2">{isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 Free 자동 전환`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'} · 부가세 별도`:'공고 월 1건 제한 파일럿'}</p></div>
     {!canPay&&<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">청구서 결제는 사업장 소유자 또는 결제 승인 담당자에게 요청해 주세요.</p></div>}
     <h2 className="text-title font-extrabold px-1 mb-3">요금제</h2>
     <PlanCards plans={plans} currentPlanCode={subscription?.plan_code}/>
-    {canPay && subscription?.plan_code && subscription.plan_code !== 'free' && <section className="mb-7 rounded-2xl border border-primary/20 bg-white p-4 shadow-card">
+    {!isGigworker && canPay && subscription?.plan_code && subscription.plan_code !== 'free' && <section className="mb-7 rounded-2xl border border-primary/20 bg-white p-4 shadow-card">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div><p className="text-body font-extrabold text-ink">이번 달 공고가 더 필요한가요?</p><p className="mt-1 text-[13px] leading-5 text-sub">요금제를 바로 바꾸지 않고 필요한 만큼 1건씩 추가할 수 있어요.</p></div>
         <span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-[11px] font-bold text-primary">당월 사용</span>

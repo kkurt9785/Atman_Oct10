@@ -5,7 +5,7 @@ export type ShopInfo = {
   name: string;
   facilityType: string;
   employeeCount: number | null;
-  plan: 'bundle' | 'gig' | 'hr' | 'free';
+  plan: 'bundle' | 'gig' | 'hr' | 'free' | 'gigworker_trial';
   is5Plus: boolean;
   isDemo: boolean;
   approvedAt: string | null;       // NULL = 셀프 등록 후 잇닿 승인 대기

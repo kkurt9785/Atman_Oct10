@@ -174,6 +174,33 @@ export async function registerFacilitySelf(input: {
   }
 }
 
+// 긱워커는 병원·약국 신원 확인이나 공고 등록 없이, 위치 기반 근태만 먼저 쓴다.
+export async function createGigworkerWorkspace(input: {
+  name: string;
+  addressText?: string | null;
+  lng: number;
+  lat: number;
+}): Promise<{ ok: boolean; facilityId?: string; error?: string }> {
+  try {
+    const session = await requireAdminSession();
+    const sb = userClient(session.accessToken);
+    if (!sb) return { ok: false, error: '서버 설정 오류' };
+    const { data, error } = await sb.rpc('register_gigworker_workspace', {
+      p_name: input.name,
+      p_address_text: input.addressText ?? null,
+      p_lng: input.lng,
+      p_lat: input.lat,
+    });
+    if (error || !data) return { ok: false, error: (error?.message ?? '긱워커 근태를 시작하지 못했어요.').replace(/^.*?: /, '') };
+    await setFacilityContextCookie(data as string, session.user.id);
+    revalidatePath('/');
+    revalidatePath('/staff');
+    return { ok: true, facilityId: data as string };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : '긱워커 근태를 시작하지 못했어요.' };
+  }
+}
+
 // 승인 전 사업자등록번호·등록증 제출 (등록 직후 또는 설정에서). 파일은 브라우저가 올리고 여기서는 경로만 기록.
 export async function submitFacilityBrnDocument(input: { facilityId: string; brn?: string | null; documentPath?: string | null }): Promise<{ ok: boolean; error?: string }> {
   try {

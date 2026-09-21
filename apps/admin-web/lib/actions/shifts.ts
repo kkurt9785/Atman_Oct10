@@ -43,6 +43,9 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   const sb = adminClient();
   if (sb) {
     const { data: facility } = await sb.from('facilities').select('facility_type, approved_at, registration_source').eq('id', context.facilityId).maybeSingle();
+    if (facility?.registration_source === 'gigworker_trial') {
+      return { ok: false, message: '긱워커 근태 체험은 출퇴근 관리 전용이에요. 인력 모집은 병원·약국 사업장을 등록한 뒤 이용해 주세요.' };
+    }
     // 셀프 등록 사업장은 잇닿 확인(approved_at) 전까지 공고를 열지 않는다 — 초대코드 사업장은 등록 시점에 이미 확인됨
     if (facility && facility.approved_at == null && String(facility.registration_source ?? '').startsWith('self_')) {
       return { ok: false, message: '사업장 확인이 끝나면 공고를 등록할 수 있어요. 보통 1영업일 안에 완료돼요.' };
