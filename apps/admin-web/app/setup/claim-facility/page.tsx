@@ -18,10 +18,12 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 type Hit = FacilitySearchHit;
+type EntryChoice = 'gigworker' | 'recruit';
 
 export default function ClaimFacilityPage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
+  const [entryChoice, setEntryChoice] = useState<EntryChoice | null>(null);
   const [results, setResults] = useState<Hit[]>([]);
   const [sources, setSources] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Hit | null>(null);
@@ -53,7 +55,7 @@ export default function ClaimFacilityPage() {
   const mapSearchUnavailable=searched&&sources.kakao&&sources.kakao!=='ok';
 
   async function handleSearch() {
-    if (query.trim().length < 2 || searching) return;
+    if (!entryChoice || query.trim().length < 2 || searching) return;
     setSearching(true);setSearchFailed(false);setSelected(null);setRegisterHit(null);
     try{
       const res=await fetch(`/api/facility-search?q=${encodeURIComponent(query.trim())}`,{cache:'no-store'});
@@ -86,7 +88,7 @@ export default function ClaimFacilityPage() {
     setError('');
     startTransition(async () => {
       const result = await claimFacility(selected.id, inviteCode);
-      if (result.ok) router.replace('/');
+      if (result.ok) router.replace(entryChoice === 'gigworker' ? '/staff?view=contract&entry=gigworker' : '/');
       else setError(result.error ?? '연결 실패');
     });
   }
@@ -114,7 +116,8 @@ export default function ClaimFacilityPage() {
           if(!r.ok)brnFailed=true;
         }catch(e){console.error('[claim] brn document',e);brnFailed=true;}
       }
-      router.replace(brnFailed?'/?brn=failed':'/');
+      const destination=entryChoice === 'gigworker' ? '/staff?view=contract&entry=gigworker' : '/';
+      router.replace(brnFailed ? '/?brn=failed' : destination);
     });
   }
 
@@ -145,9 +148,18 @@ export default function ClaimFacilityPage() {
         {/* 헤더 */}
         <div className="text-center space-y-2">
           <div className="text-4xl">🏥💊</div>
-          <h1 className="text-[22px] font-bold text-ink">내 사업장 찾기</h1>
-          <p className="text-[14px] text-sub">약국·병원·요양병원명을 검색하면 바로 등록하거나 초대 코드로 연결할 수 있어요</p>
+          <h1 className="text-[22px] font-bold text-ink">{entryChoice==='gigworker'?'긱워커 근태 시작':entryChoice==='recruit'?'근무자 모집 시작':'어떻게 시작할까요?'}</h1>
+          <p className="text-[14px] text-sub">{entryChoice==='gigworker'?'당근 등에서 직접 만난 단기근로자를 초대해 근태를 관리해요.':entryChoice==='recruit'?'잇닿에서 단기근로자를 찾고 근무를 확정해요.':'시작 방식을 고른 뒤 사업장을 찾아 연결해 주세요.'}</p>
         </div>
+
+        <section className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm" aria-label="시작 방식">
+          <button type="button" onClick={()=>setEntryChoice('gigworker')} aria-pressed={entryChoice==='gigworker'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='gigworker'?'bg-primary text-white':'bg-bg text-ink'}`}>
+            <p className="text-[14px] font-extrabold">긱워커 근태 시작</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='gigworker'?'text-white/80':'text-sub'}`}>외부 단기근로자 초대</p>
+          </button>
+          <button type="button" onClick={()=>setEntryChoice('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
+            <p className="text-[14px] font-extrabold">근무자 모집</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>잇닿에서 인력 찾기</p>
+          </button>
+        </section>
 
         {/* 검색 — 통합 서치바 (버튼이 바 안에 있어 좁은 화면에서도 안 깨짐) */}
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-white p-1.5 pl-4 shadow-sm focus-within:border-primary">
@@ -157,13 +169,14 @@ export default function ClaimFacilityPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSearch()}
-            placeholder="사업장명 검색"
+            placeholder={entryChoice?'사업장명 검색':'위에서 시작 방식을 선택해 주세요'}
             aria-label="사업장명 검색"
-            className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-sub"
+            disabled={!entryChoice}
+            className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-sub disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSearch}
-            disabled={searching}
+            disabled={!entryChoice || searching}
             aria-label="검색"
             className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white disabled:opacity-50"
           >
