@@ -112,7 +112,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         <div className="mb-3 px-1"><p className="text-[11px] font-bold text-primary">인력 연결 시작</p><h2 className="mt-0.5 text-title font-extrabold text-ink">어떤 방식으로 시작할까요?</h2></div>
         <div className="grid grid-cols-2 gap-3">
           <Link href="/staff?view=contract&entry=gigworker" className="rounded-2xl bg-primary px-5 py-5 text-white shadow-btn active:opacity-85"><span className="text-[20px]">⌁</span><p className="mt-2 text-[17px] font-extrabold">긱워커 근태 시작</p><p className="mt-1 text-[12px] leading-5 text-white/80">당근 등 외부 단기근로자를 초대해요</p></Link>
-          <Link href="/shifts/new" className="rounded-2xl bg-white px-5 py-5 active:bg-bg"><span className="text-[20px]">＋</span><p className="mt-2 text-[17px] font-extrabold text-ink">근무자 모집</p><p className="mt-1 text-[12px] leading-5 text-sub">잇닿에서 단기근로자를 찾아요</p></Link>
+          <Link href="/shifts/new" className="rounded-2xl bg-white px-5 py-5 active:bg-bg"><span className="text-[20px]">＋</span><p className="mt-2 text-[17px] font-extrabold text-ink">병원·약국 인력 모집</p><p className="mt-1 text-[12px] leading-5 text-sub">공고 등록 · 지원자 관리</p></Link>
         </div>
         <Link href="/timesheet" className="mt-3 flex items-center justify-between rounded-xl bg-white px-4 py-3 active:bg-bg"><span><b className="text-[14px] text-ink">오늘 근무 보기</b><span className="ml-2 text-[12px] text-sub">출퇴근과 확인 요청을 봐요</span></span><span className="font-bold text-primary">→</span></Link>
       </section>

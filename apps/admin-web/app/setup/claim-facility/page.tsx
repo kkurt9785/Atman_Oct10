@@ -170,8 +170,8 @@ export default function ClaimFacilityPage() {
         {/* 헤더 */}
         <div className="text-center space-y-2">
           <div className="text-4xl">{entryChoice==='gigworker'?'📍':'🏥💊'}</div>
-          <h1 className="text-[22px] font-bold text-ink">{entryChoice==='gigworker'?'긱워커 근태 시작':entryChoice==='recruit'?'근무자 모집 시작':'어떻게 시작할까요?'}</h1>
-          <p className="text-[14px] text-sub">{entryChoice==='gigworker'?'당근 등에서 직접 만난 단기근로자를 초대해 근태를 관리해요.':entryChoice==='recruit'?'잇닿에서 단기근로자를 찾고 근무를 확정해요.':'시작 방식을 고른 뒤 사업장을 찾아 연결해 주세요.'}</p>
+          <h1 className="text-[22px] font-bold text-ink">{entryChoice==='gigworker'?'긱워커 근태 시작':entryChoice==='recruit'?'병원·약국 단기인력 모집':'어떻게 시작할까요?'}</h1>
+          <p className="text-[14px] text-sub">{entryChoice==='gigworker'?'당근 등에서 직접 만난 단기근로자를 초대해 근태를 관리해요.':entryChoice==='recruit'?'잇닿에서 근무 조건을 올리고 지원자를 확인해 근무를 확정해요.':'시작 방식을 고른 뒤 사업장을 찾아 연결해 주세요.'}</p>
         </div>
 
         <section className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm" aria-label="시작 방식">
@@ -179,7 +179,7 @@ export default function ClaimFacilityPage() {
             <p className="text-[14px] font-extrabold">긱워커 근태 시작</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='gigworker'?'text-white/80':'text-sub'}`}>외부 단기근로자 초대</p>
           </button>
           <button type="button" onClick={()=>chooseEntry('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
-            <p className="text-[14px] font-extrabold">근무자 모집</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>잇닿에서 인력 찾기</p>
+            <p className="text-[14px] font-extrabold">병원·약국 인력 모집</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>공고 등록 · 지원자 관리</p>
           </button>
         </section>
 
