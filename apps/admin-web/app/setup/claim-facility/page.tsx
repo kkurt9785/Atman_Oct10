@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { claimFacility, registerFacilitySelf, requestFacilityRegistration, submitFacilityBrnDocument } from '@/lib/facility';
 import { BrnDocumentFields } from '@/components/BrnDocumentFields';
 import { uploadBrnDocument } from '@/lib/brn-document-client';
-import { FacilityPinMap } from '@/components/FacilityPinMap';
+import { FacilityPinMap, CurrentLocationButton } from '@/components/FacilityPinMap';
 import type { FacilitySearchHit } from '@/app/api/facility-search/route';
 
 const TYPE_LABEL: Record<string, string> = {
@@ -19,11 +19,15 @@ const TYPE_LABEL: Record<string, string> = {
 
 type Hit = FacilitySearchHit;
 type EntryChoice = 'gigworker' | 'recruit';
+type GigworkerLocationMode = 'current' | 'search' | null;
+const GIGWORKER_CURRENT_LOCATION_ID = 'gigworker-current-location';
 
 export default function ClaimFacilityPage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [entryChoice, setEntryChoice] = useState<EntryChoice | null>(null);
+  const [gigworkerLocationMode, setGigworkerLocationMode] = useState<GigworkerLocationMode>(null);
+  const [gigworkerFacilityType, setGigworkerFacilityType] = useState('small_hospital');
   const [results, setResults] = useState<Hit[]>([]);
   const [sources, setSources] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<Hit | null>(null);
@@ -53,9 +57,26 @@ export default function ClaimFacilityPage() {
     :results.filter(f=>typeFilter==='pharmacy'?isPharmacyType(f.facilityType):typeFilter==='care'?isCareType(f.facilityType):!isPharmacyType(f.facilityType)&&!isCareType(f.facilityType));
   const hiddenByFilter=results.length-visibleResults.length;
   const mapSearchUnavailable=searched&&sources.kakao&&sources.kakao!=='ok';
+  const canSearch=entryChoice==='recruit'||gigworkerLocationMode==='search';
+  const isGigworkerCurrentLocation=registerHit?.id===GIGWORKER_CURRENT_LOCATION_ID;
+
+  function chooseEntry(choice:EntryChoice){
+    setEntryChoice(choice);setGigworkerLocationMode(choice==='recruit'?'search':null);
+    setResults([]);setSearched(false);setSelected(null);setRegisterHit(null);setError('');
+  }
+
+  function useCurrentLocationAsGigworkerWorkplace({lng,lat}:{lng:number;lat:number}){
+    setGigworkerLocationMode('current');setResults([]);setSearched(false);setSelected(null);setError('');
+    setGigworkerFacilityType('small_hospital');
+    setRegisterHit({
+      source:'kakao',id:GIGWORKER_CURRENT_LOCATION_ID,name:'',facilityType:'small_hospital',typeLabel:'병원·의원',address:'',phone:null,
+      lng,lat,bedCount:null,hiraYkiho:null,hiraClCd:null,registeredFacilityId:null,
+    });
+    setRegisterForm({name:'',address:'',phone:'',lng,lat});setBrnForm({brn:'',file:null});
+  }
 
   async function handleSearch() {
-    if (!entryChoice || query.trim().length < 2 || searching) return;
+    if (!canSearch || query.trim().length < 2 || searching) return;
     setSearching(true);setSearchFailed(false);setSelected(null);setRegisterHit(null);
     try{
       const res=await fetch(`/api/facility-search?q=${encodeURIComponent(query.trim())}`,{cache:'no-store'});
@@ -97,9 +118,10 @@ export default function ClaimFacilityPage() {
     if(!registerHit)return;
     setError('');
     startTransition(async()=>{
+      const facilityType=registerHit.id===GIGWORKER_CURRENT_LOCATION_ID?gigworkerFacilityType:registerHit.facilityType;
       const result=await registerFacilitySelf({
         name:registerForm.name.trim(),
-        facilityType:registerHit.facilityType,
+        facilityType,
         addressText:registerForm.address.trim(),
         lng:registerForm.lng,lat:registerForm.lat,
         phone:registerForm.phone.trim()||null,
@@ -147,19 +169,29 @@ export default function ClaimFacilityPage() {
       <div className="w-full max-w-md space-y-6">
         {/* 헤더 */}
         <div className="text-center space-y-2">
-          <div className="text-4xl">🏥💊</div>
+          <div className="text-4xl">{entryChoice==='gigworker'?'📍':'🏥💊'}</div>
           <h1 className="text-[22px] font-bold text-ink">{entryChoice==='gigworker'?'긱워커 근태 시작':entryChoice==='recruit'?'근무자 모집 시작':'어떻게 시작할까요?'}</h1>
           <p className="text-[14px] text-sub">{entryChoice==='gigworker'?'당근 등에서 직접 만난 단기근로자를 초대해 근태를 관리해요.':entryChoice==='recruit'?'잇닿에서 단기근로자를 찾고 근무를 확정해요.':'시작 방식을 고른 뒤 사업장을 찾아 연결해 주세요.'}</p>
         </div>
 
         <section className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm" aria-label="시작 방식">
-          <button type="button" onClick={()=>setEntryChoice('gigworker')} aria-pressed={entryChoice==='gigworker'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='gigworker'?'bg-primary text-white':'bg-bg text-ink'}`}>
+          <button type="button" onClick={()=>chooseEntry('gigworker')} aria-pressed={entryChoice==='gigworker'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='gigworker'?'bg-primary text-white':'bg-bg text-ink'}`}>
             <p className="text-[14px] font-extrabold">긱워커 근태 시작</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='gigworker'?'text-white/80':'text-sub'}`}>외부 단기근로자 초대</p>
           </button>
-          <button type="button" onClick={()=>setEntryChoice('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
+          <button type="button" onClick={()=>chooseEntry('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
             <p className="text-[14px] font-extrabold">근무자 모집</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>잇닿에서 인력 찾기</p>
           </button>
         </section>
+
+        {entryChoice==='gigworker'&&<section className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+          <p className="text-[14px] font-extrabold text-ink">출퇴근 기준 위치를 정해 주세요</p>
+          <p className="mt-1 text-[12px] leading-5 text-sub">긱워커는 이 위치 반경 안에서 출퇴근을 인증해요.</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <CurrentLocationButton label="현재 위치를 사업장으로" radiusMeters={30} onChange={useCurrentLocationAsGigworkerWorkplace}/>
+            <button type="button" onClick={()=>{setGigworkerLocationMode('search');setError('');}} className={`min-h-11 rounded-xl px-3 text-left text-[13px] font-bold ${gigworkerLocationMode==='search'?'bg-primary text-white':'bg-white text-ink'}`}><span className="block">사업장 위치로 검색</span><span className={`mt-1 block text-[10px] font-medium ${gigworkerLocationMode==='search'?'text-white/75':'text-sub'}`}>병원·약국명으로 찾기</span></button>
+          </div>
+          {gigworkerLocationMode==='search'&&<p className="mt-3 text-[11px] font-medium text-primary">아래에서 사업장명을 검색해 위치를 고르세요.</p>}
+        </section>}
 
         {/* 검색 — 통합 서치바 (버튼이 바 안에 있어 좁은 화면에서도 안 깨짐) */}
         <div className="flex items-center gap-1 rounded-2xl border border-line bg-white p-1.5 pl-4 shadow-sm focus-within:border-primary">
@@ -169,14 +201,14 @@ export default function ClaimFacilityPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSearch()}
-            placeholder={entryChoice?'사업장명 검색':'위에서 시작 방식을 선택해 주세요'}
+            placeholder={canSearch?'사업장명 검색':entryChoice==='gigworker'?'위에서 위치 설정 방식을 선택해 주세요':'위에서 시작 방식을 선택해 주세요'}
             aria-label="사업장명 검색"
-            disabled={!entryChoice}
+            disabled={!canSearch}
             className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-sub disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSearch}
-            disabled={!entryChoice || searching}
+            disabled={!canSearch || searching}
             aria-label="검색"
             className="flex h-11 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white disabled:opacity-50"
           >
@@ -185,7 +217,7 @@ export default function ClaimFacilityPage() {
               : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4"/><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>}
           </button>
         </div>
-        <p className="-mt-4 px-1 text-[12px] text-sub">예: 수원 온누리약국, 아주대학교병원 — 지역과 이름을 함께 넣으면 정확해요</p>
+        {canSearch&&<p className="-mt-4 px-1 text-[12px] text-sub">예: 수원 온누리약국, 아주대학교병원 — 지역과 이름을 함께 넣으면 정확해요</p>}
         {mapSearchUnavailable&&<p role="status" className="-mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-700">지도 검색이 잠시 불가해 잇닿에 등록된 사업장만 보여요. 없으면 아래 등록 요청을 이용해 주세요.</p>}
 
         {/* 유형 필터 칩 — 결과를 거르기만 하고, 기본 '전체'라 아무것도 숨기지 않는다 */}
@@ -293,16 +325,18 @@ export default function ClaimFacilityPage() {
           <button type="button" aria-label="등록 닫기" onClick={()=>!isPending&&setRegisterHit(null)} className="fixed inset-0 z-30 bg-black/40"/>
           <section role="dialog" aria-modal="true" aria-labelledby="register-title" className="fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[92vh] max-w-app overflow-y-auto rounded-t-[24px] bg-white px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5">
             <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line"/>
-            <h2 id="register-title" className="text-[19px] font-extrabold">이 사업장으로 등록할게요</h2>
+            <h2 id="register-title" className="text-[19px] font-extrabold">{isGigworkerCurrentLocation?'현재 위치를 사업장으로 설정할게요':'이 사업장으로 등록할게요'}</h2>
             <p className="mt-1 text-[12px] leading-5 text-sub">
-              지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정합니다.
-              등록 후 잇닿이 확인하면 공고 등록이 열려요.
+              {isGigworkerCurrentLocation
+                ? '관리자 휴대폰의 현재 위치를 출퇴근 기준으로 저장해요. 사업장명과 주소를 확인해 주세요.'
+                : '지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정합니다. 등록 후 잇닿이 확인하면 공고 등록이 열려요.'}
             </p>
             <div className="mt-4 rounded-xl bg-surface px-4 py-3 text-[12px] text-sub">
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-primary">{TYPE_LABEL[registerHit.facilityType]??registerHit.typeLabel}</span>
-              <span className="ml-2">{registerHit.source==='hira'?'심평원 요양기관기호 '+registerHit.hiraYkiho:registerHit.address}</span>
+              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-primary">{TYPE_LABEL[isGigworkerCurrentLocation?gigworkerFacilityType:registerHit.facilityType]??registerHit.typeLabel}</span>
+              <span className="ml-2">{isGigworkerCurrentLocation?'관리자 현재 위치':registerHit.source==='hira'?'심평원 요양기관기호 '+registerHit.hiraYkiho:registerHit.address}</span>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
+              {isGigworkerCurrentLocation&&<label className="col-span-2 text-[12px] font-bold text-sub">사업장 유형<select value={gigworkerFacilityType} onChange={e=>setGigworkerFacilityType(e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line bg-white px-3 text-[14px]"><option value="small_hospital">병원·의원</option><option value="pharmacy">약국</option><option value="care_hospital">요양병원</option></select></label>}
               <label className="col-span-2 text-[12px] font-bold text-sub">사업장명<input value={registerForm.name} onChange={e=>setRegisterForm(c=>({...c,name:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]"/></label>
               <label className="col-span-2 text-[12px] font-bold text-sub">주소<input value={registerForm.address} onChange={e=>setRegisterForm(c=>({...c,address:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="도로명 주소"/><span className="mt-1 block text-[11px] font-medium text-sub">이전했거나 주소가 다르면 고쳐 주세요. 주소를 바꿔도 핀은 따로 옮겨야 해요.</span></label>
               <label className="col-span-2 text-[12px] font-bold text-sub">대표 전화 (선택)<input inputMode="tel" value={registerForm.phone} onChange={e=>setRegisterForm(c=>({...c,phone:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="031-000-0000"/></label>
@@ -312,7 +346,7 @@ export default function ClaimFacilityPage() {
             <p className="mt-4 text-[12px] font-bold text-sub">출퇴근 인증 위치 <span className="font-medium">· 기본 반경 30m, 설정에서 변경 가능</span></p>
             <FacilityPinMap className="mt-1" lng={registerForm.lng} lat={registerForm.lat} radiusMeters={30} onChange={({lng,lat})=>setRegisterForm(c=>({...c,lng,lat}))}/>
             {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-600">{error}</p>}
-            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?(brnForm.file?'등록·서류 올리는 중...':'요양기관 정보 대조 중...'):'사업장 등록하고 시작하기'}</button>
+            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?(brnForm.file?'등록·서류 올리는 중...':'요양기관 정보 대조 중...'):isGigworkerCurrentLocation?'이 위치로 긱워커 근태 시작':'사업장 등록하고 시작하기'}</button>
             <p className="mt-2 text-center text-[11px] text-sub">이미 다른 관리자가 등록한 사업장이면 초대 코드 연결로 안내돼요</p>
           </section>
         </>
