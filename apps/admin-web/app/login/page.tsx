@@ -89,7 +89,7 @@ function LoginInner() {
     <div className="flex flex-col min-h-screen px-6">
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
         <span className="text-[32px] font-extrabold text-primary">잇닿</span>
-        <span className="text-[15px] text-sub">병원·의원·약국 관리 콘솔</span>
+        <span className="text-[15px] text-sub">병원·약국 모집 · 긱워커 근태 관리</span>
       </div>
 
       {error === 'unauthorized' && (
@@ -107,8 +107,9 @@ function LoginInner() {
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path fillRule="evenodd" clipRule="evenodd" d="M10 2C5.582 2 2 4.895 2 8.455c0 2.27 1.512 4.263 3.786 5.39l-.964 3.5a.25.25 0 00.38.273L9.58 15.1A9.18 9.18 0 0010 15.11c4.418 0 8-2.895 8-6.455S14.418 2 10 2z" fill="#191F28"/>
           </svg>
-          {loading ? '로그인 중...' : '카카오로 로그인'}
+          {loading ? '등록 중...' : '카카오로 관리자 등록·로그인'}
         </button>
+        <p className="-mt-1 text-center text-[11px] leading-4 text-sub">처음이면 관리자 계정이 바로 만들어지고, 긱워커 근태는 사업자서류 없이 시작할 수 있어요.</p>
 
         {showDemoLogin && (
           <div className="mt-2 rounded-2xl border border-primary/20 bg-primary/5 p-3">

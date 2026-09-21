@@ -11,7 +11,8 @@ function RootInner() {
     async function route() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.replace('/shifts');
+        // 첫 진입은 워커 등록을 우선한다. 공고 둘러보기는 등록 화면에서 선택할 수 있다.
+        router.replace('/onboarding');
         return;
       }
       const { data: profile } = await supabase

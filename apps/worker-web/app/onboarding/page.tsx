@@ -35,6 +35,11 @@ function OnboardingInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [completionStep, setCompletionStep] = useState<'review' | 'approval'>('approval');
+  const [attendanceInvite, setAttendanceInvite] = useState(false);
+
+  useEffect(() => {
+    setAttendanceInvite(window.localStorage.getItem('atman_auth_next')?.startsWith('/workplace/join?token=') ?? false);
+  }, []);
 
   // 가입 중 브라우저 뒤로가기를 눌러도 입력값을 유지한 채 이전 단계로 돌아간다.
   // Next 라우팅 대신 history만 갱신해 이 페이지의 로컬 입력 상태를 보존한다.
@@ -183,12 +188,12 @@ function OnboardingInner() {
           ←
         </button>
       )}
-      {step === 'splash' && <Splash />}
+      {step === 'splash' && <Splash attendanceInvite={attendanceInvite} />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); go('role'); }} />}
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); go(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
       {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); go('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); go('info'); }} />}
-      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); go('area'); }} />}
+      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} onNext={(value) => { setBasicInfo(value); go(attendanceInvite ? 'bank' : 'area'); }} />}
       {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); go('bank'); }} onSkip={() => { setAreas([]); go('bank'); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={() => handleSubmit(null)} submitting={submitting} submitError={submitError} />}
       {step === 'notification' && <NotificationSetup onNext={() => go(completionStep)} />}

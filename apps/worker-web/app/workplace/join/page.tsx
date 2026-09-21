@@ -10,6 +10,7 @@ function JoinWorkplaceContent(){
   const token=params.get('token');
   const [status,setStatus]=useState<'loading'|'success'|'error'>('loading');
   const [message,setMessage]=useState('직원 초대를 확인하고 있어요...');
+  const [isGigworker,setIsGigworker]=useState(false);
 
   useEffect(()=>{void (async()=>{
     if(!token){setStatus('error');setMessage('초대 링크가 올바르지 않아요. 사업장에 새 링크를 요청해 주세요.');return;}
@@ -20,23 +21,28 @@ function JoinWorkplaceContent(){
       window.location.href='/onboarding';
       return;
     }
-    const {error}=await supabase.rpc('claim_facility_staff_invite',{p_token:token});
+    const {data:staffId,error}=await supabase.rpc('claim_facility_staff_invite',{p_token:token});
     if(error){
       setStatus('error');
       setMessage(error.message.replace(/^.*?: /,''));
       return;
     }
+    const {data:staff}=await supabase.from('facility_staff')
+      .select('facilities(name,registration_source)').eq('id',staffId as string).maybeSingle();
+    const facility=Array.isArray((staff as any)?.facilities)?(staff as any).facilities[0]:(staff as any)?.facilities;
+    const gigworker=facility?.registration_source==='gigworker_trial';
+    setIsGigworker(gigworker);
     setStatus('success');
-    setMessage('사업장 직원 계정 연결이 완료됐어요.');
+    setMessage(gigworker?`${facility?.name ?? '근무지'}의 긱워커 근태 초대가 연결됐어요.`:'사업장 직원 계정 연결이 완료됐어요.');
   })();},[token]);
 
   return <main className="min-h-screen bg-bg px-5 pt-16 pb-24">
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 text-center shadow-sm">
       <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl ${status==='success'?'bg-emerald-50 text-emerald-600':status==='error'?'bg-red-50 text-red-600':'bg-primary/10 text-primary'}`}>{status==='success'?'✓':status==='error'?'!':'…'}</div>
-      <p className="mt-5 text-[13px] font-bold text-primary">직원 계정 연결</p>
-      <h1 className="mt-1 text-[24px] font-extrabold">내 직장 초대</h1>
+      <p className="mt-5 text-[13px] font-bold text-primary">{isGigworker?'긱워커 근태 초대':'직원 계정 연결'}</p>
+      <h1 className="mt-1 text-[24px] font-extrabold">{isGigworker?'근무 초대 수락':'내 직장 초대'}</h1>
       <p role="status" className="mt-3 text-[14px] leading-6 text-sub">{message}</p>
-      {status==='success'&&<Link href="/workplace" className="mt-6 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">출퇴근·휴가 관리 시작하기</Link>}
+      {status==='success'&&<Link href="/workplace" className="mt-6 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">{isGigworker?'오늘 근무 확인하기':'출퇴근·휴가 관리 시작하기'}</Link>}
       {status==='error'&&<p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">로그인한 계정의 연락처가 사업장에 등록된 직원 연락처와 같아야 합니다.</p>}
     </section>
   </main>;
