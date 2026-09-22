@@ -36,7 +36,11 @@ export async function POST(request: NextRequest) {
   const { data: worker } = sb ? await sb.from('workers').select('id, role, verification_status')
     .eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle() : { data: null };
   const progressive = worker?.role === 'rn' || worker?.role === 'na' || worker?.role === 'pharmacist';
-  if (!worker || (!progressive && worker.verification_status !== 'approved')) {
+  const { count: linkedStaffCount } = sb && worker ? await sb.from('facility_staff').select('id', { count: 'exact', head: true })
+    .eq('worker_id', worker.id).neq('status', 'ended') : { count: 0 };
+  // 근태 초대로 가입한 일반 긱워커(role=other)는 플랫폼 자격심사 대상이 아니다.
+  // 활성 사업장에 연결된 계정이면 워크룸·출퇴근 직후 알림 디스패치를 깨울 수 있다.
+  if (!worker || (!progressive && worker.verification_status !== 'approved' && !linkedStaffCount)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers });
   }
   const now = Date.now();

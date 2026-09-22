@@ -89,7 +89,7 @@ function OnboardingInner() {
       const { error: rpcError } = await supabase.rpc('complete_worker_onboarding', {
         p_role: roleOverride,
         p_name: infoOverride.name,
-        p_phone: infoOverride.phone,
+        p_phone: infoOverride.phone || null,
         p_birth_date: terms.birthDate,
         p_areas: areas,
         p_license_path: uploadedPath,

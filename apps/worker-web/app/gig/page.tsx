@@ -101,6 +101,8 @@ function GigTodayContent() {
       <p className="mt-1 text-[13px] leading-5 text-white/65">초대받은 일정과 출퇴근 기록만 간단하게 확인해요.</p>
     </section>
 
+    <Link href="/gig/workroom" className="mt-3 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm active:bg-bg"><span><b className="block text-[15px] text-ink">사업장 워크룸</b><span className="mt-1 block text-[12px] text-sub">공지와 근무 대화를 전화번호 없이 확인해요</span></span><span className="text-[20px] font-bold text-primary">→</span></Link>
+
     {loading ? <div className="mt-6 rounded-2xl bg-white p-8 text-center text-sub">근태를 확인하고 있어요...</div>
       : !staff ? <section className="mt-6 rounded-2xl bg-white p-8 text-center">
           <b>아직 연결된 근무 초대가 없어요</b>

@@ -3,19 +3,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// 긱워커 알림 — 출근 안내·근태 알림만. 공고·채팅 알림은 의료 워커(/notifications) 몫이다.
+// 긱워커 알림 — 출근·근태와 사업장 워크룸 알림만. 공고·지원 알림은 의료 워커(/notifications) 몫이다.
 type Notice = { id: string; event_type: string; title: string; body: string; data: Record<string, unknown> | null; created_at: string; read_at: string | null };
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
-function isAttendanceNotice(notice: Notice) {
+function isGigNotice(notice: Notice) {
   const kind = typeof notice.data?.kind === 'string' ? notice.data.kind : '';
-  return notice.event_type.startsWith('attendance.') || kind.startsWith('attendance.');
+  return notice.event_type.startsWith('attendance.') || kind.startsWith('attendance.')
+    || notice.event_type.startsWith('workroom.') || kind.startsWith('workroom.');
 }
 // 알림 data.url 은 DB 함수가 /workplace 로 적는다(직원·긱워커 공용). 긱워커 화면에서는 /gig 로 연다.
 function gigHref(url: unknown) {
   if (typeof url !== 'string') return null;
+  if (url === '/workroom' || url.startsWith('/workroom?')) return url.replace('/workroom', '/gig/workroom');
   return url === '/workplace' || url.startsWith('/workplace?') ? url.replace('/workplace', '/gig') : url;
 }
 
@@ -29,7 +31,7 @@ export default function GigNotificationsPage() {
     setError('');
     const { data, error: rpcError } = await supabase.rpc('get_my_notifications', { p_limit: 50 });
     if (rpcError) setError('알림을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
-    else setRows(((data ?? []) as Notice[]).filter(isAttendanceNotice));
+    else setRows(((data ?? []) as Notice[]).filter(isGigNotice));
     setLoading(false);
   }, []);
 
@@ -48,7 +50,7 @@ export default function GigNotificationsPage() {
     <main className="px-5 pb-8 pt-4">
       <div className="mb-5 flex items-end justify-between">
         <div>
-          <p className="text-[12px] font-bold text-primary">GIG WORKER · 출근 안내</p>
+          <p className="text-[12px] font-bold text-primary">GIG WORKER · 근무 소식</p>
           <h1 className="mt-1 text-[26px] font-extrabold text-ink">근무 알림</h1>
         </div>
         <button onClick={() => void load()} className="text-[12px] font-bold text-primary">새로고침</button>
@@ -62,7 +64,7 @@ export default function GigNotificationsPage() {
       {!loading && !error && rows.length === 0 && (
         <div className="rounded-2xl bg-bg py-12 text-center">
           <p className="text-[15px] font-bold text-ink">아직 알림이 없어요</p>
-          <p className="mt-1 text-[12px] text-sub">근무 시작 전 안내와 출퇴근 알림이 여기에 쌓여요.</p>
+          <p className="mt-1 text-[12px] text-sub">워크룸 공지와 출퇴근 알림이 여기에 쌓여요.</p>
         </div>
       )}
       <div className="space-y-2">

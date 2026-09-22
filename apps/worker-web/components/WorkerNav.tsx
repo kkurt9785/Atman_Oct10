@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 // 의료 워커(병원·약국 시프트) 전용 탭. 긱워커 탭은 components/gig/GigNav.tsx — 두 제품은 nav 를 공유하지 않는다.
+// 워크룸은 사업장에 직원으로 연결된 사람만 쓰므로 탭 대신 /workplace 안에서 연다 (탭 7개는 390px 에서 안 읽힌다).
 const TABS = [
   { href: '/home',         label: '홈',     icon: 'home' },
   { href: '/shifts',       label: '근무 찾기', icon: 'search' },
@@ -16,6 +17,7 @@ const ICONS={
   home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></>,
   search:<><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5M7 10h6M10 7v6"/></>,
   applications:<><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></>,
+  chat:<><path d="M4 5h16v11H9l-5 4V5Z"/><path d="M8 9h8M8 12h5"/></>,
   pay:<><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h8M12 7v8"/></>,
   profile:<><circle cx="12" cy="8" r="3"/><path d="M5 21a7 7 0 0 1 14 0"/></>,
 };

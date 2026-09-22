@@ -152,7 +152,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-card">
       <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
       <p className="mt-5 text-[13px] font-bold text-primary">{isGig ? '긱워커 전용 근태 초대' : '직원 계정 연결'}</p>
-      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이제 출퇴근만 기록하면 돼요' : '초대받은 근무를 확인해 주세요'}</h1>
+      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이제 앱에서 함께 일해요' : '초대받은 근무를 확인해 주세요'}</h1>
       <p role="status" className="mt-3 text-[14px] leading-6 text-sub">{message}</p>
 
       {preview && status !== 'success' && <div className="mt-5 overflow-hidden rounded-2xl border border-line">

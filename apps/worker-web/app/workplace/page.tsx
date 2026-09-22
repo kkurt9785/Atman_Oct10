@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -150,6 +151,7 @@ function WorkplaceContent() {
   const currentAttendance=staff?attendance[staff.id]:null;
   return <main className="min-h-screen bg-bg px-4 pt-6 pb-28">
     <p className="text-[13px] font-bold text-primary">내 직장</p><h1 className="text-[26px] font-extrabold text-ink mt-1">출퇴근·휴가</h1>
+    {!loading&&staffList.length>0&&<Link href="/workroom" className="mt-4 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm active:bg-bg"><span><b className="block text-[15px] text-ink">사업장 워크룸</b><span className="mt-1 block text-[12px] text-sub">공지와 근무 대화를 한곳에서 확인해요</span></span><span className="text-[20px] font-bold text-primary">→</span></Link>}
     {loading?<div className="mt-6 bg-white rounded-2xl p-8 text-center text-sub">근태를 확인하고 있어요...</div>:
       <>{shiftTarget&&(()=>{const shift=Array.isArray(shiftTarget.shifts)?shiftTarget.shifts[0]:shiftTarget.shifts;const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;const mode=attendanceModes[facility?.id]??'gps_or_qr';const action=shiftTarget.checked_in_at?'check_out':'check_in';const checkoutPending=Boolean(shiftCheckoutRequested(shiftTarget)&&!shiftTarget.checked_out_at);return <><section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><p className="text-[13px] font-bold text-primary">오늘 확정된 단기근무</p><h2 className="mt-1 text-[18px] font-extrabold">{facility?.name}</h2><p className="mt-1 text-[13px] text-sub">{shift.shift_date} · {shift.start_time.slice(0,5)}~{shift.end_time.slice(0,5)}</p>{checkoutPending?<p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간과 지급 자료가 확정됩니다.</p>:!shiftTarget.checked_out_at?<AttendanceActionButton key={action} targetType="shift" targetId={shiftTarget.id} action={action} qrToken={attendanceToken} mode={mode} onSuccess={(response)=>{setShiftTarget(current=>current?response.status==='pending'?{...current,shift_attendances:{checkout_requested_at:new Date().toISOString()}}:{...current,[action==='check_in'?'checked_in_at':'checked_out_at']:new Date().toISOString()}:current);setRefreshKey(k=>k+1);}}/>:<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">근무가 완료됐어요.</p>}</section>{!staff&&<section className="mt-5 rounded-2xl bg-white p-5 shadow-sm"><h2 className="text-[18px] font-extrabold">내 근태 내역</h2><div className="mt-3"><MyAttendanceCalendar staffId={null} refreshKey={refreshKey}/></div></section>}</>})()}
       {      !staff?(!shiftTarget&&<div className="mt-6 bg-white rounded-2xl p-8 text-center"><b>오늘 배정된 근무가 없어요</b><p className="text-[13px] text-sub mt-2">단기 근무는 지원이 확정되면 여기에 출근 버튼이 생겨요. 사업장 직원이라면 관리자에게 잇닿 계정 연결을 요청해 주세요.</p></div>):

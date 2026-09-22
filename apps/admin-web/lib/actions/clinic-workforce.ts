@@ -90,7 +90,6 @@ export async function addClinicStaffAction(form: FormData) {
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   if(!Number.isInteger(breakMinutes)||breakMinutes<0||breakMinutes>720)throw new Error('휴게시간을 확인해 주세요.');
   if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
-  if (isGigworker && !phone) throw new Error('초대 링크를 연결할 휴대전화 번호를 입력해 주세요.');
   if (phone && (isGigworker ? !/^010\d{8}$/.test(normalizedPhone) : normalizedPhone.length < 10)) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
   let workWeekdays = form.getAll('work_weekdays').map(Number).filter((day)=>day>=1&&day<=7);
   if(isGigworker&&contractStart&&contractStart===contractEnd){
@@ -114,10 +113,10 @@ export async function addClinicStaffAction(form: FormData) {
   }).select('id,worker_id').single();
   if (error) throw new Error('직원을 등록하지 못했어요.');
   let inviteToken:string|null=null;
-  if (!created.worker_id && phone) {
+  if (!created.worker_id) {
     const { data:invite,error: inviteError } = await sb.from('facility_staff_invites').insert({
       facility_id: context.facilityId, staff_id: created.id,
-      phone_normalized: normalizedPhone, created_by: context.user.id,
+      phone_normalized: normalizedPhone || null, created_by: context.user.id,
     }).select('token').single();
     if (inviteError) throw new Error('직원은 등록됐지만 초대 링크를 만들지 못했어요. 직원 목록에서 다시 발급해 주세요.');
     inviteToken=invite?.token??null;
@@ -380,11 +379,10 @@ export async function createStaffInviteAction(form:FormData){
   if(!staff) throw new Error('직원을 찾지 못했어요.');
   if(staff.worker_id) throw new Error('이미 직원 계정과 연결돼 있어요.');
   const normalized=String(staff.phone??'').replace(/\D/g,'');
-  if(normalized.length<10) throw new Error('초대하려면 올바른 휴대전화 번호를 등록해 주세요.');
   await sb.from('facility_staff_invites').update({status:'cancelled'})
     .eq('staff_id',staffId).eq('status','pending');
   const {error}=await sb.from('facility_staff_invites').insert({
-    facility_id:context.facilityId,staff_id:staffId,phone_normalized:normalized,
+    facility_id:context.facilityId,staff_id:staffId,phone_normalized:normalized||null,
     created_by:context.user.id,expires_at:new Date(Date.now()+7*86_400_000).toISOString(),
   });
   if(error) throw new Error('직원 초대를 만들지 못했어요.');

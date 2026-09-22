@@ -65,14 +65,14 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
     return <WorkforceActionForm kind="add_staff" successMessage="근무자와 초대 정보를 만들었어요." onSuccess={(raw)=>{
       const result=(raw??{}) as CreatedStaff;
       setLinked(Boolean(result.linked));
-      setInviteUrl(result.inviteToken&&workerOrigin?`${workerOrigin}/workplace/join?token=${result.inviteToken}`:'');
+      setInviteUrl(result.inviteToken&&workerOrigin?`${workerOrigin}/gig/join?token=${result.inviteToken}`:'');
     }} className="px-5 pb-6">
       <input type="hidden" name="role" value="other"/>
       <input type="hidden" name="engagement_type" value={scheduleMode==='single'?'daily':'temporary'}/>
       <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
         <h3 className="col-span-2 text-[13px] font-extrabold text-ink">누가 근무하나요?</h3>
         <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
-        <label className="col-span-2 text-label font-medium text-sub">휴대전화 <span className="font-normal text-tertiary">· 초대받은 번호와 가입 번호가 같아야 해요</span><input name="phone" required inputMode="tel" className={inputClass} placeholder="010-0000-0000"/></label>
+        <label className="col-span-2 text-label font-medium text-sub">휴대전화 <span className="font-normal text-tertiary">· 선택, 서로 공개되지 않아요</span><input name="phone" inputMode="tel" className={inputClass} placeholder="몰라도 바로 초대할 수 있어요"/></label>
         <label className="col-span-2 text-label font-medium text-sub">근무 내용 <span className="font-normal text-tertiary">· 선택</span><input name="department" className={inputClass} placeholder="예: 행사 안내, 포장, 매장 보조"/></label>
       </section>
 
@@ -107,9 +107,9 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
 
       {(inviteUrl||linked)&&<section className="mt-5 rounded-2xl border border-success/30 bg-success/5 p-4">
         <p className="text-[14px] font-extrabold text-ink">{linked?'이미 가입한 번호라 바로 연결됐어요.':'등록 완료 · 이제 초대만 보내세요'}</p>
-        {!linked&&<><p className="mt-1 text-[12px] leading-5 text-sub">근무자가 링크를 열어 카카오로 로그인하고, 가입 때 입력한 휴대폰 번호가 관리자 등록 번호와 같으면 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div></>}
+        {!linked&&<><p className="mt-1 text-[12px] leading-5 text-sub">근무자가 링크나 QR을 열어 가입하면 전화번호 대조 없이 이 사업장과 워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div></>}
       </section>}
-      <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 초대 만들기</button>
+      <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 가입 링크 만들기</button>
       <p className="mt-2 text-center text-[11px] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>
     </WorkforceActionForm>;
   }
