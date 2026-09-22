@@ -38,7 +38,9 @@ function OnboardingInner() {
   const [attendanceInvite, setAttendanceInvite] = useState(false);
 
   useEffect(() => {
-    setAttendanceInvite(window.localStorage.getItem('atman_auth_next')?.startsWith('/workplace/join?token=') ?? false);
+    // 근태 초대(긱워커 /gig/join, 사업장 직원 /workplace/join)로 들어온 가입은 직군·서류·지역 단계를 건너뛴다.
+    const next = window.localStorage.getItem('atman_auth_next') ?? '';
+    setAttendanceInvite(next.startsWith('/gig/join?token=') || next.startsWith('/workplace/join?token='));
   }, []);
 
   // 가입 중 브라우저 뒤로가기를 눌러도 입력값을 유지한 채 이전 단계로 돌아간다.

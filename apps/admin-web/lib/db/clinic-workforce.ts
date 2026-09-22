@@ -45,15 +45,19 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   if (!sb || !facilityId) return [];
   const today = todayKST();
   const year = Number(today.slice(0, 4));
-  const [staffResult, attendanceResult, balanceResult, leaveResult] = await Promise.all([
+  const [staffResult, attendanceResult, balanceResult, leaveResult, facilityResult] = await Promise.all([
     sb.from('facility_staff').select('*').eq('facility_id', facilityId).neq('status', 'ended').order('name'),
     sb.from('staff_attendances').select('*').eq('facility_id', facilityId).gte('work_date', yesterdayKST()).lte('work_date', today),
     sb.from('staff_leave_balances').select('staff_id,granted_minutes,used_minutes')
       .eq('facility_id', facilityId).eq('leave_year', year),
     sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId)
       .eq('status', 'approved').lte('start_date', today).gte('end_date', today),
+    sb.from('facilities').select('registration_source').eq('id', facilityId).maybeSingle(),
   ]);
-  const loadError = [staffResult.error, attendanceResult.error, balanceResult.error, leaveResult.error].find(Boolean);
+  const loadError = [staffResult.error, attendanceResult.error, balanceResult.error, leaveResult.error, facilityResult.error].find(Boolean);
+  // 요일 일정은 긱워커 근무지(하루·반복 근무)에서만 근태를 가른다. 병원·약국 직원의 work_weekdays 는
+  // 등록 기본값(월~금)이 대부분이라 주말 근무를 막는 근거가 못 된다 — DB record_unified_attendance 와 같은 기준.
+  const enforceWeekdays = facilityResult.data?.registration_source === 'gigworker_trial';
   if (loadError) throw new Error(`직원·근태 정보를 불러오지 못했어요: ${loadError.message}`);
   const staff = staffResult.data;
   const attendance = attendanceResult.data;
@@ -86,7 +90,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
     const weekday=new Date(`${today}T00:00:00Z`).getUTCDay()||7;
     const inContract=(!row.contract_start||row.contract_start<=today)&&(!row.contract_end||row.contract_end>=today);
     const hasOpenAttendance=Boolean(att?.check_in_at&&!att?.check_out_at);
-    const scheduledToday=row.status==='active'&&inContract&&workWeekdays.includes(weekday);
+    const scheduledToday=row.status==='active'&&inContract&&(!enforceWeekdays||workWeekdays.includes(weekday));
     return {
       id: row.id, workerId: row.worker_id, phone: row.phone, name: row.name, role: row.role, department: row.department,
       source: row.source, engagementType: row.engagement_type,

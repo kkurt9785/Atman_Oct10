@@ -84,7 +84,7 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
     if (gigworker) {
       window.localStorage.setItem('atman_gigworker_mode', '1');
       window.localStorage.removeItem('atman_auth_next');
-      window.location.href=`/workplace/join?token=${encodeURIComponent(payload.gigInviteToken)}`;
+      window.location.href=`/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}`;
       return;
     }
     const next=window.localStorage.getItem('atman_auth_next');

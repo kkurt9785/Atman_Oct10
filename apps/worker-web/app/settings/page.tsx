@@ -11,16 +11,11 @@ import {
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
-import {
-  getFacilityRegistrationSources,
-  getGigworkerModePreference,
-  hasGigworkerLink,
-  setGigworkerModePreference,
-  shouldUseGigworkerMode,
-} from '@/lib/worker-mode';
+import { getFacilityRegistrationSources, hasGigworkerLink, setGigworkerModePreference } from '@/lib/worker-mode';
 
 const PROFILE_TOTAL = 4;
 
+// 의료 워커 "내 정보". 긱워커 전용 설정은 /gig/settings — 여기서는 긱 근무가 연결돼 있으면 그 화면으로 가는 카드만 보여 준다.
 export default function SettingsPage() {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -32,12 +27,10 @@ export default function SettingsPage() {
   const [pushNotice, setPushNotice] = useState('');
   const [showPwaGuide, setShowPwaGuide] = useState(false);
   const [locationSaved, setLocationSaved] = useState(false);
-  const [isGigworker, setIsGigworker] = useState(false);
   const [gigworkerLinked, setGigworkerLinked] = useState(false);
 
   useEffect(() => {
     setLocationSaved(new URLSearchParams(window.location.search).get('locationSaved') === '1');
-    setIsGigworker(getGigworkerModePreference());
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/onboarding'); return; }
@@ -53,11 +46,7 @@ export default function SettingsPage() {
         supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
       ]);
 
-      const sources = getFacilityRegistrationSources(staffLinks);
-      const hasGigworker = hasGigworkerLink(sources);
-      setGigworkerLinked(hasGigworker);
-      setIsGigworker(shouldUseGigworkerMode(sources, workerProf?.role, getGigworkerModePreference()));
-
+      setGigworkerLinked(hasGigworkerLink(getFacilityRegistrationSources(staffLinks)));
       setRole(workerProf?.role ?? '');
       setLocations(locPref?.locations ?? []);
 
@@ -128,16 +117,9 @@ export default function SettingsPage() {
     router.replace('/');
   }
 
-  function handleModeSwitch() {
-    const nextGigworker = !isGigworker;
-    setGigworkerModePreference(nextGigworker);
-    setIsGigworker(nextGigworker);
-    router.replace(nextGigworker ? '/workplace' : '/home');
-  }
-
-  function startMedicalRegistration() {
-    setGigworkerModePreference(false);
-    router.push('/onboarding?step=terms');
+  function openGigworker() {
+    setGigworkerModePreference(true);
+    router.push('/gig');
   }
 
   const roleLabel = WORKER_ROLE_LABEL[role as WorkerRole] ?? '';
@@ -154,9 +136,7 @@ export default function SettingsPage() {
         <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{pushNotice}</p>
       )}
       <div className="px-1 mt-2 mb-6">
-        {isGigworker && <span className="inline-flex rounded-full bg-ink px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em] text-white">GIG WORKER</span>}
         <h1 className="text-[24px] font-extrabold text-ink">내 정보</h1>
-        {isGigworker && <p className="mt-1 text-[13px] text-sub">근무 초대 계정과 출근 알림을 관리해요.</p>}
       </div>
 
       {/* 프로필 카드 */}
@@ -165,45 +145,28 @@ export default function SettingsPage() {
           <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center text-3xl">👤</div>
           <div>
             <p className="text-[18px] font-bold text-ink">{name || '...'}</p>
-            {(isGigworker || roleLabel) && (
+            {roleLabel && (
               <span className="text-[13px] font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
-                {isGigworker ? '긱워커' : roleLabel}
+                {roleLabel}
               </span>
             )}
           </div>
         </div>
       </div>
 
-      {gigworkerLinked && (!isGigworker || role !== 'other') && (
-        <section className={`mb-4 rounded-2xl p-5 shadow-sm ${isGigworker ? 'border border-primary/20 bg-white' : 'bg-ink text-white'}`}>
-          <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">
-            {isGigworker ? 'MEDICAL SHIFT' : 'GIG WORKER'}
-          </p>
-          <p className={`mt-1 text-[16px] font-extrabold ${isGigworker ? 'text-ink' : 'text-white'}`}>
-            {isGigworker ? '병원·약국 일자리도 확인할까요?' : '연결된 긱워커 근무가 있어요'}
-          </p>
-          <p className={`mt-1 text-[12px] leading-5 ${isGigworker ? 'text-sub' : 'text-white/65'}`}>
-            {isGigworker ? '기존 프로필과 지원 내역은 그대로 유지돼요.' : '초대받은 일정과 출퇴근 화면으로 전환해요.'}
-          </p>
-          <button type="button" onClick={handleModeSwitch} className={`mt-3 h-11 w-full rounded-xl text-[13px] font-extrabold ${isGigworker ? 'bg-primary text-white' : 'bg-white text-ink'}`}>
-            {isGigworker ? '병원·약국 일자리 모드로 전환' : '긱워커 근태 모드로 전환'}
-          </button>
-        </section>
-      )}
-
-      {isGigworker && role === 'other' && (
-        <section className="mb-4 rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
-          <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">MEDICAL SHIFT</p>
-          <p className="mt-1 text-[16px] font-extrabold text-ink">병원·약국 일자리도 찾을 수 있어요</p>
-          <p className="mt-1 text-[12px] leading-5 text-sub">직군과 활동 지역을 추가하면 기존 긱 근무 기록은 유지돼요.</p>
-          <button type="button" onClick={startMedicalRegistration} className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-extrabold text-white">
-            의료 워커 정보 등록하기
+      {gigworkerLinked && (
+        <section className="mb-4 rounded-2xl bg-ink p-5 text-white shadow-sm">
+          <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">GIG WORKER</p>
+          <p className="mt-1 text-[16px] font-extrabold">연결된 긱워커 근무가 있어요</p>
+          <p className="mt-1 text-[12px] leading-5 text-white/65">초대받은 일정과 출퇴근 화면으로 전환해요.</p>
+          <button type="button" onClick={openGigworker} className="mt-3 h-11 w-full rounded-xl bg-white text-[13px] font-extrabold text-ink">
+            긱워커 근태 화면으로
           </button>
         </section>
       )}
 
       {/* 내 프로필 카드 */}
-      {!isGigworker && <Link href="/settings/profile">
+      <Link href="/settings/profile">
         <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1.5">
@@ -228,10 +191,10 @@ export default function SettingsPage() {
           </div>
           <span className="text-tertiary ml-3">›</span>
         </div>
-      </Link>}
+      </Link>
 
       {/* 활동 지역 */}
-      {!isGigworker && <Link href="/settings/location">
+      <Link href="/settings/location">
         <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
           <div>
             <p className="text-[15px] font-bold text-ink mb-1.5">활동 지역</p>
@@ -249,9 +212,9 @@ export default function SettingsPage() {
           </div>
           <span className="text-tertiary ml-3">›</span>
         </div>
-      </Link>}
+      </Link>
 
-      {!isGigworker && <Link href="/rewards">
+      <Link href="/rewards">
         <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
           <div>
             <div className="flex items-center gap-2">
@@ -262,25 +225,23 @@ export default function SettingsPage() {
           </div>
           <span className="text-tertiary ml-3">›</span>
         </div>
-      </Link>}
+      </Link>
 
       {/* 시프트 알림 */}
       <button
         onClick={handlePushToggle}
         role="switch"
         aria-checked={pushEnabled}
-        aria-label={isGigworker ? '이 기기의 출근 알림' : '이 기기의 시프트 알림'}
+        aria-label="이 기기의 시프트 알림"
         disabled={pushLoading}
         className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
       >
         <div className="text-left">
-          <p className="text-[15px] font-bold text-ink">{isGigworker ? '이 기기 출근 알림' : '이 기기 시프트 알림'}</p>
+          <p className="text-[15px] font-bold text-ink">이 기기 시프트 알림</p>
           <p className="text-[13px] text-tertiary mt-0.5">
-            {isGigworker
-              ? pushEnabled ? '근무 시작 전 출근 안내를 보내드려요' : '알림을 켜면 출근 시간을 놓치지 않아요'
-              : pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 시프트를 바로 받아요'}
+            {pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 시프트를 바로 받아요'}
           </p>
-          <p className="mt-1 text-[11px] leading-4 text-sub">{isGigworker ? '근무 30분 전 안내와 근태 알림을 앱 푸시로 받아요' : '새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요'}</p>
+          <p className="mt-1 text-[11px] leading-4 text-sub">새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요</p>
         </div>
         <div className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 flex items-center px-1 ${pushEnabled ? 'bg-primary' : 'bg-line'}`}>
           <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
