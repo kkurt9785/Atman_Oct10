@@ -3,8 +3,8 @@ import './globals.css';
 import { ClientLayout } from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
-  title: '잇닿 — 의료인력을 위한 시프트',
-  description: '간호사·간호조무사·약사·약국 사무직 공고와 사업장 직접 지급 현황을 한눈에.',
+  title: '잇닿 WORKER — 시프트·긱 근태',
+  description: '병원·약국 시프트 탐색과 초대받은 단기근무 출퇴근을 한 앱에서.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '잇닿',
+    title: '잇닿 WORKER',
   },
   robots: { index: false, follow: false },
 };

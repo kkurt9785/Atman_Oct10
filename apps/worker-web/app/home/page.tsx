@@ -9,6 +9,13 @@ import type { Shift } from '@/app/shifts/page';
 import { dateKST } from '@/lib/date';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
+import {
+  getFacilityRegistrationSources,
+  getGigworkerModePreference,
+  hasGigworkerLink,
+  setGigworkerModePreference,
+  shouldUseGigworkerMode,
+} from '@/lib/worker-mode';
 
 type ShiftWithFacility = Shift & {
   facilities: { name: string; address_text?: string | null; facility_type?: string | null } | null;
@@ -229,6 +236,7 @@ export default function HomePage() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
+  const [gigWorkplaceAvailable, setGigWorkplaceAvailable] = useState(false);
   // 플랫폼 심사를 거치는 직군(약사 등)이 미승인이면 공고가 0건인 이유를 안내해야 한다
   const [reviewPending, setReviewPending] = useState(false);
   const [nextAction,setNextAction]=useState<NextAction>({label:'근무 찾기',title:'내 조건에 맞는 근무를 찾아보세요',description:'지역과 직종에 맞는 시프트를 모아 보여드려요.',href:'/shifts',tone:'primary'});
@@ -310,32 +318,25 @@ export default function HomePage() {
         return;
       }
 
-      const { data: staffLinks } = await supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended');
-      const sources = (staffLinks ?? []).map((row: any) => {
-        const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
-        return facility?.registration_source;
-      });
-      const hasGigworker = sources.includes('gigworker_trial');
-      const hasOtherWorkplace = sources.some((source) => source && source !== 'gigworker_trial');
-      const gigworkerMode = hasGigworker && (!hasOtherWorkplace || window.localStorage.getItem('atman_gigworker_mode') === '1');
-      if (gigworkerMode) {
-        window.localStorage.setItem('atman_gigworker_mode', '1');
-        router.replace('/workplace');
-        return;
-      }
-
-      setName(user.user_metadata?.profile_nickname ?? '사용자');
-
-      const [
-        { data: locPref },
-        { data: workerRow },
-      ] = await Promise.all([
-        supabase.from('worker_location_prefs').select('locations').single(),
+      const [{ data: staffLinks }, { data: workerRow }] = await Promise.all([
+        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
         supabase.from('workers')
           .select('id, role, verification_status, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
       ]);
+      const sources = getFacilityRegistrationSources(staffLinks);
+      const gigworkerMode = shouldUseGigworkerMode(sources, workerRow?.role, getGigworkerModePreference());
+      if (gigworkerMode) {
+        setGigworkerModePreference(true);
+        router.replace('/workplace');
+        return;
+      }
+      setGigWorkplaceAvailable(hasGigworkerLink(sources));
+
+      setName(user.user_metadata?.profile_nickname ?? '사용자');
+
+      const { data: locPref } = await supabase.from('worker_location_prefs').select('locations').single();
 
       const userRole = (workerRow?.role as WorkerRole) ?? 'rn';
       const areaLabels = ((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label);
@@ -426,6 +427,11 @@ export default function HomePage() {
     setSelected(null);
   }
 
+  function openGigworkerWorkplace() {
+    setGigworkerModePreference(true);
+    router.push('/workplace');
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -479,6 +485,20 @@ export default function HomePage() {
           </div>
         )}
       </div>
+
+      {gigWorkplaceAvailable && (
+        <button
+          type="button"
+          onClick={openGigworkerWorkplace}
+          className="mx-5 mb-4 flex w-[calc(100%-2.5rem)] items-center justify-between gap-3 rounded-2xl bg-ink px-4 py-3.5 text-left text-white shadow-sm active:opacity-80"
+        >
+          <span>
+            <span className="block text-[10px] font-extrabold tracking-[0.12em] text-primary">GIG WORKER</span>
+            <span className="mt-1 block text-[14px] font-extrabold">연결된 긱워커 근무가 있어요</span>
+          </span>
+          <span className="shrink-0 text-[12px] font-bold text-white/75">출퇴근 보기 →</span>
+        </button>
+      )}
 
       <section className={`mx-5 mb-4 rounded-2xl p-4 ${nextAction.tone==='success'?'bg-success text-white':'bg-primary text-white'} shadow-btn`}>
         <p className="text-[11px] font-bold text-white/75">지금 할 일</p><h2 className="mt-1 text-[17px] font-extrabold">{nextAction.title}</h2><p className="mt-1 text-[12px] text-white/80">{nextAction.description}</p><Link href={nextAction.href} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-white text-[14px] font-extrabold text-primary">{nextAction.label}</Link>

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { setGigworkerModePreference } from '@/lib/worker-mode';
 
 type InvitePreview = {
   ok: boolean;
@@ -38,6 +39,14 @@ function dateRange(preview: InvitePreview) {
 
 function weekdayText(days?: number[] | null) {
   return (days ?? []).filter((day) => day >= 1 && day <= 7).map((day) => WEEKDAYS[day - 1]).join('·') || '요일 협의';
+}
+
+function friendlyInviteError(message: string) {
+  return message
+    .replace(/^.*?: /, '')
+    .replace('병원이 등록한 연락처', '관리자가 등록한 연락처')
+    .replace('이 병원의 다른 직원 정보', '이 근무지의 다른 근무자 정보')
+    .replace('병원에 재발급', '관리자에게 재발급');
 }
 
 function JoinWorkplaceContent() {
@@ -78,7 +87,7 @@ function JoinWorkplaceContent() {
       }
       if (!active) return;
       setPreview(invite);
-      if (invite.isGigworker) window.localStorage.setItem('atman_gigworker_mode', '1');
+      if (invite.isGigworker) setGigworkerModePreference(true);
       setSignedIn(Boolean(user));
       setHasWorker(workerExists);
       setStatus('preview');
@@ -89,7 +98,7 @@ function JoinWorkplaceContent() {
 
   function startRegistration() {
     if (!token) return;
-    if (preview?.isGigworker) window.localStorage.setItem('atman_gigworker_mode', '1');
+    if (preview?.isGigworker) setGigworkerModePreference(true);
     window.localStorage.setItem('atman_auth_next', `/workplace/join?token=${encodeURIComponent(token)}`);
     window.location.href = signedIn ? '/onboarding?step=terms' : '/onboarding';
   }
@@ -105,10 +114,10 @@ function JoinWorkplaceContent() {
     const { error } = await supabase.rpc('claim_facility_staff_invite', { p_token: token });
     if (error) {
       setStatus('error');
-      setMessage(error.message.replace(/^.*?: /, '').replace('병원에 재발급', '관리자에게 재발급'));
+      setMessage(friendlyInviteError(error.message));
       return;
     }
-    if (preview?.isGigworker) window.localStorage.setItem('atman_gigworker_mode', '1');
+    if (preview?.isGigworker) setGigworkerModePreference(true);
     window.dispatchEvent(new Event('atman:workplace-linked'));
     setStatus('success');
     setMessage(`${preview?.facilityName ?? '근무지'} 근태 연결이 완료됐어요.`);

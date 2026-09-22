@@ -4,6 +4,12 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import {
+  getFacilityRegistrationSources,
+  getGigworkerModePreference,
+  setGigworkerModePreference,
+  shouldUseGigworkerMode,
+} from '@/lib/worker-mode';
 
 function RootInner() {
   const router = useRouter();
@@ -24,15 +30,9 @@ function RootInner() {
         supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
       ]);
       if (profile?.onboarding_done) {
-        const sources = (staffLinks ?? []).map((row: any) => {
-          const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
-          return facility?.registration_source;
-        });
-        const hasGigworker = sources.includes('gigworker_trial');
-        const hasOtherWorkplace = sources.some((source) => source && source !== 'gigworker_trial');
-        const cachedGigworker = window.localStorage.getItem('atman_gigworker_mode') === '1';
-        const gigworkerMode = hasGigworker && (!hasOtherWorkplace || cachedGigworker || worker?.role === 'other');
-        if (gigworkerMode) window.localStorage.setItem('atman_gigworker_mode', '1');
+        const sources = getFacilityRegistrationSources(staffLinks);
+        const gigworkerMode = shouldUseGigworkerMode(sources, worker?.role, getGigworkerModePreference());
+        if (gigworkerMode) setGigworkerModePreference(true);
         router.replace(gigworkerMode ? '/workplace' : '/home');
       } else {
         router.replace('/onboarding?step=terms');
@@ -53,7 +53,7 @@ function RootInner() {
       setInviteError('관리자가 보낸 초대 링크 전체를 붙여 넣어 주세요.');
       return;
     }
-    window.localStorage.setItem('atman_gigworker_mode', '1');
+    setGigworkerModePreference(true);
     router.push(`/workplace/join?token=${encodeURIComponent(token)}`);
   }
 

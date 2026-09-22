@@ -1,8 +1,8 @@
 {
-  "name": "잇닿 — 병원·약국 시프트",
-  "short_name": "잇닿",
-  "description": "내 경력과 지역에 맞는 병원·약국 시프트를 간편하게",
-  "start_url": "/home",
+  "name": "잇닿 WORKER — 시프트·긱 근태",
+  "short_name": "잇닿 WORKER",
+  "description": "병원·약국 시프트 탐색과 초대받은 단기근무 출퇴근을 한 앱에서",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3182F6",

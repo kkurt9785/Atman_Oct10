@@ -11,6 +11,13 @@ import {
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
+import {
+  getFacilityRegistrationSources,
+  getGigworkerModePreference,
+  hasGigworkerLink,
+  setGigworkerModePreference,
+  shouldUseGigworkerMode,
+} from '@/lib/worker-mode';
 
 const PROFILE_TOTAL = 4;
 
@@ -26,10 +33,11 @@ export default function SettingsPage() {
   const [showPwaGuide, setShowPwaGuide] = useState(false);
   const [locationSaved, setLocationSaved] = useState(false);
   const [isGigworker, setIsGigworker] = useState(false);
+  const [gigworkerLinked, setGigworkerLinked] = useState(false);
 
   useEffect(() => {
     setLocationSaved(new URLSearchParams(window.location.search).get('locationSaved') === '1');
-    setIsGigworker(window.localStorage.getItem('atman_gigworker_mode') === '1');
+    setIsGigworker(getGigworkerModePreference());
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/onboarding'); return; }
@@ -45,13 +53,10 @@ export default function SettingsPage() {
         supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
       ]);
 
-      const sources = (staffLinks ?? []).map((row: any) => {
-        const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
-        return facility?.registration_source;
-      });
-      const gigworkerLinked = sources.includes('gigworker_trial');
-      const hasOtherWorkplace = sources.some((source) => source && source !== 'gigworker_trial');
-      setIsGigworker(gigworkerLinked && (!hasOtherWorkplace || window.localStorage.getItem('atman_gigworker_mode') === '1' || workerProf?.role === 'other'));
+      const sources = getFacilityRegistrationSources(staffLinks);
+      const hasGigworker = hasGigworkerLink(sources);
+      setGigworkerLinked(hasGigworker);
+      setIsGigworker(shouldUseGigworkerMode(sources, workerProf?.role, getGigworkerModePreference()));
 
       setRole(workerProf?.role ?? '');
       setLocations(locPref?.locations ?? []);
@@ -119,8 +124,20 @@ export default function SettingsPage() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    window.localStorage.removeItem('atman_gigworker_mode');
+    setGigworkerModePreference(false);
     router.replace('/');
+  }
+
+  function handleModeSwitch() {
+    const nextGigworker = !isGigworker;
+    setGigworkerModePreference(nextGigworker);
+    setIsGigworker(nextGigworker);
+    router.replace(nextGigworker ? '/workplace' : '/home');
+  }
+
+  function startMedicalRegistration() {
+    setGigworkerModePreference(false);
+    router.push('/onboarding?step=terms');
   }
 
   const roleLabel = WORKER_ROLE_LABEL[role as WorkerRole] ?? '';
@@ -156,6 +173,34 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {gigworkerLinked && (!isGigworker || role !== 'other') && (
+        <section className={`mb-4 rounded-2xl p-5 shadow-sm ${isGigworker ? 'border border-primary/20 bg-white' : 'bg-ink text-white'}`}>
+          <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">
+            {isGigworker ? 'MEDICAL SHIFT' : 'GIG WORKER'}
+          </p>
+          <p className={`mt-1 text-[16px] font-extrabold ${isGigworker ? 'text-ink' : 'text-white'}`}>
+            {isGigworker ? '병원·약국 일자리도 확인할까요?' : '연결된 긱워커 근무가 있어요'}
+          </p>
+          <p className={`mt-1 text-[12px] leading-5 ${isGigworker ? 'text-sub' : 'text-white/65'}`}>
+            {isGigworker ? '기존 프로필과 지원 내역은 그대로 유지돼요.' : '초대받은 일정과 출퇴근 화면으로 전환해요.'}
+          </p>
+          <button type="button" onClick={handleModeSwitch} className={`mt-3 h-11 w-full rounded-xl text-[13px] font-extrabold ${isGigworker ? 'bg-primary text-white' : 'bg-white text-ink'}`}>
+            {isGigworker ? '병원·약국 일자리 모드로 전환' : '긱워커 근태 모드로 전환'}
+          </button>
+        </section>
+      )}
+
+      {isGigworker && role === 'other' && (
+        <section className="mb-4 rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
+          <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">MEDICAL SHIFT</p>
+          <p className="mt-1 text-[16px] font-extrabold text-ink">병원·약국 일자리도 찾을 수 있어요</p>
+          <p className="mt-1 text-[12px] leading-5 text-sub">직군과 활동 지역을 추가하면 기존 긱 근무 기록은 유지돼요.</p>
+          <button type="button" onClick={startMedicalRegistration} className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-extrabold text-white">
+            의료 워커 정보 등록하기
+          </button>
+        </section>
+      )}
 
       {/* 내 프로필 카드 */}
       {!isGigworker && <Link href="/settings/profile">

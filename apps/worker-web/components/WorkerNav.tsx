@@ -4,6 +4,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import {
+  getFacilityRegistrationSources,
+  getGigworkerModePreference,
+  shouldUseGigworkerMode,
+  WORKER_MODE_CHANGED_EVENT,
+} from '@/lib/worker-mode';
 
 const MARKET_TABS = [
   { href: '/home',         label: '홈',     icon: 'home' },
@@ -36,26 +42,27 @@ export function WorkerNav() {
   useEffect(() => {
     let active = true;
     const load = async () => {
-      const cached = window.localStorage.getItem('atman_gigworker_mode') === '1';
+      const cached = getGigworkerModePreference();
       if (cached && active) setGigworker(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended');
+      const [{ data }, { data: worker }] = await Promise.all([
+        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
+        supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+      ]);
       if (!active) return;
-      const sources = (data ?? []).map((row: any) => {
-        const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
-        return facility?.registration_source;
-      });
-      const hasGigworker = sources.includes('gigworker_trial');
-      const hasOtherWorkplace = sources.some((source) => source && source !== 'gigworker_trial');
-      const gigworkerMode = hasGigworker && (!hasOtherWorkplace || cached || path.startsWith('/workplace'));
+      const sources = getFacilityRegistrationSources(data);
+      const gigworkerMode = shouldUseGigworkerMode(sources, worker?.role, getGigworkerModePreference());
       setGigworker(gigworkerMode);
-      if (gigworkerMode) window.localStorage.setItem('atman_gigworker_mode', '1');
-      else window.localStorage.removeItem('atman_gigworker_mode');
     };
     void load();
     window.addEventListener('atman:workplace-linked', load);
-    return () => { active = false; window.removeEventListener('atman:workplace-linked', load); };
+    window.addEventListener(WORKER_MODE_CHANGED_EVENT, load);
+    return () => {
+      active = false;
+      window.removeEventListener('atman:workplace-linked', load);
+      window.removeEventListener(WORKER_MODE_CHANGED_EVENT, load);
+    };
   }, [path]);
 
   const tabs = gigworker ? GIGWORKER_TABS : MARKET_TABS;

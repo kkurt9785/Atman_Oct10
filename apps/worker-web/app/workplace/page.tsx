@@ -5,6 +5,12 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { AttendanceActionButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
+import {
+  getFacilityRegistrationSources,
+  getGigworkerModePreference,
+  setGigworkerModePreference,
+  shouldUseGigworkerMode,
+} from '@/lib/worker-mode';
 
 type FacilityRef={id:string;name:string;registration_source?:string|null};
 type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; contract_start?:string|null; contract_end?:string|null; work_weekdays?:number[]|null; facilities:FacilityRef|FacilityRef[] };
@@ -48,6 +54,7 @@ function WorkplaceContent() {
   const [attendanceModes,setAttendanceModes]=useState<Record<string,AttendanceMode>>({});
   const [tab,setTab]=useState<'history'|'leave'>('history');
   const [refreshKey,setRefreshKey]=useState(0);
+  const [gigworkerMode,setGigworkerMode]=useState(false);
 
   useEffect(()=>{ void (async()=>{
     const {data:{user}}=await supabase.auth.getUser();
@@ -59,16 +66,21 @@ function WorkplaceContent() {
       window.location.href='/';
       return;
     }
-    const {data}=await supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source)').neq('status','ended').order('created_at',{ascending:false});
-    const linked=(data??[]) as Staff[];
-    const hasGigworker=linked.some((item)=>{
+    const [{data},{data:workerProfile}]=await Promise.all([
+      supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source)').neq('status','ended').order('created_at',{ascending:false}),
+      supabase.from('workers').select('role').eq('auth_user_id',user.id).is('deleted_at',null).maybeSingle(),
+    ]);
+    const allLinked=(data??[]) as Staff[];
+    const sources=getFacilityRegistrationSources(data);
+    const useGigworkerMode=shouldUseGigworkerMode(sources,workerProfile?.role,getGigworkerModePreference());
+    setGigworkerMode(useGigworkerMode);
+    if(useGigworkerMode)setGigworkerModePreference(true);
+    const linked=allLinked.filter((item)=>{
       const facility=Array.isArray(item.facilities)?item.facilities[0]:item.facilities;
-      return facility?.registration_source==='gigworker_trial';
+      return useGigworkerMode
+        ? facility?.registration_source==='gigworker_trial'
+        : facility?.registration_source!=='gigworker_trial';
     });
-    if(hasGigworker){
-      window.localStorage.setItem('atman_gigworker_mode','1');
-      window.dispatchEvent(new Event('atman:workplace-linked'));
-    }
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id??'');
     if(linked.length){
@@ -91,7 +103,7 @@ function WorkplaceContent() {
     // 그래야 워커가 앱을 직접 열어 GPS/Wi-Fi로 출퇴근할 수 있다.
     const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
     const {data:worker}=await supabase.from('workers').select('id').eq('auth_user_id',user.id).maybeSingle();
-    if(worker){
+    if(worker&&!useGigworkerMode){
       // 오늘 확정 근무 + 어제 시작한 야간 근무(아직 퇴근 전) + 오늘 완료한 근무(완료 문구용)
       const yesterday=new Date(Date.now()+9*60*60*1000-24*60*60*1000).toISOString().slice(0,10);
       const {data:applications}=await supabase.from('shift_applications')
@@ -153,7 +165,7 @@ function WorkplaceContent() {
   const staff=staffList.find(item=>item.id===selectedStaffId)??staffList[0]??null;
   const staffFacility=staff ? (Array.isArray(staff.facilities)?staff.facilities[0]:staff.facilities) : null;
   const facility=staffFacility?.name??'';
-  const isGigworker=staffFacility?.registration_source==='gigworker_trial';
+  const isGigworker=gigworkerMode || staffFacility?.registration_source==='gigworker_trial';
   const staffAttendanceMode=staffFacility?.id?attendanceModes[staffFacility.id]??'gps_or_qr':'gps_or_qr';
   const currentAttendance=staff?attendance[staff.id]:null;
   const canRecordStaffAttendance=Boolean(currentAttendance?.check_in_at)||Boolean(staff&&isScheduledToday(staff));
