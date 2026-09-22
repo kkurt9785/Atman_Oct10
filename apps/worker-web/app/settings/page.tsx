@@ -29,6 +29,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setLocationSaved(new URLSearchParams(window.location.search).get('locationSaved') === '1');
+    setIsGigworker(window.localStorage.getItem('atman_gigworker_mode') === '1');
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/onboarding'); return; }
@@ -44,11 +45,13 @@ export default function SettingsPage() {
         supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
       ]);
 
-      const gigworkerLinked = (staffLinks ?? []).some((row: any) => {
+      const sources = (staffLinks ?? []).map((row: any) => {
         const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
-        return facility?.registration_source === 'gigworker_trial';
+        return facility?.registration_source;
       });
-      setIsGigworker(gigworkerLinked && workerProf?.role === 'other');
+      const gigworkerLinked = sources.includes('gigworker_trial');
+      const hasOtherWorkplace = sources.some((source) => source && source !== 'gigworker_trial');
+      setIsGigworker(gigworkerLinked && (!hasOtherWorkplace || window.localStorage.getItem('atman_gigworker_mode') === '1' || workerProf?.role === 'other'));
 
       setRole(workerProf?.role ?? '');
       setLocations(locPref?.locations ?? []);
@@ -116,7 +119,8 @@ export default function SettingsPage() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.replace('/onboarding');
+    window.localStorage.removeItem('atman_gigworker_mode');
+    router.replace('/');
   }
 
   const roleLabel = WORKER_ROLE_LABEL[role as WorkerRole] ?? '';
@@ -133,6 +137,7 @@ export default function SettingsPage() {
         <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{pushNotice}</p>
       )}
       <div className="px-1 mt-2 mb-6">
+        {isGigworker && <span className="inline-flex rounded-full bg-ink px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em] text-white">GIG WORKER</span>}
         <h1 className="text-[24px] font-extrabold text-ink">내 정보</h1>
         {isGigworker && <p className="mt-1 text-[13px] text-sub">근무 초대 계정과 출근 알림을 관리해요.</p>}
       </div>

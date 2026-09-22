@@ -90,10 +90,11 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
   }
 
   return (
-    <div className="flex flex-col min-h-screen px-6">
+    <div className={`flex flex-col min-h-screen px-6 ${attendanceInvite?'bg-gradient-to-b from-primary/10 via-white to-white':''}`}>
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        <span className="text-[32px] font-bold text-primary letter-tight tracking-[-0.5px]">잇닿</span>
-        <span className="text-[15px] text-tertiary">{attendanceInvite?'근무 초대 수락 후 출퇴근을 기록해요':'병원·약국 의료인력을 위한 시프트'}</span>
+        {attendanceInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-white">GIG WORKER</span>}
+        <span className="text-[32px] font-bold text-primary letter-tight tracking-[-0.5px]">잇닿{attendanceInvite&&<span className="text-ink"> GIG</span>}</span>
+        <span className="text-center text-[15px] leading-6 text-tertiary">{attendanceInvite?<>초대받은 근무만 간단하게 확인하고<br/>출퇴근을 기록해요</>:'병원·약국 의료인력을 위한 시프트'}</span>
       </div>
 
       <div className="pb-10 flex flex-col gap-3">
@@ -107,7 +108,7 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path fillRule="evenodd" clipRule="evenodd" d="M10 2C5.582 2 2 4.895 2 8.455c0 2.27 1.512 4.263 3.786 5.39l-.964 3.5a.25.25 0 00.38.273L9.58 15.1A9.18 9.18 0 0010 15.11c4.418 0 8-2.895 8-6.455S14.418 2 10 2z" fill="#191F28"/>
           </svg>
-          {loading ? '등록 중...' : attendanceInvite?'카카오로 가입하고 초대 수락하기':'카카오로 워커 등록하기'}
+          {loading ? '등록 중...' : attendanceInvite?'카카오로 긱워커 등록하기':'카카오로 의료 워커 등록하기'}
         </Button>
         {!attendanceInvite&&<p className="-mt-1 text-center text-[11px] leading-4 text-sub">근무 초대를 받았다면 가입 후 초대 링크를 다시 열어 주세요.</p>}
         {showDemoLogin && (

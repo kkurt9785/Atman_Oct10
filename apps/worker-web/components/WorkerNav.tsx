@@ -40,23 +40,23 @@ export function WorkerNav() {
       if (cached && active) setGigworker(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const [{ data }, { data: worker }] = await Promise.all([
-        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
-        supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
-      ]);
+      const { data } = await supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended');
       if (!active) return;
-      const linked = worker?.role === 'other' && (data ?? []).some((row: any) => {
+      const sources = (data ?? []).map((row: any) => {
         const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
-        return facility?.registration_source === 'gigworker_trial';
+        return facility?.registration_source;
       });
-      setGigworker(linked);
-      if (linked) window.localStorage.setItem('atman_gigworker_mode', '1');
+      const hasGigworker = sources.includes('gigworker_trial');
+      const hasOtherWorkplace = sources.some((source) => source && source !== 'gigworker_trial');
+      const gigworkerMode = hasGigworker && (!hasOtherWorkplace || cached || path.startsWith('/workplace'));
+      setGigworker(gigworkerMode);
+      if (gigworkerMode) window.localStorage.setItem('atman_gigworker_mode', '1');
       else window.localStorage.removeItem('atman_gigworker_mode');
     };
     void load();
     window.addEventListener('atman:workplace-linked', load);
     return () => { active = false; window.removeEventListener('atman:workplace-linked', load); };
-  }, []);
+  }, [path]);
 
   const tabs = gigworker ? GIGWORKER_TABS : MARKET_TABS;
   return (

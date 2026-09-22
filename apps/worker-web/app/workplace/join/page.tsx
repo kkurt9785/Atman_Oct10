@@ -78,6 +78,7 @@ function JoinWorkplaceContent() {
       }
       if (!active) return;
       setPreview(invite);
+      if (invite.isGigworker) window.localStorage.setItem('atman_gigworker_mode', '1');
       setSignedIn(Boolean(user));
       setHasWorker(workerExists);
       setStatus('preview');
@@ -88,6 +89,7 @@ function JoinWorkplaceContent() {
 
   function startRegistration() {
     if (!token) return;
+    if (preview?.isGigworker) window.localStorage.setItem('atman_gigworker_mode', '1');
     window.localStorage.setItem('atman_auth_next', `/workplace/join?token=${encodeURIComponent(token)}`);
     window.location.href = signedIn ? '/onboarding?step=terms' : '/onboarding';
   }
@@ -116,11 +118,12 @@ function JoinWorkplaceContent() {
     ? `${PAY_BASIS[preview.payBasis] ?? preview.payBasis} ${won(preview.payRate)}`
     : null;
 
-  return <main className="min-h-screen bg-bg px-5 pb-24 pt-10">
-    <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-sm">
+  return <main className={`min-h-screen px-5 pb-16 pt-8 ${preview?.isGigworker ? 'bg-gradient-to-b from-primary/15 via-bg to-bg' : 'bg-bg'}`}>
+    <div className="mx-auto mb-5 flex max-w-md items-center justify-between px-1"><p className="text-[20px] font-extrabold tracking-[-0.5px] text-primary">잇닿 <span className="text-ink">GIG</span></p>{preview?.isGigworker&&<span className="rounded-full bg-ink px-3 py-1 text-[10px] font-extrabold tracking-[0.14em] text-white">WORK INVITE</span>}</div>
+    <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-card">
       <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
-      <p className="mt-5 text-[13px] font-bold text-primary">{preview?.isGigworker ? '긱워커 근태 초대' : '직원 계정 연결'}</p>
-      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '연결 완료' : '근무 초대를 확인해 주세요'}</h1>
+      <p className="mt-5 text-[13px] font-bold text-primary">{preview?.isGigworker ? '긱워커 전용 근태 초대' : '직원 계정 연결'}</p>
+      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이제 출퇴근만 기록하면 돼요' : '초대받은 근무를 확인해 주세요'}</h1>
       <p role="status" className="mt-3 text-[14px] leading-6 text-sub">{message}</p>
 
       {preview && status !== 'success' && <div className="mt-5 overflow-hidden rounded-2xl border border-line">

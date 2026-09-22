@@ -310,15 +310,15 @@ export default function HomePage() {
         return;
       }
 
-      const [{ data: staffLinks }, { data: attendanceOnlyWorker }] = await Promise.all([
-        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
-        supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
-      ]);
-      const hasGigworker = attendanceOnlyWorker?.role === 'other' && (staffLinks ?? []).some((row: any) => {
+      const { data: staffLinks } = await supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended');
+      const sources = (staffLinks ?? []).map((row: any) => {
         const facility = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
-        return facility?.registration_source === 'gigworker_trial';
+        return facility?.registration_source;
       });
-      if (hasGigworker) {
+      const hasGigworker = sources.includes('gigworker_trial');
+      const hasOtherWorkplace = sources.some((source) => source && source !== 'gigworker_trial');
+      const gigworkerMode = hasGigworker && (!hasOtherWorkplace || window.localStorage.getItem('atman_gigworker_mode') === '1');
+      if (gigworkerMode) {
         window.localStorage.setItem('atman_gigworker_mode', '1');
         router.replace('/workplace');
         return;
