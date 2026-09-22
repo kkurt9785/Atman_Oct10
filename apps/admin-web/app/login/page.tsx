@@ -9,6 +9,7 @@ import { subscribeToAdminPush } from '@/lib/push-subscribe';
 // 시연용 계정. 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN으로 빌드 시 결정된다.
 const DEMO_ACCOUNTS = [
   { email: 'sales-demo-1@demo.atman.co.kr', label: '병원 시연 시작', detail: 'W여성병원' },
+  { email: 'sales-demo-1@demo.atman.co.kr', label: '긱워커 근태 시연', detail: '팝업스토어', demoKind: 'gigworker' },
   { email: 'sales-demo-2@demo.atman.co.kr', label: '약국 시연', detail: '수원 온누리약국' },
   { email: 'sales-demo-3@demo.atman.co.kr', label: '요양병원 시연', detail: '수원요양병원' },
 ];
@@ -34,7 +35,7 @@ function LoginInner() {
   }
 
   // 데모 로그인 — 클라이언트 로그인 후 HttpOnly 서버 세션·시설 컨텍스트를 순서대로 수립
-  async function handleDemoLogin(email: string) {
+  async function handleDemoLogin(email: string, demoKind?: string) {
     setDemoLoadingEmail(email);
     setDemoError('');
     try {
@@ -74,7 +75,7 @@ function LoginInner() {
           Authorization: `Bearer ${data.session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ demoKind }),
       });
       const facilityData = await facilityRes.json().catch(() => ({}));
       router.replace(facilityData?.facilityId ? '/' : '/setup/claim-facility');
@@ -118,8 +119,8 @@ function LoginInner() {
             <div className="flex flex-col gap-2">
               {DEMO_ACCOUNTS.map((account, index) => (
                 <button
-                  key={account.email}
-                  onClick={() => handleDemoLogin(account.email)}
+                  key={`${account.email}:${account.demoKind ?? 'default'}`}
+                  onClick={() => handleDemoLogin(account.email, account.demoKind)}
                   disabled={loading || !!demoLoadingEmail}
                   className={`flex h-11 w-full items-center justify-between rounded-xl px-3 text-[14px] font-bold disabled:opacity-60 ${index === 0 ? 'bg-primary text-white shadow-sm' : 'border border-line bg-white text-ink'}`}
                 >

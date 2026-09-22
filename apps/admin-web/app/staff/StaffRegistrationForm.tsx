@@ -107,7 +107,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
 
       {(inviteUrl||linked)&&<section className="mt-5 rounded-2xl border border-success/30 bg-success/5 p-4">
         <p className="text-[14px] font-extrabold text-ink">{linked?'이미 가입한 번호라 바로 연결됐어요.':'등록 완료 · 이제 초대만 보내세요'}</p>
-        {!linked&&<><p className="mt-1 text-[12px] leading-5 text-sub">근무자가 링크를 열어 조건을 확인하고 카카오로 등록하면 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div></>}
+        {!linked&&<><p className="mt-1 text-[12px] leading-5 text-sub">근무자가 링크를 열어 카카오로 로그인하고, 가입 때 입력한 휴대폰 번호가 관리자 등록 번호와 같으면 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div></>}
       </section>}
       <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 초대 만들기</button>
       <p className="mt-2 text-center text-[11px] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>

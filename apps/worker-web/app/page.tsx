@@ -16,6 +16,7 @@ function RootInner() {
   const [signedOut, setSignedOut] = useState(false);
   const [inviteLink, setInviteLink] = useState('');
   const [inviteError, setInviteError] = useState('');
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
     async function route() {
@@ -41,9 +42,35 @@ function RootInner() {
     route();
   }, [router]);
 
-  function openInvite() {
+  async function openInvite() {
     setInviteError('');
     const value = inviteLink.trim();
+    if (value.toUpperCase() === 'GIG2026') {
+      setInviteLoading(true);
+      try {
+        const response = await fetch('/api/demo-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: 'GIG2026' }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || !payload.accessToken || !payload.refreshToken || !payload.gigInviteToken) {
+          throw new Error(payload.error ?? '긱워커 데모를 열지 못했어요.');
+        }
+        const { error } = await supabase.auth.setSession({
+          access_token: payload.accessToken,
+          refresh_token: payload.refreshToken,
+        });
+        if (error) throw error;
+        setGigworkerModePreference(true);
+        router.replace(`/workplace/join?token=${encodeURIComponent(payload.gigInviteToken)}`);
+      } catch (error) {
+        setInviteError(error instanceof Error ? error.message : '긱워커 데모를 열지 못했어요.');
+      } finally {
+        setInviteLoading(false);
+      }
+      return;
+    }
     const directToken = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
     let token = directToken;
     if (!token) {
@@ -68,10 +95,11 @@ function RootInner() {
         <h2 className="mt-4 text-[21px] font-extrabold">근무 초대를 받았어요</h2>
         <p className="mt-1 text-[13px] leading-5 text-white/70">당근 등에서 구한 단기근무라면 관리자가 보낸 링크로 근무조건을 확인하고 출퇴근만 기록해요.</p>
         <div className="mt-4 rounded-2xl bg-white/10 p-2">
-          <input value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && openInvite()} placeholder="초대 링크 붙여넣기" className="h-12 w-full rounded-xl bg-white px-3 text-[14px] text-ink outline-none placeholder:text-tertiary" />
-          <button type="button" onClick={openInvite} className="mt-2 h-11 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white">긱워커 근태 시작</button>
+          <input value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void openInvite()} placeholder="초대 링크 또는 데모 코드" className="h-12 w-full rounded-xl bg-white px-3 text-[14px] text-ink outline-none placeholder:text-tertiary" />
+          <button type="button" onClick={() => void openInvite()} disabled={inviteLoading} className="mt-2 h-11 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{inviteLoading ? '데모 초대 준비 중...' : '긱워커 근태 시작'}</button>
         </div>
         {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-300">{inviteError}</p>}
+        <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-center text-[11px] font-bold text-white/75">빠른 시연 코드 · GIG2026</p>
         <p className="mt-3 text-[11px] text-white/55">카카오톡·문자에서 초대 링크를 바로 눌러도 이 화면 없이 연결됩니다.</p>
       </section>
 

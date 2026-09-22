@@ -7,6 +7,7 @@ import { subscribeToPush } from '@/lib/push-subscribe';
 
 const DEMO_WORKERS = [
   { email: 'worker-demo-1@demo.atman.co.kr', label: '간호사 · 10명 내외 병원·요양병원' },
+  { email: 'worker-demo-4@demo.atman.co.kr', label: '긱워커 · 초대 근태', gigworker: true },
   { email: 'worker-demo-5@demo.atman.co.kr', label: '간호조무사 · 요양병원' },
   { email: 'worker-demo-2@demo.atman.co.kr', label: '전산·사무직 · 약국' },
   { email: 'worker-demo-6@demo.atman.co.kr', label: '약사 · 약국' },
@@ -47,17 +48,17 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
       `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
   }
 
-  async function handleDemoLogin(email: string) {
+  async function handleDemoLogin(email: string, gigworker = false) {
     setDemoLoadingEmail(email);
     setDemoError('');
 
     const response = await fetch('/api/demo-login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify(gigworker ? { code: 'GIG2026' } : { email }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok || !payload.accessToken || !payload.refreshToken) {
+    if (!response.ok || !payload.accessToken || !payload.refreshToken || (gigworker && !payload.gigInviteToken)) {
       setDemoError(payload.error ?? '데모 워커 로그인에 실패했습니다.');
       setDemoLoadingEmail(null);
       return;
@@ -80,6 +81,12 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
       // 알림을 거부해도 데모 로그인과 실제 화면 확인은 계속할 수 있다.
     }
 
+    if (gigworker) {
+      window.localStorage.setItem('atman_gigworker_mode', '1');
+      window.localStorage.removeItem('atman_auth_next');
+      window.location.href=`/workplace/join?token=${encodeURIComponent(payload.gigInviteToken)}`;
+      return;
+    }
     const next=window.localStorage.getItem('atman_auth_next');
     if(next?.startsWith('/')){
       window.localStorage.removeItem('atman_auth_next');
@@ -119,7 +126,7 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
                 <button
                   key={worker.email}
                   type="button"
-                  onClick={() => handleDemoLogin(worker.email)}
+                  onClick={() => handleDemoLogin(worker.email, worker.gigworker)}
                   disabled={loading || !!demoLoadingEmail}
                   className="h-11 rounded-xl border border-line bg-bg text-[14px] font-semibold text-ink disabled:opacity-60"
                 >

@@ -27,8 +27,12 @@ export async function POST(request: NextRequest) {
   if (rateLimited(request)) {
     return NextResponse.json({ error: '잠시 후 다시 시도해 주세요.' }, { status: 429 });
   }
-  const body = await request.json().catch(() => ({})) as { email?: unknown };
-  const email = typeof body.email === 'string' ? body.email.toLowerCase() : '';
+  const body = await request.json().catch(() => ({})) as { email?: unknown; code?: unknown };
+  const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
+  const isGigworkerDemo = code === 'GIG2026';
+  const email = isGigworkerDemo
+    ? 'worker-demo-4@demo.atman.co.kr'
+    : typeof body.email === 'string' ? body.email.toLowerCase() : '';
   const password = process.env.DEMO_ACCOUNT_PASSWORD;
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -40,8 +44,17 @@ export async function POST(request: NextRequest) {
   if (error || !data.session) {
     return NextResponse.json({ error: '데모 로그인에 실패했어요.' }, { status: 401 });
   }
+  let gigInviteToken: string | null = null;
+  if (isGigworkerDemo) {
+    const { data: inviteToken, error: inviteError } = await client.rpc('reset_gigworker_invite_demo');
+    if (inviteError || typeof inviteToken !== 'string') {
+      return NextResponse.json({ error: '긱워커 데모 초대를 준비하지 못했어요.' }, { status: 503 });
+    }
+    gigInviteToken = inviteToken;
+  }
   return NextResponse.json({
     accessToken: data.session.access_token,
     refreshToken: data.session.refresh_token,
+    gigInviteToken,
   }, { headers: { 'Cache-Control': 'no-store' } });
 }
