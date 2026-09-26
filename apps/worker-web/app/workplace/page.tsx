@@ -6,9 +6,11 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { AttendanceActionButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
-import { getFacilityRegistrationSources, getGigworkerModePreference, shouldUseGigworkerMode } from '@/lib/worker-mode';
+import { isGigworkerSource } from '@/lib/worker-mode';
 
 // 병원·약국 직원·단기 시프트의 출퇴근·휴가. 긱워커 근무지(registration_source=gigworker_trial)는 /gig 가 맡는다.
+// 긱워커만 쓰는 사람이 여기(QR 스캔 /workplace?attendanceToken= 포함)로 오면 ClientLayout 의 WorkerShellGuard 가 쿼리째 /gig 로 보낸다.
+// 병원 직원이면서 긱 근무도 하는 사람은 여기서 병원 근태만, /gig 에서 긱 근태만 본다 — 마지막에 쓴 셸 때문에 튕기지 않는다.
 
 type FacilityRef={id:string;name:string;registration_source?:string|null};
 type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; facilities:FacilityRef|FacilityRef[] };
@@ -50,19 +52,8 @@ function WorkplaceContent() {
       window.location.href='/';
       return;
     }
-    const [{data},{data:workerProfile}]=await Promise.all([
-      supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,facilities(id,name,registration_source)').neq('status','ended').order('created_at',{ascending:false}),
-      supabase.from('workers').select('role').eq('auth_user_id',user.id).is('deleted_at',null).maybeSingle(),
-    ]);
-    const all=(data??[]) as Staff[];
-    const linked=all.filter(item=>facilityOf(item)?.registration_source!=='gigworker_trial');
-    // 긱워커 화면을 쓰는 사람(또는 긱 근무지만 연결된 사람)은 /gig 로. QR 스캔 링크(/workplace?attendanceToken=)와 알림 URL 도 여기서 넘긴다.
-    const sources=getFacilityRegistrationSources(data);
-    const gigOnly=all.length>0&&linked.length===0;
-    if(gigOnly||shouldUseGigworkerMode(sources,workerProfile?.role,getGigworkerModePreference())){
-      window.location.replace(`/gig${window.location.search}`);
-      return;
-    }
+    const {data}=await supabase.from('facility_staff').select('id,name,default_start_time,default_end_time,facilities(id,name,registration_source)').neq('status','ended').order('created_at',{ascending:false});
+    const linked=((data??[]) as Staff[]).filter(item=>!isGigworkerSource(facilityOf(item)?.registration_source));
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id??'');
     if(linked.length){

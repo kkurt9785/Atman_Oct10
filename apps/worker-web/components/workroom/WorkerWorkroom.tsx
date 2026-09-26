@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { isGigworkerSource } from '@/lib/worker-mode';
 
+// 워크룸은 두 셸이 같은 화면을 쓰되(variant), 긱 근무지 방과 병원·약국 방을 서로 보여 주지 않는다.
 type Room = {
   facility_id: string;
   facility_name: string;
@@ -52,11 +54,11 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     const all = (data ?? []) as Room[];
     // 알림 URL(/workroom?facility=…)은 공용이라 긱 근무지 알림이 의료 셸로, 또는 그 반대로 올 수 있다. 맞는 셸로 넘긴다.
     const requested = all.find((room) => room.facility_id === requestedFacility);
-    if (requested && (requested.registration_source === 'gigworker_trial') !== isGig) {
+    if (requested && isGigworkerSource(requested.registration_source) !== isGig) {
       window.location.replace(`${isGig ? '/workroom' : '/gig/workroom'}?facility=${encodeURIComponent(requested.facility_id)}`);
       return;
     }
-    const filtered = all.filter((room) => isGig ? room.registration_source === 'gigworker_trial' : room.registration_source !== 'gigworker_trial');
+    const filtered = all.filter((room) => isGigworkerSource(room.registration_source) === isGig);
     setRooms(filtered);
     const next = filtered.find((room) => room.facility_id === requestedFacility)?.facility_id ?? filtered[0]?.facility_id ?? '';
     setSelectedId(next);

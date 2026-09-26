@@ -3,6 +3,7 @@ import { DynamicQrPanel } from './DynamicQrPanel';
 import { getFacilityProfile } from '@/lib/actions/facility';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { workerShellPaths } from '@/lib/facility-mode';
 
 const MODE_LABEL:Record<string,string>={
   gps_or_qr:'앱에서 버튼만 누르기 · 필요할 때 QR 보완',
@@ -16,6 +17,8 @@ export default async function AttendanceQrPage(){
   const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL
     ?? (process.env.NODE_ENV === 'production' ? 'https://itdot.co.kr' : 'http://localhost:3003');
   const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':'병원';
+  // 긱워커 근무지의 QR 은 워커 앱의 긱 셸(/gig)로 연다. 의료 셸(/workplace)로 열면 긱워커는 다시 /gig 로 튕긴다.
+  const workerPath=workerShellPaths(shop?.mode??'medical').attendance;
   const mode=profile?.attendance_mode??'gps_or_qr';
   const networkCount=profile?.allowed_ips?.length??0;
   const gpsEnabled=['gps','gps_qr','gps_or_qr'].includes(mode);
@@ -28,7 +31,7 @@ export default async function AttendanceQrPage(){
       <div className="flex items-start justify-between gap-3"><div><p className="text-[11px] font-bold text-white/60">현재 운영 방식</p><p className="mt-1 text-[16px] font-extrabold">{MODE_LABEL[mode]??mode}</p></div><span className="shrink-0 rounded-full bg-emerald-400/20 px-2.5 py-1 text-[11px] font-bold text-emerald-200">사용 중</span></div>
       <div className="mt-3 flex gap-2"><Link href="/settings#attendance-auth" className="flex h-9 flex-1 items-center justify-center rounded-lg bg-white/10 text-[12px] font-bold">인증방식 변경</Link><Link href="/timesheet" className="flex h-9 flex-1 items-center justify-center rounded-lg bg-white text-[12px] font-bold text-ink">오늘 근태 보기</Link></div>
     </section>
-    {qrEnabled?<DynamicQrPanel workerOrigin={workerOrigin}/>:<section className="mt-5 rounded-2xl border border-line bg-white p-5 text-center print:hidden"><p className="text-title font-extrabold">동적 QR은 현재 사용 안 함</p><p className="mt-2 text-[12px] leading-5 text-sub">현재 정책에서 QR을 사용하지 않아 QR 화면을 숨겼어요.</p><Link href="/settings#attendance-auth" className="mt-3 inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[12px] font-bold text-white">QR 인증 켜기</Link></section>}
+    {qrEnabled?<DynamicQrPanel workerOrigin={workerOrigin} workerPath={workerPath}/>:<section className="mt-5 rounded-2xl border border-line bg-white p-5 text-center print:hidden"><p className="text-title font-extrabold">동적 QR은 현재 사용 안 함</p><p className="mt-2 text-[12px] leading-5 text-sub">현재 정책에서 QR을 사용하지 않아 QR 화면을 숨겼어요.</p><Link href="/settings#attendance-auth" className="mt-3 inline-flex h-10 items-center rounded-xl bg-primary px-4 text-[12px] font-bold text-white">QR 인증 켜기</Link></section>}
     <section className="mt-5 print:hidden">
       <div className="mb-3 flex items-end justify-between px-1"><div><h2 className="text-title font-extrabold">인증 방법</h2><p className="mt-1 text-[12px] text-sub">세 방식은 대체가 아니라 현장 오류를 줄이는 보완 수단이에요.</p></div></div>
       <div className="space-y-2">

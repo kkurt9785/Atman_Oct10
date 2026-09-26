@@ -1,9 +1,13 @@
+import { cache } from 'react';
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
+import { facilityModeOf, type FacilityMode } from '../facility-mode';
 
 export type ShopInfo = {
   name: string;
   facilityType: string;
+  // 병원·약국(medical)인지 긱워커 근무지(gig)인지. 화면 분기는 이 값만 본다 — lib/facility-mode.ts
+  mode: FacilityMode;
   employeeCount: number | null;
   plan: 'bundle' | 'gig' | 'hr' | 'free' | 'gigworker_trial';
   is5Plus: boolean;
@@ -14,7 +18,8 @@ export type ShopInfo = {
   brnDocumentPath: string | null;
 };
 
-export async function getShop(): Promise<ShopInfo | null> {
+// 한 요청 안에서 레이아웃·페이지가 같이 부르므로 요청 단위로 캐시한다.
+export const getShop = cache(async (): Promise<ShopInfo | null> => {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
   if (!sb || !facilityId) return null;
@@ -31,6 +36,7 @@ export async function getShop(): Promise<ShopInfo | null> {
   return {
     name: f.name,
     facilityType: f.facility_type,
+    mode: facilityModeOf(f),
     employeeCount: f.employee_count ?? null,
     plan: (f.plan_code as ShopInfo['plan']) ?? 'free',
     is5Plus: f.is_5plus ?? false,
@@ -40,4 +46,4 @@ export async function getShop(): Promise<ShopInfo | null> {
     brnSubmitted: f.brn_submitted ?? null,
     brnDocumentPath: f.brn_document_path ?? null,
   };
-}
+});

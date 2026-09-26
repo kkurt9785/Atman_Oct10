@@ -19,7 +19,7 @@ export default async function TimesheetPage(){
     getCurrentFacilityId(),
   ]);
   const facilityWord=facilityTypeLabel(shop?.facilityType);
-  const isGigworker=shop?.registrationSource==='gigworker_trial';
+  const isGigworker=shop?.mode==='gig';
   const currentMonth=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
   const recentComplete=new Date(`${currentMonth}-01T00:00:00Z`);recentComplete.setUTCMonth(recentComplete.getUTCMonth()-1);
   const summaryHref=shop?.isDemo?`/attendance-summary?month=${recentComplete.toISOString().slice(0,7)}`:'/attendance-summary';

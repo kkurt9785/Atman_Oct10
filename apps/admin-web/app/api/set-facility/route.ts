@@ -1,3 +1,4 @@
+import { isGigworkerFacility } from '@/lib/facility-mode';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession, setAdminSessionCookie, setFacilityContextCookie } from '@/lib/admin-auth';
 import { bearerToken } from '@/lib/supabase';
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
   const facilities = await listAccessibleFacilities();
   const gigworkerDemoTarget = body.demoKind === 'gigworker'
     && session.user.email === 'sales-demo-1@demo.atman.co.kr'
-    ? facilities.find((facility) => facility.facility_type === 'gigworker' && facility.is_demo === true)
+    ? facilities.find((facility) => isGigworkerFacility(facility) && facility.is_demo === true)
     : undefined;
   const demoTarget = gigworkerDemoTarget ?? (session.user.email==='sales-demo-1@demo.atman.co.kr'
     ? facilities.find((facility)=>facility.name==='W여성병원'&&facility.is_demo===true)

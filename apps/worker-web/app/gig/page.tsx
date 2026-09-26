@@ -6,10 +6,11 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { AttendanceActionButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
-import { setGigworkerModePreference } from '@/lib/worker-mode';
+import { isGigworkerSource } from '@/lib/worker-mode';
 
 // 긱워커 "오늘 근무" — 초대받은 근무지(registration_source=gigworker_trial)만 다룬다.
 // 병원·약국 직원의 출퇴근·휴가는 /workplace 가 맡는다. 두 화면은 코드를 공유하지 않는다.
+// 긱 근무지가 없는 의료 워커의 진입 차단과 "마지막 셸" 기억은 app/gig/layout.tsx 의 WorkerShellGuard 가 한다.
 
 type FacilityRef = { id: string; name: string; registration_source?: string | null };
 type Staff = {
@@ -58,13 +59,12 @@ function GigTodayContent() {
       window.location.href = '/';
       return;
     }
-    setGigworkerModePreference(true);
     const { data } = await supabase.from('facility_staff')
       .select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source)')
       .neq('status', 'ended').order('created_at', { ascending: false });
     const all = (data ?? []) as Staff[];
-    const linked = all.filter((item) => facilityOf(item)?.registration_source === 'gigworker_trial');
-    setHasMedicalLink(all.some((item) => facilityOf(item)?.registration_source !== 'gigworker_trial'));
+    const linked = all.filter((item) => isGigworkerSource(facilityOf(item)?.registration_source));
+    setHasMedicalLink(all.some((item) => !isGigworkerSource(facilityOf(item)?.registration_source)));
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id ?? '');
     if (linked.length) {

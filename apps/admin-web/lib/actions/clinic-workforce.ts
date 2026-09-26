@@ -1,5 +1,6 @@
 'use server';
 
+import { isGigworkerFacility } from '@/lib/facility-mode';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient, userClient } from '../supabase';
@@ -79,8 +80,8 @@ export async function addClinicStaffAction(form: FormData) {
   const breakMinutes = Number(text(form,'default_break_minutes') || '60');
   const bankName=text(form,'bank_name')||null;
   const accountLast4=text(form,'account_last4')||null;
-  const { data: facility } = await sb.from('facilities').select('facility_type').eq('id',context.facilityId).maybeSingle();
-  const isGigworker=facility?.facility_type==='gigworker';
+  const { data: facility } = await sb.from('facilities').select('facility_type,registration_source').eq('id',context.facilityId).maybeSingle();
+  const isGigworker=isGigworkerFacility(facility);
   if (!name || !['rn','na','pharmacist','pharmacy_staff','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if(facility?.facility_type==='pharmacy'&&!['pharmacist','pharmacy_staff','admin','other'].includes(role)){
     throw new Error('약국 직원은 약사·약국 전산/사무직·관리 직종으로 등록해 주세요.');
@@ -348,7 +349,8 @@ export async function decideEarlyCheckoutAction(form: FormData) {
       dedupe_key: `attendance.checkout_decided:${attendance.id}:${decision}:${attendance.checkout_requested_at}`,
       title: decision === 'approved' ? '조기 퇴근이 승인됐어요' : '조기 퇴근 요청이 반려됐어요',
       body: decision === 'approved' ? '요청한 시각으로 퇴근이 확정됐어요. 근무시간이 반영됩니다.' : '관리자가 반려했어요. 근무를 이어가고 예정 시간에 다시 퇴근을 눌러 주세요.',
-      data: { url: '/workplace', kind: 'attendance.checkout_decided', decision },
+      // staff_id 가 있어야 워커 앱이 이 알림을 긱 근무지/병원 중 어느 셸에 보여 줄지 가를 수 있다
+      data: { url: '/workplace', kind: 'attendance.checkout_decided', decision, staff_id: staffId },
     });
     await nudgeNotificationDispatch();
   }

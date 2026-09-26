@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { setGigworkerModePreference } from '@/lib/worker-mode';
+import { rememberWorkerShell } from '@/lib/worker-mode';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
 // (미리보기 → 카카오 가입 → claim)을 쓰되, 초대가 어느 제품 것인지는 서버(isGigworker)가 정한다.
@@ -107,7 +107,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       }
       if (!active) return;
       setPreview(invite);
-      if (isGig) setGigworkerModePreference(true);
+      // 초대를 연 셸을 기억한다 — 가입·수락 뒤 앱을 다시 열면 이 셸로 온다
+      rememberWorkerShell(variant);
       setSignedIn(Boolean(user));
       setHasWorker(workerExists);
       setStatus('preview');
@@ -118,7 +119,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
 
   function startRegistration() {
     if (!token) return;
-    if (isGig) setGigworkerModePreference(true);
+    rememberWorkerShell(variant);
     window.localStorage.setItem('atman_auth_next', `${routes.join}?token=${encodeURIComponent(token)}`);
     window.location.href = signedIn ? '/onboarding?step=terms' : '/onboarding';
   }
@@ -137,7 +138,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       setMessage(friendlyInviteError(error.message));
       return;
     }
-    if (isGig) setGigworkerModePreference(true);
+    rememberWorkerShell(variant);
     window.dispatchEvent(new Event('atman:workplace-linked'));
     setStatus('success');
     setMessage(`${preview?.facilityName ?? '근무지'} 계정과 워크룸 연결이 완료됐어요.`);

@@ -5,14 +5,14 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
-import { getFacilityRegistrationSources, setGigworkerModePreference } from '@/lib/worker-mode';
+import { getFacilityRegistrationSources, hasMedicalContext, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
 // 긱워커 "내 정보" — 계정·출근 알림·모드 전환만. 프로필 카드·활동 지역·리워드는 의료 워커(/settings) 전용.
 export default function GigSettingsPage() {
   const router = useRouter();
   const [name, setName] = useState('');
-  const [role, setRole] = useState('');
-  const [hasMedicalLink, setHasMedicalLink] = useState(false);
+  // 의료 직군으로 등록했거나 병원·약국 직원으로 연결된 사람은 모드 전환, 긱워커로만 가입한 사람(role=other)은 의료 워커 등록 안내
+  const [canSwitch, setCanSwitch] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushNotice, setPushNotice] = useState('');
@@ -27,8 +27,7 @@ export default function GigSettingsPage() {
         supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
         supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
       ]);
-      setRole(worker?.role ?? '');
-      setHasMedicalLink(getFacilityRegistrationSources(staffLinks).some((source) => source !== 'gigworker_trial'));
+      setCanSwitch(hasMedicalContext(getFacilityRegistrationSources(staffLinks), worker?.role));
       setPushEnabled(Boolean(await getExistingSubscription()));
     }
     void load();
@@ -65,11 +64,11 @@ export default function GigSettingsPage() {
   }
 
   function switchToMedical() {
-    setGigworkerModePreference(false);
+    rememberWorkerShell('medical');
     router.replace('/home');
   }
   function startMedicalRegistration() {
-    setGigworkerModePreference(false);
+    rememberWorkerShell('medical');
     router.push('/onboarding?step=terms');
   }
   async function handleLogout() {
@@ -77,9 +76,6 @@ export default function GigSettingsPage() {
     setGigworkerModePreference(false);
     router.replace('/');
   }
-
-  // 의료 직군으로 이미 등록된 사람은 모드 전환, 긱워커로만 가입한 사람(role=other)은 의료 워커 등록 안내
-  const canSwitch = hasMedicalLink || (role !== '' && role !== 'other');
 
   return (
     <main className="px-4 pb-10 pt-[env(safe-area-inset-top)]">

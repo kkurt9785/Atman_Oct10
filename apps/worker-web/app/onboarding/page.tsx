@@ -14,6 +14,7 @@ import { ReviewPending } from '@/components/onboarding/ReviewPending';
 import { Approval } from '@/components/onboarding/Approval';
 import { NotificationSetup } from '@/components/onboarding/NotificationSetup';
 import { LICENSED_ROLES, type WorkerRole } from '@/lib/roles';
+import type { WorkerShell } from '@/lib/worker-mode';
 
 type Step = 'splash' | 'terms' | 'role' | 'license' | 'info' | 'area' | 'bank' | 'notification' | 'review' | 'approval';
 const VALID_STEPS = new Set<Step>(['splash','terms','role','license','info','area','bank','notification','review','approval']);
@@ -35,12 +36,14 @@ function OnboardingInner() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [completionStep, setCompletionStep] = useState<'review' | 'approval'>('approval');
-  const [attendanceInvite, setAttendanceInvite] = useState(false);
+  // 근태 초대(긱워커 /gig/join, 사업장 직원 /workplace/join)로 들어온 가입은 직군·서류·지역 단계를 건너뛴다.
+  // 두 초대는 가입 단계는 같지만 첫 화면 브랜딩·문구가 다르므로 어느 제품 초대인지 구분해 둔다.
+  const [inviteVariant, setInviteVariant] = useState<WorkerShell | null>(null);
+  const attendanceInvite = inviteVariant !== null;
 
   useEffect(() => {
-    // 근태 초대(긱워커 /gig/join, 사업장 직원 /workplace/join)로 들어온 가입은 직군·서류·지역 단계를 건너뛴다.
     const next = window.localStorage.getItem('atman_auth_next') ?? '';
-    setAttendanceInvite(next.startsWith('/gig/join?token=') || next.startsWith('/workplace/join?token='));
+    setInviteVariant(next.startsWith('/gig/join?token=') ? 'gig' : next.startsWith('/workplace/join?token=') ? 'medical' : null);
   }, []);
 
   // 가입 중 브라우저 뒤로가기를 눌러도 입력값을 유지한 채 이전 단계로 돌아간다.
@@ -194,7 +197,7 @@ function OnboardingInner() {
           ←
         </button>
       )}
-      {step === 'splash' && <Splash attendanceInvite={attendanceInvite} />}
+      {step === 'splash' && <Splash inviteVariant={inviteVariant} />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); if (attendanceInvite) { setRole('other'); go('info'); } else { go('role'); } }} />}
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); go(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
       {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}

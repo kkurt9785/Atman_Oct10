@@ -28,7 +28,7 @@ function recentlyDismissed() {
   }
 }
 
-export function InstallBanner() {
+export function InstallBanner({ hint = '홈 화면에서 바로 시프트를 확인하세요' }: { hint?: string } = {}) {
   const [mode, setMode] = useState<'hidden' | 'ios' | 'android'>('hidden');
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosGuide, setShowIosGuide] = useState(false);
@@ -75,7 +75,7 @@ export function InstallBanner() {
         <button type="button" onClick={mode === 'ios' ? () => setShowIosGuide(true) : install} className="min-w-0 flex-1 text-left">
           <p className="text-[12px] font-bold min-[360px]:text-[13px]">앱처럼 설치하고 알림 받기</p>
           <p className="mt-0.5 text-[11px] opacity-80">
-            {mode === 'ios' ? '3단계 설치 방법 보기' : '홈 화면에서 바로 시프트를 확인하세요'}
+            {mode === 'ios' ? '3단계 설치 방법 보기' : hint}
           </p>
         </button>
         <button type="button" onClick={mode === 'ios' ? () => setShowIosGuide(true) : install} className="flex-shrink-0 whitespace-nowrap rounded-xl bg-white px-2.5 py-2 text-[12px] font-bold text-ink min-[360px]:px-3">

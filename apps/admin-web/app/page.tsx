@@ -28,7 +28,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   if (!shop) redirect(isPlatformAdminUser(context?.user) ? '/ops/facilities' : '/setup/claim-facility');
 
   const isPharmacy = shop.facilityType === 'pharmacy';
-  const isGigworker = shop.registrationSource === 'gigworker_trial';
+  const isGigworker = shop.mode === 'gig';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
   const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + attendanceFailures.length;
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));

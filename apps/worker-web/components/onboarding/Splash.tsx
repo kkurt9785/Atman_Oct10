@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush } from '@/lib/push-subscribe';
+import { rememberWorkerShell, type WorkerShell } from '@/lib/worker-mode';
 
 const DEMO_WORKERS = [
   { email: 'worker-demo-1@demo.atman.co.kr', label: '간호사 · 10명 내외 병원·요양병원' },
@@ -13,7 +14,13 @@ const DEMO_WORKERS = [
   { email: 'worker-demo-6@demo.atman.co.kr', label: '약사 · 약국' },
 ];
 
-export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolean }) {
+// inviteVariant: 근태 초대 링크(atman_auth_next)로 들어온 가입이면 어느 제품의 초대인지.
+//   'gig'     → 긱워커 셸 브랜딩(잇닿 GIG), 긱워커 등록 문구
+//   'medical' → 병원·약국 직원 계정 연결 문구 (긱 브랜딩을 쓰지 않는다)
+//   null      → 일반 의료 워커 가입
+export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell | null }) {
+  const attendanceInvite = inviteVariant !== null;
+  const gigInvite = inviteVariant === 'gig';
   const [loading, setLoading] = useState(false);
   const [demoLoadingEmail, setDemoLoadingEmail] = useState<string | null>(null);
   const [demoError, setDemoError] = useState('');
@@ -30,7 +37,8 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
   }, []);
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && demoUnlocked;
   // 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 플래그 하나로만 제어 (출시 시 0으로)
-  const visibleDemoWorkers = DEMO_WORKERS;
+  // 긱워커 데모는 긱 초대 화면과 루트(/)의 GIG2026 코드에서만 — 의료 워커 가입 화면에는 섞지 않는다
+  const visibleDemoWorkers = DEMO_WORKERS.filter((worker) => Boolean(worker.gigworker) === gigInvite);
 
   function handleKakaoLogin() {
     // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출
@@ -82,7 +90,7 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
     }
 
     if (gigworker) {
-      window.localStorage.setItem('atman_gigworker_mode', '1');
+      rememberWorkerShell('gig');
       window.localStorage.removeItem('atman_auth_next');
       window.location.href=`/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}`;
       return;
@@ -99,9 +107,10 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
   return (
     <div className={`flex flex-col min-h-screen px-6 ${attendanceInvite?'bg-gradient-to-b from-primary/10 via-white to-white':''}`}>
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        {attendanceInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-white">GIG WORKER</span>}
-        <span className="text-[32px] font-bold text-primary letter-tight tracking-[-0.5px]">잇닿{attendanceInvite&&<span className="text-ink"> GIG</span>}</span>
-        <span className="text-center text-[15px] leading-6 text-tertiary">{attendanceInvite?<>초대받은 근무만 간단하게 확인하고<br/>출퇴근을 기록해요</>:'병원·약국 의료인력을 위한 시프트'}</span>
+        {gigInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-white">GIG WORKER</span>}
+        {inviteVariant==='medical'&&<span className="rounded-full bg-primary/10 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-primary">직원 계정 연결</span>}
+        <span className="text-[32px] font-bold text-primary letter-tight tracking-[-0.5px]">잇닿{gigInvite?<span className="text-ink"> GIG</span>:<span className="text-ink"> WORKER</span>}</span>
+        <span className="text-center text-[15px] leading-6 text-tertiary">{gigInvite?<>초대받은 근무만 간단하게 확인하고<br/>출퇴근을 기록해요</>:inviteVariant==='medical'?<>초대받은 병원·약국 근무를 확인하고<br/>출퇴근과 휴가를 앱에서 관리해요</>:'병원·약국 의료인력을 위한 시프트'}</span>
       </div>
 
       <div className="pb-10 flex flex-col gap-3">
@@ -115,7 +124,7 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path fillRule="evenodd" clipRule="evenodd" d="M10 2C5.582 2 2 4.895 2 8.455c0 2.27 1.512 4.263 3.786 5.39l-.964 3.5a.25.25 0 00.38.273L9.58 15.1A9.18 9.18 0 0010 15.11c4.418 0 8-2.895 8-6.455S14.418 2 10 2z" fill="#191F28"/>
           </svg>
-          {loading ? '등록 중...' : attendanceInvite?'카카오로 긱워커 등록하기':'카카오로 의료 워커 등록하기'}
+          {loading ? '등록 중...' : gigInvite?'카카오로 긱워커 등록하기':inviteVariant==='medical'?'카카오로 직원 계정 연결하기':'카카오로 의료 워커 등록하기'}
         </Button>
         {!attendanceInvite&&<p className="-mt-1 text-center text-[11px] leading-4 text-sub">근무 초대를 받았다면 가입 후 초대 링크를 다시 열어 주세요.</p>}
         {showDemoLogin && (
@@ -141,7 +150,7 @@ export function Splash({ attendanceInvite = false }: { attendanceInvite?: boolea
           href="https://admin.itdot.co.kr"
           className="block rounded-xl border border-line bg-white py-3 text-center text-[13px] font-semibold text-sub active:opacity-70"
         >
-          {attendanceInvite?'관리자이신가요?':'병원·약국 관리자이신가요?'} <span className="font-bold text-primary">관리자 페이지로 →</span>
+          {gigInvite?'관리자이신가요?':'병원·약국 관리자이신가요?'} <span className="font-bold text-primary">관리자 페이지로 →</span>
         </a>
         <p className="text-center text-[13px] text-tertiary">
           계속 진행하면 이용약관 및 개인정보처리방침에 동의하게 됩니다

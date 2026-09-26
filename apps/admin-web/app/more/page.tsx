@@ -13,7 +13,7 @@ const SECTION_ICONS = {
 
 export default async function MorePage(){
   const [context,shop]=await Promise.all([getAdminContext(),getShop()]);
-  const isGigworker=shop?.registrationSource==='gigworker_trial';
+  const isGigworker=shop?.mode==='gig';
   const sections=visibleManageSections(context?.canViewPayroll===true);
   const isPlatform=isPlatformAdminUser(context?.user);
   if(isGigworker)return <main className="px-4 pb-28"><div className="px-1 mt-2 mb-5"><p className="text-label font-bold text-primary">긱워커 근태</p><h1 className="mt-1 text-display font-extrabold text-ink">무엇을 관리할까요?</h1><p className="mt-2 text-body text-sub">근무지 인증과 출퇴근 기록, 무료 베타 이용 상태를 관리해요.</p></div><div className="space-y-3">{[

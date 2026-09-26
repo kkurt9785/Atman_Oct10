@@ -1,3 +1,4 @@
+import { isGigworkerFacility } from '@/lib/facility-mode';
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST, yesterdayKST } from '../date';
@@ -52,12 +53,12 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       .eq('facility_id', facilityId).eq('leave_year', year),
     sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId)
       .eq('status', 'approved').lte('start_date', today).gte('end_date', today),
-    sb.from('facilities').select('registration_source').eq('id', facilityId).maybeSingle(),
+    sb.from('facilities').select('facility_type,registration_source').eq('id', facilityId).maybeSingle(),
   ]);
   const loadError = [staffResult.error, attendanceResult.error, balanceResult.error, leaveResult.error, facilityResult.error].find(Boolean);
   // 요일 일정은 긱워커 근무지(하루·반복 근무)에서만 근태를 가른다. 병원·약국 직원의 work_weekdays 는
   // 등록 기본값(월~금)이 대부분이라 주말 근무를 막는 근거가 못 된다 — DB record_unified_attendance 와 같은 기준.
-  const enforceWeekdays = facilityResult.data?.registration_source === 'gigworker_trial';
+  const enforceWeekdays = isGigworkerFacility(facilityResult.data);
   if (loadError) throw new Error(`직원·근태 정보를 불러오지 못했어요: ${loadError.message}`);
   const staff = staffResult.data;
   const attendance = attendanceResult.data;

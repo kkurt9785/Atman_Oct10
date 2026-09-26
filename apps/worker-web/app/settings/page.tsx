@@ -11,7 +11,7 @@ import {
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
-import { getFacilityRegistrationSources, hasGigworkerLink, setGigworkerModePreference } from '@/lib/worker-mode';
+import { getFacilityRegistrationSources, hasGigworkerLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
 const PROFILE_TOTAL = 4;
 
@@ -118,7 +118,7 @@ export default function SettingsPage() {
   }
 
   function openGigworker() {
-    setGigworkerModePreference(true);
+    rememberWorkerShell('gig');
     router.push('/gig');
   }
 

@@ -4,12 +4,7 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import {
-  getFacilityRegistrationSources,
-  getGigworkerModePreference,
-  setGigworkerModePreference,
-  shouldUseGigworkerMode,
-} from '@/lib/worker-mode';
+import { loadWorkerShellContext, rememberWorkerShell, WORKER_SHELL_HOME } from '@/lib/worker-mode';
 
 function RootInner() {
   const router = useRouter();
@@ -33,16 +28,13 @@ function RootInner() {
         setSignedOut(true);
         return;
       }
-      const [{ data: profile }, { data: staffLinks }, { data: worker }] = await Promise.all([
+      const [{ data: profile }, context] = await Promise.all([
         supabase.from('profiles').select('onboarding_done').single(),
-        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
-        supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+        loadWorkerShellContext(user).catch(() => null),
       ]);
       if (profile?.onboarding_done) {
-        const sources = getFacilityRegistrationSources(staffLinks);
-        const gigworkerMode = shouldUseGigworkerMode(sources, worker?.role, getGigworkerModePreference());
-        if (gigworkerMode) setGigworkerModePreference(true);
-        router.replace(gigworkerMode ? '/gig' : '/home');
+        // 긱 근무지만 있으면 /gig, 의료 쪽만 있으면 /home, 둘 다면 마지막에 쓴 셸 — 규칙은 lib/worker-mode.ts 하나에 있다
+        router.replace(WORKER_SHELL_HOME[context?.shell ?? 'medical']);
       } else {
         router.replace('/onboarding?step=terms');
       }
@@ -70,7 +62,7 @@ function RootInner() {
           refresh_token: payload.refreshToken,
         });
         if (error) throw error;
-        setGigworkerModePreference(true);
+        rememberWorkerShell('gig');
         router.replace(`/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}`);
       } catch (error) {
         setInviteError(error instanceof Error ? error.message : '긱워커 데모를 열지 못했어요.');
@@ -88,7 +80,7 @@ function RootInner() {
       setInviteError('관리자가 보낸 초대 링크 전체를 붙여 넣어 주세요.');
       return;
     }
-    setGigworkerModePreference(true);
+    rememberWorkerShell('gig');
     router.push(`/gig/join?token=${encodeURIComponent(token)}`);
   }
 

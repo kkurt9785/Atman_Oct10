@@ -5,7 +5,8 @@ import { QrCanvas } from '@/components/QrCanvas';
 
 const ROTATION_SECONDS=60;
 
-export function DynamicQrPanel({workerOrigin}:{workerOrigin:string}){
+// workerPath: 스캔 후 열리는 워커 화면. 병원·약국 직원은 /workplace, 긱워커 근무지는 /gig (워커 앱의 두 셸이 분리돼 있다)
+export function DynamicQrPanel({workerOrigin,workerPath='/workplace'}:{workerOrigin:string;workerPath?:'/workplace'|'/gig'}){
   const [token,setToken]=useState('');
   const [seconds,setSeconds]=useState(0);
   const [error,setError]=useState('');
@@ -23,8 +24,8 @@ export function DynamicQrPanel({workerOrigin}:{workerOrigin:string}){
     }),1000);
     return ()=>window.clearInterval(timer);
   },[refresh]);
-  // 워커 앱이 스캔 후 여는 주소 그대로를 QR에 담는다 (워커 /workplace/qr 페이지와 동일한 값)
-  const src=token?`${workerOrigin}/workplace?attendanceToken=${encodeURIComponent(token)}`:'';
+  // 워커 앱이 스캔 후 여는 주소 그대로를 QR에 담는다
+  const src=token?`${workerOrigin}${workerPath}?attendanceToken=${encodeURIComponent(token)}`:'';
   return <section className="mt-5 rounded-3xl bg-white p-5 text-center shadow-card">
     <div className="flex items-center justify-between text-left"><div><p className="text-title font-extrabold">동적 출퇴근 QR</p><p className="mt-1 text-[12px] text-sub">직원이 휴대폰 카메라로 스캔해요.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-bold text-primary">{seconds}초</span></div>
     {src?<div className="mt-4 flex h-[310px] items-center justify-center"><QrCanvas value={src} size={280} label="동적 출퇴근 QR"/></div>:<div className="py-20 text-sub">{error||'QR 생성 중...'}</div>}

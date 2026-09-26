@@ -1,5 +1,6 @@
 'use client';
 
+import { isGigworkerFacility } from '@/lib/facility-mode';
 import { useState } from 'react';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { CopyInviteButton } from './CopyInviteButton';
@@ -59,7 +60,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
   const [linked,setLinked]=useState(false);
   const needsContract=engagementType&&engagementType!=='regular';
   const isPharmacy=facilityType==='pharmacy';
-  const isGigworker=facilityType==='gigworker';
+  const isGigworker=isGigworkerFacility({facility_type:facilityType});
 
   if(isGigworker){
     return <WorkforceActionForm kind="add_staff" successMessage="근무자와 초대 정보를 만들었어요." onSuccess={(raw)=>{

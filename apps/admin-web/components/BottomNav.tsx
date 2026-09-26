@@ -1,16 +1,19 @@
 'use client';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import type { FacilityMode } from '@/lib/facility-mode';
 
-const DEFAULT_TABS = [
+// 하단 탭은 사업장 모드별로 다르다. 모드는 서버 레이아웃이 계산해 내려주므로 여기서 다시 조회하지 않는다.
+//   medical: 홈 · 인력 모집 · 근무 관리 · 직원 · 관리
+//   gig:     홈 · 근무자 · 워크룸 · 오늘 근태 · 관리  (모집·지원·휴가·급여 없음)
+const MEDICAL_TABS = [
   { href: '/', icon: 'home', label: '홈' },
   { href: '/shifts', icon: 'recruit', label: '인력 모집' },
   { href: '/timesheet', icon: 'clock', label: '근무 관리' },
   { href: '/staff', icon: 'staff', label: '직원' },
   { href: '/more', icon: 'manage', label: '관리' },
 ];
-const GIGWORKER_TABS = [
+const GIG_TABS = [
   { href: '/', icon: 'home', label: '홈' },
   { href: '/staff?view=contract&entry=gigworker', icon: 'staff', label: '근무자' },
   { href: '/workroom', icon: 'chat', label: '워크룸' },
@@ -36,23 +39,9 @@ function isActive(path:string,href:string){
   return path.startsWith(href);
 }
 
-export function BottomNav() {
+export function BottomNav({ mode }: { mode: FacilityMode | null }) {
   const path = usePathname();
-  const [gigworkerMode,setGigworkerMode]=useState(false);
-  useEffect(()=>{
-    let active=true;
-    const load=async()=>{
-      const response=await fetch('/api/facilities',{cache:'no-store'}).catch(()=>null);
-      if(!response?.ok||!active)return;
-      const data=await response.json();
-      const current=(data.facilities??[]).find((row:{id:string})=>row.id===data.currentFacilityId);
-      setGigworkerMode(current?.facility_type==='gigworker');
-    };
-    void load();
-    window.addEventListener('atman:facility-changed',load);
-    return()=>{active=false;window.removeEventListener('atman:facility-changed',load);};
-  },[]);
-  const tabs=gigworkerMode?GIGWORKER_TABS:DEFAULT_TABS;
+  const tabs=mode==='gig'?GIG_TABS:MEDICAL_TABS;
   return (
     <nav aria-label="주요 메뉴" className="fixed bottom-0 inset-x-0 z-30 mx-auto max-w-app bg-white border-t border-line flex pb-[env(safe-area-inset-bottom)]">
       {tabs.map((t) => {

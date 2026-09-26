@@ -1,3 +1,4 @@
+import { isGigworkerFacility } from '@/lib/facility-mode';
 import { won, formatDate } from '@/lib/format';
 const SUB_STATUS: Record<string,string> = { pending:'개시 대기', active:'이용 중', past_due:'결제 지연' };
 import { adminClient } from '@/lib/supabase';
@@ -30,7 +31,7 @@ async function getBilling(facilityId:string) {
   }
   const isPharmacy=facility.data?.facility_type==='pharmacy';
   const isCareHospital=facility.data?.facility_type==='care_hospital';
-  const isGigworker=facility.data?.registration_source==='gigworker_trial';
+  const isGigworker=isGigworkerFacility(facility.data);
   // 최초 등록 업종에 맞는 가격표만 노출한다.
   const availablePlans = ((plans.data??[]) as Plan[]).filter(plan=>
     isGigworker ? plan.code==='gigworker_trial'
