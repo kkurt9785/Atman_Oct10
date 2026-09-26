@@ -37,8 +37,8 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
   }, []);
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && demoUnlocked;
   // 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 플래그 하나로만 제어 (출시 시 0으로)
-  // 긱워커 데모는 긱 초대 화면과 루트(/)의 GIG2026 코드에서만 — 의료 워커 가입 화면에는 섞지 않는다
-  const visibleDemoWorkers = DEMO_WORKERS.filter((worker) => Boolean(worker.gigworker) === gigInvite);
+  // 긱 초대로 들어온 화면에서는 긱워커 데모만, 그 외 시연 화면에서는 의료·긱 데모를 모두 보여 준다 (루트 / 에도 긱워커 시연 버튼이 있다)
+  const visibleDemoWorkers = gigInvite ? DEMO_WORKERS.filter((worker) => worker.gigworker) : DEMO_WORKERS;
 
   function handleKakaoLogin() {
     // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출

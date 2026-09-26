@@ -42,12 +42,12 @@ function RootInner() {
     route();
   }, [router]);
 
-  async function openInvite() {
+  // 긱워커 두 기기 시연: worker-demo-4 로 로그인하고 데모 근무지의 초대(토큰 고정)를 매번 초기화해 /gig/join 으로 간다.
+  // 관리자 앱 '긱워커 근태 시연'의 팝업스토어 데모 근무지와 같은 초대라, 관리자 화면에서 복사한 링크·QR 도 이 계정으로 그대로 열린다.
+  async function startGigDemo() {
     setInviteError('');
-    const value = inviteLink.trim();
-    if (demoUnlocked && value.toUpperCase() === 'GIG2026') {
-      setInviteLoading(true);
-      try {
+    setInviteLoading(true);
+    try {
         const response = await fetch('/api/demo-login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -64,11 +64,18 @@ function RootInner() {
         if (error) throw error;
         rememberWorkerShell('gig');
         router.replace(`/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}`);
-      } catch (error) {
-        setInviteError(error instanceof Error ? error.message : '긱워커 데모를 열지 못했어요.');
-      } finally {
-        setInviteLoading(false);
-      }
+    } catch (error) {
+      setInviteError(error instanceof Error ? error.message : '긱워커 데모를 열지 못했어요.');
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
+  async function openInvite() {
+    setInviteError('');
+    const value = inviteLink.trim();
+    if (demoUnlocked && value.toUpperCase() === 'GIG2026') {
+      await startGigDemo();
       return;
     }
     const directToken = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
@@ -99,7 +106,11 @@ function RootInner() {
           <button type="button" onClick={() => void openInvite()} disabled={inviteLoading} className="mt-2 h-11 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{inviteLoading ? '데모 초대 준비 중...' : '긱워커 근태 시작'}</button>
         </div>
         {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-300">{inviteError}</p>}
-        {demoUnlocked && <p className="mt-3 rounded-xl bg-white/10 px-3 py-2 text-center text-[11px] font-bold text-white/75">빠른 시연 코드 · GIG2026</p>}
+        {demoUnlocked && (
+          <button type="button" onClick={() => void startGigDemo()} disabled={inviteLoading} className="mt-3 flex h-11 w-full items-center justify-between rounded-xl border border-white/20 bg-white/10 px-4 text-[13px] font-extrabold text-white disabled:opacity-60">
+            <span>긱워커 시연 시작 <span className="font-normal text-white/60">· 팝업스토어 데모 초대</span></span><span>→</span>
+          </button>
+        )}
         <p className="mt-3 text-[11px] text-white/55">카카오톡·문자에서 초대 링크를 바로 눌러도 이 화면 없이 연결됩니다.</p>
       </section>
 
