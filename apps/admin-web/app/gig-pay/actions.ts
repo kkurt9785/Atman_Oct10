@@ -4,12 +4,21 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
 import { amountFor, summarizeWork } from '@/lib/db/gig-payouts';
+import { isGigworkerFacility } from '@/lib/facility-mode';
 import { withholding } from '@/lib/withholding';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
 function todayKST() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
 function nextDay(date: string) { return new Date(new Date(`${date}T00:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10); }
+
+async function requireGigworkerFacility(sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string) {
+  const { data: facility, error } = await sb.from('facilities').select('name,facility_type,registration_source')
+    .eq('id', facilityId).is('deleted_at', null).maybeSingle();
+  if (error || !facility) throw new Error('근무지를 찾을 수 없어요.');
+  if (!isGigworkerFacility(facility)) throw new Error('지급 관리는 긱워커 근무지에서만 사용할 수 있어요.');
+  return facility;
+}
 
 async function notifyWorker(sb: NonNullable<ReturnType<typeof adminClient>>, staffId: string, facilityName: string, kind: 'payout.paid' | 'payout.scheduled', amount: number, payAt: string | null, payoutId: string) {
   const { data: staff } = await sb.from('facility_staff').select('worker_id,workers(auth_user_id)').eq('id', staffId).maybeSingle();
@@ -35,15 +44,17 @@ export async function createGigPayoutAction(form: FormData) {
   const note = text(form, 'note') || null;
   const withhold = text(form, 'withhold') === '1';
   if (mode === 'later' && (!payAt || !/^\d{4}-\d{2}-\d{2}$/.test(payAt))) throw new Error('지급 예정일을 골라 주세요.');
+  const today = todayKST();
+  if (mode === 'later' && (payAt ?? '') < today) throw new Error('지급 예정일은 오늘 이후로 선택해 주세요.');
 
-  const [{ data: staff }, { data: facility }, { data: last }] = await Promise.all([
+  const [{ data: staff }, facility, { data: last }] = await Promise.all([
     sb.from('facility_staff').select('id,name,pay_basis,pay_rate,contract_start').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
-    sb.from('facilities').select('name').eq('id', context.facilityId).maybeSingle(),
-    sb.from('gig_payouts').select('period_end').eq('staff_id', staffId).neq('status', 'cancelled').order('period_end', { ascending: false }).limit(1).maybeSingle(),
+    requireGigworkerFacility(sb, context.facilityId),
+    sb.from('gig_payouts').select('period_end').eq('facility_id', context.facilityId).eq('staff_id', staffId)
+      .neq('status', 'cancelled').order('period_end', { ascending: false }).limit(1).maybeSingle(),
   ]);
   if (!staff) throw new Error('근무자를 찾을 수 없어요.');
   if (!staff.pay_basis || !staff.pay_rate) throw new Error('먼저 급여 기준(시급·일급)을 설정해 주세요.');
-  const today = todayKST();
   const since = last?.period_end ? nextDay(last.period_end) : (staff.contract_start ?? '2020-01-01');
   if (since > today) throw new Error('아직 지급할 근무가 없어요.');
   const work = await summarizeWork(sb, context.facilityId, staffId, since, today);
@@ -58,6 +69,7 @@ export async function createGigPayoutAction(form: FormData) {
     status: mode === 'now' ? 'paid' : 'scheduled', pay_at: mode === 'now' ? today : payAt,
     paid_at: mode === 'now' ? new Date().toISOString() : null, note, created_by: context.user.id,
   }).select('id').single();
+  if (error?.code === '23505') throw new Error('같은 기간의 지급 기록이 이미 있어요. 화면을 새로고침해 주세요.');
   if (error || !created) throw new Error('지급 기록을 저장하지 못했어요.');
   await notifyWorker(sb, staffId, facility?.name ?? '근무지', mode === 'now' ? 'payout.paid' : 'payout.scheduled', tax.net, mode === 'now' ? today : payAt, created.id);
   revalidatePath('/gig-pay'); revalidatePath('/');
@@ -68,12 +80,14 @@ export async function markGigPayoutPaidAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  const facility = await requireGigworkerFacility(sb, context.facilityId);
   const payoutId = text(form, 'payout_id');
-  const { data: payout } = await sb.from('gig_payouts').select('id,staff_id,amount,net_amount,status').eq('id', payoutId).eq('facility_id', context.facilityId).maybeSingle();
-  if (!payout || payout.status !== 'scheduled') throw new Error('지급 예정 상태의 기록만 완료로 바꿀 수 있어요.');
-  const { error } = await sb.from('gig_payouts').update({ status: 'paid', paid_at: new Date().toISOString(), pay_at: todayKST(), updated_at: new Date().toISOString() }).eq('id', payoutId);
+  const { data: payout, error } = await sb.from('gig_payouts')
+    .update({ status: 'paid', paid_at: new Date().toISOString(), pay_at: todayKST(), updated_at: new Date().toISOString() })
+    .eq('id', payoutId).eq('facility_id', context.facilityId).eq('status', 'scheduled')
+    .select('id,staff_id,amount,net_amount').maybeSingle();
   if (error) throw new Error('지급 완료 처리를 하지 못했어요.');
-  const { data: facility } = await sb.from('facilities').select('name').eq('id', context.facilityId).maybeSingle();
+  if (!payout) throw new Error('이미 처리됐거나 지급 예정 상태가 아니에요. 화면을 새로고침해 주세요.');
   await notifyWorker(sb, payout.staff_id, facility?.name ?? '근무지', 'payout.paid', Number(payout.net_amount ?? payout.amount), todayKST(), `${payoutId}:paid`);
   revalidatePath('/gig-pay'); revalidatePath('/');
 }
@@ -82,9 +96,11 @@ export async function cancelGigPayoutAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  await requireGigworkerFacility(sb, context.facilityId);
   const payoutId = text(form, 'payout_id');
-  const { error } = await sb.from('gig_payouts').update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('id', payoutId).eq('facility_id', context.facilityId).eq('status', 'scheduled');
+  const { data, error } = await sb.from('gig_payouts').update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', payoutId).eq('facility_id', context.facilityId).eq('status', 'scheduled').select('id').maybeSingle();
   if (error) throw new Error('지급 예정을 취소하지 못했어요.');
+  if (!data) throw new Error('이미 처리됐거나 지급 예정 상태가 아니에요. 화면을 새로고침해 주세요.');
   revalidatePath('/gig-pay'); revalidatePath('/');
 }

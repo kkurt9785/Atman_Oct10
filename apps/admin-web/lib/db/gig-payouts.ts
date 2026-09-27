@@ -45,11 +45,19 @@ export async function getGigPayoutBoard(): Promise<GigPayoutStaff[]> {
   const sb = adminClient();
   if (!sb || !facilityId) return [];
   const today = todayKST();
-  const [{ data: staff }, { data: payouts }] = await Promise.all([
-    sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,bank_name,account_last4,contract_start,status,workers(bank_name,account_last4)')
+  const [{ data: staff, error: staffError }, { data: payouts, error: payoutError }] = await Promise.all([
+    sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,bank_name,account_last4,contract_start,status')
       .eq('facility_id', facilityId).neq('status', 'ended').order('name'),
     sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled').order('period_end', { ascending: false }),
   ]);
+  if (staffError || payoutError) throw new Error('긱워커 지급 정보를 불러오지 못했어요.');
+  const workerIds = [...new Set((staff ?? []).map((row) => row.worker_id).filter((id): id is string => Boolean(id)))];
+  const { data: bankRows, error: bankError } = workerIds.length
+    ? await sb.from('worker_bank_accounts').select('worker_id,bank_name,account_number_last4')
+      .in('worker_id', workerIds).eq('is_primary', true).is('deleted_at', null)
+    : { data: [], error: null };
+  if (bankError) throw new Error('근무자 지급 계좌를 불러오지 못했어요.');
+  const bankByWorker = new Map((bankRows ?? []).map((bank) => [bank.worker_id, bank]));
   const byStaff = new Map<string, GigPayout[]>();
   for (const row of (payouts ?? []) as Array<Record<string, unknown>>) {
     const item: GigPayout = {
@@ -68,14 +76,15 @@ export async function getGigPayoutBoard(): Promise<GigPayoutStaff[]> {
     const lastEnd = list[0]?.periodEnd ?? null;
     const since = lastEnd ? nextDay(lastEnd) : ((row.contract_start as string | null) ?? '2020-01-01');
     const work = since <= today ? await summarizeWork(sb, facilityId, staffId, since, today) : { minutes: 0, days: 0 };
-    const worker = (Array.isArray(row.workers) ? row.workers[0] : row.workers) as { bank_name?: string | null; account_last4?: string | null } | null;
+    const workerId = row.worker_id as string | null;
+    const workerBank = workerId ? bankByWorker.get(workerId) : null;
     const basis = (row.pay_basis as GigPayoutStaff['payBasis']) ?? null;
     const rate = row.pay_rate == null ? null : Number(row.pay_rate);
     rows.push({
       staffId, name: row.name as string, workerLinked: Boolean(row.worker_id),
       payBasis: basis, payRate: rate,
-      bankName: (worker?.bank_name ?? (row.bank_name as string | null)) ?? null,
-      accountLast4: (worker?.account_last4 ?? (row.account_last4 as string | null)) ?? null,
+      bankName: (workerBank?.bank_name ?? (row.bank_name as string | null)) ?? null,
+      accountLast4: (workerBank?.account_number_last4 ?? (row.account_last4 as string | null)) ?? null,
       unpaidSince: since, unpaidUntil: today, unpaidMinutes: work.minutes, unpaidDays: work.days,
       unpaidAmount: amountFor(basis, rate, work.minutes, work.days),
       payouts: list,

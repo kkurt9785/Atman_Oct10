@@ -14,8 +14,10 @@ const hours = (minutes: number) => `${Math.floor(minutes / 60)}시간${minutes %
 // 긱워커 지급. 근무자별로 마지막 지급 이후 완료된 근무를 한 건으로 묶어 '지금 지급' 또는 '나중에(날짜) 지급'으로 기록한다.
 // 병원·약국의 월 급여(/payroll)와 달리 하루·일주일 단위로 자유롭게 끊는다. 실제 송금은 관리자가 하고 앱은 기록·알림만 맡는다.
 export default async function GigPayPage() {
-  const [shop, context, board] = await Promise.all([getShop(), getAdminContext(), getGigPayoutBoard()]);
+  const shop = await getShop();
   if (!shop) redirect('/setup/claim-facility');
+  if (shop.mode !== 'gig') redirect('/');
+  const [context, board] = await Promise.all([getAdminContext(), getGigPayoutBoard()]);
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super' || context?.accessRole === 'operator';
   const unpaidTotal = board.reduce((sum, row) => sum + row.unpaidAmount, 0);
   const scheduled = board.flatMap((row) => row.payouts.filter((p) => p.status === 'scheduled').map((p) => ({ ...p, name: row.name })));

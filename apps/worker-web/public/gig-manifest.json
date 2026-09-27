@@ -1,9 +1,10 @@
 {
   "name": "잇닿 GIG — 초대받은 근무 출퇴근",
   "short_name": "잇닿 GIG",
+  "id": "/gig",
   "description": "관리자 초대 링크로 연결하고, 닿기 한 번으로 출퇴근을 기록해요.",
   "start_url": "/gig",
-  "scope": "/",
+  "scope": "/gig",
   "display": "standalone",
   "background_color": "#191F28",
   "theme_color": "#191F28",

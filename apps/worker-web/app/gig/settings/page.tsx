@@ -30,12 +30,16 @@ export default function GigSettingsPage() {
       if (!user) { router.replace('/'); return; }
       setName(user.user_metadata?.profile_nickname ?? '사용자');
       const [{ data: worker }, { data: staffLinks }] = await Promise.all([
-        supabase.from('workers').select('role,name,bank_name,account_last4').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+        supabase.from('workers').select('id,role,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
         supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
       ]);
+      const { data: primaryBank } = worker?.id
+        ? await supabase.from('worker_bank_accounts').select('bank_name,account_number_last4')
+          .eq('worker_id', worker.id).eq('is_primary', true).is('deleted_at', null).maybeSingle()
+        : { data: null };
       setWorkerName(worker?.name ?? '');
-      setBank(worker ? { bank_name: worker.bank_name ?? null, account_last4: worker.account_last4 ?? null } : null);
-      if (window.location.hash === '#bank' && !worker?.account_last4) setBankOpen(true);
+      setBank(primaryBank ? { bank_name: primaryBank.bank_name ?? null, account_last4: primaryBank.account_number_last4 ?? null } : null);
+      if (window.location.hash === '#bank' && !primaryBank?.account_number_last4) setBankOpen(true);
       setCanSwitch(hasMedicalContext(getFacilityRegistrationSources(staffLinks), worker?.role));
       setPushEnabled(Boolean(await getExistingSubscription()));
     }

@@ -30,9 +30,14 @@ export function facilityModeOf(facility: FacilityLike | null | undefined): Facil
 // 긱워커 근무지에서는 없는 기능. 주소로 직접 들어와도 홈으로 돌려보낸다.
 // (공고 등록은 lib/actions/shifts.ts 가 서버에서도 한 번 더 막는다.)
 const MEDICAL_ONLY_PREFIXES = ['/shifts', '/applications', '/chats', '/leave', '/payroll', '/workforce', '/operations'];
+const GIG_ONLY_PREFIXES = ['/gig-pay'];
 
 export function isMedicalOnlyPath(path: string) {
   return MEDICAL_ONLY_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
+export function isGigOnlyPath(path: string) {
+  return GIG_ONLY_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
 // 사업장 종류별 아이콘·이름표. 전환기·목록·홈 헤더가 같은 표를 쓴다.

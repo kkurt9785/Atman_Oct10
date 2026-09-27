@@ -1,6 +1,7 @@
 {
   "name": "잇닿",
   "short_name": "잇닿",
+  "id": "/",
   "description": "병원·약국 근무 찾기부터 출퇴근까지, 근무표 한 장으로",
   "start_url": "/",
   "display": "standalone",

@@ -130,8 +130,12 @@ function GigTodayContent() {
     setHasMedicalLink(all.some((item) => !isGigworkerSource(facilityOf(item)?.registration_source)));
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id ?? '');
-    const { data: workerRow } = await supabase.from('workers').select('bank_name,account_last4').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
-    setBank(workerRow ?? null);
+    const { data: workerRow } = await supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
+    const { data: primaryBank } = workerRow?.id
+      ? await supabase.from('worker_bank_accounts').select('bank_name,account_number_last4')
+        .eq('worker_id', workerRow.id).eq('is_primary', true).is('deleted_at', null).maybeSingle()
+      : { data: null };
+    setBank(primaryBank ? { bank_name: primaryBank.bank_name, account_last4: primaryBank.account_number_last4 } : null);
     if (linked.length) {
       const facilityIds = [...new Set(linked.map((item) => facilityOf(item)?.id).filter(Boolean))] as string[];
       const { data: payoutRows } = await supabase.from('gig_payouts').select('id,staff_id,period_start,period_end,worked_days,worked_minutes,amount,withholding_amount,net_amount,status,pay_at,paid_at')
