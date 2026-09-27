@@ -9,7 +9,8 @@ import { WorkerShellGuard } from '@/components/WorkerShellGuard';
 // /gig/join 은 초대 수락 화면이라 탭도 가드도 없다 — 초대가 어느 제품 것인지는 JoinInvite 가 서버 응답으로 정한다.
 export default function GigLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const joining = path.startsWith('/gig/join');
+  // /gig/demo 는 시연 입구라 로그인 전에도 열린다
+  const joining = path.startsWith('/gig/join') || path.startsWith('/gig/demo');
   return (
     <>
       {!joining && <WorkerShellGuard shell="gig" />}

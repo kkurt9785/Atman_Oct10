@@ -9,6 +9,7 @@ import { getOperationsSummary, getOperationsAlerts } from '@/lib/db/operations';
 import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-workforce';
 import { getAdminContext } from '@/lib/admin-auth';
 import { OperationsFlow } from '@/components/OperationsFlow';
+import { QrCanvas } from '@/components/QrCanvas';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
   const brnFailed = (await searchParams).brn === 'failed';
@@ -50,6 +51,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
       <section className="grid grid-cols-2 gap-3"><Link href="/staff?view=contract&entry=gigworker" className="rounded-2xl bg-ink px-5 py-5 text-white"><span className="text-[20px]">＋</span><p className="mt-2 text-[17px] font-extrabold">긱워커 등록</p><p className="mt-1 text-[12px] leading-5 text-white/75">기간·시간을 정하고 초대 링크를 보내요</p></Link><Link href="/timesheet" className="rounded-2xl bg-white px-5 py-5 shadow-card"><span className="text-[20px]">✓</span><p className="mt-2 text-[17px] font-extrabold text-ink">근태 확인</p><p className="mt-1 text-[12px] leading-5 text-sub">출퇴근과 인증 요청을 확인해요</p></Link></section>
       <section className="mt-4 rounded-2xl bg-white p-5 shadow-card"><p className="text-[14px] font-extrabold text-ink">지금 확인할 일</p><div className="mt-3 divide-y divide-line"><Link href="/timesheet" className="flex items-center justify-between py-3"><span><b className="text-[14px] text-ink">출퇴근 확인</b><span className="ml-2 text-[12px] text-sub">조기 퇴근·미출근·인증 실패</span></span><b className="text-primary">{attendanceReviewCount}건 ›</b></Link><Link href="/staff?view=contract&entry=gigworker" className="flex items-center justify-between py-3"><span><b className="text-[14px] text-ink">초대 대기</b><span className="ml-2 text-[12px] text-sub">연결 {connectedCount}명 · 링크 대기 {pendingInviteCount}명</span></span><b className="text-primary">관리 →</b></Link></div></section>
       <Link href="/membership" className="mt-5 flex items-center justify-between rounded-xl bg-bg px-4 py-3 text-[12px] text-sub"><span>긱워커 근태 무료 베타 · 최대 3명</span><b className="text-primary">이용 안내 →</b></Link>
+      {shop.isDemo && (()=>{const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL??(process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');const demoUrl=`${workerOrigin}/gig/demo`;return <section className="mt-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-card"><div className="flex items-center gap-4"><QrCanvas value={demoUrl} size={112} label="워커 시연 QR"/><div className="min-w-0"><p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">워커 기기</p><p className="mt-1 text-[15px] font-extrabold text-ink">이 QR을 찍으면 긱워커 시연 계정으로 바로 시작돼요</p><p className="mt-1 break-all text-[12px] text-sub">{demoUrl}</p><p className="mt-1 text-[11px] text-sub">초대 수락 → 닿기 출근 → 이 화면에 반영. 다시 찍으면 처음부터.</p></div></div></section>;})()}
     </main>;
   }
 
