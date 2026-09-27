@@ -5,7 +5,7 @@ import { getAdminContext } from '@/lib/admin-auth';
 import { getGigPayoutBoard } from '@/lib/db/gig-payouts';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
-import { CreatePayoutForm, PayoutRowActions } from './PayoutForm';
+import { CreatePayoutForm, PayoutRowActions, WithholdingCalculator } from './PayoutForm';
 
 const PAY: Record<string, string> = { hourly: '시급', daily: '일급', monthly: '월급' };
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
@@ -56,16 +56,17 @@ export default async function GigPayPage() {
     {scheduled.length > 0 && <>
       <h2 className="mt-6 px-1 text-[15px] font-extrabold text-ink">지급 예정</h2>
       <div className="mt-3 divide-y divide-line rounded-2xl bg-white shadow-card">
-        {scheduled.map((p) => <div key={p.id} className="flex items-center justify-between gap-2 px-4 py-3"><div><p className="text-[13px] font-bold text-ink">{p.name} · {won(p.amount)}</p><p className="text-[11px] text-sub">{p.periodStart} ~ {p.periodEnd} · {p.workedDays}일 · 예정일 {p.payAt}{p.note ? ` · ${p.note}` : ''}</p></div>{canManage && <PayoutRowActions payoutId={p.id} />}</div>)}
+        {scheduled.map((p) => <div key={p.id} className="flex items-center justify-between gap-2 px-4 py-3"><div><p className="text-[13px] font-bold text-ink">{p.name} · 실지급 {won(p.netAmount)}</p><p className="text-[11px] text-sub">세전 {won(p.amount)}{p.withholdingAmount ? ` · 3.3% −${won(p.withholdingAmount)}` : ''} · {p.periodStart} ~ {p.periodEnd} · {p.workedDays}일 · 예정일 {p.payAt}{p.note ? ` · ${p.note}` : ''}</p></div>{canManage && <PayoutRowActions payoutId={p.id} />}</div>)}
       </div>
     </>}
 
     {paid.length > 0 && <>
       <h2 className="mt-6 px-1 text-[15px] font-extrabold text-ink">지급 완료</h2>
       <div className="mt-3 divide-y divide-line rounded-2xl bg-white shadow-card">
-        {paid.map((p) => <div key={p.id} className="flex items-center justify-between gap-2 px-4 py-3"><div><p className="text-[13px] font-bold text-ink">{p.name} · {won(p.amount)}</p><p className="text-[11px] text-sub">{p.periodStart} ~ {p.periodEnd} · {p.workedDays}일 · {hours(p.workedMinutes)}</p></div><span className="text-[11px] font-bold text-emerald-600">{p.payAt} 지급</span></div>)}
+        {paid.map((p) => <div key={p.id} className="flex items-center justify-between gap-2 px-4 py-3"><div><p className="text-[13px] font-bold text-ink">{p.name} · 실지급 {won(p.netAmount)}</p><p className="text-[11px] text-sub">세전 {won(p.amount)}{p.withholdingAmount ? ` · 3.3% −${won(p.withholdingAmount)}` : ''} · {p.periodStart} ~ {p.periodEnd} · {p.workedDays}일 · {hours(p.workedMinutes)}</p></div><span className="text-[11px] font-bold text-emerald-600">{p.payAt} 지급</span></div>)}
       </div>
     </>}
-    <p className="mt-4 px-1 text-[11px] leading-5 text-sub">금액은 완료된 출퇴근 기록과 급여 기준으로 계산한 세전 금액이에요. 세금·보험 처리는 사업장 기준에 따릅니다.</p>
+    <WithholdingCalculator />
+    <p className="mt-4 px-1 text-[11px] leading-5 text-sub">근무자별 금액은 완료된 출퇴근 기록과 급여 기준으로 계산한 세전 금액이고, 3.3%를 켜면 공제 후 실지급액으로 기록돼요. 세금·보험 처리는 사업장 기준에 따릅니다.</p>
   </main>;
 }

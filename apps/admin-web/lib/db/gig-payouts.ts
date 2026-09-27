@@ -6,7 +6,8 @@ import { getCurrentFacilityId } from '../facility';
 
 export type GigPayout = {
   id: string; staffId: string; periodStart: string; periodEnd: string; workedMinutes: number; workedDays: number;
-  payBasis: string; payRate: number; amount: number; status: 'scheduled' | 'paid' | 'cancelled'; payAt: string | null; paidAt: string | null; note: string | null; createdAt: string;
+  payBasis: string; payRate: number; amount: number; withholdingRate: number; withholdingAmount: number; netAmount: number;
+  status: 'scheduled' | 'paid' | 'cancelled'; payAt: string | null; paidAt: string | null; note: string | null; createdAt: string;
 };
 export type GigPayoutStaff = {
   staffId: string; name: string; workerLinked: boolean;
@@ -54,7 +55,8 @@ export async function getGigPayoutBoard(): Promise<GigPayoutStaff[]> {
     const item: GigPayout = {
       id: row.id as string, staffId: row.staff_id as string, periodStart: row.period_start as string, periodEnd: row.period_end as string,
       workedMinutes: Number(row.worked_minutes), workedDays: Number(row.worked_days), payBasis: row.pay_basis as string, payRate: Number(row.pay_rate),
-      amount: Number(row.amount), status: row.status as GigPayout['status'], payAt: (row.pay_at as string | null) ?? null, paidAt: (row.paid_at as string | null) ?? null,
+      amount: Number(row.amount), withholdingRate: Number(row.withholding_rate ?? 0), withholdingAmount: Number(row.withholding_amount ?? 0), netAmount: Number(row.net_amount ?? row.amount),
+      status: row.status as GigPayout['status'], payAt: (row.pay_at as string | null) ?? null, paidAt: (row.paid_at as string | null) ?? null,
       note: (row.note as string | null) ?? null, createdAt: row.created_at as string,
     };
     (byStaff.get(item.staffId) ?? byStaff.set(item.staffId, []).get(item.staffId)!).push(item);

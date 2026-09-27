@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
 import { amountFor, summarizeWork } from '@/lib/db/gig-payouts';
+import { withholding } from '@/lib/withholding';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
@@ -32,6 +33,7 @@ export async function createGigPayoutAction(form: FormData) {
   const mode = text(form, 'mode') === 'later' ? 'later' : 'now';
   const payAt = text(form, 'pay_at') || null;
   const note = text(form, 'note') || null;
+  const withhold = text(form, 'withhold') === '1';
   if (mode === 'later' && (!payAt || !/^\d{4}-\d{2}-\d{2}$/.test(payAt))) throw new Error('지급 예정일을 골라 주세요.');
 
   const [{ data: staff }, { data: facility }, { data: last }] = await Promise.all([
@@ -47,15 +49,17 @@ export async function createGigPayoutAction(form: FormData) {
   const work = await summarizeWork(sb, context.facilityId, staffId, since, today);
   const amount = amountFor(staff.pay_basis, Number(staff.pay_rate), work.minutes, work.days);
   if (work.days === 0 || amount <= 0) throw new Error('마지막 지급 이후 완료된 근무가 없어요.');
+  const tax = withholding(amount, withhold);
 
   const { data: created, error } = await sb.from('gig_payouts').insert({
     facility_id: context.facilityId, staff_id: staffId, period_start: since, period_end: today,
     worked_minutes: work.minutes, worked_days: work.days, pay_basis: staff.pay_basis, pay_rate: staff.pay_rate, amount,
+    withholding_rate: tax.rate, withholding_amount: tax.total, net_amount: tax.net,
     status: mode === 'now' ? 'paid' : 'scheduled', pay_at: mode === 'now' ? today : payAt,
     paid_at: mode === 'now' ? new Date().toISOString() : null, note, created_by: context.user.id,
   }).select('id').single();
   if (error || !created) throw new Error('지급 기록을 저장하지 못했어요.');
-  await notifyWorker(sb, staffId, facility?.name ?? '근무지', mode === 'now' ? 'payout.paid' : 'payout.scheduled', amount, mode === 'now' ? today : payAt, created.id);
+  await notifyWorker(sb, staffId, facility?.name ?? '근무지', mode === 'now' ? 'payout.paid' : 'payout.scheduled', tax.net, mode === 'now' ? today : payAt, created.id);
   revalidatePath('/gig-pay'); revalidatePath('/');
 }
 
@@ -65,12 +69,12 @@ export async function markGigPayoutPaidAction(form: FormData) {
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const payoutId = text(form, 'payout_id');
-  const { data: payout } = await sb.from('gig_payouts').select('id,staff_id,amount,status').eq('id', payoutId).eq('facility_id', context.facilityId).maybeSingle();
+  const { data: payout } = await sb.from('gig_payouts').select('id,staff_id,amount,net_amount,status').eq('id', payoutId).eq('facility_id', context.facilityId).maybeSingle();
   if (!payout || payout.status !== 'scheduled') throw new Error('지급 예정 상태의 기록만 완료로 바꿀 수 있어요.');
   const { error } = await sb.from('gig_payouts').update({ status: 'paid', paid_at: new Date().toISOString(), pay_at: todayKST(), updated_at: new Date().toISOString() }).eq('id', payoutId);
   if (error) throw new Error('지급 완료 처리를 하지 못했어요.');
   const { data: facility } = await sb.from('facilities').select('name').eq('id', context.facilityId).maybeSingle();
-  await notifyWorker(sb, payout.staff_id, facility?.name ?? '근무지', 'payout.paid', Number(payout.amount), todayKST(), `${payoutId}:paid`);
+  await notifyWorker(sb, payout.staff_id, facility?.name ?? '근무지', 'payout.paid', Number(payout.net_amount ?? payout.amount), todayKST(), `${payoutId}:paid`);
   revalidatePath('/gig-pay'); revalidatePath('/');
 }
 

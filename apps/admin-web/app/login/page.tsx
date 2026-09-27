@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
+import { BrandMark, Wordmark } from '@/components/BrandMark';
 import { subscribeToAdminPush } from '@/lib/push-subscribe';
 
 // 시연용 계정. 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN으로 빌드 시 결정된다.
@@ -101,7 +102,8 @@ function LoginInner() {
   return (
     <div className="flex flex-col min-h-screen px-6">
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        <span className="text-[32px] font-extrabold text-primary">잇닿</span>
+        <BrandMark size={64} />
+        <Wordmark size={30} />
         <span className="text-[15px] text-sub">병원·약국 모집 · 긱워커 근태 관리</span>
       </div>
 

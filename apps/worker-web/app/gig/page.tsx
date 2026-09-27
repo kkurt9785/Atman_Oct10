@@ -82,7 +82,7 @@ type Staff = {
   facilities: FacilityRef | FacilityRef[];
 };
 type AttendanceState = { staff_id: string; check_in_at: string | null; check_out_at: string | null; work_date: string; status?: string; break_minutes?: number };
-type Payout = { id: string; staff_id: string; period_start: string; period_end: string; worked_days: number; worked_minutes: number; amount: number; status: 'scheduled' | 'paid' | 'cancelled'; pay_at: string | null; paid_at: string | null };
+type Payout = { id: string; staff_id: string; period_start: string; period_end: string; worked_days: number; worked_minutes: number; amount: number; withholding_amount: number | null; net_amount: number | null; status: 'scheduled' | 'paid' | 'cancelled'; pay_at: string | null; paid_at: string | null };
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 
 const facilityOf = (staff: Staff) => (Array.isArray(staff.facilities) ? staff.facilities[0] : staff.facilities) ?? null;
@@ -134,7 +134,7 @@ function GigTodayContent() {
     setBank(workerRow ?? null);
     if (linked.length) {
       const facilityIds = [...new Set(linked.map((item) => facilityOf(item)?.id).filter(Boolean))] as string[];
-      const { data: payoutRows } = await supabase.from('gig_payouts').select('id,staff_id,period_start,period_end,worked_days,worked_minutes,amount,status,pay_at,paid_at')
+      const { data: payoutRows } = await supabase.from('gig_payouts').select('id,staff_id,period_start,period_end,worked_days,worked_minutes,amount,withholding_amount,net_amount,status,pay_at,paid_at')
         .in('staff_id', linked.map((item) => item.id)).neq('status', 'cancelled').order('created_at', { ascending: false }).limit(10);
       setPayouts((payoutRows ?? []) as Payout[]);
       const { data: settings } = await supabase.from('facility_attendance_settings').select('facility_id,authentication_mode').in('facility_id', facilityIds);
@@ -242,7 +242,7 @@ function GigTodayContent() {
           {payouts.filter((p) => staffList.some((s) => s.id === p.staff_id)).length === 0
             ? <p className="mt-3 text-[13px] text-sub">아직 지급 기록이 없어요. 근무가 끝나면 관리자가 지급 기록을 남기고 알림을 보내요.</p>
             : <div className="mt-3 divide-y divide-line">
-              {payouts.filter((p) => staffList.some((s) => s.id === p.staff_id)).map((p) => <div key={p.id} className="flex items-center justify-between gap-2 py-3"><div><p className="text-[14px] font-extrabold text-ink">{won(p.amount)}</p><p className="text-[11px] text-sub">{p.period_start}{p.period_end !== p.period_start ? ` ~ ${p.period_end}` : ''} · {p.worked_days}일</p></div><span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${p.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>{p.status === 'paid' ? `${p.pay_at ?? ''} 지급 완료` : `${p.pay_at ?? ''} 지급 예정`}</span></div>)}
+              {payouts.filter((p) => staffList.some((s) => s.id === p.staff_id)).map((p) => <div key={p.id} className="flex items-center justify-between gap-2 py-3"><div><p className="text-[14px] font-extrabold text-ink">{won(p.net_amount ?? p.amount)}</p><p className="text-[11px] text-sub">{p.period_start}{p.period_end !== p.period_start ? ` ~ ${p.period_end}` : ''} · {p.worked_days}일{p.withholding_amount ? ` · 세전 ${won(p.amount)} − 3.3%` : ''}</p></div><span className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${p.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>{p.status === 'paid' ? `${p.pay_at ?? ''} 지급 완료` : `${p.pay_at ?? ''} 지급 예정`}</span></div>)}
             </div>}
         </section>
 

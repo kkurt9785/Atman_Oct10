@@ -6,6 +6,7 @@ import { TextSizeToggle } from './TextSizeToggle';
 import { BottomNav } from './BottomNav';
 import { FacilitySwitcher } from './FacilitySwitcher';
 import { FacilityModeGuard } from './FacilityModeGuard';
+import { Wordmark } from './BrandMark';
 import { supabase } from '@/lib/supabase-browser';
 import type { FacilityMode } from '@/lib/facility-mode';
 
@@ -49,7 +50,7 @@ export function Shell({ children, facilityMode }: { children: React.ReactNode; f
       <FacilityModeGuard mode={facilityMode} />
       <div className="mx-auto max-w-app min-h-screen bg-bg pb-24">
         <header className="sticky top-0 z-10 flex h-16 items-center gap-2 bg-bg/90 px-4 backdrop-blur">
-          <span className="shrink-0 whitespace-nowrap text-[18px] font-extrabold text-primary">잇닿</span>
+          <span className="shrink-0 whitespace-nowrap"><Wordmark size={17} suffix={null} /></span>
           <FacilitySwitcher />
           <TextSizeToggle />
           <button
