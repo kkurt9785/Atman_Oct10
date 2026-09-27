@@ -1,17 +1,17 @@
 {
-  "name": "잇닿 GIG — 초대받은 근무 출퇴근",
-  "short_name": "잇닿 GIG",
-  "id": "/gig",
-  "description": "관리자 초대 링크로 연결하고, 닿기 한 번으로 출퇴근을 기록해요.",
+  "name": "잇닿 워커 — 병원·약국 근무와 긱 근무를 한곳에서",
+  "short_name": "잇닿 워커",
+  "id": "/",
+  "description": "병원·약국 근무 찾기와 초대받은 긱 근무의 출퇴근을 한 앱에서 관리해요.",
   "start_url": "/gig",
-  "scope": "/gig",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#191F28",
-  "theme_color": "#191F28",
+  "background_color": "#ffffff",
+  "theme_color": "#3182F6",
   "orientation": "portrait",
   "icons": [
-    { "src": "/gig-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/gig-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/gig-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

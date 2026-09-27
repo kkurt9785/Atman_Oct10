@@ -7,7 +7,7 @@ import { WorkerShellGuard } from '@/components/WorkerShellGuard';
 import { supabase } from '@/lib/supabase';
 import { GigNav } from './GigNav';
 
-// /gig 아래의 전용 내비게이션·가드. 매니페스트와 앱 이름은 서버 레이아웃 metadata가 담당한다.
+// /gig 아래의 간편 내비게이션·가드. 설치 앱은 루트 셸과 같은 '잇닿 워커'를 쓴다.
 export function GigShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const bare = path.startsWith('/gig/join') || path.startsWith('/gig/demo');
@@ -25,7 +25,7 @@ export function GigShell({ children }: { children: React.ReactNode }) {
     <>
       {!bare && <WorkerShellGuard shell="gig" />}
       <div className={showShell ? 'pb-[calc(56px+env(safe-area-inset-bottom))]' : ''}>{children}</div>
-      {showShell && <InstallBanner hint="잇닿 GIG를 홈 화면에 두고 바로 출퇴근하세요" />}
+      {showShell && <InstallBanner hint="잇닿 워커를 홈 화면에 두고 바로 출퇴근하세요" />}
       {showShell && <GigNav />}
     </>
   );
