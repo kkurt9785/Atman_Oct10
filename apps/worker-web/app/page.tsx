@@ -9,25 +9,14 @@ import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { InstallAppButton } from '@/components/InstallAppButton';
 
-// 로그인 전 첫 화면은 로그인만 한다. 두 갈래를 나눠 두되 각 갈래의 버튼이 곧 시작이다 (1탭).
-//   1) 병원·약국 근무 찾기 → 카카오 로그인 → 온보딩 → /home (근무표)
-//   2) 초대받은 근무 출퇴근 → 초대 링크 확인 → /gig/join
-// 근무표·공고 같은 내용은 로그인 뒤 화면이 맡는다. 여기에는 아무것도 더 쌓지 않는다.
+// 첫 화면은 기능을 나열하지 않고 워커 유형만 고른다.
+// 병원·약국 워커는 구직까지 포함한 상위 셸, 긱워커는 초대 근무에 필요한 공통 기능만 쓰는 간편 셸이다.
+
+const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
 function RootInner() {
   const router = useRouter();
   const [signedOut, setSignedOut] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
-  const [inviteError, setInviteError] = useState('');
-  const [inviteLoading, setInviteLoading] = useState(false);
-  // 시연 진입은 ?demo=1 로 연 기기에서만 보인다. 실사용자 첫 화면에 데모를 노출하지 않는다.
-  const [demoUnlocked, setDemoUnlocked] = useState(false);
-
-  useEffect(() => {
-    const wants = new URLSearchParams(window.location.search).get('demo') === '1';
-    if (wants) window.localStorage.setItem('atman_demo_panel', '1');
-    setDemoUnlocked(process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && (wants || window.localStorage.getItem('atman_demo_panel') === '1'));
-  }, []);
 
   useEffect(() => {
     async function route() {
@@ -50,55 +39,6 @@ function RootInner() {
     route();
   }, [router]);
 
-  // 긱워커 두 기기 시연: worker-demo-4 로 로그인하고 데모 근무지의 초대(토큰 고정)를 매번 초기화해 /gig/join 으로 간다.
-  // 관리자 앱 '긱워커 근태 시연'의 팝업스토어 데모 근무지와 같은 초대라, 관리자 화면에서 복사한 링크·QR 도 이 계정으로 그대로 열린다.
-  async function startGigDemo() {
-    setInviteError('');
-    setInviteLoading(true);
-    try {
-      const response = await fetch('/api/demo-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: 'GIG2026' }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.accessToken || !payload.refreshToken || !payload.gigInviteToken) {
-        throw new Error(payload.error ?? '긱워커 데모를 열지 못했어요.');
-      }
-      const { error } = await supabase.auth.setSession({
-        access_token: payload.accessToken,
-        refresh_token: payload.refreshToken,
-      });
-      if (error) throw error;
-      rememberWorkerShell('gig');
-      router.replace(`/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}`);
-    } catch (error) {
-      setInviteError(error instanceof Error ? error.message : '긱워커 데모를 열지 못했어요.');
-    } finally {
-      setInviteLoading(false);
-    }
-  }
-
-  async function openInvite() {
-    setInviteError('');
-    const value = inviteLink.trim();
-    if (demoUnlocked && value.toUpperCase() === 'GIG2026') {
-      await startGigDemo();
-      return;
-    }
-    const directToken = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
-    let token = directToken;
-    if (!token) {
-      try { token = new URL(value).searchParams.get('token'); } catch { token = null; }
-    }
-    if (!token) {
-      setInviteError('관리자가 보낸 초대 링크 전체를 붙여 넣어 주세요.');
-      return;
-    }
-    rememberWorkerShell('gig');
-    router.push(`/gig/join?token=${encodeURIComponent(token)}`);
-  }
-
   function startMedical() {
     rememberWorkerShell('medical');
     startKakaoLogin();
@@ -111,33 +51,43 @@ function RootInner() {
       <div className="flex flex-col items-center gap-4 pt-10 text-center">
         <BrandMark size={72} />
         <Wordmark size={30} />
-        <p className="text-[15px] leading-6 text-sub">병원·약국 근무를 찾는 사람에게도,<br />초대받아 오늘 출근하는 사람에게도 한 번에 닿는 근무 앱.</p>
+        <h1 className="text-[24px] font-extrabold tracking-[-0.6px] text-ink">어떤 워커로 시작할까요?</h1>
+        <p className="text-[14px] leading-6 text-sub">공통 근무 기록은 같고,<br />필요한 기능만 다르게 보여드려요.</p>
       </div>
 
       <div className="flex-grow" />
 
-      <section aria-label="병원·약국 근무 찾기" className="rounded-3xl bg-bg p-5">
-        <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국 근무 찾기</p>
-        <p className="mt-1 text-[14px] text-sub">간호사 · 간호조무사 · 약사 · 약국 사무직</p>
+      <section aria-label="병원·약국 워커" className="rounded-3xl bg-bg p-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국 워커</p>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">전체 기능</span>
+        </div>
+        <p className="mt-2 text-[18px] font-extrabold text-ink">근무를 찾고 지원할게요</p>
+        <p className="mt-1 text-[13px] leading-5 text-sub">간호사·간호조무사·약사·약국 사무직<br />근무 찾기 · 지원 · 근무표 · 출퇴근</p>
         <button type="button" onClick={startMedical} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink shadow-btn active:opacity-80">
           <KakaoGlyph />카카오로 시작
         </button>
       </section>
 
-      <section aria-label="초대받은 근무 출퇴근" className="mt-3 rounded-3xl border border-line bg-white p-5">
-        <p className="text-[12px] font-extrabold tracking-[0.08em] text-ink">초대받은 근무 출퇴근</p>
-        <p className="mt-1 text-[14px] text-sub">관리자가 보낸 링크나 QR로 들어오면 바로 연결돼요. 링크가 있다면 여기에 붙여 넣어도 돼요. <Link href="/gig" className="font-bold text-primary">긱워커 안내 →</Link></p>
-        <div className="mt-3 flex gap-2">
-          <input value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void openInvite()} placeholder="초대 링크 붙여넣기" aria-label="초대 링크" className="h-12 min-w-0 flex-1 rounded-xl bg-bg px-3 text-[14px] text-ink outline-none placeholder:text-tertiary" />
-          <button type="button" onClick={() => void openInvite()} disabled={inviteLoading} className="h-12 shrink-0 rounded-xl bg-ink px-4 text-[14px] font-extrabold text-white disabled:opacity-60">확인</button>
+      <section aria-label="긱워커 간편모드" className="mt-3 rounded-3xl bg-ink p-5 text-white">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">긱워커 · 간편모드</p>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-extrabold text-white/70">잇닿 안에서</span>
         </div>
-        {demoUnlocked && (
-          <button type="button" onClick={() => void startGigDemo()} disabled={inviteLoading} className="mt-3 flex h-11 w-full items-center justify-between rounded-xl bg-primary/10 px-4 text-[13px] font-extrabold text-primary disabled:opacity-60">
-            <span>긱워커 시연 시작 <span className="font-normal text-primary/70">· 팝업스토어 데모 초대</span></span><span>→</span>
-          </button>
-        )}
-        {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{inviteError}</p>}
+        <p className="mt-2 text-[18px] font-extrabold">초대받은 근무에 참여할게요</p>
+        <p className="mt-1 text-[13px] leading-5 text-white/65">직군 등록이나 구직 과정 없이<br />초대 근무 · 닿기 출퇴근 · 워크룸 · 지급 확인</p>
+        <Link href="/gig" onClick={() => rememberWorkerShell('gig')} className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-white text-[15px] font-extrabold text-ink active:opacity-80">
+          긱워커로 시작 →
+        </Link>
       </section>
+
+      {DEMO_ENABLED && <section aria-label="데모 워커 선택" className="mt-3">
+        <p className="mb-2 text-center text-[11px] font-bold text-tertiary">가입 없이 먼저 볼 수 있어요</p>
+        <div className="grid grid-cols-2 gap-2">
+          <Link href="/demo" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-[12px] font-extrabold text-sub">병원·약국 데모</Link>
+          <Link href="/gig/demo" className="flex h-11 items-center justify-center rounded-xl border border-ink bg-white text-[12px] font-extrabold text-ink">긱워커 데모</Link>
+        </div>
+      </section>}
 
       <div className="mt-3"><InstallAppButton /></div>
       <p className="mt-4 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>

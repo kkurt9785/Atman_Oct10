@@ -37,7 +37,9 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
       setDemoUnlocked(wants || localStorage.getItem('atman_demo_panel') === '1');
     } catch { setDemoUnlocked(false); }
   }, []);
-  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && demoUnlocked;
+  // 긱 초대 흐름은 별도의 데모 워커가 있다는 사실을 바로 보여 준다.
+  // 일반 가입에서는 기존처럼 시연 패널을 연 기기에서만 보인다.
+  const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1' && (gigInvite || demoUnlocked);
   // 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 플래그 하나로만 제어 (출시 시 0으로)
   // 긱 초대로 들어온 화면에서는 긱워커 데모만, 그 외 시연 화면에서는 의료·긱 데모를 모두 보여 준다 (루트 / 에도 긱워커 시연 버튼이 있다)
   const visibleDemoWorkers = gigInvite ? DEMO_WORKERS.filter((worker) => worker.gigworker) : DEMO_WORKERS;
@@ -98,7 +100,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
   return (
     <div className={`flex flex-col min-h-screen px-6 ${attendanceInvite?'bg-gradient-to-b from-primary/10 via-white to-white':''}`}>
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        {gigInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-white">GIG WORKER</span>}
+        {gigInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.1em] text-white">긱워커 간편모드</span>}
         {inviteVariant==='medical'&&<span className="rounded-full bg-primary/10 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-primary">직원 계정 연결</span>}
         <Wordmark size={32} suffix={gigInvite ? 'GIG' : undefined} />
         <span className="text-center text-[15px] leading-6 text-tertiary">{gigInvite?<>초대받은 근무만 간단하게 확인하고<br/>출퇴근을 기록해요</>:inviteVariant==='medical'?<>초대받은 병원·약국 근무를 확인하고<br/>출퇴근과 휴가를 앱에서 관리해요</>:'병원·약국 의료인력을 위한 시프트'}</span>
@@ -120,7 +122,8 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
         {!attendanceInvite&&<p className="-mt-1 text-center text-[11px] leading-4 text-sub">근무 초대를 받았다면 가입 후 초대 링크를 다시 열어 주세요.</p>}
         {showDemoLogin && (
           <div className="rounded-2xl border border-line bg-white p-4">
-            <p className="mb-3 text-[13px] font-bold text-ink">시연용 워커 로그인</p>
+            <p className="mb-1 text-[13px] font-bold text-ink">{gigInvite ? '긱워커 데모 계정' : '시연용 워커 로그인'}</p>
+            {gigInvite && <p className="mb-3 text-[11px] leading-4 text-sub">내 초대를 연결하기 전, 별도 데모 워커로 화면을 먼저 볼 수 있어요.</p>}
             <div className="grid grid-cols-1 gap-2">
               {visibleDemoWorkers.map((worker) => (
                 <button

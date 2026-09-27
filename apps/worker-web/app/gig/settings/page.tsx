@@ -106,9 +106,9 @@ export default function GigSettingsPage() {
     <main className="px-4 pb-10 pt-[env(safe-area-inset-top)]">
       {pushNotice && <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] font-bold text-amber-700">{pushNotice}</p>}
       <div className="mb-6 mt-2 px-1">
-        <span className="inline-flex rounded-full bg-ink px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em] text-white">GIG WORKER</span>
+        <span className="inline-flex rounded-full bg-ink px-2.5 py-1 text-[10px] font-extrabold tracking-[0.1em] text-white">긱워커 간편모드</span>
         <h1 className="mt-2 text-[24px] font-extrabold text-ink">내 정보</h1>
-        <p className="mt-1 text-[13px] text-sub">근무 초대 계정과 출근 알림을 관리해요.</p>
+        <p className="mt-1 text-[13px] text-sub">잇닿 계정은 그대로, 초대 근무와 출근 알림만 간단히 관리해요.</p>
       </div>
 
       <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm">
@@ -116,7 +116,7 @@ export default function GigSettingsPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-3xl">👤</div>
           <div>
             <p className="text-[18px] font-bold text-ink">{name || '...'}</p>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[13px] font-semibold text-primary">긱워커</span>
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[13px] font-semibold text-primary">긱워커 간편모드</span>
           </div>
         </div>
       </div>
@@ -150,10 +150,10 @@ export default function GigSettingsPage() {
 
       <section className="mb-4 rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
         <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">MEDICAL SHIFT</p>
-        <p className="mt-1 text-[16px] font-extrabold text-ink">{canSwitch ? '병원·약국 일자리도 확인할까요?' : '병원·약국 일자리도 찾을 수 있어요'}</p>
-        <p className="mt-1 text-[12px] leading-5 text-sub">{canSwitch ? '기존 프로필과 지원 내역은 그대로 유지돼요.' : '직군과 활동 지역을 추가하면 기존 긱 근무 기록은 유지돼요.'}</p>
+        <p className="mt-1 text-[16px] font-extrabold text-ink">{canSwitch ? '전체 워커 기능으로 돌아가기' : '병원·약국 근무 찾기도 추가할 수 있어요'}</p>
+        <p className="mt-1 text-[12px] leading-5 text-sub">{canSwitch ? '같은 계정의 프로필·지원 내역을 그대로 이어서 봐요.' : '직군과 활동 지역만 추가하면 긱 근무 기록을 유지한 채 기능이 넓어져요.'}</p>
         <button type="button" onClick={canSwitch ? switchToMedical : startMedicalRegistration} className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-extrabold text-white">
-          {canSwitch ? '병원·약국 일자리 모드로 전환' : '의료 워커 정보 등록하기'}
+          {canSwitch ? '병원·약국 워커로 전환' : '병원·약국 워커 기능 추가'}
         </button>
       </section>
 

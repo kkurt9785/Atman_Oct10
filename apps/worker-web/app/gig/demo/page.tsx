@@ -55,8 +55,8 @@ export default function GigDemoPage() {
 
         <div className="mt-14 flex flex-col items-center text-center">
           <BrandMark size={72} tone="dark" />
-          <h1 className="mt-6 text-[28px] font-extrabold leading-tight tracking-[-0.8px]">긱워커 시연</h1>
-          <p className="mt-3 text-[14px] leading-6 text-white/70">버튼 하나로 시연 계정에 로그인하고<br />팝업스토어 데모 근무지의 초대를 받은 상태로 시작해요.</p>
+          <h1 className="mt-6 text-[28px] font-extrabold leading-tight tracking-[-0.8px]">긱워커 간편모드 시연</h1>
+          <p className="mt-3 text-[14px] leading-6 text-white/70">잇닿 워커 안의 간편모드예요.<br />전용 데모 워커로 팝업스토어 초대부터 시작해요.</p>
         </div>
 
         <ol className="mt-8 space-y-2 rounded-2xl bg-white/8 p-4 text-[13px] leading-5 text-white/80">
@@ -76,7 +76,7 @@ export default function GigDemoPage() {
           <p className="rounded-2xl bg-white/10 p-4 text-center text-[13px] text-white/70">이 배포에서는 시연 로그인이 꺼져 있어요.</p>
         )}
         {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-300">{error}</p>}
-        <Link href="/" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-white/60">일반 로그인으로 가기</Link>
+        <Link href="/" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-white/60">워커 유형 선택으로 돌아가기</Link>
       </div>
     </main>
   );

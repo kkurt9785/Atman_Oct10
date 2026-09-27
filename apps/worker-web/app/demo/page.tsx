@@ -7,8 +7,8 @@ import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
 import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
 
-// 워커 앱 시연 입구: itdot.co.kr/demo
-// 병원·약국 의료 워커 시연 계정 4개 + 긱워커 시연(/gig/demo). 버튼 하나로 해당 계정에 로그인해 홈으로 간다.
+// 병원·약국 워커 전용 시연 입구: itdot.co.kr/demo
+// 긱워커 간편모드 시연은 /gig/demo 로 분리해, 첫 화면부터 두 모드가 섞여 보이지 않게 한다.
 // 노출은 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 으로만 막는다 (주소를 아는 사람만 온다).
 
 const ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
@@ -58,7 +58,7 @@ export default function WorkerDemoPage() {
 
         <div className="mt-10 flex flex-col items-center text-center">
           <BrandMark size={64} />
-          <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">워커 앱 시연</h1>
+          <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">병원·약국 워커 시연</h1>
           <p className="mt-2 text-[14px] leading-6 text-sub">직군 하나를 고르면 그 시연 계정으로 바로 로그인돼요.<br />근무표 홈 → 근무 찾기·지원 → 출퇴근 흐름을 볼 수 있어요.</p>
         </div>
 
@@ -72,10 +72,9 @@ export default function WorkerDemoPage() {
           ))}
         </div>
 
-        <p className="mt-6 text-[12px] font-extrabold tracking-[0.08em] text-ink">초대받은 근무 출퇴근</p>
-        <Link href="/gig/demo" className="mt-2 flex items-center justify-between rounded-2xl bg-ink px-4 py-4 text-white active:opacity-80">
-          <span className="flex flex-col gap-0.5"><b className="text-[15px]">긱워커</b><span className="text-[12px] text-white/70">팝업스토어 데모 초대 → 닿기 출근</span></span>
-          <span className="shrink-0 text-[13px] font-extrabold">시작 →</span>
+        <Link href="/gig/demo" className="mt-6 flex items-center justify-between rounded-2xl border border-ink px-4 py-4 text-ink active:bg-bg">
+          <span className="flex flex-col gap-0.5"><b className="text-[14px]">긱워커는 간편모드에서</b><span className="text-[12px] text-sub">초대 → 닿기 출퇴근 데모</span></span>
+          <span className="shrink-0 text-[13px] font-extrabold">별도 보기 →</span>
         </Link>
 
         {!ENABLED && <p className="mt-4 rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>}

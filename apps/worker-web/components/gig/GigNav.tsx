@@ -21,7 +21,7 @@ const ICONS = {
 export function GigNav() {
   const path = usePathname();
   return (
-    <nav aria-label="긱워커 메뉴" className="fixed bottom-0 inset-x-0 z-30 mx-auto flex max-w-app border-t border-line bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav aria-label="긱워커 간편모드 메뉴" className="fixed bottom-0 inset-x-0 z-30 mx-auto flex max-w-app border-t border-line bg-white pb-[env(safe-area-inset-bottom)]">
       {TABS.map((tab) => {
         const active = tab.href === '/gig' ? path === '/gig' : path.startsWith(tab.href);
         return (

@@ -8,15 +8,18 @@ import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
 import { WeekRoster } from '@/components/roster/WeekRoster';
 import { Wordmark } from '@/components/brand/BrandMark';
-import { isGigworkerSource, rememberWorkerShell } from '@/lib/worker-mode';
+import { hasMedicalContext, isGigworkerSource, rememberWorkerShell } from '@/lib/worker-mode';
 import { currentWeek, fillWeekdays, slotOf, SLOT_NAME, type RosterCells } from '@/lib/roster';
 import { BrandMark } from '@/components/brand/BrandMark';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { useRouter } from 'next/navigation';
 import { InstallAppButton } from '@/components/InstallAppButton';
+import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 
-// 로그인 전 /gig = 긱워커 랜딩. 홍보용 주소(itdot.co.kr/gig, gig.itdot.co.kr)로 들어온 사람이 처음 보는 화면이다.
-// 의료 워커 쪽 이야기는 한 줄도 없다. 초대 링크 붙여넣기, 카카오 로그인, 홈 화면 설치만.
+const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
+
+// 로그인 전 /gig = 잇닿 워커 안의 긱워커 간편모드 랜딩.
+// 초대 링크 붙여넣기, 카카오 로그인, 전용 데모, 홈 화면 설치만 보여 준다.
 function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
   const router = useRouter();
   const [inviteLink, setInviteLink] = useState('');
@@ -41,7 +44,10 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
 
   return <main className="min-h-screen bg-ink px-6 pb-10 pt-16 text-white">
     <div className="mx-auto flex min-h-[calc(100vh-104px)] max-w-md flex-col">
-      <div className="flex items-center gap-2"><BrandMark size={26} tone="dark" /><span className="text-[20px] font-extrabold tracking-[-0.5px]">잇닿 <span className="text-white/60">GIG</span></span></div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2"><BrandMark size={26} tone="dark" /><span className="text-[20px] font-extrabold tracking-[-0.5px]">잇닿 <span className="text-white/60">WORKER</span></span></div>
+        <WorkerModeBadge shell="gig" dark />
+      </div>
 
       <h1 className="mt-14 text-[32px] font-extrabold leading-[1.2] tracking-[-1px]">초대받은 근무,<br />출퇴근만 간단하게.</h1>
       <p className="mt-4 text-[15px] leading-6 text-white/70">전화번호를 주고받지 않아도 돼요.<br />관리자가 보낸 링크나 QR 하나로 연결되고,<br />근무지에서 <b className="text-white">닿기</b>를 길게 누르면 출근이 기록돼요.</p>
@@ -64,8 +70,9 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
       <button type="button" onClick={login} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink active:opacity-80">
         <KakaoGlyph />{attendanceToken ? '카카오로 로그인하고 출근 기록' : '이미 등록했어요 · 카카오로 로그인'}
       </button>
+      {DEMO_ENABLED && <Link href="/gig/demo" className="mt-2 flex h-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-[14px] font-extrabold text-white">긱워커 데모로 먼저 보기 →</Link>}
       <div className="mt-2"><InstallAppButton label="잇닿 GIG 앱으로 바탕화면에 추가" dark /></div>
-      <p className="mt-4 text-center text-[11px] text-white/45">근무지 관리자이신가요? <a href="https://admin.itdot.co.kr" className="font-bold text-white/70">관리자 앱 →</a></p>
+      <p className="mt-4 text-center text-[11px] text-white/45"><Link href="/" className="font-bold text-white/70">병원·약국 워커로 시작</Link><span className="px-2">·</span>근무지 관리자이신가요? <a href="https://admin.itdot.co.kr" className="font-bold text-white/70">관리자 앱 →</a></p>
     </div>
   </main>;
 }
@@ -127,10 +134,11 @@ function GigTodayContent() {
       .neq('status', 'ended').order('created_at', { ascending: false });
     const all = (data ?? []) as Staff[];
     const linked = all.filter((item) => isGigworkerSource(facilityOf(item)?.registration_source));
-    setHasMedicalLink(all.some((item) => !isGigworkerSource(facilityOf(item)?.registration_source)));
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id ?? '');
-    const { data: workerRow } = await supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
+    const { data: workerRow } = await supabase.from('workers').select('id,role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
+    const sources = all.map((item) => facilityOf(item)?.registration_source).filter((source): source is string => Boolean(source));
+    setHasMedicalLink(hasMedicalContext(sources, workerRow?.role));
     const { data: primaryBank } = workerRow?.id
       ? await supabase.from('worker_bank_accounts').select('bank_name,account_number_last4')
         .eq('worker_id', workerRow.id).eq('is_primary', true).is('deleted_at', null).maybeSingle()
@@ -182,15 +190,21 @@ function GigTodayContent() {
 
   return <main className="min-h-screen bg-bg px-4 pb-8 pt-5">
     <div className="flex items-center justify-between">
-      <Wordmark size={20} suffix="GIG" />
+      <div>
+        <Wordmark size={20} />
+        <div className="mt-2"><WorkerModeBadge shell="gig" /></div>
+      </div>
       {staff && <span className="rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{staff.name}님 · {today ? `${today.weekday} ${today.dayNumber}일` : '오늘'}</span>}
     </div>
+
+    {hasMedicalLink && <Link href="/home" onClick={() => rememberWorkerShell('medical')} className="mt-3 flex items-center justify-between rounded-xl border border-line bg-white px-4 py-3 text-[12px] shadow-sm active:bg-bg">
+      <span className="font-bold text-ink">병원·약국 워커 전체 기능</span><span className="font-extrabold text-primary">근무 찾기로 전환 →</span>
+    </Link>}
 
     {loading ? <div className="mt-6 rounded-2xl bg-white p-8 text-center text-sub">근태를 확인하고 있어요...</div>
       : !staff ? <section className="mt-6 rounded-2xl bg-white p-8 text-center">
           <b>아직 연결된 근무 초대가 없어요</b>
           <p className="mt-2 text-[13px] leading-5 text-sub">관리자가 보낸 초대 링크를 이 기기에서 열면 근무 조건을 확인하고 연결할 수 있어요.</p>
-          {hasMedicalLink && <Link href="/workplace" className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-bg px-4 text-[13px] font-bold text-ink">병원·약국 출퇴근으로 이동</Link>}
         </section>
       : <>
         <div className="mt-4">

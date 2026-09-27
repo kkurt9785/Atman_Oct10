@@ -11,7 +11,9 @@ import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 import { WeekRoster } from '@/components/roster/WeekRoster';
 import { Wordmark } from '@/components/brand/BrandMark';
+import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
+import { loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
 
 // 의료 워커 홈 = 근무표 한 장 + 그 칸의 근무. 그 외는 없다.
 //   ● 확정 근무, ○ 지원 중, +N 그 시간대에 갈 수 있는 근무. 칸을 누르면 아래 목록이 그 칸으로 좁혀진다.
@@ -94,6 +96,7 @@ export default function HomePage() {
   // 플랫폼 심사를 거치는 직군(약사 등)이 미승인이면 공고가 0건인 이유를 안내해야 한다
   const [reviewPending, setReviewPending] = useState(false);
   const [nextAction,setNextAction]=useState<NextAction|null>(null);
+  const [hasGigLink, setHasGigLink] = useState(false);
 
   // 공고 탐색 기준 — 현재 위치 또는 등록 지역 중 하나
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -168,10 +171,12 @@ export default function HomePage() {
       }
       setName(user.user_metadata?.profile_nickname ?? '사용자');
 
-      const [{ data: locPref }, { data: workerRow }] = await Promise.all([
+      const [{ data: locPref }, { data: workerRow }, shellContext] = await Promise.all([
         supabase.from('worker_location_prefs').select('locations').single(),
         supabase.from('workers').select('id, role, verification_status').eq('auth_user_id', user.id).maybeSingle(),
+        loadWorkerShellContext(user).catch(() => null),
       ]);
+      setHasGigLink(Boolean(shellContext?.hasGig));
 
       // 카카오 로그인만 하고 가입(온보딩)을 끝내지 않은 사람에게는 근무표를 보여주지 않는다 — 가입부터
       if (!workerRow) {
@@ -272,9 +277,17 @@ export default function HomePage() {
     <div className="pb-24">
       <div className="px-5 pt-12">
         <div className="flex items-center justify-between">
-          <Wordmark size={20} />
+          <div>
+            <Wordmark size={20} />
+            <div className="mt-2"><WorkerModeBadge shell="medical" /></div>
+          </div>
           <span className="rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{name} {roleLabel}</span>
         </div>
+
+        {hasGigLink && <Link href="/gig" onClick={() => rememberWorkerShell('gig')} className="mt-4 flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-white shadow-sm active:opacity-80">
+          <span><b className="block text-[13px]">긱워커 간편모드</b><span className="mt-0.5 block text-[11px] text-white/60">초대받은 일정·출퇴근·워크룸</span></span>
+          <span className="text-[12px] font-extrabold text-primary">내 긱 근무 →</span>
+        </Link>}
 
         {nextAction && (
           <Link href={nextAction.href} className={`mt-4 flex items-center justify-between rounded-2xl px-4 py-3.5 text-white shadow-btn ${nextAction.tone==='success'?'bg-success':'bg-primary'}`}>

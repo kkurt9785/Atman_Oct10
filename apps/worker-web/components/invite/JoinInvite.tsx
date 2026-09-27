@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
+import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
 // (미리보기 → 카카오 가입 → claim)을 쓰되, 초대가 어느 제품 것인지는 서버(isGigworker)가 정한다.
@@ -41,6 +42,7 @@ const ROUTES: Record<JoinVariant, { join: string; home: string; settings: string
   gig: { join: '/gig/join', home: '/gig', settings: '/gig/settings' },
   medical: { join: '/workplace/join', home: '/workplace', settings: '/settings' },
 };
+const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
 function dateRange(preview: InvitePreview) {
   if (!preview.contractStart && !preview.contractEnd) return '기간 협의';
@@ -149,7 +151,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     : null;
 
   return <main className={`min-h-screen px-5 pb-16 pt-8 ${isGig ? 'bg-gradient-to-b from-primary/15 via-bg to-bg' : 'bg-bg'}`}>
-    <div className="mx-auto mb-5 flex max-w-md items-center justify-between px-1"><p className="text-[20px] font-extrabold tracking-[-0.5px] text-primary">잇닿 <span className="text-ink">{isGig ? 'GIG' : 'WORKER'}</span></p>{isGig && <span className="rounded-full bg-ink px-3 py-1 text-[10px] font-extrabold tracking-[0.14em] text-white">WORK INVITE</span>}</div>
+    <div className="mx-auto mb-5 flex max-w-md items-center justify-between gap-3 px-1"><p className="text-[20px] font-extrabold tracking-[-0.5px] text-primary">잇닿 <span className="text-ink">WORKER</span></p><WorkerModeBadge shell={variant} /></div>
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-card">
       <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
       <p className="mt-5 text-[13px] font-bold text-primary">{isGig ? '긱워커 전용 근태 초대' : '직원 계정 연결'}</p>
@@ -177,6 +179,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
           {!signedIn ? '카카오로 가입하고 참여하기' : !hasWorker ? '인적사항 등록하고 참여하기' : '초대 수락하고 워크룸 참여하기'}
         </button>
         <p className="mt-3 text-center text-[11px] leading-5 text-sub">이 일회용 링크가 본인 확인 수단이에요. 가입 후 공지·근무 대화·출퇴근 기록은 앱 안에 계속 남습니다.</p>
+        {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 긱워커 데모 먼저 보기 →</Link>}
       </>}
       {status === 'claiming' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-60">연결 중...</button>}
       {status === 'success' && <><Link href={isGig?'/gig/workroom':'/workroom'} className="mt-6 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">사업장 워크룸 열기</Link><Link href={routes.home} className="mt-2 flex h-11 items-center justify-center rounded-xl text-[13px] font-bold text-sub">오늘 근무 확인하기</Link></>}

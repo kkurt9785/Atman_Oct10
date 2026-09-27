@@ -156,11 +156,11 @@ export default function SettingsPage() {
 
       {gigworkerLinked && (
         <section className="mb-4 rounded-2xl bg-ink p-5 text-white shadow-sm">
-          <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">GIG WORKER</p>
-          <p className="mt-1 text-[16px] font-extrabold">연결된 긱워커 근무가 있어요</p>
-          <p className="mt-1 text-[12px] leading-5 text-white/65">초대받은 일정과 출퇴근 화면으로 전환해요.</p>
+          <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">긱워커 간편모드</p>
+          <p className="mt-1 text-[16px] font-extrabold">초대받은 긱 근무가 있어요</p>
+          <p className="mt-1 text-[12px] leading-5 text-white/65">로그아웃하지 않고 초대 일정·출퇴근·워크룸만 보는 간편 화면으로 전환해요.</p>
           <button type="button" onClick={openGigworker} className="mt-3 h-11 w-full rounded-xl bg-white text-[13px] font-extrabold text-ink">
-            긱워커 근태 화면으로
+            긱워커 간편모드 열기
           </button>
         </section>
       )}
