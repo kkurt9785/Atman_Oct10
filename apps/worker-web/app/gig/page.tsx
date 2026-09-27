@@ -8,8 +8,65 @@ import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
 import { WeekRoster } from '@/components/roster/WeekRoster';
 import { Wordmark } from '@/components/brand/BrandMark';
-import { isGigworkerSource } from '@/lib/worker-mode';
+import { isGigworkerSource, rememberWorkerShell } from '@/lib/worker-mode';
 import { currentWeek, fillWeekdays, slotOf, SLOT_NAME, type RosterCells } from '@/lib/roster';
+import { BrandMark } from '@/components/brand/BrandMark';
+import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
+import { useRouter } from 'next/navigation';
+
+// 로그인 전 /gig = 긱워커 랜딩. 홍보용 주소(itdot.co.kr/gig, gig.itdot.co.kr)로 들어온 사람이 처음 보는 화면이다.
+// 의료 워커 쪽 이야기는 한 줄도 없다. 초대 링크 붙여넣기, 카카오 로그인, 홈 화면 설치만.
+function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
+  const router = useRouter();
+  const [inviteLink, setInviteLink] = useState('');
+  const [inviteError, setInviteError] = useState('');
+
+  function login() {
+    const query = new URLSearchParams();
+    if (attendanceToken) query.set('attendanceToken', attendanceToken);
+    window.localStorage.setItem('atman_auth_next', `/gig${query.size ? `?${query}` : ''}`);
+    rememberWorkerShell('gig');
+    startKakaoLogin();
+  }
+  function openInvite() {
+    setInviteError('');
+    const value = inviteLink.trim();
+    let token: string | null = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
+    if (!token) { try { token = new URL(value).searchParams.get('token'); } catch { token = null; } }
+    if (!token) { setInviteError('관리자가 보낸 초대 링크 전체를 붙여 넣어 주세요.'); return; }
+    rememberWorkerShell('gig');
+    router.push(`/gig/join?token=${encodeURIComponent(token)}`);
+  }
+
+  return <main className="min-h-screen bg-ink px-6 pb-10 pt-16 text-white">
+    <div className="mx-auto flex min-h-[calc(100vh-104px)] max-w-md flex-col">
+      <div className="flex items-center gap-2"><BrandMark size={26} tone="dark" /><span className="text-[20px] font-extrabold tracking-[-0.5px]">잇닿 <span className="text-white/60">GIG</span></span></div>
+
+      <h1 className="mt-14 text-[32px] font-extrabold leading-[1.2] tracking-[-1px]">초대받은 근무,<br />출퇴근만 간단하게.</h1>
+      <p className="mt-4 text-[15px] leading-6 text-white/70">전화번호를 주고받지 않아도 돼요.<br />관리자가 보낸 링크나 QR 하나로 연결되고,<br />근무지에서 <b className="text-white">닿기</b>를 길게 누르면 출근이 기록돼요.</p>
+
+      <ol className="mt-8 grid grid-cols-3 gap-2 text-center text-[12px] leading-4 text-white/80">
+        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">1</b>초대 링크<br />열기</li>
+        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">2</b>카카오로<br />간편 등록</li>
+        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">3</b>닿기로<br />출근·퇴근</li>
+      </ol>
+
+      <div className="flex-grow" />
+
+      <label className="block text-[12px] font-bold text-white/60">초대 링크가 있다면</label>
+      <div className="mt-2 flex gap-2">
+        <input value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && openInvite()} placeholder="초대 링크 붙여넣기" aria-label="초대 링크" className="h-12 min-w-0 flex-1 rounded-xl bg-white/10 px-3 text-[14px] text-white outline-none placeholder:text-white/40" />
+        <button type="button" onClick={openInvite} className="h-12 shrink-0 rounded-xl bg-primary px-4 text-[14px] font-extrabold text-white">확인</button>
+      </div>
+      {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-300">{inviteError}</p>}
+
+      <button type="button" onClick={login} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink active:opacity-80">
+        <KakaoGlyph />{attendanceToken ? '카카오로 로그인하고 출근 기록' : '이미 등록했어요 · 카카오로 로그인'}
+      </button>
+      <p className="mt-4 text-center text-[11px] text-white/45">근무지 관리자이신가요? <a href="https://admin.itdot.co.kr" className="font-bold text-white/70">관리자 앱 →</a></p>
+    </div>
+  </main>;
+}
 
 // 긱워커 "오늘 근무" — 초대받은 근무지(registration_source=gigworker_trial)만 다룬다.
 // 병원·약국 직원의 출퇴근·휴가는 /workplace 가 맡는다. 두 화면은 코드를 공유하지 않는다.
@@ -48,15 +105,15 @@ function GigTodayContent() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [signedOut, setSignedOut] = useState(false);
   const week = useMemo(() => currentWeek(), []);
 
   useEffect(() => { void (async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      const query = new URLSearchParams();
-      if (attendanceToken) query.set('attendanceToken', attendanceToken);
-      window.localStorage.setItem('atman_auth_next', `/gig${query.size ? `?${query}` : ''}`);
-      window.location.href = '/';
+      // 로그인 전에는 긱워커 랜딩을 보여 준다 (홍보 주소로 들어온 첫 화면). 의료 워커 로그인 화면으로 보내지 않는다.
+      setSignedOut(true);
+      setLoading(false);
       return;
     }
     const { data } = await supabase.from('facility_staff')
@@ -105,6 +162,8 @@ function GigTodayContent() {
   }, [staff, week]);
   const today = week.find((day) => day.isToday);
   const todaySlot = staff ? slotOf(staff.default_start_time) : 'D';
+
+  if (signedOut) return <GigLanding attendanceToken={attendanceToken} />;
 
   return <main className="min-h-screen bg-bg px-4 pb-8 pt-5">
     <div className="flex items-center justify-between">

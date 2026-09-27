@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -124,7 +125,7 @@ function RootInner() {
 
       <section aria-label="초대받은 근무 출퇴근" className="mt-3 rounded-3xl border border-line bg-white p-5">
         <p className="text-[12px] font-extrabold tracking-[0.08em] text-ink">초대받은 근무 출퇴근</p>
-        <p className="mt-1 text-[14px] text-sub">관리자가 보낸 링크나 QR로 들어오면 바로 연결돼요. 링크가 있다면 여기에 붙여 넣어도 돼요.</p>
+        <p className="mt-1 text-[14px] text-sub">관리자가 보낸 링크나 QR로 들어오면 바로 연결돼요. 링크가 있다면 여기에 붙여 넣어도 돼요. <Link href="/gig" className="font-bold text-primary">긱워커 안내 →</Link></p>
         <div className="mt-3 flex gap-2">
           <input value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && void openInvite()} placeholder="초대 링크 붙여넣기" aria-label="초대 링크" className="h-12 min-w-0 flex-1 rounded-xl bg-bg px-3 text-[14px] text-ink outline-none placeholder:text-tertiary" />
           <button type="button" onClick={() => void openInvite()} disabled={inviteLoading} className="h-12 shrink-0 rounded-xl bg-ink px-4 text-[14px] font-extrabold text-white disabled:opacity-60">확인</button>
