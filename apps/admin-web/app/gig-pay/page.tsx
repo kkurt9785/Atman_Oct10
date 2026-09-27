@@ -17,8 +17,10 @@ export default async function GigPayPage() {
   const shop = await getShop();
   if (!shop) redirect('/setup/claim-facility');
   if (shop.mode !== 'gig') redirect('/');
-  const [context, board] = await Promise.all([getAdminContext(), getGigPayoutBoard()]);
+  const context = await getAdminContext();
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super' || context?.accessRole === 'operator';
+  if (!context || !canManage) redirect('/');
+  const board = await getGigPayoutBoard(context.accessToken);
   const unpaidTotal = board.reduce((sum, row) => sum + row.unpaidAmount, 0);
   const scheduled = board.flatMap((row) => row.payouts.filter((p) => p.status === 'scheduled').map((p) => ({ ...p, name: row.name })));
   const paid = board.flatMap((row) => row.payouts.filter((p) => p.status === 'paid').map((p) => ({ ...p, name: row.name }))).sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? '')).slice(0, 10);
@@ -38,10 +40,12 @@ export default async function GigPayPage() {
       {board.map((row) => (
         <section key={row.staffId} className="rounded-2xl bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
-            <div><p className="text-[16px] font-extrabold text-ink">{row.name}</p><p className="mt-0.5 text-[12px] text-sub">{row.payBasis && row.payRate ? `${PAY[row.payBasis]} ${won(row.payRate)}` : '급여 기준 미설정'} · {row.bankName && row.accountLast4 ? `${row.bankName} ****${row.accountLast4}` : row.workerLinked ? '계좌 미등록 (근무자 앱에서 등록)' : '앱 미연결'}</p></div>
+            <div><p className="text-[16px] font-extrabold text-ink">{row.name}</p><p className="mt-0.5 text-[12px] text-sub">{row.payBasis && row.payRate ? `${PAY[row.payBasis]} ${won(row.payRate)}` : '급여 기준 미설정'} · {!row.workerLinked ? '앱 미연결' : row.accountNumber ? '지급 계좌 전달 완료' : row.unpaidDays > 0 ? '근무자 계좌 전달 대기' : '근무 완료 후 계좌 전달'}</p></div>
             <span className="shrink-0 text-[18px] font-extrabold text-primary">{won(row.unpaidAmount)}</span>
           </div>
           <p className="mt-2 rounded-xl bg-bg px-3 py-2 text-[12px] text-sub">{row.unpaidDays > 0 ? `${row.unpaidSince} ~ ${row.unpaidUntil} · ${row.unpaidDays}일 · ${hours(row.unpaidMinutes)}` : '마지막 지급 이후 완료된 근무가 없어요'}</p>
+          {row.accountNumber && <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2"><p className="text-[10px] font-extrabold tracking-[0.08em] text-emerald-700">근무자가 전달한 지급 계좌</p><p className="mt-1 select-all text-[14px] font-extrabold text-ink">{row.bankName} {row.accountNumber}</p><p className="mt-0.5 text-[11px] text-sub">예금주 {row.accountHolderName}</p></div>}
+          {row.workerLinked && row.unpaidDays > 0 && !row.accountNumber && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-700">근무자가 앱에서 계좌를 전달하면 지급 버튼이 열려요.</p>}
           {!row.payBasis || !row.payRate ? (
             <WorkforceActionForm kind="set_staff_pay" values={{ staff_id: row.staffId }} className="mt-3 grid grid-cols-3 gap-2" successMessage="급여 기준을 저장했어요.">
               <select name="pay_basis" defaultValue="hourly" className="h-10 rounded-xl border border-line bg-white px-2 text-[12px]"><option value="hourly">시급</option><option value="daily">일급</option></select>
@@ -49,7 +53,7 @@ export default async function GigPayPage() {
               <button className="h-10 rounded-xl bg-ink text-[12px] font-extrabold text-white">저장</button>
             </WorkforceActionForm>
           ) : canManage ? (
-            <CreatePayoutForm staffId={row.staffId} amount={row.unpaidAmount} disabled={row.unpaidDays === 0} />
+            <CreatePayoutForm staffId={row.staffId} amount={row.unpaidAmount} disabled={row.unpaidDays === 0 || !row.accountNumber} disabledReason={row.unpaidDays > 0 && !row.accountNumber ? '지급 계좌 전달 대기 중' : undefined} />
           ) : null}
         </section>
       ))}

@@ -63,8 +63,8 @@ function OnboardingInner() {
     }
   };
 
-  // bank 가 null 이면 계좌를 건너뛴 것이다. 급여를 사업장이 직접 주는 근태 전용
-  // 사용자는 계좌를 등록할 이유가 없다. 알바 정산이 필요해지면 '내 정보'에서 넣는다.
+  // bank 가 null 이면 계좌를 건너뛴 것이다. 병원·약국 직원 초대는 계좌 없이
+  // 시작할 수 있지만, 긱 초대는 첫 가입에서 지급 계좌까지 미리 저장한다.
   async function handleSubmit(bank: BankAccountValue | null, infoOverride: BasicInfoValue | null = basicInfo, roleOverride: WorkerRole | null = role) {
     if (submitting) return;
     if (!terms || !roleOverride || !infoOverride) {
@@ -179,7 +179,7 @@ function OnboardingInner() {
     return () => { active = false; };
   }, [terminalDeepLink]);
 
-  const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', area: 'info', bank: 'area' };
+  const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', area: 'info', bank: attendanceInvite ? 'info' : 'area' };
   const prevStep = step === 'info' ? (attendanceInvite ? 'terms' : role && LICENSED_ROLES.includes(role) ? 'license' : 'role') : PREV[step];
 
   return (
@@ -202,9 +202,9 @@ function OnboardingInner() {
       {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); go(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
       {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); go('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); go('info'); }} />}
-      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} attendanceInvite={attendanceInvite} submitting={submitting} submitError={submitError} onNext={(value) => { setBasicInfo(value); if (attendanceInvite) { void handleSubmit(null, value, 'other'); } else { go('area'); } }} />}
+      {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} attendanceInvite={attendanceInvite} submitting={submitting} submitError={submitError} onNext={(value) => { setBasicInfo(value); if (inviteVariant === 'gig') { go('bank'); } else if (attendanceInvite) { void handleSubmit(null, value, 'other'); } else { go('area'); } }} />}
       {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); go('bank'); }} onSkip={() => { setAreas([]); go('bank'); }} />}
-      {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={() => handleSubmit(null)} submitting={submitting} submitError={submitError} />}
+      {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={inviteVariant === 'gig' ? undefined : () => handleSubmit(null)} submitting={submitting} submitError={submitError} />}
       {step === 'notification' && <NotificationSetup onNext={() => go(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
       {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}

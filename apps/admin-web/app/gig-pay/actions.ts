@@ -28,7 +28,7 @@ async function notifyWorker(sb: NonNullable<ReturnType<typeof adminClient>>, sta
     worker_auth_user_id: authUserId, event_type: kind, dedupe_key: `${kind}:${payoutId}`,
     title: kind === 'payout.paid' ? `${facilityName} 급여 지급 완료` : `${facilityName} 급여 지급 예정`,
     body: kind === 'payout.paid' ? `${amount.toLocaleString('ko-KR')}원이 지급 처리됐어요. 입금을 확인해 주세요.` : `${amount.toLocaleString('ko-KR')}원이 ${payAt ?? '추후'} 지급 예정으로 잡혔어요.`,
-    data: { url: '/workplace', kind, staff_id: staffId, payout_id: payoutId },
+    data: { url: '/gig/settlement', kind, staff_id: staffId, payout_id: payoutId },
   });
   await nudgeNotificationDispatch();
 }
@@ -47,13 +47,18 @@ export async function createGigPayoutAction(form: FormData) {
   const today = todayKST();
   if (mode === 'later' && (payAt ?? '') < today) throw new Error('지급 예정일은 오늘 이후로 선택해 주세요.');
 
-  const [{ data: staff }, facility, { data: last }] = await Promise.all([
-    sb.from('facility_staff').select('id,name,pay_basis,pay_rate,contract_start').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
+  const [{ data: staff }, facility, { data: last }, { data: bankShare }] = await Promise.all([
+    sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
     requireGigworkerFacility(sb, context.facilityId),
     sb.from('gig_payouts').select('period_end').eq('facility_id', context.facilityId).eq('staff_id', staffId)
       .neq('status', 'cancelled').order('period_end', { ascending: false }).limit(1).maybeSingle(),
+    sb.from('gig_bank_account_shares').select('bank_account_id').eq('facility_id', context.facilityId).eq('staff_id', staffId).maybeSingle(),
   ]);
   if (!staff) throw new Error('근무자를 찾을 수 없어요.');
+  if (!bankShare?.bank_account_id || !staff.worker_id) throw new Error('근무자가 지급 계좌를 전달한 뒤 지급할 수 있어요.');
+  const { data: activeBank } = await sb.from('worker_bank_accounts').select('id').eq('id', bankShare.bank_account_id)
+    .eq('worker_id', staff.worker_id).eq('is_primary', true).is('deleted_at', null).maybeSingle();
+  if (!activeBank) throw new Error('근무자가 변경한 지급 계좌를 다시 전달해야 해요.');
   if (!staff.pay_basis || !staff.pay_rate) throw new Error('먼저 급여 기준(시급·일급)을 설정해 주세요.');
   const since = last?.period_end ? nextDay(last.period_end) : (staff.contract_start ?? '2020-01-01');
   if (since > today) throw new Error('아직 지급할 근무가 없어요.');

@@ -1,4 +1,4 @@
-import { adminClient } from '../supabase';
+import { adminClient, userClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 
 // 긱워커 지급 보드. 근무자별로 '마지막 지급 이후 완료된 근무'를 묶어 금액을 계산한다.
@@ -12,7 +12,8 @@ export type GigPayout = {
 export type GigPayoutStaff = {
   staffId: string; name: string; workerLinked: boolean;
   payBasis: 'hourly' | 'daily' | 'monthly' | null; payRate: number | null;
-  bankName: string | null; accountLast4: string | null;
+  bankName: string | null; accountNumber: string | null; accountLast4: string | null;
+  accountHolderName: string | null; bankSharedAt: string | null;
   unpaidSince: string; unpaidUntil: string; unpaidMinutes: number; unpaidDays: number; unpaidAmount: number;
   payouts: GigPayout[];
 };
@@ -40,24 +41,24 @@ export async function summarizeWork(sb: NonNullable<ReturnType<typeof adminClien
   return { minutes, days: days.size };
 }
 
-export async function getGigPayoutBoard(): Promise<GigPayoutStaff[]> {
+export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayoutStaff[]> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
   if (!sb || !facilityId) return [];
   const today = todayKST();
   const [{ data: staff, error: staffError }, { data: payouts, error: payoutError }] = await Promise.all([
-    sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,bank_name,account_last4,contract_start,status')
+    sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start,status')
       .eq('facility_id', facilityId).neq('status', 'ended').order('name'),
     sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled').order('period_end', { ascending: false }),
   ]);
   if (staffError || payoutError) throw new Error('긱워커 지급 정보를 불러오지 못했어요.');
-  const workerIds = [...new Set((staff ?? []).map((row) => row.worker_id).filter((id): id is string => Boolean(id)))];
-  const { data: bankRows, error: bankError } = workerIds.length
-    ? await sb.from('worker_bank_accounts').select('worker_id,bank_name,account_number_last4')
-      .in('worker_id', workerIds).eq('is_primary', true).is('deleted_at', null)
-    : { data: [], error: null };
-  if (bankError) throw new Error('근무자 지급 계좌를 불러오지 못했어요.');
-  const bankByWorker = new Map((bankRows ?? []).map((bank) => [bank.worker_id, bank]));
+  // 전체 계좌번호는 워커가 근무 완료 후 명시적으로 전달한 경우에만,
+  // 현재 관리자 JWT로 권한 검증하는 RPC를 통해 가져온다.
+  const scoped = accessToken ? userClient(accessToken) : null;
+  if (!scoped) throw new Error('관리자 로그인을 다시 확인해 주세요.');
+  const { data: sharedBanks, error: bankError } = await scoped.rpc('get_gig_shared_bank_accounts', { p_facility_id: facilityId });
+  if (bankError) throw new Error(bankError.message.replace(/^.*?: /, '') || '근무자 지급 계좌를 불러오지 못했어요.');
+  const bankByStaff = new Map(((sharedBanks ?? []) as Array<{ staff_id: string; bank_name: string; account_number: string; account_last4: string; account_holder_name: string; shared_at: string }>).map((bank) => [bank.staff_id, bank]));
   const byStaff = new Map<string, GigPayout[]>();
   for (const row of (payouts ?? []) as Array<Record<string, unknown>>) {
     const item: GigPayout = {
@@ -76,15 +77,17 @@ export async function getGigPayoutBoard(): Promise<GigPayoutStaff[]> {
     const lastEnd = list[0]?.periodEnd ?? null;
     const since = lastEnd ? nextDay(lastEnd) : ((row.contract_start as string | null) ?? '2020-01-01');
     const work = since <= today ? await summarizeWork(sb, facilityId, staffId, since, today) : { minutes: 0, days: 0 };
-    const workerId = row.worker_id as string | null;
-    const workerBank = workerId ? bankByWorker.get(workerId) : null;
+    const sharedBank = bankByStaff.get(staffId);
     const basis = (row.pay_basis as GigPayoutStaff['payBasis']) ?? null;
     const rate = row.pay_rate == null ? null : Number(row.pay_rate);
     rows.push({
       staffId, name: row.name as string, workerLinked: Boolean(row.worker_id),
       payBasis: basis, payRate: rate,
-      bankName: (workerBank?.bank_name ?? (row.bank_name as string | null)) ?? null,
-      accountLast4: (workerBank?.account_number_last4 ?? (row.account_last4 as string | null)) ?? null,
+      bankName: sharedBank?.bank_name ?? null,
+      accountNumber: sharedBank?.account_number ?? null,
+      accountLast4: sharedBank?.account_last4 ?? null,
+      accountHolderName: sharedBank?.account_holder_name ?? null,
+      bankSharedAt: sharedBank?.shared_at ?? null,
       unpaidSince: since, unpaidUntil: today, unpaidMinutes: work.minutes, unpaidDays: work.days,
       unpaidAmount: amountFor(basis, rate, work.minutes, work.days),
       payouts: list,

@@ -136,9 +136,9 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
   const selected = rooms.find((room) => room.facility_id === selectedId) ?? null;
   return <main className="flex min-h-[calc(100dvh-5rem)] flex-col bg-bg px-4 pb-4 pt-4">
     <header className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <div className="flex items-center justify-between"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">WORKROOM</span>{selected&&<span className="text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
-      <h1 className="mt-4 text-[25px] font-extrabold">사업장 워크룸</h1>
-      <p className="mt-1 text-[12px] leading-5 text-white/65">카톡 단체방 대신 공지, 출석 확인, 근무 대화, 출퇴근 기록을 한곳에 남겨요.</p>
+      <div className="flex items-center justify-between"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">{isGig ? 'GIG CHAT' : 'WORKROOM'}</span>{selected&&<span className="text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
+      <h1 className="mt-4 text-[25px] font-extrabold">{isGig ? '관리자와 근무 대화' : '사업장 워크룸'}</h1>
+      <p className="mt-1 text-[12px] leading-5 text-white/65">{isGig ? '전화번호나 카톡 친구 추가 없이 관리자 공지, 출석 확인, 근무 대화를 한곳에 남겨요.' : '카톡 단체방 대신 공지, 출석 확인, 근무 대화, 출퇴근 기록을 한곳에 남겨요.'}</p>
       {rooms.length > 1 && <select value={selectedId} onChange={(event)=>setSelectedId(event.target.value)} className="mt-4 h-11 w-full rounded-xl border border-white/10 bg-white/10 px-3 text-[13px] font-bold text-white outline-none">{rooms.map((room)=><option key={room.facility_id} value={room.facility_id} className="text-ink">{room.facility_name}{room.unread_count?` · 새 소식 ${room.unread_count}`:''}</option>)}</select>}
     </header>
 
@@ -171,6 +171,6 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
         </div><div ref={bottomRef}/>
       </section>}
 
-    {selected&&<section className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder="관리자와 함께 일하는 분들에게 메시지 보내기" className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div><p className="mt-2 px-1 text-[10px] text-tertiary">개인 전화번호는 워크룸에 표시되지 않아요. 대화와 근태 기록은 사업장에 보관됩니다.</p></section>}
+    {selected&&<section className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={isGig ? '관리자에게 근무 메시지 보내기' : '관리자와 함께 일하는 분들에게 메시지 보내기'} className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div><p className="mt-2 px-1 text-[10px] text-tertiary">개인 전화번호는 표시되지 않아요. 같은 근무지 관리자와 근무자가 이 대화를 함께 봅니다.</p></section>}
   </main>;
 }

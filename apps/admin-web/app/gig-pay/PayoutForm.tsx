@@ -9,7 +9,7 @@ function plusDays(days: number) { return new Date(Date.now() + 9 * 60 * 60 * 100
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 
 // 근무자 한 명의 '지금 지급 / 나중에 지급'. 3.3% 원천징수를 켜면 공제액과 실지급액을 바로 보여 준다. 금액은 서버가 다시 계산한다.
-export function CreatePayoutForm({ staffId, amount, disabled }: { staffId: string; amount: number; disabled?: boolean }) {
+export function CreatePayoutForm({ staffId, amount, disabled, disabledReason }: { staffId: string; amount: number; disabled?: boolean; disabledReason?: string }) {
   const [pending, start] = useTransition();
   const [later, setLater] = useState(false);
   const [withhold, setWithhold] = useState(true);
@@ -35,6 +35,7 @@ export function CreatePayoutForm({ staffId, amount, disabled }: { staffId: strin
   }
 
   return <div className="mt-3">
+    {disabledReason && <p className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-[12px] font-bold text-amber-700">{disabledReason}</p>}
     <div className="rounded-xl bg-bg p-3">
       <label className="flex items-center justify-between gap-2 text-[12px] font-bold text-ink">
         <span className="flex items-center gap-2"><input type="checkbox" checked={withhold} onChange={(event) => setWithhold(event.target.checked)} className="h-4 w-4 accent-primary" />3.3% 원천징수 (사업소득)</span>
