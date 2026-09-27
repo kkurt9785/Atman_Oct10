@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/Button';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush } from '@/lib/push-subscribe';
 import { rememberWorkerShell, type WorkerShell } from '@/lib/worker-mode';
+import { startKakaoLogin } from '@/lib/kakao-login';
+import { Wordmark } from '@/components/brand/BrandMark';
 
 const DEMO_WORKERS = [
   { email: 'worker-demo-1@demo.atman.co.kr', label: '간호사 · 10명 내외 병원·요양병원' },
@@ -41,19 +43,8 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
   const visibleDemoWorkers = gigInvite ? DEMO_WORKERS.filter((worker) => worker.gigworker) : DEMO_WORKERS;
 
   function handleKakaoLogin() {
-    // 카카오 인앱 브라우저에서는 OAuth redirect가 차단됨 → 외부 브라우저로 탈출
-    if (navigator.userAgent.includes('KAKAO')) {
-      window.location.href =
-        'kakaotalk://web/openExternal?url=' + encodeURIComponent(window.location.href);
-      return;
-    }
-
     setLoading(true);
-    const key = process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-    const scope = encodeURIComponent('openid profile_nickname profile_image');
-    window.location.href =
-      `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+    startKakaoLogin();
   }
 
   async function handleDemoLogin(email: string, gigworker = false) {
@@ -109,7 +100,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
         {gigInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-white">GIG WORKER</span>}
         {inviteVariant==='medical'&&<span className="rounded-full bg-primary/10 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-primary">직원 계정 연결</span>}
-        <span className="text-[32px] font-bold text-primary letter-tight tracking-[-0.5px]">잇닿{gigInvite?<span className="text-ink"> GIG</span>:<span className="text-ink"> WORKER</span>}</span>
+        <Wordmark size={32} suffix={gigInvite ? 'GIG' : undefined} />
         <span className="text-center text-[15px] leading-6 text-tertiary">{gigInvite?<>초대받은 근무만 간단하게 확인하고<br/>출퇴근을 기록해요</>:inviteVariant==='medical'?<>초대받은 병원·약국 근무를 확인하고<br/>출퇴근과 휴가를 앱에서 관리해요</>:'병원·약국 의료인력을 위한 시프트'}</span>
       </div>
 

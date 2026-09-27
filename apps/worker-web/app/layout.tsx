@@ -3,8 +3,8 @@ import './globals.css';
 import { ClientLayout } from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
-  title: '잇닿 WORKER — 시프트·긱 근태',
-  description: '병원·약국 시프트 탐색과 초대받은 단기근무 출퇴근을 한 앱에서.',
+  title: '잇닿 — 근무표 한 장으로 찾고, 닿다',
+  description: '병원·약국 근무 찾기부터 출퇴근까지. 이번 주 내 근무표의 빈 칸을 채워 보세요.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: '잇닿 WORKER',
+    title: '잇닿',
   },
   robots: { index: false, follow: false },
 };

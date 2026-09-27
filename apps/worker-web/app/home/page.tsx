@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -9,30 +9,24 @@ import type { Shift } from '@/app/shifts/page';
 import { dateKST } from '@/lib/date';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
+import { WeekRoster } from '@/components/roster/WeekRoster';
+import { Wordmark } from '@/components/brand/BrandMark';
+import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
+
+// 의료 워커 홈 = "이번 주 내 근무표". 확정 근무는 진한 칸, 지원 중은 연한 칸, 빈 칸에는 갈 수 있는 근무 수.
+// 칸을 누르면 그 시간대의 근무만 아래에 남는다. 날짜·시간 필터 칩은 근무표가 대신한다.
 
 type ShiftWithFacility = Shift & {
   facilities: { name: string; address_text?: string | null; facility_type?: string | null } | null;
 };
 type NextAction={label:string;title:string;description:string;href:string;tone:'primary'|'success'};
+type Activity = { shift_id: string; status: string; checked_in_at: string | null; checked_out_at: string | null; shifts: { shift_date: string; start_time: string } | Array<{ shift_date: string; start_time: string }> | null };
+const shiftOfActivity = (row: Activity) => (Array.isArray(row.shifts) ? row.shifts[0] : row.shifts) ?? null;
 
 // ─── 필터 타입 ─────────────────────────────────────────────────
-type DateFilter = 'all' | 'today' | 'tomorrow' | 'week';
-type TimeFilter = 'all' | 'night' | 'day' | 'early';
 type WageFilter = 'all' | '12k' | '15k';
 type DeptFilter = string;
 
-const DATE_CHIPS: { value: DateFilter; label: string }[] = [
-  { value: 'all',      label: '전체' },
-  { value: 'today',    label: '오늘' },
-  { value: 'tomorrow', label: '내일' },
-  { value: 'week',     label: '이번주' },
-];
-const TIME_CHIPS: { value: TimeFilter; label: string }[] = [
-  { value: 'all',   label: '전체' },
-  { value: 'night', label: '🌙 야간 22–06' },
-  { value: 'day',   label: '☀️ 주간 08–16' },
-  { value: 'early', label: '🌅 이른 06–14' },
-];
 const WAGE_CHIPS: { value: WageFilter; label: string }[] = [
   { value: 'all', label: '전체' },
   { value: '12k', label: '₩12,000+' },
@@ -70,26 +64,6 @@ const DEPT_CHIPS_PHARMACY_STAFF: { value: DeptFilter; label: string }[] = [
 ];
 
 // ─── 필터 함수 ─────────────────────────────────────────────────
-function toDateStr(d: Date) {
-  return dateKST(0, d);
-}
-function matchesDate(shift: Shift, f: DateFilter) {
-  if (f === 'all') return true;
-  const today    = dateKST();
-  const tomorrow = dateKST(1);
-  const weekEnd  = dateKST(7);
-  if (f === 'today')    return shift.shift_date === today;
-  if (f === 'tomorrow') return shift.shift_date === tomorrow;
-  if (f === 'week')     return shift.shift_date >= today && shift.shift_date <= weekEnd;
-  return true;
-}
-function matchesTime(shift: Shift, f: TimeFilter) {
-  const h = parseInt(shift.start_time.slice(0, 2), 10);
-  if (f === 'night') return h >= 22 || h < 6;
-  if (f === 'day')   return h >= 8 && h < 16;
-  if (f === 'early') return h >= 6 && h < 14;
-  return true;
-}
 function matchesWage(shift: Shift, f: WageFilter) {
   if (f === '12k') return shift.hourly_wage >= 12000;
   if (f === '15k') return shift.hourly_wage >= 15000;
@@ -99,6 +73,10 @@ function matchesDept(shift: Shift, f: DeptFilter) {
   if (f === 'all') return true;
   // 부서는 자유 텍스트라 정확일치는 죽은 필터가 됨 — 부서·업무설명 부분일치로 매칭
   return (shift.department ?? '').includes(f) || (shift.description ?? '').includes(f);
+}
+function matchesCell(shift: Shift, cell: { date: string; slot: RosterSlot } | null) {
+  if (!cell) return true;
+  return shift.shift_date === cell.date && slotOf(shift.start_time) === cell.slot;
 }
 
 function minutesUntilKstTime(time: string) {
@@ -129,49 +107,6 @@ function ChipRow<T extends string>({
   );
 }
 
-function ShiftCard({
-  shift, hot = false, onApply,
-}: { shift: ShiftWithFacility; hot?: boolean; onApply: () => void }) {
-  const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
-  const isPharmacy = shift.facilities?.facility_type === 'pharmacy'
-    || shift.required_role === 'pharmacist'
-    || shift.required_role === 'pharmacy_staff';
-
-  return (
-    <div className="bg-white rounded-card shadow-card p-4 flex-shrink-0 w-[292px]">
-      <div className="flex items-start gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-bold text-ink leading-tight truncate">{facilityName(shift)}</p>
-        </div>
-        {hot && (
-          <span className="text-[11px] font-bold text-warn bg-warn/10 px-2 py-0.5 rounded-full flex-shrink-0">
-            🔥 HOT
-          </span>
-        )}
-      </div>
-
-      <p className="text-[13px] font-bold text-primary mb-0.5">{shift.shift_date}</p>
-      <p className="text-[19px] font-extrabold text-ink mb-1">
-        {timeLabel(shift)}
-      </p>
-      <div className="mb-2 flex flex-wrap gap-1.5"><span className="rounded-full bg-bg px-2 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>{shift.department&&<span className="rounded-full bg-bg px-2 py-1 text-[11px] font-bold text-sub">{shift.department}</span>}{shift.is_overnight&&<span className="rounded-full bg-kakao px-2 py-1 text-[11px] font-bold text-ink">야간 +50%</span>}</div>
-
-      <div className="flex items-center justify-between pt-3 border-t border-line">
-        <div>
-          <p className="text-[11px] text-tertiary">예상 지급액</p>
-          <p className="text-[18px] font-extrabold text-primary">₩{pay}</p>
-        </div>
-        <button
-          onClick={onApply}
-          className="h-10 px-5 bg-primary text-white text-[13px] font-bold rounded-btn shadow-btn active:opacity-80"
-        >
-          지원하기
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () => void }) {
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
 
@@ -184,7 +119,7 @@ function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () =>
           {shift.shift_date}　{timeLabel(shift)}
         </p>
         <p className="text-[12px] text-sub truncate mt-0.5">
-          {[mobilityLabel(shift), shift.department].filter(Boolean).join(' · ')}
+          {[mobilityLabel(shift), shift.department].filter(Boolean).join(' · ')}{shift.is_overnight ? ' · 야간 +50%' : ''}
         </p>
       </div>
       <div className="text-right flex-shrink-0">
@@ -227,19 +162,21 @@ export default function HomePage() {
   const [shifts,  setShifts]  = useState<ShiftWithFacility[]>([]);
   const [loading, setLoading] = useState(true);
   const [applied, setApplied] = useState<Set<string>>(new Set());
+  const [activity, setActivity] = useState<Activity[]>([]);
   const [selected, setSelected] = useState<ShiftWithFacility | null>(null);
   const [showProfileBanner, setShowProfileBanner] = useState(false);
   // 플랫폼 심사를 거치는 직군(약사 등)이 미승인이면 공고가 0건인 이유를 안내해야 한다
   const [reviewPending, setReviewPending] = useState(false);
-  const [nextAction,setNextAction]=useState<NextAction>({label:'근무 찾기',title:'내 조건에 맞는 근무를 찾아보세요',description:'지역과 직종에 맞는 시프트를 모아 보여드려요.',href:'/shifts',tone:'primary'});
+  const [nextAction,setNextAction]=useState<NextAction|null>(null);
 
   // 공고 탐색 기준 — 🛰 현재 위치 또는 📍 등록 지역 중 하나 (세그먼트)
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [basis, setBasis] = useState<'gps' | string>('gps');
   const [locNotice, setLocNotice] = useState('');
 
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all'); // 기본 '전체' — 오늘 공고 0건이어도 첫 화면이 비지 않게
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const week = useMemo(() => currentWeek(), []);
+  const [cell, setCell] = useState<{ date: string; slot: RosterSlot } | null>(null);
+  const [cellTouched, setCellTouched] = useState(false);
   const [wageFilter, setWageFilter] = useState<WageFilter>('all');
   const [deptFilter, setDeptFilter] = useState<DeptFilter>('all');
   const [showMoreFilters, setShowMoreFilters] = useState(false);
@@ -337,32 +274,33 @@ export default function HomePage() {
         setShowProfileBanner(incomplete);
       }
 
-      // 이미 지원한 shift_id 목록
+      // 이미 지원한 shift_id 목록 + 근무표에 올릴 확정·지원 중 근무
       if (workerRow?.id) {
         const [{ data: appData },{data:payments}] = await Promise.all([supabase
           .from('shift_applications')
           .select('shift_id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time)')
           .eq('worker_id', workerRow.id)
           .in('status', ['invited','applied', 'accepted','completed']),supabase.from('wage_payment_instructions').select('status').eq('worker_id',workerRow.id).order('created_at',{ascending:false}).limit(1)]);
-        const activity=[...((appData??[]) as any[])].sort((left,right)=>{
-          const leftShift=Array.isArray(left.shifts)?left.shifts[0]:left.shifts;
-          const rightShift=Array.isArray(right.shifts)?right.shifts[0]:right.shifts;
+        const rows=[...((appData??[]) as unknown as Activity[])].sort((left,right)=>{
+          const leftShift=shiftOfActivity(left);
+          const rightShift=shiftOfActivity(right);
           return `${leftShift?.shift_date??'9999-12-31'}T${leftShift?.start_time??'23:59'}`
             .localeCompare(`${rightShift?.shift_date??'9999-12-31'}T${rightShift?.start_time??'23:59'}`);
         });
-        setApplied(new Set(activity.filter(a=>['applied','accepted'].includes(a.status)).map(a=>a.shift_id)));
+        setActivity(rows);
+        setApplied(new Set(rows.filter(a=>['applied','accepted'].includes(a.status)).map(a=>a.shift_id)));
         const today=dateKST();
-        const inProgress=activity.find(a=>a.status==='accepted'&&a.checked_in_at&&!a.checked_out_at);
-        const todayReady=activity.find(a=>a.status==='accepted'&&!a.checked_in_at&&(Array.isArray(a.shifts)?a.shifts[0]?.shift_date:a.shifts?.shift_date)===today);
-        const waiting=activity.find(a=>a.status==='invited')??activity.find(a=>a.status==='applied');
-        const future=activity.find(a=>a.status==='accepted'&&(Array.isArray(a.shifts)?a.shifts[0]?.shift_date:a.shifts?.shift_date)>today);
+        const inProgress=rows.find(a=>a.status==='accepted'&&a.checked_in_at&&!a.checked_out_at);
+        const todayReady=rows.find(a=>a.status==='accepted'&&!a.checked_in_at&&shiftOfActivity(a)?.shift_date===today);
+        const waiting=rows.find(a=>a.status==='invited')??rows.find(a=>a.status==='applied');
+        const future=rows.find(a=>a.status==='accepted'&&(shiftOfActivity(a)?.shift_date??'')>today);
         const payment=(payments??[])[0];
         if(inProgress)setNextAction({label:'퇴근하기',title:'현재 근무 중이에요',description:'근무를 마치면 여기서 퇴근을 기록하세요.',href:'/workplace',tone:'success'});
         else if(todayReady){
-          const shift=Array.isArray(todayReady.shifts)?todayReady.shifts[0]:todayReady.shifts;
+          const shift=shiftOfActivity(todayReady);
           const minutes=minutesUntilKstTime(shift?.start_time??'00:00');
           if(minutes>30)setNextAction({label:'근무 준비 보기',title:`오늘 ${shift?.start_time?.slice(0,5)??''} 근무가 있어요`,description:'시작 30분 전부터 출근 준비와 출근 버튼을 앱에서 확인할 수 있어요.',href:'/applications',tone:'primary'});
-          else if(minutes>=-5)setNextAction({label:'출근하기',title:'출근을 준비해 주세요',description:minutes>0?`${minutes}분 뒤 근무가 시작돼요. 사업장에 도착하면 위치 또는 QR로 출근하세요.`:'근무 시작 시간이에요. 위치 또는 QR로 출근하세요.',href:'/workplace',tone:'primary'});
+          else if(minutes>=-5)setNextAction({label:'닿기로 출근',title:'출근을 준비해 주세요',description:minutes>0?`${minutes}분 뒤 근무가 시작돼요. 사업장에 도착하면 닿기 버튼을 길게 눌러 출근하세요.`:'근무 시작 시간이에요. 닿기 버튼을 길게 눌러 출근하세요.',href:'/workplace',tone:'primary'});
           else setNextAction({label:'출근 상태 확인',title:'출근 확인이 필요해요',description:'관리자도 이 근무의 출근 상태를 확인하고 있어요. 지금 출근 인증을 진행해 주세요.',href:'/workplace',tone:'primary'});
         }
         else if(waiting)setNextAction({label:'지원 현황 보기',title:waiting.status==='invited'?'새 근무 요청이 도착했어요':'사업장에서 지원을 확인하고 있어요',description:'현재 진행 상태와 사업장 답변을 확인하세요.',href:'/applications',tone:'primary'});
@@ -388,24 +326,47 @@ export default function HomePage() {
   const roleLabel = WORKER_ROLE_LABEL[role];
 
   const roleShifts = shifts.filter((s) => !applied.has(s.id));
+
+  // 근무표: 지원 가능한 근무 수(+N) + 확정(●)·지원 중(○)
+  const cells = useMemo(() => {
+    const next: RosterCells = {};
+    const first = week[0].date, last = week[6].date;
+    for (const s of roleShifts) if (s.shift_date >= first && s.shift_date <= last) addCount(next, s.shift_date, s.start_time);
+    for (const a of activity) {
+      const shift = shiftOfActivity(a);
+      if (!shift || shift.shift_date < first || shift.shift_date > last) continue;
+      if (a.status === 'accepted' || a.status === 'completed') setState(next, shift.shift_date, shift.start_time, 'confirmed');
+      else if (a.status === 'applied' || a.status === 'invited') setState(next, shift.shift_date, shift.start_time, 'applied');
+    }
+    return next;
+    // roleShifts 는 shifts·applied 에서 매번 새로 만들어지므로 원본을 의존성으로 둔다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shifts, applied, activity, week]);
+
+  // 처음 한 번은 공고가 있는 첫 칸을 골라 둔다. 사용자가 칸을 누른 뒤에는 건드리지 않는다.
+  useEffect(() => {
+    if (loading || cellTouched) return;
+    setCell(defaultSelection(week, cells));
+  }, [loading, cellTouched, week, cells]);
+
   const filtered   = roleShifts.filter(
     (s) =>
-      matchesDate(s, dateFilter) &&
-      matchesTime(s, timeFilter) &&
+      matchesCell(s, cell) &&
       matchesWage(s, wageFilter) &&
       matchesDept(s, deptFilter)
   );
-
-  const todayCount = roleShifts.filter((s) => matchesDate(s, 'today')).length;
+  const weekCount = roleShifts.filter((s) => s.shift_date >= week[0].date && s.shift_date <= week[6].date).length;
+  const selectedDay = week.find((day) => day.date === cell?.date);
+  const selectedCount = cell ? cells[cellKey(cell.date, cell.slot)]?.count ?? 0 : 0;
 
   function resetFilters() {
-    setDateFilter('all');
-    setTimeFilter('all');
+    setCell(null);
+    setCellTouched(true);
     setWageFilter('all');
     setDeptFilter('all');
     setShowMoreFilters(false);
   }
-  const extraFilterCount=[timeFilter!=='all',wageFilter!=='all',deptFilter!=='all'].filter(Boolean).length;
+  const extraFilterCount=[wageFilter!=='all',deptFilter!=='all'].filter(Boolean).length;
 
   function handleApplied() {
     if (selected) setApplied((prev) => new Set(prev).add(selected.id));
@@ -423,19 +384,17 @@ export default function HomePage() {
   return (
     <div className="pb-24">
       {/* 헤더 */}
-      <div className="px-5 pt-14 pb-4">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <p className="text-[14px] text-sub">안녕하세요 👋</p>
-            <h1 className="text-[24px] font-extrabold text-ink leading-tight mt-0.5">
-              {name} {roleLabel}님,<br />
-              {todayCount > 0
-                ? <><span className="text-primary">오늘 지원 가능 {todayCount}건</span> 있어요</>
-                : <span className="text-ink">새 시프트를 기다리는 중</span>
-              }
-            </h1>
-          </div>
+      <div className="px-5 pt-12 pb-3">
+        <div className="flex items-center justify-between">
+          <Wordmark size={20} />
+          <span className="rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{name} {roleLabel}</span>
         </div>
+        <h1 className="mt-5 text-[24px] font-extrabold leading-tight tracking-[-0.6px] text-ink">
+          이번 주 내 근무표<br />
+          {weekCount > 0
+            ? <><span className="text-primary">빈 칸에 {weekCount}건</span> 갈 수 있어요</>
+            : <span className="text-ink">새 근무를 기다리는 중</span>}
+        </h1>
         {locNotice && (
           <p role="alert" className="mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{locNotice}</p>
         )}
@@ -466,34 +425,19 @@ export default function HomePage() {
         )}
       </div>
 
-      <section className={`mx-5 mb-4 rounded-2xl p-4 ${nextAction.tone==='success'?'bg-success text-white':'bg-primary text-white'} shadow-btn`}>
-        <p className="text-[11px] font-bold text-white/75">지금 할 일</p><h2 className="mt-1 text-[17px] font-extrabold">{nextAction.title}</h2><p className="mt-1 text-[12px] text-white/80">{nextAction.description}</p><Link href={nextAction.href} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-white text-[14px] font-extrabold text-primary">{nextAction.label}</Link>
-      </section>
-
-      <div className="mx-5 mb-4 rounded-2xl border border-line bg-white px-4 py-3 shadow-sm">
-        <p className="text-[11px] font-bold text-sub">잇닿 이용 순서</p>
-        <div className="mt-2 flex items-center justify-between gap-1 text-[11px] font-extrabold text-primary">
-          <span>① 근무 찾기</span><span className="text-line">→</span>
-          <Link href="/applications">② 지원</Link><span className="text-line">→</span>
-          <Link href="/workplace">③ 출퇴근</Link><span className="text-line">→</span>
-          <Link href="/earnings">④ 입금 확인</Link>
-        </div>
+      {/* 근무표 */}
+      <div className="px-5">
+        <WeekRoster week={week} cells={cells} selected={cell} onSelect={(date, slot) => { setCellTouched(true); setCell(cell?.date === date && cell?.slot === slot ? null : { date, slot }); }} />
+        <p className="mt-2 px-1 text-[11px] text-tertiary">● 확정 근무 · ○ 지원 중 · +숫자 = 그 시간대에 갈 수 있는 근무. 같은 칸을 다시 누르면 전체 보기</p>
       </div>
 
-      <Link href="/rewards" className="mx-5 mb-4 block rounded-2xl border border-primary/20 bg-primary/8 p-4 active:opacity-80">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[12px] font-bold text-primary">런칭 리워드</p>
-            <p className="mt-0.5 text-[16px] font-extrabold text-ink">프로필 인증부터 첫 근무까지</p>
-            <p className="mt-1 text-[12px] text-sub">커피 5천원 · 첫 근무 완료 2만원</p>
-          </div>
-          <span className="shrink-0 text-[13px] font-extrabold text-primary">내 진행 보기 →</span>
-        </div>
-      </Link>
+      {nextAction && <section className={`mx-5 mt-4 rounded-2xl p-4 ${nextAction.tone==='success'?'bg-success text-white':'bg-primary text-white'} shadow-btn`}>
+        <p className="text-[11px] font-bold text-white/75">지금 할 일</p><h2 className="mt-1 text-[17px] font-extrabold">{nextAction.title}</h2><p className="mt-1 text-[12px] text-white/80">{nextAction.description}</p><Link href={nextAction.href} className="mt-3 flex h-11 w-full items-center justify-center rounded-xl bg-white text-[14px] font-extrabold text-primary">{nextAction.label}</Link>
+      </section>}
 
       {/* 프로필 미완성 배너 */}
       {showProfileBanner && (
-        <div className="mx-5 mb-4 bg-primary/8 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
+        <div className="mx-5 mt-4 bg-primary/8 border border-primary/20 rounded-2xl p-4 flex items-center gap-3">
           <span className="text-2xl flex-shrink-0">📋</span>
           <div className="flex-1 min-w-0">
             <p className="text-[13px] font-bold text-ink">프로필 카드를 완성해보세요</p>
@@ -514,33 +458,33 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 필터 */}
-      <div className="px-5 pb-4 flex flex-col gap-2">
-        <ChipRow options={DATE_CHIPS} value={dateFilter} onChange={setDateFilter} />
-        <button type="button" onClick={()=>setShowMoreFilters(value=>!value)} aria-expanded={showMoreFilters} className="flex h-10 items-center justify-between rounded-xl border border-line bg-white px-3 text-[12px] font-bold text-sub">
-          <span>시간·업무·시급 조건{extraFilterCount?` ${extraFilterCount}개 적용`:''}</span><span>{showMoreFilters?'접기 ↑':'더보기 ↓'}</span>
+      {/* 선택한 칸의 근무 */}
+      <section className="px-5 mt-5">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <p className="text-[12px] font-bold text-primary">{cell && selectedDay ? `${selectedDay.isToday ? '오늘' : `${selectedDay.weekday}요일 ${selectedDay.dayNumber}일`} · ${cell.slot} ${SLOT_NAME[cell.slot]}` : '이번 주 전체'}</p>
+            <h2 className="text-[18px] font-extrabold text-ink">지원 가능한 근무</h2>
+          </div>
+          <span className="text-[12px] font-bold text-sub">{cell ? selectedCount : filtered.length}건</span>
+        </div>
+        <button type="button" onClick={()=>setShowMoreFilters(value=>!value)} aria-expanded={showMoreFilters} className="mb-3 flex h-10 w-full items-center justify-between rounded-xl border border-line bg-white px-3 text-[12px] font-bold text-sub">
+          <span>업무·시급 조건{extraFilterCount?` ${extraFilterCount}개 적용`:''}</span><span>{showMoreFilters?'접기 ↑':'더보기 ↓'}</span>
         </button>
-        {showMoreFilters&&<div className="flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm">
-          <ChipRow options={TIME_CHIPS} value={timeFilter} onChange={setTimeFilter} />
+        {showMoreFilters&&<div className="mb-3 flex flex-col gap-2 rounded-2xl bg-white p-3 shadow-sm">
           <ChipRow options={deptChips}  value={deptFilter} onChange={setDeptFilter} />
           <ChipRow options={WAGE_CHIPS} value={wageFilter} onChange={setWageFilter} />
-          {extraFilterCount>0&&<button type="button" onClick={()=>{setTimeFilter('all');setDeptFilter('all');setWageFilter('all');}} className="self-end text-[12px] font-bold text-primary">상세 조건 초기화</button>}
+          {extraFilterCount>0&&<button type="button" onClick={()=>{setDeptFilter('all');setWageFilter('all');}} className="self-end text-[12px] font-bold text-primary">상세 조건 초기화</button>}
         </div>}
-      </div>
-
-      {/* 조건에 맞는 공고 — 추천/전체 중복 없이 한 목록에서 바로 지원 */}
-      <section className="px-5">
-        <div className="mb-3 flex items-end justify-between gap-3"><div><p className="text-[12px] font-bold text-primary">선택한 조건</p><h2 className="text-[18px] font-extrabold text-ink">지원 가능한 근무</h2></div><span className="text-[12px] font-bold text-sub">{filtered.length}건</span></div>
 
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center py-16 gap-3">
-            <span className="text-5xl">{reviewPending ? '⏳' : '🔍'}</span>
-            <p className="text-[15px] font-bold text-ink">{reviewPending ? '자격 심사 중이에요' : '조건에 맞는 시프트가 없어요'}</p>
+          <div className="flex flex-col items-center py-12 gap-3">
+            <span className="text-5xl">{reviewPending ? '⏳' : '🗓'}</span>
+            <p className="text-[15px] font-bold text-ink">{reviewPending ? '자격 심사 중이에요' : cell ? '이 칸엔 아직 근무가 없어요' : '조건에 맞는 근무가 없어요'}</p>
             {reviewPending ? (
               <p className="text-center text-[13px] leading-5 text-sub">심사가 끝나면 알림으로 알려드리고,<br />이 화면에 지원 가능한 근무가 열려요.</p>
             ) : (
               <button onClick={resetFilters} className="text-[14px] text-primary font-semibold">
-                필터 초기화
+                이번 주 전체 보기
               </button>
             )}
           </div>
@@ -550,6 +494,17 @@ export default function HomePage() {
           ))
         )}
       </section>
+
+      <Link href="/rewards" className="mx-5 mt-2 block rounded-2xl border border-primary/20 bg-primary/8 p-4 active:opacity-80">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[12px] font-bold text-primary">런칭 리워드</p>
+            <p className="mt-0.5 text-[16px] font-extrabold text-ink">프로필 인증부터 첫 근무까지</p>
+            <p className="mt-1 text-[12px] text-sub">커피 5천원 · 첫 근무 완료 2만원</p>
+          </div>
+          <span className="shrink-0 text-[13px] font-extrabold text-primary">내 진행 보기 →</span>
+        </div>
+      </Link>
 
       {selected && (
         <ApplySheet

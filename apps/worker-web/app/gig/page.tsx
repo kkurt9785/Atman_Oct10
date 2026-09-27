@@ -1,16 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { AttendanceActionButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
+import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
+import { WeekRoster } from '@/components/roster/WeekRoster';
+import { Wordmark } from '@/components/brand/BrandMark';
 import { isGigworkerSource } from '@/lib/worker-mode';
+import { currentWeek, fillWeekdays, slotOf, SLOT_NAME, type RosterCells } from '@/lib/roster';
 
 // 긱워커 "오늘 근무" — 초대받은 근무지(registration_source=gigworker_trial)만 다룬다.
 // 병원·약국 직원의 출퇴근·휴가는 /workplace 가 맡는다. 두 화면은 코드를 공유하지 않는다.
 // 긱 근무지가 없는 의료 워커의 진입 차단과 "마지막 셸" 기억은 app/gig/layout.tsx 의 WorkerShellGuard 가 한다.
+// 화면 문법은 의료 워커 홈과 같다: 위에는 이번 주 근무표(초대 근무 = 진한 칸), 가운데는 '닿기' 원 하나.
 
 type FacilityRef = { id: string; name: string; registration_source?: string | null };
 type Staff = {
@@ -20,7 +24,6 @@ type Staff = {
 };
 type AttendanceState = { staff_id: string; check_in_at: string | null; check_out_at: string | null; work_date: string; status?: string; break_minutes?: number };
 
-const WEEKDAY_LABEL = ['월', '화', '수', '목', '금', '토', '일'];
 const facilityOf = (staff: Staff) => (Array.isArray(staff.facilities) ? staff.facilities[0] : staff.facilities) ?? null;
 function kstDate() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
 // 계약 기간·요일 밖이면 출근 버튼을 숨긴다 — DB record_unified_attendance 의 NOT_SCHEDULED(긱워커 근무지 한정)와 같은 규칙
@@ -31,10 +34,6 @@ function isScheduledToday(staff: Staff) {
   const weekdays = staff.work_weekdays ?? [1, 2, 3, 4, 5];
   const day = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
   return weekdays.includes(day);
-}
-function weekdayText(days?: number[] | null) {
-  const sorted = (days ?? [1, 2, 3, 4, 5]).filter((day) => day >= 1 && day <= 7).sort((a, b) => a - b);
-  return sorted.map((day) => WEEKDAY_LABEL[day - 1]).join('·');
 }
 
 function GigTodayContent() {
@@ -49,6 +48,7 @@ function GigTodayContent() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const week = useMemo(() => currentWeek(), []);
 
   useEffect(() => { void (async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -92,16 +92,25 @@ function GigTodayContent() {
   const staffFacility = staff ? facilityOf(staff) : null;
   const mode = staffFacility?.id ? attendanceModes[staffFacility.id] ?? 'gps_or_qr' : 'gps_or_qr';
   const current = staff ? attendance[staff.id] : null;
-  const canRecord = Boolean(current?.check_in_at) || Boolean(staff && isScheduledToday(staff));
+  const scheduledToday = Boolean(staff && isScheduledToday(staff));
+  const canRecord = Boolean(current?.check_in_at) || scheduledToday;
+  const done = Boolean(current?.check_out_at);
+  const pending = current?.status === 'checkout_pending';
+
+  // 초대 근무(요일 반복 또는 하루)를 이번 주 근무표에 진한 칸으로 펼친다
+  const cells = useMemo(() => {
+    const next: RosterCells = {};
+    if (staff) fillWeekdays(next, week, staff.default_start_time, staff.work_weekdays, staff.contract_start, staff.contract_end);
+    return next;
+  }, [staff, week]);
+  const today = week.find((day) => day.isToday);
+  const todaySlot = staff ? slotOf(staff.default_start_time) : 'D';
 
   return <main className="min-h-screen bg-bg px-4 pb-8 pt-5">
-    <section className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">GIG WORKER</span><span className="text-[15px] font-extrabold text-primary">잇닿 GIG</span></div>
-      <h1 className="mt-5 text-[27px] font-extrabold">오늘 근무</h1>
-      <p className="mt-1 text-[13px] leading-5 text-white/65">초대받은 일정과 출퇴근 기록만 간단하게 확인해요.</p>
-    </section>
-
-    <Link href="/gig/workroom" className="mt-3 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm active:bg-bg"><span><b className="block text-[15px] text-ink">사업장 워크룸</b><span className="mt-1 block text-[12px] text-sub">공지와 근무 대화를 전화번호 없이 확인해요</span></span><span className="text-[20px] font-bold text-primary">→</span></Link>
+    <div className="flex items-center justify-between">
+      <Wordmark size={20} suffix="GIG" />
+      {staff && <span className="rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{staff.name}님 · {today ? `${today.weekday} ${today.dayNumber}일` : '오늘'}</span>}
+    </div>
 
     {loading ? <div className="mt-6 rounded-2xl bg-white p-8 text-center text-sub">근태를 확인하고 있어요...</div>
       : !staff ? <section className="mt-6 rounded-2xl bg-white p-8 text-center">
@@ -110,44 +119,53 @@ function GigTodayContent() {
           {hasMedicalLink && <Link href="/workplace" className="mt-4 inline-flex h-11 items-center justify-center rounded-xl bg-bg px-4 text-[13px] font-bold text-ink">병원·약국 출퇴근으로 이동</Link>}
         </section>
       : <>
-        <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-[18px] font-extrabold">{staffFacility?.name ?? '근무지'}</p>
-          <p className="mt-1 text-[13px] text-sub">{staff.name} · 근무 {staff.default_start_time.slice(0, 5)}~{staff.default_end_time.slice(0, 5)}</p>
-          <div className="mt-3 rounded-xl bg-primary/5 px-3 py-3 text-[12px] text-sub">
-            <p><b className="text-primary">근무 기간</b> · {staff.contract_start ?? '시작일 미정'} ~ {staff.contract_end ?? '종료일 미정'}</p>
-            <p className="mt-1"><b className="text-primary">근무 요일</b> · {weekdayText(staff.work_weekdays)}</p>
-          </div>
-          {staffList.length > 1 && <label className="mt-4 block text-[12px] text-sub">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line bg-white px-3">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
-          <div className="mt-4 rounded-xl bg-bg p-3">
-            <p className="text-[12px] font-bold text-primary">{current?.check_in_at ? '현재 근무 중' : canRecord ? '출근 전' : '오늘은 근무 없음'}</p>
-            <p className="mt-1 text-[13px] text-sub">근무지 반경 안에서 버튼을 누르면 GPS 위치를 확인해 출퇴근을 기록해요. 실내에서는 관리자의 동적 QR로 인증할 수 있어요.</p>
-          </div>
-          {!current?.check_out_at && current?.status !== 'checkout_pending' && canRecord && (
-            <AttendanceActionButton
-              key={current?.check_in_at ? 'check_out' : 'check_in'}
-              targetType="staff" targetId={staff.id}
-              action={current?.check_in_at ? 'check_out' : 'check_in'}
-              qrToken={attendanceToken} mode={mode}
-              onSuccess={(response: AttendanceResult) => {
-                const now = new Date().toISOString();
-                const checkingOut = Boolean(current?.check_in_at);
-                setAttendance((state) => ({
-                  ...state,
-                  [staff.id]: {
-                    ...(state[staff.id] ?? { staff_id: staff.id, work_date: kstDate(), check_in_at: null, check_out_at: null }),
-                    ...(checkingOut
-                      ? (response.status === 'pending' ? { status: 'checkout_pending' } : { check_out_at: response.checkOutAt ?? now, status: 'completed' })
-                      : { check_in_at: response.checkInAt ?? now, status: 'working' }),
-                  },
-                }));
-                setRefreshKey((key) => key + 1);
-              }}
-            />
-          )}
-          {current?.status === 'checkout_pending' && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간이 확정됩니다.</p>}
-          {current?.check_out_at && <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">오늘 출퇴근이 완료됐어요.</p>}
-          {attendanceToken && <p className="mt-2 text-center text-[11px] font-bold text-primary">동적 QR을 확인했어요. 위치 확인 후 근무지 정책에 맞게 인증합니다.</p>}
+        <div className="mt-4">
+          <WeekRoster week={week} cells={cells} selected={today ? { date: today.date, slot: todaySlot } : null} compact />
+          <p className="mt-2 px-1 text-[11px] text-tertiary">진한 칸 = 초대받은 근무 · 근무 {staff.default_start_time.slice(0, 5)}~{staff.default_end_time.slice(0, 5)}{staff.contract_end ? ` · ${staff.contract_end}까지` : ''}</p>
+        </div>
+        {staffList.length > 1 && <label className="mt-3 block text-[12px] text-sub">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line bg-white px-3">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
+
+        <section className="mt-4 rounded-3xl bg-ink px-5 pb-6 pt-5 text-white shadow-btn">
+          <p className="text-[12px] font-bold text-white/60">{scheduledToday || current?.check_in_at ? `오늘 ${todaySlot} 근무 · ${SLOT_NAME[todaySlot]}` : '오늘은 근무 없음'}</p>
+          <p className="mt-1 text-[20px] font-extrabold">{staffFacility?.name ?? '근무지'}</p>
+          <p className="mt-0.5 text-[13px] text-white/70">{staff.default_start_time.slice(0, 5)} – {staff.default_end_time.slice(0, 5)} · 초대 근무</p>
+
+          {done ? <p className="mt-5 rounded-xl bg-emerald-400/15 p-3 text-center text-[13px] font-bold text-emerald-200">오늘 출퇴근이 완료됐어요.</p>
+            : pending ? <p className="mt-5 rounded-xl bg-amber-400/15 p-3 text-center text-[13px] font-bold text-amber-200">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간이 확정됩니다.</p>
+            : canRecord ? (
+              <div className="mt-4">
+                <TouchToCheckButton
+                  key={current?.check_in_at ? 'check_out' : 'check_in'}
+                  dark
+                  targetType="staff" targetId={staff.id}
+                  action={current?.check_in_at ? 'check_out' : 'check_in'}
+                  qrToken={attendanceToken} mode={mode}
+                  onSuccess={(response: AttendanceResult) => {
+                    const now = new Date().toISOString();
+                    const checkingOut = Boolean(current?.check_in_at);
+                    setAttendance((state) => ({
+                      ...state,
+                      [staff.id]: {
+                        ...(state[staff.id] ?? { staff_id: staff.id, work_date: kstDate(), check_in_at: null, check_out_at: null }),
+                        ...(checkingOut
+                          ? (response.status === 'pending' ? { status: 'checkout_pending' } : { check_out_at: response.checkOutAt ?? now, status: 'completed' })
+                          : { check_in_at: response.checkInAt ?? now, status: 'working' }),
+                      },
+                    }));
+                    setRefreshKey((key) => key + 1);
+                  }}
+                />
+                <p className="mt-1 text-center text-[12px] leading-5 text-white/60">근무지 반경 안에서 1초간 누르면 기록돼요.<br />실내에서는 관리자의 동적 QR을 비추면 돼요.</p>
+                {attendanceToken && <p className="mt-2 text-center text-[11px] font-bold text-primary-light">동적 QR을 확인했어요. 위치 확인 후 근무지 정책에 맞게 인증합니다.</p>}
+              </div>
+            ) : <p className="mt-5 rounded-xl bg-white/10 p-3 text-center text-[13px] text-white/70">오늘은 초대받은 근무일이 아니에요. 진한 칸의 날에 이 화면을 열어 주세요.</p>}
         </section>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Link href="/gig/workroom" className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-white py-4 shadow-sm active:bg-bg"><b className="text-[14px] text-ink">사업장 워크룸</b><span className="text-[11px] text-sub">공지·근무 대화</span></Link>
+          <Link href="/gig/settings" className="flex flex-col items-center justify-center gap-1 rounded-2xl bg-white py-4 shadow-sm active:bg-bg"><b className="text-[14px] text-ink">출근 알림</b><span className="text-[11px] text-sub">근무 30분 전 안내</span></Link>
+        </div>
+
         <section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-[18px] font-extrabold">내 근태 내역</h2>
           <div className="mt-3"><MyAttendanceCalendar staffId={staff.id} refreshKey={refreshKey} /></div>
