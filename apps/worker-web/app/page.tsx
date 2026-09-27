@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { loadWorkerShellContext, rememberWorkerShell, WORKER_SHELL_HOME } from '@/lib/worker-mode';
 import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 // 로그인 전 첫 화면은 로그인만 한다. 두 갈래를 나눠 두되 각 갈래의 버튼이 곧 시작이다 (1탭).
 //   1) 병원·약국 근무 찾기 → 카카오 로그인 → 온보딩 → /home (근무표)
@@ -138,7 +139,8 @@ function RootInner() {
         {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{inviteError}</p>}
       </section>
 
-      <p className="mt-5 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>
+      <div className="mt-3"><InstallAppButton /></div>
+      <p className="mt-4 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>
     </div>
   </main>;
 }

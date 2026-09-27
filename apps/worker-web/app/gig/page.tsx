@@ -13,6 +13,7 @@ import { currentWeek, fillWeekdays, slotOf, SLOT_NAME, type RosterCells } from '
 import { BrandMark } from '@/components/brand/BrandMark';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { useRouter } from 'next/navigation';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 // 로그인 전 /gig = 긱워커 랜딩. 홍보용 주소(itdot.co.kr/gig, gig.itdot.co.kr)로 들어온 사람이 처음 보는 화면이다.
 // 의료 워커 쪽 이야기는 한 줄도 없다. 초대 링크 붙여넣기, 카카오 로그인, 홈 화면 설치만.
@@ -63,6 +64,7 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
       <button type="button" onClick={login} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink active:opacity-80">
         <KakaoGlyph />{attendanceToken ? '카카오로 로그인하고 출근 기록' : '이미 등록했어요 · 카카오로 로그인'}
       </button>
+      <div className="mt-2"><InstallAppButton label="잇닿 GIG 앱으로 바탕화면에 추가" dark /></div>
       <p className="mt-4 text-center text-[11px] text-white/45">근무지 관리자이신가요? <a href="https://admin.itdot.co.kr" className="font-bold text-white/70">관리자 앱 →</a></p>
     </div>
   </main>;

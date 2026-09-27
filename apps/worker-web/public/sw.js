@@ -37,3 +37,9 @@ self.addEventListener('notificationclick', (event) => {
       })
   );
 });
+
+// 설치 요건용 fetch 핸들러. 페이지 이동 요청만 네트워크로 그대로 넘긴다(캐시 없음) — 크롬이 '홈 화면에 추가'를 띄우려면 fetch 핸들러가 있어야 한다.
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode !== 'navigate') return;
+  event.respondWith(fetch(event.request));
+});
