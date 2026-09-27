@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { isGigworkerSource } from '@/lib/worker-mode';
 
 // 워크룸은 두 셸이 같은 화면을 쓰되(variant), 긱 근무지 방과 병원·약국 방을 서로 보여 주지 않는다.
+// 관리자가 올린 '출석 확인'은 버튼 하나로 답한다 — 단체톡에 "확인했습니다" 치던 일을 대신한다.
 type Room = {
   facility_id: string;
   facility_name: string;
@@ -30,14 +31,21 @@ type Message = {
 function timeLabel(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
+function dueLabel(value: unknown) {
+  if (typeof value !== 'string' || !value) return null;
+  return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+}
 
 export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
   const params = useSearchParams();
   const requestedFacility = params.get('facility');
   const [userId, setUserId] = useState('');
+  const [workerId, setWorkerId] = useState('');
   const [rooms, setRooms] = useState<Room[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
+  const [replied, setReplied] = useState<Set<string>>(new Set());
+  const [replying, setReplying] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -49,7 +57,11 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = '/'; return; }
     setUserId(user.id);
-    const { data, error: roomError } = await supabase.rpc('get_my_workrooms');
+    const [{ data, error: roomError }, { data: worker }] = await Promise.all([
+      supabase.rpc('get_my_workrooms'),
+      supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+    ]);
+    if (worker?.id) setWorkerId(worker.id);
     if (roomError) { setError('워크룸을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); setLoading(false); return; }
     const all = (data ?? []) as Room[];
     // 알림 URL(/workroom?facility=…)은 공용이라 긱 근무지 알림이 의료 셸로, 또는 그 반대로 올 수 있다. 맞는 셸로 넘긴다.
@@ -67,13 +79,17 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
 
   const loadMessages = useCallback(async () => {
     if (!selectedId) { setMessages([]); return; }
-    const { data, error: loadError } = await supabase.from('facility_workroom_messages')
-      .select('id,facility_id,sender_type,sender_user_id,sender_name,message_type,body,metadata,created_at')
-      .eq('facility_id', selectedId).order('created_at', { ascending: false }).limit(200);
+    const [{ data, error: loadError }, { data: replies }] = await Promise.all([
+      supabase.from('facility_workroom_messages')
+        .select('id,facility_id,sender_type,sender_user_id,sender_name,message_type,body,metadata,created_at')
+        .eq('facility_id', selectedId).order('created_at', { ascending: false }).limit(200),
+      workerId ? supabase.from('facility_workroom_check_replies').select('check_id').eq('worker_id', workerId) : Promise.resolve({ data: [] as { check_id: string }[] }),
+    ]);
     if (loadError) { setError('워크룸 대화를 불러오지 못했어요.'); return; }
     setMessages(((data ?? []) as Message[]).reverse());
+    setReplied(new Set(((replies ?? []) as { check_id: string }[]).map((row) => row.check_id)));
     await supabase.rpc('mark_facility_workroom_read', { p_facility_id: selectedId });
-  }, [selectedId]);
+  }, [selectedId, workerId]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -108,12 +124,21 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     if (session) fetch(`${adminBase}/api/attendance/nudge`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, keepalive: true }).catch(() => undefined);
   }
 
+  async function replyCheck(checkId: string) {
+    if (replying) return;
+    setReplying(checkId); setError('');
+    const { error: replyError } = await supabase.rpc('reply_workroom_check', { p_check_id: checkId });
+    setReplying(null);
+    if (replyError) { setError(replyError.message.replace(/^.*?: /, '')); return; }
+    setReplied((current) => new Set(current).add(checkId));
+  }
+
   const selected = rooms.find((room) => room.facility_id === selectedId) ?? null;
   return <main className="flex min-h-[calc(100dvh-5rem)] flex-col bg-bg px-4 pb-4 pt-4">
     <header className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
       <div className="flex items-center justify-between"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">WORKROOM</span>{selected&&<span className="text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
       <h1 className="mt-4 text-[25px] font-extrabold">사업장 워크룸</h1>
-      <p className="mt-1 text-[12px] leading-5 text-white/65">카톡 단체방 대신 공지, 근무 대화, 출퇴근 기록을 한곳에 남겨요.</p>
+      <p className="mt-1 text-[12px] leading-5 text-white/65">카톡 단체방 대신 공지, 출석 확인, 근무 대화, 출퇴근 기록을 한곳에 남겨요.</p>
       {rooms.length > 1 && <select value={selectedId} onChange={(event)=>setSelectedId(event.target.value)} className="mt-4 h-11 w-full rounded-xl border border-white/10 bg-white/10 px-3 text-[13px] font-bold text-white outline-none">{rooms.map((room)=><option key={room.facility_id} value={room.facility_id} className="text-ink">{room.facility_name}{room.unread_count?` · 새 소식 ${room.unread_count}`:''}</option>)}</select>}
     </header>
 
@@ -125,6 +150,19 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
         <div className="flex flex-col gap-3">
           {messages.map((message) => {
             if (message.sender_type === 'system') return <div key={message.id} className={`rounded-2xl px-4 py-3 text-[12px] leading-5 ${message.message_type==='attendance'?'border border-primary/15 bg-primary/5 text-ink':'bg-bg text-sub'}`}><p className="font-bold text-primary">{message.sender_name}</p><p>{message.body}</p><time className="mt-1 block text-[10px] text-tertiary">{timeLabel(message.created_at)}</time></div>;
+            const checkId = message.metadata?.kind === 'check' && typeof message.metadata?.checkId === 'string' ? message.metadata.checkId as string : null;
+            if (checkId) {
+              const done = replied.has(checkId);
+              const due = dueLabel(message.metadata?.dueAt);
+              return <div key={message.id} className={`self-stretch rounded-2xl border px-4 py-3 ${done ? 'border-emerald-200 bg-emerald-50' : 'border-primary/25 bg-primary/5'}`}>
+                <div className="flex items-center justify-between"><span className={`text-[11px] font-extrabold tracking-[0.1em] ${done ? 'text-emerald-600' : 'text-primary'}`}>출석 확인</span><time className="text-[10px] text-tertiary">{timeLabel(message.created_at)}</time></div>
+                <p className="mt-1 whitespace-pre-wrap text-[14px] font-bold leading-5 text-ink">{message.body}</p>
+                {due && <p className="mt-1 text-[11px] text-sub">기한 {due}</p>}
+                {done
+                  ? <p className="mt-3 rounded-xl bg-white px-3 py-2 text-center text-[13px] font-extrabold text-emerald-600">확인했어요 ✓</p>
+                  : <button type="button" onClick={() => void replyCheck(checkId)} disabled={replying === checkId} className="mt-3 h-11 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{replying === checkId ? '보내는 중...' : '확인했어요'}</button>}
+              </div>;
+            }
             const mine = message.sender_user_id === userId;
             const notice = message.message_type === 'announcement';
             return <div key={message.id} className={`max-w-[86%] ${mine?'self-end':'self-start'}`}><p className={`mb-1 text-[10px] font-bold ${mine?'text-right text-primary':'text-sub'}`}>{notice?'공지 · ':''}{message.sender_name}</p><div className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-5 ${notice?'border border-amber-200 bg-amber-50 text-ink':mine?'rounded-br-md bg-primary text-white':'rounded-bl-md border border-line bg-white text-ink'}`}>{message.body}</div><time className={`mt-1 block text-[10px] text-tertiary ${mine?'text-right':''}`}>{timeLabel(message.created_at)}</time></div>;

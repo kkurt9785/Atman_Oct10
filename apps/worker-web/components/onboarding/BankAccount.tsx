@@ -18,17 +18,18 @@ export type BankAccountValue = { bankCode: string; bankName: string; accountNumb
 
 // onSkip 이 오면 계좌 없이 가입을 끝낼 수 있다. 사업장이 초대한 직원은 급여를
 // 사업장에서 직접 받으므로 가입 첫날 계좌를 요구할 이유가 없다.
-export function BankAccount({ onNext, onSkip, submitting, submitError }: { onNext: (value: BankAccountValue) => void; onSkip?: () => void; submitting?: boolean; submitError?: string }) {
+// compact: 설정 화면 안에 끼워 넣을 때 (온보딩용 제목·여백 없이 은행·계좌번호·저장 버튼만)
+export function BankAccount({ onNext, onSkip, submitting, submitError, compact = false }: { onNext: (value: BankAccountValue) => void; onSkip?: () => void; submitting?: boolean; submitError?: string; compact?: boolean }) {
   const [bankCode, setBankCode] = useState('');
   const [account, setAccount] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const selected = BANKS.find((bank) => bank.code === bankCode);
 
   return (
-    <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
-      <p className="text-[13px] font-medium text-tertiary mb-2">가입 정보 2/2</p>
-      <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">임금 지급 계좌</h1>
-      <p className="text-[15px] text-sub mb-8">근무 완료 후 채용 사업장이 직접 임금을 지급할 본인 명의 계좌예요.</p>
+    <div className={compact ? 'flex flex-col' : 'flex flex-col min-h-screen px-6 pt-14 pb-10'}>
+      {!compact && <p className="text-[13px] font-medium text-tertiary mb-2">가입 정보 2/2</p>}
+      {!compact && <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">임금 지급 계좌</h1>}
+      {!compact && <p className="text-[15px] text-sub mb-8">근무 완료 후 채용 사업장이 직접 임금을 지급할 본인 명의 계좌예요.</p>}
       <div className="relative mb-4">
         <label id="bank-label" className="block text-[13px] font-bold text-ink mb-2">은행</label>
         <button type="button" aria-labelledby="bank-label bank-value" aria-haspopup="listbox" aria-expanded={showDropdown} aria-controls="bank-options" onClick={() => setShowDropdown((value) => !value)} className="w-full h-[52px] flex items-center justify-between px-4 bg-white rounded-card border border-line">
@@ -38,7 +39,7 @@ export function BankAccount({ onNext, onSkip, submitting, submitError }: { onNex
       </div>
       <label htmlFor="account-number" className="text-[13px] font-bold text-ink mb-2">계좌번호</label>
       <input id="account-number" type="tel" inputMode="numeric" autoComplete="off" aria-describedby="account-help" placeholder="숫자만 입력" value={account} onChange={(e) => setAccount(e.target.value.replace(/\D/g, '').slice(0, 20))} className="w-full h-[52px] px-4 bg-white rounded-card border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-2" />
-      <div className="bg-primary/5 border border-primary/15 rounded-xl p-3 mb-10">
+      <div className={`bg-primary/5 border border-primary/15 rounded-xl p-3 ${compact ? "mb-4" : "mb-10"}`}>
         <p id="account-help" className="text-[13px] text-sub leading-5">잇닿은 근무시간과 지급 정보를 관리하며, 임금은 채용 사업장이 직접 지급합니다. 계좌번호는 서버에서 암호화해요.</p>
       </div>
       <div className="mt-auto">

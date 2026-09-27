@@ -28,7 +28,7 @@ function stringField(data: Record<string, unknown>, ...keys: string[]) {
 export function classifyNotice(notice: Notice, context: ScopeContext): NoticeScope {
   const data = notice.data ?? {};
   const kind = stringField(data, 'kind') ?? notice.event_type ?? '';
-  const attendanceLike = kind.startsWith('attendance.') || kind.startsWith('workroom.');
+  const attendanceLike = kind.startsWith('attendance.') || kind.startsWith('workroom.') || kind.startsWith('payout.');
   // 공고·지원·채팅·급여·자격 알림은 의료 워커 셸에만 있다
   if (!attendanceLike) return 'medical';
 

@@ -49,13 +49,20 @@ export default function IntroPage() {
           출퇴근 인증과 급여 자료까지 한 번에 정리하세요.
         </p>
         <div className="mt-6 grid grid-cols-2 gap-2">
-          <a href="#admin-demo" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[14px] font-extrabold text-white">
-            1분 시연 보기
+          <a href="https://admin.itdot.co.kr/login?demo=hospital" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[14px] font-extrabold text-white">
+            관리자 앱 바로 써보기
           </a>
           <a href="tel:01090455699" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[14px] font-extrabold text-primary">
             도입 상담
           </a>
         </div>
+        <div className="mt-2 grid grid-cols-4 gap-1.5">
+          <a href="https://admin.itdot.co.kr/login?demo=hospital" className="flex h-10 items-center justify-center rounded-xl bg-white text-[12px] font-bold text-ink shadow-card">병원</a>
+          <a href="https://admin.itdot.co.kr/login?demo=pharmacy" className="flex h-10 items-center justify-center rounded-xl bg-white text-[12px] font-bold text-ink shadow-card">약국</a>
+          <a href="https://admin.itdot.co.kr/login?demo=care" className="flex h-10 items-center justify-center rounded-xl bg-white text-[12px] font-bold text-ink shadow-card">요양병원</a>
+          <a href="https://admin.itdot.co.kr/login?demo=gigworker" className="flex h-10 items-center justify-center rounded-xl bg-ink text-[12px] font-bold text-white shadow-card">긱워커</a>
+        </div>
+        <p className="mt-2 text-[11px] text-sub">누르면 시연 계정으로 바로 관리자 화면이 열려요. 실제 데이터에는 반영되지 않아요.</p>
         <div className="mt-5 flex flex-wrap gap-2">
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
             중개 수수료 0원
@@ -136,10 +143,10 @@ export default function IntroPage() {
             도입 상담 · 010-9045-5699
           </a>
           <a
-            href="#admin-demo"
+            href="https://admin.itdot.co.kr/login?demo=hospital"
             className="mt-2 flex h-12 items-center justify-center rounded-btn bg-white/10 text-[15px] font-bold text-white"
           >
-            관리자 시연 영상 다시 보기
+            관리자 앱 시연 계정으로 바로 열기
           </a>
         </div>
       </section>

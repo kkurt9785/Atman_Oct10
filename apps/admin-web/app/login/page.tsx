@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { supabase } from '@/lib/supabase-browser';
@@ -24,6 +24,18 @@ function LoginInner() {
 
   // 공개 시연 여부는 환경변수로만 제어한다.
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
+
+  // 시연 사이트(itdot.co.kr/intro)에서 ?demo=hospital|gigworker|pharmacy|care 로 오면 버튼을 누르지 않아도 그 시연으로 바로 들어간다.
+  const demoParam = searchParams.get('demo');
+  useEffect(() => {
+    if (!showDemoLogin || !demoParam) return;
+    const target = demoParam === 'gigworker' ? DEMO_ACCOUNTS[1]
+      : demoParam === 'pharmacy' ? DEMO_ACCOUNTS[2]
+      : demoParam === 'care' ? DEMO_ACCOUNTS[3]
+      : demoParam === 'hospital' ? DEMO_ACCOUNTS[0] : null;
+    if (target) void handleDemoLogin(target.email, target.demoKind);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoParam, showDemoLogin]);
 
   function handleKakaoLogin() {
     setLoading(true);

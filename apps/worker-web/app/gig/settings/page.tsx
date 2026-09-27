@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
+import { BankAccount, type BankAccountValue } from '@/components/onboarding/BankAccount';
 import { getFacilityRegistrationSources, hasMedicalContext, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
 // 긱워커 "내 정보" — 계정·출근 알림·모드 전환만. 프로필 카드·활동 지역·리워드는 의료 워커(/settings) 전용.
@@ -17,6 +18,11 @@ export default function GigSettingsPage() {
   const [pushLoading, setPushLoading] = useState(false);
   const [pushNotice, setPushNotice] = useState('');
   const [showPwaGuide, setShowPwaGuide] = useState(false);
+  const [workerName, setWorkerName] = useState('');
+  const [bank, setBank] = useState<{ bank_name: string | null; account_last4: string | null } | null>(null);
+  const [bankOpen, setBankOpen] = useState(false);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankError, setBankError] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -24,9 +30,12 @@ export default function GigSettingsPage() {
       if (!user) { router.replace('/'); return; }
       setName(user.user_metadata?.profile_nickname ?? '사용자');
       const [{ data: worker }, { data: staffLinks }] = await Promise.all([
-        supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+        supabase.from('workers').select('role,name,bank_name,account_last4').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
         supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
       ]);
+      setWorkerName(worker?.name ?? '');
+      setBank(worker ? { bank_name: worker.bank_name ?? null, account_last4: worker.account_last4 ?? null } : null);
+      if (window.location.hash === '#bank' && !worker?.account_last4) setBankOpen(true);
       setCanSwitch(hasMedicalContext(getFacilityRegistrationSources(staffLinks), worker?.role));
       setPushEnabled(Boolean(await getExistingSubscription()));
     }
@@ -61,6 +70,18 @@ export default function GigSettingsPage() {
     } finally {
       setPushLoading(false);
     }
+  }
+
+  // 지급 계좌: 관리자가 지급할 때 바로 입금하도록 워커 본인이 등록한다. 번호는 암호화 저장, 화면엔 은행·끝 4자리만.
+  async function saveBank(value: BankAccountValue) {
+    setBankSaving(true); setBankError('');
+    const { error } = await supabase.rpc('upsert_my_bank_account', {
+      p_bank_code: value.bankCode, p_bank_name: value.bankName, p_account_number: value.accountNumber, p_account_holder_name: workerName || name,
+    });
+    setBankSaving(false);
+    if (error) { setBankError(error.message.replace(/^.*?: /, '') || '계좌를 저장하지 못했어요.'); return; }
+    setBank({ bank_name: value.bankName, account_last4: value.accountNumber.replace(/\D/g, '').slice(-4) });
+    setBankOpen(false);
   }
 
   function switchToMedical() {
@@ -113,6 +134,15 @@ export default function GigSettingsPage() {
           <div className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
         </div>
       </button>
+
+      <section id="bank" className="mb-4 rounded-2xl bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-[15px] font-bold text-ink">지급 계좌</p><p className="mt-0.5 text-[13px] text-tertiary">{bank?.bank_name && bank?.account_last4 ? `${bank.bank_name} · ****${bank.account_last4}` : '아직 등록하지 않았어요'}</p></div>
+          <button type="button" onClick={() => setBankOpen((open) => !open)} className="h-9 shrink-0 rounded-lg bg-primary/10 px-3 text-[12px] font-extrabold text-primary">{bankOpen ? '닫기' : bank?.account_last4 ? '변경' : '등록'}</button>
+        </div>
+        <p className="mt-2 text-[11px] leading-4 text-sub">관리자가 근무 급여를 지급할 때 이 계좌로 보내요. 계좌번호는 암호화되어 저장되고 관리자에게는 은행과 끝 4자리만 보여요.</p>
+        {bankOpen && <div className="mt-3 rounded-xl bg-bg p-3"><BankAccount compact onNext={(value) => void saveBank(value)} submitting={bankSaving} submitError={bankError} /></div>}
+      </section>
 
       <section className="mb-4 rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
         <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">MEDICAL SHIFT</p>
