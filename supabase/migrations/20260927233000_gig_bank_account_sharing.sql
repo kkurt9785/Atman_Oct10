@@ -91,7 +91,7 @@ BEGIN
   ) VALUES (
     v_staff.facility_id, v_staff.id, v_worker_id, v_bank.id, now(), now()
   )
-  ON CONFLICT (staff_id) DO UPDATE SET
+  ON CONFLICT ON CONSTRAINT gig_bank_account_shares_staff_id_key DO UPDATE SET
     facility_id = EXCLUDED.facility_id,
     worker_id = EXCLUDED.worker_id,
     bank_account_id = EXCLUDED.bank_account_id,
