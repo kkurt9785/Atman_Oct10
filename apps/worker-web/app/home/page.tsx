@@ -173,7 +173,12 @@ export default function HomePage() {
         supabase.from('workers').select('id, role, verification_status').eq('auth_user_id', user.id).maybeSingle(),
       ]);
 
-      const userRole = (workerRow?.role as WorkerRole) ?? 'rn';
+      // 카카오 로그인만 하고 가입(온보딩)을 끝내지 않은 사람에게는 근무표를 보여주지 않는다 — 가입부터
+      if (!workerRow) {
+        router.replace('/onboarding?step=terms');
+        return;
+      }
+      const userRole = (workerRow.role as WorkerRole) ?? 'rn';
       const areaLabels = ((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label);
       setRole(userRole);
       setAreas(areaLabels);
