@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { isGigworkerSource } from '@/lib/worker-mode';
 
 // 워크룸은 두 셸이 같은 화면을 쓰되(variant), 긱 근무지 방과 병원·약국 방을 서로 보여 주지 않는다.
+// 방 안에서는 전체 공지·대화(staff_id null)와 관리자와의 비공개 대화(staff_id = 내 것)를 한 줄로 본다.
+// 긱워커는 비공개 대화로만 보내고(DB 트리거가 전체방 글쓰기를 막는다), 병원·약국 직원은 기본이 전체방이며 '관리자에게만'을 켜면 비공개로 보낸다.
 // 관리자가 올린 '출석 확인'은 버튼 하나로 답한다 — 단체톡에 "확인했습니다" 치던 일을 대신한다.
 type Room = {
   facility_id: string;
@@ -49,6 +51,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
   const [replied, setReplied] = useState<Set<string>>(new Set());
   const [replying, setReplying] = useState<string | null>(null);
   const [input, setInput] = useState('');
+  const [directOnly, setDirectOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
@@ -85,7 +88,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     let messageQuery=supabase.from('facility_workroom_messages')
       .select('id,facility_id,staff_id,sender_type,sender_user_id,sender_name,message_type,body,metadata,created_at')
       .eq('facility_id', selectedId);
-    messageQuery=isGig&&room?messageQuery.or(`staff_id.is.null,staff_id.eq.${room.staff_id}`):messageQuery.is('staff_id',null);
+    messageQuery=room?messageQuery.or(`staff_id.is.null,staff_id.eq.${room.staff_id}`):messageQuery.is('staff_id',null);
     const [{ data, error: loadError }, { data: replies }] = await Promise.all([
       messageQuery.order('created_at', { ascending: false }).limit(200),
       workerId ? supabase.from('facility_workroom_check_replies').select('check_id').eq('worker_id', workerId) : Promise.resolve({ data: [] as { check_id: string }[] }),
@@ -95,7 +98,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     setReplied(new Set(((replies ?? []) as { check_id: string }[]).map((row) => row.check_id)));
     await Promise.all([
       supabase.rpc('mark_facility_workroom_read', { p_facility_id: selectedId }),
-      isGig&&room?supabase.rpc('mark_staff_workroom_read',{p_staff_id:room.staff_id}):Promise.resolve(),
+      room?supabase.rpc('mark_staff_workroom_read',{p_staff_id:room.staff_id}):Promise.resolve(),
     ]);
   }, [isGig, rooms, selectedId, workerId]);
 
@@ -106,10 +109,10 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     const channel = supabase.channel(`workroom-worker-${selectedId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'facility_workroom_messages', filter: `facility_id=eq.${selectedId}` }, (payload) => {
         const row = payload.new as Message;
-        if(isGig?row.staff_id!==null&&row.staff_id!==room?.staff_id:row.staff_id!==null)return;
+        if(row.staff_id!==null&&row.staff_id!==room?.staff_id)return;
         setMessages((current) => current.some((item) => item.id === row.id) ? current : [...current, row]);
         void supabase.rpc('mark_facility_workroom_read', { p_facility_id: selectedId });
-        if(isGig&&room)void supabase.rpc('mark_staff_workroom_read',{p_staff_id:room.staff_id});
+        if(room)void supabase.rpc('mark_staff_workroom_read',{p_staff_id:room.staff_id});
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [isGig, rooms, selectedId, loadMessages]);
@@ -121,7 +124,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     if (!body || !selectedId || sending) return;
     setSending(true); setError('');
     const room=rooms.find((item)=>item.facility_id===selectedId);
-    const { data, error: sendError } = isGig&&room
+    const { data, error: sendError } = room&&(isGig||directOnly)
       ? await supabase.rpc('send_staff_workroom_message',{p_staff_id:room.staff_id,p_body:body})
       : await supabase.rpc('send_facility_workroom_message', {p_facility_id: selectedId, p_body: body, p_announcement: false});
     setSending(false);
@@ -177,12 +180,13 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
             }
             const mine = message.sender_user_id === userId;
             const notice = message.message_type === 'announcement';
-            return <div key={message.id} className={`max-w-[86%] ${mine?'self-end':'self-start'}`}><p className={`mb-1 text-[10px] font-bold ${mine?'text-right text-primary':'text-sub'}`}>{notice?'공지 · ':''}{message.sender_name}</p><div className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-5 ${notice?'border border-amber-200 bg-amber-50 text-ink':mine?'rounded-br-md bg-primary text-white':'rounded-bl-md border border-line bg-white text-ink'}`}>{message.body}</div><time className={`mt-1 block text-[10px] text-tertiary ${mine?'text-right':''}`}>{timeLabel(message.created_at)}</time></div>;
+            const direct = message.staff_id !== null;
+            return <div key={message.id} className={`max-w-[86%] ${mine?'self-end':'self-start'}`}><p className={`mb-1 text-[10px] font-bold ${mine?'text-right text-primary':'text-sub'}`}>{notice?'공지 · ':''}{direct&&!isGig?'비공개 · ':''}{message.sender_name}</p><div className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-5 ${notice?'border border-amber-200 bg-amber-50 text-ink':mine?'rounded-br-md bg-primary text-white':'rounded-bl-md border border-line bg-white text-ink'}`}>{message.body}</div><time className={`mt-1 block text-[10px] text-tertiary ${mine?'text-right':''}`}>{timeLabel(message.created_at)}</time></div>;
           })}
           {messages.length===0&&<div className="py-14 text-center"><p className="text-[14px] font-bold text-ink">아직 대화가 없어요</p><p className="mt-1 text-[12px] text-sub">관리자에게 필요한 내용을 여기서 바로 물어보세요.</p></div>}
         </div><div ref={bottomRef}/>
       </section>}
 
-    {selected&&<section className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={isGig ? '관리자에게 근무 메시지 보내기' : '관리자와 함께 일하는 분들에게 메시지 보내기'} className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div><p className="mt-2 px-1 text-[10px] text-tertiary">{isGig?'개인 전화번호는 표시되지 않고, 이 대화는 나와 근무지 관리자만 볼 수 있어요.':'개인 전화번호는 표시되지 않아요. 같은 근무지 구성원이 이 대화를 함께 봅니다.'}</p></section>}
+    {selected&&<section className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={isGig ? '관리자에게 근무 메시지 보내기' : directOnly ? '관리자에게만 보내는 메시지' : '관리자와 함께 일하는 분들에게 메시지 보내기'} className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div>{!isGig&&<label className="mt-2 flex items-center gap-2 px-1 text-[11px] font-bold text-sub"><input type="checkbox" checked={directOnly} onChange={(event)=>setDirectOnly(event.target.checked)} className="h-4 w-4 accent-primary"/>관리자에게만 보내기 (비공개)</label>}<p className="mt-2 px-1 text-[10px] text-tertiary">{isGig?'개인 전화번호는 표시되지 않고, 이 대화는 나와 근무지 관리자만 볼 수 있어요.':directOnly?'이 메시지는 관리자만 볼 수 있어요. 개인 전화번호는 표시되지 않아요.':'개인 전화번호는 표시되지 않아요. 같은 근무지 구성원이 이 대화를 함께 봅니다.'}</p></section>}
   </main>;
 }

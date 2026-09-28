@@ -67,6 +67,12 @@ export default function GigSettingsPage() {
     rememberWorkerShell('medical');
     router.replace('/home');
   }
+  // 초대로 간편 가입한 긱워커(직군 'other')가 의료 워커로 올라가는 길. 온보딩의 직군 단계부터 다시 밟는다 —
+  // complete_worker_onboarding 이 같은 계정의 직군·지역을 갱신하고, 끝나면 의료 셸(/home)로 간다.
+  function startMedicalRegistration() {
+    try { window.localStorage.removeItem('atman_auth_next'); } catch { /* 저장소 없어도 진행 */ }
+    router.push('/onboarding?step=terms');
+  }
   async function handleLogout() {
     await supabase.auth.signOut();
     setGigworkerModePreference(false);
@@ -116,6 +122,15 @@ export default function GigSettingsPage() {
         <p className="mt-1 text-[12px] leading-5 text-sub">같은 계정의 프로필과 지원 내역을 그대로 이어서 봐요.</p>
         <button type="button" onClick={switchToMedical} className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-extrabold text-white">
           병원·약국 모드 열기
+        </button>
+      </section>}
+
+      {!canSwitch && <section className="mb-4 rounded-2xl border border-line bg-white p-5 shadow-sm">
+        <p className="text-[11px] font-extrabold text-primary">병원·약국 워커</p>
+        <p className="mt-1 text-[16px] font-extrabold text-ink">병원·약국 근무 찾기도 시작할래요</p>
+        <p className="mt-1 text-[12px] leading-5 text-sub">간호사·간호조무사·약사·약국 사무 직군을 등록하면 같은 계정으로 근무를 찾고 지원할 수 있어요. 지금의 긱 근무는 그대로 유지돼요.</p>
+        <button type="button" onClick={startMedicalRegistration} className="mt-3 h-11 w-full rounded-xl border border-primary bg-white text-[13px] font-extrabold text-primary">
+          직군 등록하고 근무 찾기 열기
         </button>
       </section>}
 

@@ -14,7 +14,7 @@ import { ReviewPending } from '@/components/onboarding/ReviewPending';
 import { Approval } from '@/components/onboarding/Approval';
 import { NotificationSetup } from '@/components/onboarding/NotificationSetup';
 import { LICENSED_ROLES, type WorkerRole } from '@/lib/roles';
-import type { WorkerShell } from '@/lib/worker-mode';
+import { invalidateWorkerShellContext, rememberWorkerShell, type WorkerShell } from '@/lib/worker-mode';
 
 type Step = 'splash' | 'terms' | 'role' | 'license' | 'info' | 'area' | 'bank' | 'notification' | 'review' | 'approval';
 const VALID_STEPS = new Set<Step>(['splash','terms','role','license','info','area','bank','notification','review','approval']);
@@ -120,6 +120,9 @@ function OnboardingInner() {
       if (attendanceInvite) {
         finishOnboarding();
       } else {
+        // 긱 전용 계정이 직군을 등록해 의료 워커가 된 경우: 15초 캐시된 셸 판단이 /home 을 /gig 로 되돌리지 않게 비운다
+        invalidateWorkerShellContext();
+        rememberWorkerShell('medical');
         go('notification');
       }
     } catch (error) {

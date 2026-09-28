@@ -6,7 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { Wordmark } from '@/components/brand/BrandMark';
-import { hasMedicalContext, isGigworkerSource, rememberWorkerShell } from '@/lib/worker-mode';
+import { hasMedicalContext, isGigworkerSource, loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
+import { classifyNotice, noticeBelongsTo, type Notice } from '@/lib/notification-scope';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
@@ -116,10 +117,17 @@ function GigTodayContent() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [signedOut, setSignedOut] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => { void (async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSignedOut(true); setLoading(false); return; }
+    // 긱 셸 알림함은 탭에 없다 — 헤더 종 아이콘이 유일한 입구라 안 읽은 긱 알림 수를 같이 보여 준다
+    void Promise.all([supabase.rpc('get_my_notifications', { p_limit: 30 }), loadWorkerShellContext(user).catch(() => null)])
+      .then(([{ data: notices }, context]) => {
+        if (!context) return;
+        setUnreadCount(((notices ?? []) as Notice[]).filter((row) => !row.read_at && noticeBelongsTo(classifyNotice(row, context), 'gig')).length);
+      }).catch(() => undefined);
     const { data } = await supabase.from('facility_staff')
       .select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status)')
       .neq('status', 'ended').order('created_at', { ascending: false });
@@ -166,6 +174,10 @@ function GigTodayContent() {
       <div><Wordmark size={20} /><div className="mt-2"><WorkerModeBadge shell="gig" /></div></div>
       <div className="flex items-center gap-2">
         {hasMedicalLink && <Link href="/home" onClick={() => rememberWorkerShell('medical')} className="rounded-full border border-line bg-white px-3 py-2 text-[11px] font-extrabold text-sub">병원·약국 모드</Link>}
+        <Link href="/gig/notifications" aria-label={unreadCount ? `근무 알림 ${unreadCount}건 안 읽음` : '근무 알림'} className="relative flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-sub">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+          {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>}
+        </Link>
         <Link href="/gig/settings" aria-label="앱 설정" className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-[16px] text-sub">⚙</Link>
       </div>
     </header>
