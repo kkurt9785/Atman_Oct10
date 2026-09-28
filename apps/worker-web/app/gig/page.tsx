@@ -191,6 +191,10 @@ function GigTodayContent() {
     </section>
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-sub">근무를 확인하고 있어요...</div>
+      : !staff && hasMedicalLink ? <section className="mt-3 rounded-2xl bg-white p-8 text-center shadow-sm" aria-busy="true">
+          <b className="text-[16px] text-ink">병원·약국 모드로 이동 중이에요</b>
+          <p className="mt-2 text-[13px] leading-5 text-sub">긱 근무 초대를 받으면 이 화면에서 바로 연결돼요.</p>
+        </section>
       : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center shadow-sm">
           <b className="text-[16px] text-ink">아직 연결된 근무가 없어요</b>
           <p className="mt-2 text-[13px] leading-5 text-sub">관리자가 보낸 초대 링크나 QR을 열면 근무·대화·정산이 한 번에 연결돼요.</p>

@@ -60,13 +60,13 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   const until = addDays(today, 6);
 
   const { data: staffRows, error: staffError } = await sb.from('facility_staff')
-    .select('id,name,worker_id,department,default_start_time,default_end_time')
+    .select('id,name,worker_id,department,default_start_time,default_end_time,contract_start')
     .eq('facility_id', facilityId).neq('status', 'ended').order('name');
   if (staffError) throw new Error('긱워커 운영 현황을 불러오지 못했어요.');
   const staffIds = (staffRows ?? []).map((row) => row.id as string);
   if (staffIds.length === 0) return empty;
 
-  const [assignmentResult,attendanceResult,inviteResult,bankResult,payoutResult,messageResult,readResult] = await Promise.all([
+  const [assignmentResult,attendanceResult,inviteResult,bankResult,payoutResult,messageResult,readResult,graceResult] = await Promise.all([
     sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status')
       .eq('facility_id', facilityId).lte('starts_on', until).gte('ends_on', today).in('status', ['planned','active']).order('starts_on'),
     sb.from('staff_attendances').select('staff_id,work_date,status,check_in_at,check_out_at')
@@ -76,8 +76,10 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
     sb.from('gig_payouts').select('staff_id,period_end,status').eq('facility_id', facilityId).neq('status', 'cancelled').in('staff_id', staffIds).order('period_end', { ascending: false }),
     sb.from('facility_workroom_messages').select('staff_id,created_at,sender_user_id').eq('facility_id', facilityId).in('staff_id', staffIds).order('created_at', { ascending: false }).limit(500),
     adminUserId ? sb.from('facility_workroom_thread_reads').select('staff_id,last_read_at').eq('facility_id', facilityId).eq('user_id', adminUserId) : Promise.resolve({ data: [] }),
+    // '미출근 확인'은 시설의 지각 유예를 지난 뒤에만 띄운다 — 정각에 바로 빨간 표시가 뜨면 사장님이 매번 헛걸음한다
+    sb.from('facility_attendance_settings').select('late_grace_minutes').eq('facility_id', facilityId).maybeSingle(),
   ]);
-  const failed = [assignmentResult.error, attendanceResult.error, inviteResult.error, bankResult.error, payoutResult.error, messageResult.error, 'error' in readResult ? readResult.error : null].find(Boolean);
+  const failed = [assignmentResult.error, attendanceResult.error, inviteResult.error, bankResult.error, payoutResult.error, messageResult.error, 'error' in readResult ? readResult.error : null, graceResult.error].find(Boolean);
   if (failed) throw new Error('긱워커 운영 데이터를 한 번에 불러오지 못했어요.');
 
   const assignments = (assignmentResult.data ?? []) as AssignmentRow[];
@@ -94,8 +96,20 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
     if (!lastPaidEnd.has(row.staff_id)) lastPaidEnd.set(row.staff_id,row.period_end);
     if (row.status === 'scheduled') scheduledPayout.add(row.staff_id);
   }
+  // 미정산 일수는 지급 페이지(lib/db/gig-payouts.ts)와 같은 기준으로 센다: 마지막 지급 다음날, 없으면 계약 시작일부터.
+  // 위 attendances 는 오늘 상태용 31일 창이라 그대로 쓰면 한 달 넘게 안 준 근무가 빠진다.
+  const unpaidSince = new Map<string,string>();
+  for (const staff of staffRows ?? []) {
+    const last = lastPaidEnd.get(staff.id as string);
+    unpaidSince.set(staff.id as string, last ? addDays(last, 1) : ((staff.contract_start as string | null) ?? '2020-01-01'));
+  }
+  const earliestSince = [...unpaidSince.values()].sort()[0] ?? today;
+  const { data: completedRows, error: completedError } = await sb.from('staff_attendances').select('staff_id,work_date')
+    .eq('facility_id', facilityId).in('staff_id', staffIds).eq('status', 'completed').gte('work_date', earliestSince).lte('work_date', today);
+  if (completedError) throw new Error('긱워커 미정산 근무를 불러오지 못했어요.');
   const unpaidDays = new Map<string,Set<string>>();
-  for (const row of attendances) if (row.status === 'completed' && row.work_date > (lastPaidEnd.get(row.staff_id) ?? '1900-01-01')) {
+  for (const row of (completedRows ?? []) as Array<{ staff_id: string; work_date: string }>) {
+    if (row.work_date < (unpaidSince.get(row.staff_id) ?? '2020-01-01')) continue;
     (unpaidDays.get(row.staff_id) ?? unpaidDays.set(row.staff_id,new Set()).get(row.staff_id)!).add(row.work_date);
   }
   const readAt = new Map(((readResult.data ?? []) as Array<{staff_id:string;last_read_at:string}>).map((row) => [row.staff_id,row.last_read_at]));
@@ -106,6 +120,9 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   }
 
   const nowKst = new Date(Date.now()+9*60*60*1000).toISOString().slice(11,16);
+  // 시설 설정이 없으면 DB 기본값(20분)과 같게 — lib/actions/clinic-workforce.ts DEFAULT_LATE_GRACE_MINUTES 와 동일
+  const lateGraceMinutes = Math.max(0, Number(graceResult.data?.late_grace_minutes ?? 20));
+  const toMinutes = (hhmm: string) => Number(hhmm.slice(0,2)) * 60 + Number(hhmm.slice(3,5));
   const workers: GigOperationWorker[] = (staffRows ?? []).map((staff) => {
     const rows = assignmentsByStaff.get(staff.id) ?? [];
     const assignment = assignmentOn(rows,today);
@@ -125,7 +142,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
       else { status='completed';statusLabel='오늘 근무 완료'; }
     } else if (scheduledPayout.has(staff.id)) { status='paid';statusLabel='지급 예정'; }
     else if (assignment) {
-      const late = nowKst > assignment.start_time.slice(0,5) && !attendance?.check_in_at;
+      const late = toMinutes(nowKst) > toMinutes(assignment.start_time.slice(0,5)) + lateGraceMinutes && !attendance?.check_in_at;
       status=late?'late':'scheduled';statusLabel=late?'미출근 확인':'출근 예정';
     }
     return {
