@@ -74,7 +74,7 @@ function RootInner() {
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-extrabold text-white/75">초대 근무만</span>
         </div>
         <p className="mt-2 text-[18px] font-extrabold">초대받은 근무를 시작할게요</p>
-        <p className="mt-1 text-[13px] leading-5 text-white/65">초대 확인 · 닿기 출퇴근 · 대화 · 지급 확인</p>
+        <p className="mt-1 text-[13px] leading-5 text-white/65">잇기(초대 수락) · 닿기(출퇴근) · 대화 · 지급 확인</p>
         <Link href="/gig" onClick={() => rememberWorkerShell('gig')} className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-white text-[15px] font-extrabold text-ink active:opacity-80">
           긱워커로 시작 →
         </Link>

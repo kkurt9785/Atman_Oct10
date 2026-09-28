@@ -137,7 +137,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
     const bankShared = bankSet.has(staff.id);
     const due = unpaidDays.get(staff.id)?.size ?? 0;
     let status: GigOperationStatus = 'off'; let statusLabel = next ? `${next.date.slice(5).replace('-','/')} 예정` : '일정 없음';
-    if (!linked) { status='invite';statusLabel=inviteSet.has(staff.id)?'초대 수락 대기':'초대 필요'; }
+    if (!linked) { status='invite';statusLabel=inviteSet.has(staff.id)?'잇기 대기':'잇기 링크 필요'; }
     else if (attendance?.status === 'checkout_pending' || attendance?.status === 'absent') { status='review';statusLabel=attendance.status==='absent'?'결근 확인':'조기 퇴근 승인'; }
     else if (attendance?.status === 'working' || attendance?.status === 'late') { status='working';statusLabel=attendance.status==='late'?'지각 · 근무 중':'근무 중'; }
     else if (attendance?.status === 'completed') {

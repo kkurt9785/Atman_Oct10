@@ -73,6 +73,9 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [hasWorker, setHasWorker] = useState(false);
+  // 긱 초대: 수락하면 등록된 지급 계좌가 이 근무지에 전달된다 — 시작할 때 이미 전달돼 있어야 워커가 안심한다
+  const [bankLabel, setBankLabel] = useState<string | null>(null);
+  const [bankShared, setBankShared] = useState<'shared' | 'missing' | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -105,8 +108,12 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
 
       let workerExists = false;
       if (user) {
-        const { data: worker } = await supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
+        const [{ data: worker }, { data: bank }] = await Promise.all([
+          supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
+          invite.isGigworker ? supabase.from('worker_bank_accounts').select('bank_name,account_number_last4').eq('is_primary', true).is('deleted_at', null).maybeSingle() : Promise.resolve({ data: null }),
+        ]);
         workerExists = Boolean(worker?.id);
+        if (active) setBankLabel(bank?.bank_name && bank.account_number_last4 ? `${bank.bank_name} ****${bank.account_number_last4}` : null);
       }
       if (!active) return;
       setPreview(invite);
@@ -135,16 +142,21 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     }
     setStatus('claiming');
     setMessage('근무 초대를 연결하고 있어요...');
-    const { error } = await supabase.rpc('claim_facility_staff_invite', { p_token: token });
+    const { data: staffId, error } = await supabase.rpc('claim_facility_staff_invite', { p_token: token });
     if (error) {
       setStatus('error');
       setMessage(friendlyInviteError(error.message));
       return;
     }
+    if (isGig && typeof staffId === 'string') {
+      // 계좌가 있으면 지금 전달한다. 없으면 정산 탭에서 등록·전달하도록 안내
+      const { error: shareError } = await supabase.rpc('share_my_gig_bank_account', { p_staff_id: staffId });
+      setBankShared(shareError ? 'missing' : 'shared');
+    }
     rememberWorkerShell(variant);
     window.dispatchEvent(new Event('atman:workplace-linked'));
     setStatus('success');
-    setMessage(`${preview?.facilityName ?? '근무지'} 계정과 워크룸 연결이 완료됐어요.`);
+    setMessage(`${preview?.facilityName ?? '근무지'}와 이어졌어요. 출퇴근은 근무지에서 '닿기'로 기록해요.`);
   }
 
   const payText = preview?.payBasis && preview.payRate
@@ -156,7 +168,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-card">
       <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
       <p className="mt-5 text-[13px] font-bold text-primary">{isGig ? '긱워커 전용 근태 초대' : '직원 계정 연결'}</p>
-      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이제 앱에서 함께 일해요' : '초대받은 근무를 확인해 주세요'}</h1>
+      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이어졌어요 · 이제 함께 일해요' : '초대받은 근무를 확인해 주세요'}</h1>
       <p role="status" className="mt-3 text-[14px] leading-6 text-sub">{message}</p>
 
       {preview && status !== 'success' && <div className="mt-5 overflow-hidden rounded-2xl border border-line">
@@ -177,13 +189,17 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
 
       {status === 'preview' && preview && <>
         <button type="button" onClick={() => void claimInvite()} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
-          {!signedIn ? '카카오로 가입하고 참여하기' : !hasWorker ? '인적사항 등록하고 참여하기' : '초대 수락하고 워크룸 참여하기'}
+          {!signedIn ? '카카오로 가입하고 잇기' : !hasWorker ? '인적사항 등록하고 잇기' : '잇기 · 초대 수락하고 연결'}
         </button>
         <p className="mt-3 text-center text-[11px] leading-5 text-sub">이 일회용 링크가 본인 확인 수단이에요. 가입 후 공지·근무 대화·출퇴근 기록은 앱 안에 계속 남습니다.</p>
+        {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
         {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 긱워커 데모 먼저 보기 →</Link>}
       </>}
       {status === 'claiming' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-60">연결 중...</button>}
-      {status === 'success' && <><Link href={isGig?'/gig/workroom':'/workroom'} className="mt-6 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">사업장 워크룸 열기</Link><Link href={routes.home} className="mt-2 flex h-11 items-center justify-center rounded-xl text-[13px] font-bold text-sub">오늘 근무 확인하기</Link></>}
+      {status === 'success' && <>
+        {isGig && bankShared === 'shared' && <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-bold text-emerald-700">지급 계좌{bankLabel ? ` ${bankLabel}` : ''}를 전달했어요. 근무 시작부터 지급 준비가 돼 있어요.</p>}
+        {isGig && bankShared === 'missing' && <Link href="/gig/settlement" className="mt-4 block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-700">지급 계좌가 아직 없어요 — 근태·지급 탭에서 등록하고 전달하기 →</Link>}
+        <Link href={isGig?'/gig/workroom':'/workroom'} className="mt-6 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">사업장 워크룸 열기</Link><Link href={routes.home} className="mt-2 flex h-11 items-center justify-center rounded-xl text-[13px] font-bold text-sub">오늘 근무 확인하기</Link></>}
       {status === 'error' && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
     </section>
   </main>;

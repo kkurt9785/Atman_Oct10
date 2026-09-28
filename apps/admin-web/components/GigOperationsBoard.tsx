@@ -25,7 +25,7 @@ function belongs(row:GigOperationWorker,filter:Filter) {
   return row.status==='pay'||row.status==='bank'||row.status==='paid';
 }
 function actionFor(row:GigOperationWorker) {
-  if(row.status==='invite') return {href:'/staff?view=contract&entry=gigworker',label:'초대 확인'};
+  if(row.status==='invite') return {href:'/staff?view=contract&entry=gigworker',label:'잇기 확인'};
   if(row.status==='review'||row.status==='late') return {href:'/timesheet',label:'근태 처리'};
   if(row.status==='pay'||row.status==='bank'||row.status==='paid') return {href:'/gig-pay',label:'지급 확인'};
   return {href:`/workroom?staff=${row.staffId}`,label:'대화'};
@@ -69,13 +69,13 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
   }
 
   const summary:[Filter,string,number,string][]=[
-    ['invite','초대 대기',board.summary.invite,'text-violet-700'],['working','근무 흐름',board.summary.working,'text-emerald-700'],
+    ['invite','잇기 대기',board.summary.invite,'text-violet-700'],['working','닿기·근무',board.summary.working,'text-emerald-700'],
     ['issue','확인 필요',board.summary.issue,'text-red-600'],['pay','지급 준비',board.summary.pay,'text-primary'],
   ];
 
   return <>
     <div className="mt-4 px-1 sm:flex sm:items-end sm:justify-between">
-      <div><p className="text-[13px] font-bold text-sub">{facilityName}</p><h1 className="mt-1 text-[27px] font-extrabold tracking-[-0.7px] text-ink">오늘 긱 운영</h1><p className="mt-1 text-[13px] text-sub">필요한 사람부터 바로 처리하세요.</p></div>
+      <div><p className="text-[13px] font-bold text-sub">{facilityName}</p><h1 className="mt-1 text-[27px] font-extrabold tracking-[-0.7px] text-ink">오늘 긱 운영</h1><p className="mt-1 text-[13px] text-sub">잇기(초대·연결)부터 닿기(출퇴근)·지급까지, 필요한 사람부터 처리하세요.</p></div>
       <Link href="/gig-work/new" className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-ink px-4 text-[13px] font-extrabold text-white sm:mt-0 sm:w-auto">＋ 근무 만들기</Link>
     </div>
 
@@ -85,7 +85,7 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
       {projects.length===0?<Link href="/gig-work/new" className="mt-3 block rounded-2xl border-2 border-dashed border-line bg-white px-4 py-7 text-center active:bg-bg"><b className="text-[15px] text-ink">첫 근무를 만들어 보세요</b><span className="mt-1 block text-[12px] text-sub">행사 하루든 매주 반복이든 하나 만들고 여러 명을 넣으면 돼요.</span></Link>
         :<div className="mt-3 grid gap-2 lg:grid-cols-2">{projects.map((project)=>{const today=projectRunsOn(project,board.today);const filled=project.participants.length;const working=project.participants.filter((p)=>p.todayStatus==='working'||p.todayStatus==='late').length;const pending=project.participants.filter((p)=>!p.workerLinked).length;return <Link key={project.id} href={`/gig-work/${project.id}`} className={`rounded-2xl border bg-white p-4 shadow-sm active:bg-bg ${today?'border-primary/40':'border-transparent'}`}>
           <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><b className="text-[16px] text-ink">{project.title}</b>{today&&<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-extrabold text-primary">오늘</span>}</div><p className="mt-1 text-[12px] text-sub">{projectScheduleText(project)}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${filled>=project.headcount?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{filled}/{project.headcount}명</span></div>
-          <p className="mt-2 text-[11px] text-tertiary">{project.payRate?`시급 ${project.payRate.toLocaleString('ko-KR')}원`:'시급 미정'}{pending>0?` · 초대 대기 ${pending}명`:''}{today&&working>0?` · 근무 중 ${working}명`:''}{filled<project.headcount?` · ${project.headcount-filled}명 더 필요`:''}</p>
+          <p className="mt-2 text-[11px] text-tertiary">{project.payRate?`시급 ${project.payRate.toLocaleString('ko-KR')}원`:'시급 미정'}{pending>0?` · 잇기 대기 ${pending}명`:''}{today&&working>0?` · 근무 중 ${working}명`:''}{filled<project.headcount?` · ${project.headcount-filled}명 더 필요`:''}</p>
         </Link>;})}</div>}
     </section>
 

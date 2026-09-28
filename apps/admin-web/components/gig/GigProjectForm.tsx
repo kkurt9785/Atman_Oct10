@@ -54,6 +54,6 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
       <label className="col-span-2 text-label font-medium text-sub">메모 <span className="font-normal text-tertiary">· 선택, 관리자만 봄</span><input name="note" maxLength={500} defaultValue={project?.note ?? ''} className={inputClass} placeholder="예: 행사장 2층 안내데스크 집합" /></label>
     </section>
 
-    <button className="mt-6 h-12 w-full rounded-xl bg-ink font-bold text-white disabled:opacity-40">{mode === 'create' ? '근무 만들기 → 근무자 넣기' : '수정 저장'}</button>
+    <button className="mt-6 h-12 w-full rounded-xl bg-ink font-bold text-white disabled:opacity-40">{mode === 'create' ? '근무 만들기 → 근무자 잇기' : '수정 저장'}</button>
   </GigActionForm>;
 }

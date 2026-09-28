@@ -25,7 +25,6 @@ export default function GigSettlementPage() {
   const [workerName, setWorkerName] = useState('');
   const [bank, setBank] = useState<Bank | null>(null);
   const [shares, setShares] = useState<Share[]>([]);
-  const [completedStaffIds, setCompletedStaffIds] = useState<Set<string>>(new Set());
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [loading, setLoading] = useState(true);
   const [bankOpen, setBankOpen] = useState(false);
@@ -47,17 +46,15 @@ export default function GigSettlementPage() {
     setWorkerName(worker?.name ?? user.user_metadata?.profile_nickname ?? '');
     if (!worker?.id || linked.length === 0) { setLoading(false); return; }
     const staffIds = linked.map((item) => item.id);
-    const [{ data: bankRow }, { data: shareRows }, { data: completedRows }, { data: payoutRows }] = await Promise.all([
+    const [{ data: bankRow }, { data: shareRows }, { data: payoutRows }] = await Promise.all([
       supabase.from('worker_bank_accounts').select('id,bank_name,account_number_last4')
         .eq('worker_id', worker.id).eq('is_primary', true).is('deleted_at', null).maybeSingle(),
       supabase.from('gig_bank_account_shares').select('staff_id,bank_account_id,shared_at').in('staff_id', staffIds),
-      supabase.from('staff_attendances').select('staff_id').in('staff_id', staffIds).eq('status', 'completed'),
       supabase.from('gig_payouts').select('id,staff_id,period_start,period_end,worked_days,amount,withholding_amount,net_amount,status,pay_at')
         .in('staff_id', staffIds).neq('status', 'cancelled').order('created_at', { ascending: false }),
     ]);
     setBank((bankRow as Bank | null) ?? null);
     setShares((shareRows ?? []) as Share[]);
-    setCompletedStaffIds(new Set((completedRows ?? []).map((row) => row.staff_id as string)));
     setPayouts((payoutRows ?? []) as Payout[]);
     setBankOpen(!bankRow);
     setLoading(false);
@@ -65,7 +62,6 @@ export default function GigSettlementPage() {
 
   const staff = staffList.find((item) => item.id === selectedStaffId) ?? staffList[0] ?? null;
   const facility = staff ? facilityOf(staff) : null;
-  const hasCompletedWork = Boolean(staff && completedStaffIds.has(staff.id));
   const currentShare = staff && bank ? shares.find((item) => item.staff_id === staff.id && item.bank_account_id === bank.id) ?? null : null;
   const selectedPayouts = useMemo(() => payouts.filter((item) => item.staff_id === staff?.id), [payouts, staff?.id]);
 
@@ -100,7 +96,7 @@ export default function GigSettlementPage() {
     <header className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
       <p className="text-[11px] font-extrabold text-primary-light">내 근무 기록</p>
       <h1 className="mt-2 text-[25px] font-extrabold">근태·지급</h1>
-      <p className="mt-1 text-[12px] leading-5 text-white/65">근무 기록을 확인하고, 일이 끝난 뒤 지급 계좌를 관리자에게 직접 전달해요.</p>
+      <p className="mt-1 text-[12px] leading-5 text-white/65">근무 시작 전에 지급 계좌를 전달해 두고, 근무 기록과 지급 현황을 여기서 확인해요.</p>
     </header>
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-[13px] text-sub">근태와 정산을 불러오고 있어요...</div>
@@ -113,15 +109,13 @@ export default function GigSettlementPage() {
             <div><p className="text-[11px] font-extrabold text-primary">지급 계좌</p><h2 className="mt-1 text-[18px] font-extrabold text-ink">{bank?.bank_name && bank.account_number_last4 ? `${bank.bank_name} · ****${bank.account_number_last4}` : '계좌를 먼저 등록해 주세요'}</h2></div>
             {bank && <button type="button" onClick={() => setBankOpen((open) => !open)} className="shrink-0 rounded-lg bg-bg px-3 py-2 text-[11px] font-extrabold text-sub">{bankOpen ? '닫기' : '변경'}</button>}
           </div>
-          <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] leading-5 text-sub"><b className="text-primary">등록과 전달은 달라요.</b> 지금 입력해도 관리자에게 보이지 않아요. 근무 완료 후 아래 전달 버튼을 눌러야 이 근무지에만 전체 계좌가 활성화돼요.</p>
+          <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] leading-5 text-sub"><b className="text-primary">등록과 전달은 달라요.</b> 저장한 계좌는 내가 전달한 근무지의 지급 담당 관리자만 볼 수 있어요. 근무 시작 전에 전달해 두면 지급이 늦어지지 않아요.</p>
 
           {bankOpen && <div className="mt-3 rounded-xl bg-bg p-3"><BankAccount compact onNext={(value) => void saveBank(value)} submitting={bankSaving} submitError={bankError} /></div>}
 
           {bank && !bankOpen && (currentShare
             ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-[13px] font-extrabold text-emerald-700">{facility?.name} 관리자에게 전달됨 ✓</p><p className="mt-1 text-[11px] leading-4 text-emerald-700/80">이 근무지의 지급 권한이 있는 관리자만 계좌를 확인할 수 있어요.</p></div>
-            : hasCompletedWork
-              ? <button type="button" onClick={() => void shareBank()} disabled={sharing} className="mt-4 h-12 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{sharing ? '안전하게 전달 중...' : `${facility?.name} 관리자에게 계좌 전달`}</button>
-              : <div className="mt-4 rounded-xl bg-bg p-3 text-center"><p className="text-[13px] font-bold text-sub">근무 완료 후 전달할 수 있어요</p><p className="mt-1 text-[11px] text-tertiary">그전에는 관리자 화면에 계좌가 표시되지 않아요.</p></div>)}
+            : <button type="button" onClick={() => void shareBank()} disabled={sharing} className="mt-4 h-12 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{sharing ? '안전하게 전달 중...' : `${facility?.name} 관리자에게 계좌 전달`}</button>)}
           {shareError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{shareError}</p>}
         </section>
 

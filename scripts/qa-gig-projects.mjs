@@ -50,13 +50,21 @@ try {
   const { data: preview } = await anon.rpc('get_facility_staff_invite_preview', { p_token: invite.token });
   expect(preview?.ok === true && preview?.isGigworker === true, '병원 초대인데 isGigworker=true (근무자 기준)');
 
-  // 4) 의료 데모 워커(간호사)가 초대 수락 → 긱 연결 + 의료 근거 → 두 셸 모두 (get_my_workrooms_v2.worker_kind=gig)
-  const login = await fetch(`${workerOrigin}/api/demo-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'worker-demo-1@demo.atman.co.kr' }) }).then((r) => r.json());
+  // 4) 이 병원에 아직 직원으로 연결되지 않은 의료 데모 워커를 골라 초대를 수락시킨다
+  //    (한 워커는 한 근무지에 연결 하나 — 간호사 데모는 이미 W여성병원 직원이라 거부되는 게 맞다)
+  let login = null;
+  for (const email of ['worker-demo-6@demo.atman.co.kr', 'worker-demo-5@demo.atman.co.kr', 'worker-demo-2@demo.atman.co.kr']) {
+    const { data: w } = await service.from('workers').select('id').eq('email', email).is('deleted_at', null).maybeSingle();
+    if (!w) continue;
+    const { count } = await service.from('facility_staff').select('id', { count: 'exact', head: true }).eq('facility_id', hospital.id).eq('worker_id', w.id);
+    if ((count ?? 0) > 0) continue;
+    login = await fetch(`${workerOrigin}/api/demo-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }).then((r) => r.json());
+    login.email = email; break;
+  }
+  expect(Boolean(login?.accessToken), `병원 미연결 의료 데모 워커 확보 (${login?.email ?? '없음'})`);
   worker = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${login.accessToken}` } } });
   const { data: claimed, error: claimError } = await worker.rpc('claim_facility_staff_invite', { p_token: invite.token });
-  expect(!claimError && claimed === staffId, `간호사 데모가 병원 긱 초대 수락 ${claimError?.message ?? ''}`);
-  const { data: me } = await worker.from('workers').select('id').eq('auth_user_id', login.user?.id ?? '').maybeSingle().catch(() => ({ data: null }));
-  workerId = me?.id ?? null;
+  expect(!claimError && claimed === staffId, `의료 데모 워커가 병원 긱 초대 수락 ${claimError?.message ?? ''}`);
   const { data: links } = await worker.from('facility_staff').select('id,worker_kind,status').eq('id', staffId).maybeSingle();
   expect(links?.worker_kind === 'gig', '워커가 자기 연결의 worker_kind=gig 를 읽음 (셸 판정 재료)');
   const { data: rooms } = await worker.rpc('get_my_workrooms_v2');
@@ -80,13 +88,14 @@ try {
   const { data: afterCancel } = await service.from('gig_assignments').select('status').eq('project_id', projectId).eq('staff_id', staffId).maybeSingle();
   expect(afterCancel?.status === 'cancelled', '근무 건 취소가 참여 건에 반영');
 } finally {
+  // PostgrestBuilder 는 .catch 가 없다 — try 로 감싼다
+  const quiet = async (fn) => { try { await fn(); } catch { /* 정리 실패는 무시 */ } };
   if (staffId) {
-    await service.from('facility_workroom_messages').delete().eq('staff_id', staffId).catch(() => undefined);
-    await service.from('facility_workroom_messages').delete().like('body', '%[QA]%').eq('facility_id', (await service.from('facility_staff').select('facility_id').eq('id', staffId).maybeSingle()).data?.facility_id ?? '00000000-0000-0000-0000-000000000000').catch(() => undefined);
-    await service.from('facility_staff').delete().eq('id', staffId);
+    await quiet(() => service.from('facility_workroom_messages').delete().eq('staff_id', staffId));
+    await quiet(() => service.from('facility_staff').delete().eq('id', staffId));
   }
-  if (projectId) await service.from('gig_projects').delete().eq('id', projectId);
-  await service.from('notification_outbox').delete().like('body', '%[QA]%').catch(() => undefined);
+  if (projectId) await quiet(() => service.from('gig_projects').delete().eq('id', projectId));
+  await quiet(() => service.from('notification_outbox').delete().like('body', '%[QA]%'));
 }
 if (failures.length) { console.log(`\n근무 건 QA 실패 ${failures.length}건`); process.exit(1); }
 console.log('\n근무자 축 + 근무 건 QA 통과');
