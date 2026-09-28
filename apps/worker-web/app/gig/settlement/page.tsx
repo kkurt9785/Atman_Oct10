@@ -98,8 +98,8 @@ export default function GigSettlementPage() {
 
   return <main className="min-h-screen bg-bg px-4 pb-8 pt-5">
     <header className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <p className="text-[11px] font-extrabold tracking-[0.14em] text-primary-light">ATTENDANCE & PAY</p>
-      <h1 className="mt-2 text-[25px] font-extrabold">근태·정산</h1>
+      <p className="text-[11px] font-extrabold text-primary-light">내 근무 기록</p>
+      <h1 className="mt-2 text-[25px] font-extrabold">근태·지급</h1>
       <p className="mt-1 text-[12px] leading-5 text-white/65">근무 기록을 확인하고, 일이 끝난 뒤 지급 계좌를 관리자에게 직접 전달해요.</p>
     </header>
 

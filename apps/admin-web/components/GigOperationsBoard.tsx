@@ -75,11 +75,11 @@ export function GigOperationsBoard({ board, facilityId, facilityName }: { board:
   return <>
     <div className="mt-4 px-1 sm:flex sm:items-end sm:justify-between">
       <div><p className="text-[13px] font-bold text-sub">{facilityName}</p><h1 className="mt-1 text-[27px] font-extrabold tracking-[-0.7px] text-ink">오늘 긱 운영</h1><p className="mt-1 text-[13px] text-sub">필요한 사람부터 바로 처리하세요.</p></div>
-      <Link href="/staff?view=contract&entry=gigworker" className="mt-3 inline-flex h-11 items-center rounded-xl bg-ink px-4 text-[13px] font-extrabold text-white sm:mt-0">＋ 근무자·근무 등록</Link>
+      <Link href="/staff?view=contract&entry=gigworker" className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-ink px-4 text-[13px] font-extrabold text-white sm:mt-0 sm:w-auto">＋ 근무자·근무 등록</Link>
     </div>
 
-    <div className="-mx-4 mt-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-      <div className="grid min-w-[430px] grid-cols-4 gap-2">
+    <div className="mt-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {summary.map(([key,label,count,color])=><button key={key} type="button" onClick={()=>setFilter(filter===key?'all':key)} className={`rounded-2xl border p-3 text-left ${filter===key?'border-primary bg-primary/5':'border-transparent bg-white shadow-sm'}`}><p className="text-[11px] text-sub">{label}</p><p className={`mt-1 text-[21px] font-extrabold ${color}`}>{count}<span className="ml-0.5 text-[11px] font-bold">{key==='issue'?'건':'명'}</span></p></button>)}
       </div>
     </div>
@@ -87,7 +87,7 @@ export function GigOperationsBoard({ board, facilityId, facilityName }: { board:
     {notice&&<p role="status" className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-[12px] font-bold text-emerald-700">{notice}</p>}
 
     <section className="mt-5">
-      <div className="flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">ACTION FIRST</p><h2 className="mt-0.5 text-[19px] font-extrabold text-ink">{filter==='all'?'전체 근무자':'선택한 상태'}</h2></div>{linkedVisible.length>0&&<button type="button" onClick={()=>setSelected(new Set(linkedVisible.map((row)=>row.staffId)))} className="text-[12px] font-bold text-primary">연결된 근무자 전체 선택</button>}</div>
+      <div className="flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">먼저 확인</p><h2 className="mt-0.5 text-[19px] font-extrabold text-ink">{filter==='all'?'전체 근무자':'선택한 상태'}</h2></div>{linkedVisible.length>0&&<button type="button" onClick={()=>setSelected(new Set(linkedVisible.map((row)=>row.staffId)))} className="text-[12px] font-bold text-primary">연결된 근무자 전체 선택</button>}</div>
       {visible.length===0?<div className="mt-3 rounded-2xl bg-white px-4 py-9 text-center text-[13px] text-sub">해당 상태의 근무자가 없어요.</div>:
         <div className="mt-3 grid gap-2 lg:grid-cols-2">{visible.map((row)=>{const action=actionFor(row);const checked=selected.has(row.staffId);return <article key={row.staffId} className={`rounded-2xl border bg-white p-4 shadow-sm transition ${checked?'border-primary ring-1 ring-primary/15':'border-transparent'}`}>
           <div className="flex items-start gap-3">
@@ -99,7 +99,7 @@ export function GigOperationsBoard({ board, facilityId, facilityName }: { board:
     </section>
 
     <section className="mt-6 rounded-3xl bg-white p-4 shadow-sm">
-      <div className="flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">NEXT 7 DAYS</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">7일 근무 일정</h2></div><Link href="/staff?view=contract&entry=gigworker" className="text-[11px] font-bold text-primary">일정 등록 →</Link></div>
+      <div className="flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">다가오는 일정</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">7일 근무 일정</h2></div><Link href="/staff?view=contract&entry=gigworker" className="text-[11px] font-bold text-primary">일정 등록 →</Link></div>
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{board.days.map((item)=><button type="button" key={item.date} onClick={()=>setSelectedDate(item.date)} className={`min-w-[58px] rounded-2xl px-2 py-2.5 text-center ${selectedDate===item.date?'bg-ink text-white':'bg-bg text-sub'}`}><span className="block text-[10px] font-bold">{item.dayLabel}</span><b className="mt-0.5 block text-[13px]">{item.dateLabel}</b><span className={`mt-1 block text-[10px] ${selectedDate===item.date?'text-white/60':'text-tertiary'}`}>{item.workers.length}명</span></button>)}</div>
       <div className="mt-3 divide-y divide-line rounded-2xl bg-bg px-3">{day?.workers.length?day.workers.map((row)=><div key={`${day.date}:${row.staffId}`} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><b className="text-[13px] text-ink">{row.name}</b><span className="ml-2 text-[11px] text-sub">{row.title}</span></div><span className="shrink-0 text-[12px] font-bold text-primary">{row.startTime}~{row.endTime}</span></div>):<p className="py-5 text-center text-[12px] text-sub">등록된 근무가 없어요.</p>}</div>
     </section>

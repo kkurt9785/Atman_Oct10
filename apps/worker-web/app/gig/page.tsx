@@ -5,7 +5,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
-import { Wordmark, BrandMark } from '@/components/brand/BrandMark';
+import { Wordmark } from '@/components/brand/BrandMark';
 import { hasMedicalContext, isGigworkerSource, rememberWorkerShell } from '@/lib/worker-mode';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -39,7 +39,7 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
   return <main className="min-h-screen bg-ink px-6 pb-10 pt-16 text-white">
     <div className="mx-auto flex min-h-[calc(100vh-104px)] max-w-md flex-col">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2"><BrandMark size={26} tone="dark" /><span className="text-[20px] font-extrabold tracking-[-0.5px]">잇닿 <span className="text-white/60">WORKER</span></span></div>
+        <Wordmark size={20} tone="dark" />
         <WorkerModeBadge shell="gig" dark />
       </div>
 
@@ -103,7 +103,7 @@ function timeLabel(value: string | null | undefined) {
   return value ? new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
 }
 
-// 긱 홈은 오늘 근무와 출퇴근만 다룬다. 대화와 근태·정산은 각각 독립 탭으로 분리한다.
+// 긱 홈은 오늘 근무와 출퇴근만 다룬다. 대화와 근태·지급은 각각 독립 탭으로 분리한다.
 function GigTodayContent() {
   const params = useSearchParams();
   const attendanceToken = params.get('attendanceToken');
@@ -165,13 +165,13 @@ function GigTodayContent() {
     <header className="flex items-start justify-between gap-3">
       <div><Wordmark size={20} /><div className="mt-2"><WorkerModeBadge shell="gig" /></div></div>
       <div className="flex items-center gap-2">
-        {hasMedicalLink && <Link href="/home" onClick={() => rememberWorkerShell('medical')} className="rounded-full border border-line bg-white px-3 py-2 text-[11px] font-extrabold text-sub">전체 워커</Link>}
+        {hasMedicalLink && <Link href="/home" onClick={() => rememberWorkerShell('medical')} className="rounded-full border border-line bg-white px-3 py-2 text-[11px] font-extrabold text-sub">병원·약국 모드</Link>}
         <Link href="/gig/settings" aria-label="앱 설정" className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-[16px] text-sub">⚙</Link>
       </div>
     </header>
 
     <section className="mt-5 rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <p className="text-[11px] font-extrabold tracking-[0.14em] text-primary-light">TODAY</p>
+      <p className="text-[11px] font-extrabold text-primary-light">긱워커 · 초대받은 근무</p>
       <div className="mt-2 flex items-start justify-between gap-3">
         <div><h1 className="text-[24px] font-extrabold">오늘 근무</h1><p className="mt-1 text-[13px] text-white/65">출퇴근 기록에만 집중하면 돼요.</p></div>
         {staff && <span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/80">{staff.name}님</span>}
@@ -218,7 +218,7 @@ function GigTodayContent() {
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Link href={`/gig/workroom${facility?.id ? `?facility=${encodeURIComponent(facility.id)}` : ''}`} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">💬</span><b className="mt-3 block text-[15px] text-ink">관리자와 대화</b><span className="mt-1 block text-[11px] leading-4 text-sub">공지·출석 확인·근무 대화</span></Link>
-          <Link href="/gig/settlement" className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">✓</span><b className="mt-3 block text-[15px] text-ink">근태·정산</b><span className="mt-1 block text-[11px] leading-4 text-sub">기록 확인·계좌 전달·지급 현황</span></Link>
+          <Link href="/gig/settlement" className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">✓</span><b className="mt-3 block text-[15px] text-ink">근태·지급</b><span className="mt-1 block text-[11px] leading-4 text-sub">기록 확인·계좌 전달·지급 현황</span></Link>
         </div>
       </>}
     {message && <p role="status" className="mt-4 rounded-xl border border-line bg-white p-3 text-[13px] font-bold">{message}</p>}

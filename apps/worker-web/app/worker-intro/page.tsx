@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 export const metadata: Metadata = {
   title: '간호사·약사 단기근무 시작하기 | 잇닿',
@@ -56,6 +57,13 @@ export default function WorkerIntroPage() {
         </video>
       </div>
       <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 15초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+      <div className="mt-5 rounded-card bg-white p-5 shadow-card">
+        <p className="text-[12px] font-extrabold text-primary">시연처럼 직접 써볼까요?</p>
+        <h3 className="mt-1 text-[18px] font-extrabold text-ink">잇닿 워커 앱을 홈 화면에 추가하세요</h3>
+        <p className="mt-2 text-[12px] leading-5 text-sub">앱 하나에서 병원·약국 근무 찾기와 초대받은 긱 근무를 모두 사용할 수 있어요.</p>
+        <div className="mt-4"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
+        <Link href="/" className="mt-2 flex h-11 items-center justify-center rounded-xl bg-bg text-[13px] font-bold text-sub">설치 전에 시작 화면 보기</Link>
+      </div>
     </section>
 
     <section className="border-y border-line bg-white px-6 py-8">
@@ -73,7 +81,7 @@ export default function WorkerIntroPage() {
       </ul>
     </section>
 
-    <section className="px-6"><div className="rounded-card bg-ink px-5 py-7 text-center"><p className="text-[17px] font-extrabold text-white">내 지역 근무를 받아볼까요?</p><p className="mt-2 text-[13px] leading-5 text-white/70">프로필을 등록하면 조건에 맞는 새 공고와 근무 상태를 한 곳에서 확인할 수 있어요.</p><Link href="/onboarding" className="mt-5 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">워커로 시작하기</Link><Link href="/jobs" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-white/10 text-[14px] font-bold text-white">로그인 없이 공고 보기</Link></div></section>
+    <section className="px-6"><div className="rounded-card bg-ink px-5 py-7 text-center"><p className="text-[17px] font-extrabold text-white">내 지역 근무를 받아볼까요?</p><p className="mt-2 text-[13px] leading-5 text-white/70">프로필을 등록하면 조건에 맞는 새 공고와 근무 상태를 한 곳에서 확인할 수 있어요.</p><div className="mt-5"><InstallAppButton label="잇닿 워커 앱 설치" dark /></div><Link href="/onboarding" className="mt-2 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">설치 없이 워커로 시작하기</Link><Link href="/jobs" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-white/10 text-[14px] font-bold text-white">로그인 없이 공고 보기</Link></div></section>
 
     <footer className="px-6 pb-4 pt-9 text-[11px] leading-5 text-tertiary">잇닿(itdot.co.kr) · 케셰르 · 대표 김기한 · 사업자등록번호 481-44-01177<br />경기도 수원시 권선구 경수대로 224<br />잇닿은 직업정보제공사업 형태로 구인·구직 정보를 제공합니다.</footer>
   </main>;

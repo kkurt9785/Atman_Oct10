@@ -99,7 +99,56 @@ async function main() {
     const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await fs.writeFile(`${root}/${name}.png`, Buffer.from(data, 'base64'));
   }
-  if (target === 'worker' || target === 'worker-live') {
+  if (target === 'public') {
+    await go(`${workerOrigin}/`); await shot('01-worker-entry');
+    await go(`${workerOrigin}/demo`); await shot('02-worker-demo');
+    await go(`${workerOrigin}/gig/demo`); await shot('03-gig-demo');
+    await go(`${workerOrigin}/worker-intro`); await shot('04-worker-intro');
+    await cdp.send('Runtime.evaluate', { expression: `document.querySelector('#demo')?.scrollIntoView(); true` });
+    await sleep(500); await shot('05-worker-intro-conversion');
+    await go(`${workerOrigin}/intro`);
+    await cdp.send('Runtime.evaluate', { expression: `document.querySelector('#admin-demo')?.scrollIntoView(); true` });
+    await sleep(500); await shot('06-admin-intro-conversion');
+    await go(`${adminOrigin}/login`); await shot('07-admin-login');
+    await go(`${adminOrigin}/login?install=1`); await shot('08-admin-install');
+  } else if (target === 'worker-medical') {
+    await go(`${workerOrigin}/`);
+    const loginResponse = await fetch('https://itdot.co.kr/api/demo-login', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'worker-demo-1@demo.atman.co.kr' }),
+    });
+    const login = await loginResponse.json();
+    if (!login.accessToken || !login.refreshToken) throw new Error('의료 시연 워커 세션을 가져오지 못했습니다.');
+    const payload = JSON.parse(Buffer.from(login.accessToken.split('.')[1], 'base64url').toString());
+    const session = { access_token: login.accessToken, refresh_token: login.refreshToken, token_type: 'bearer', expires_in: 3600, expires_at: payload.exp, user: { id: payload.sub, email: 'worker-demo-1@demo.atman.co.kr', aud: 'authenticated', role: 'authenticated' } };
+    const key = await authStorageKey();
+    await cdp.send('Runtime.evaluate', { expression: `localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(session))}); true` });
+    await go(`${workerOrigin}/home`); await sleep(2500); await shot('01-medical-home');
+    await go(`${workerOrigin}/applications`); await sleep(1600); await shot('02-medical-work');
+    await go(`${workerOrigin}/notifications`); await sleep(1200); await shot('03-medical-notices');
+    await go(`${workerOrigin}/settings`); await sleep(1200); await shot('04-medical-settings');
+  } else if (target === 'worker-gig') {
+    await go(`${workerOrigin}/gig/demo`);
+    const loginResponse = await fetch('https://itdot.co.kr/api/demo-login', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: 'GIG2026' }),
+    });
+    const login = await loginResponse.json();
+    if (!login.accessToken || !login.refreshToken || !login.gigInviteToken) throw new Error('긱 시연 워커 세션을 가져오지 못했습니다.');
+    const payload = JSON.parse(Buffer.from(login.accessToken.split('.')[1], 'base64url').toString());
+    const session = { access_token: login.accessToken, refresh_token: login.refreshToken, token_type: 'bearer', expires_in: 3600, expires_at: payload.exp, user: { id: payload.sub, email: 'worker-gig-demo@demo.atman.co.kr', aud: 'authenticated', role: 'authenticated' } };
+    const key = await authStorageKey();
+    await cdp.send('Runtime.evaluate', { expression: `localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(session))}); true` });
+    await go(`${workerOrigin}/gig/join?token=${encodeURIComponent(login.gigInviteToken)}`);
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const clicked = await cdp.send('Runtime.evaluate', { expression: `(() => { const button = Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.includes('초대 수락')); if (!button) return false; button.click(); return true; })()`, returnByValue: true });
+      if (clicked?.result?.value) break;
+      await sleep(500);
+    }
+    await sleep(3000);
+    await go(`${workerOrigin}/gig`); await sleep(2500); await shot('01-gig-home');
+    await go(`${workerOrigin}/gig/workroom`); await sleep(1500); await shot('02-gig-workroom');
+    await go(`${workerOrigin}/gig/settlement`); await sleep(1800); await shot('03-gig-settlement');
+    await go(`${workerOrigin}/gig/settings`); await sleep(1200); await shot('04-gig-settings');
+  } else if (target === 'worker' || target === 'worker-live') {
     await go(`${workerOrigin}/worker-intro`); await shot('01-worker-intro');
     await go(`${workerOrigin}/onboarding?step=splash`); await shot('02-worker-register');
     if (target === 'worker-live') {
@@ -154,7 +203,7 @@ async function main() {
         const headers = { Authorization: 'Bearer ' + ${JSON.stringify(credentials.accessToken)}, 'content-type': 'application/json' };
         const session = await fetch('/api/admin-session', { method: 'POST', headers });
         if (!session.ok) throw new Error('관리자 세션 설정 실패');
-        const facility = await fetch('/api/set-facility', { method: 'POST', headers, body: '{}' });
+        const facility = await fetch('/api/set-facility', { method: 'POST', headers, body: ${JSON.stringify(target === 'admin-gig' ? JSON.stringify({ demoKind: 'gigworker' }) : '{}')} });
         if (!facility.ok) throw new Error('시연 사업장 설정 실패');
         return true;
       })()

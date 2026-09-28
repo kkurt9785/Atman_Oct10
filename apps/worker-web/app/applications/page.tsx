@@ -333,7 +333,7 @@ export default function ApplicationsPage() {
   return (
     <div className="px-4 pb-10">
       <div className="pt-14 pb-4">
-        <h1 className="text-[28px] font-extrabold text-ink">내 활동</h1>
+        <h1 className="text-[28px] font-extrabold text-ink">내 근무</h1>
       </div>
 
       <div className="flex items-center justify-between mb-5">

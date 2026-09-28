@@ -17,7 +17,7 @@ export default async function MorePage(){
   const sections=visibleManageSections(context?.canViewPayroll===true);
   const isPlatform=isPlatformAdminUser(context?.user);
   if(isGigworker)return <main className="px-4 pb-28"><div className="px-1 mt-2 mb-5"><p className="text-label font-bold text-primary">긱워커 근태</p><h1 className="mt-1 text-display font-extrabold text-ink">무엇을 관리할까요?</h1><p className="mt-2 text-body text-sub">근무지 인증과 출퇴근 기록, 무료 베타 이용 상태를 관리해요.</p></div><div className="space-y-3">{[
-    {href:'/gig-pay',eyebrow:'급여',title:'지급 관리',description:'근무 끝나면 바로, 또는 날짜를 정해 지급하고 근무자에게 알려요.',icon:'billing' as const},
+    {href:'/gig-pay',eyebrow:'지급',title:'지급 관리',description:'근무 끝나면 바로, 또는 날짜를 정해 지급하고 근무자에게 알려요.',icon:'billing' as const},
     {href:'/attendance-qr',eyebrow:'현장 인증',title:'출퇴근 인증 설정',description:'GPS 반경과 동적 QR 보완 방식을 확인해요.',icon:'operations' as const},
     {href:'/attendance-history',eyebrow:'근태 기록',title:'전체 출퇴근 내역',description:'근무자별 시간과 지각·조퇴 기록을 확인해요.',icon:'billing' as const},
     {href:'/settings',eyebrow:'근무지·서비스',title:'근무지 설정',description:'위치와 인증 반경, 관리자 권한을 관리해요.',icon:'account' as const},

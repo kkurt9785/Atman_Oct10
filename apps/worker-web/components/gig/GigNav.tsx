@@ -3,11 +3,11 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
-// 긱워커 전용 하단 탭. 오늘 근무·관리자 대화·근태 정산 세 가지만 둔다.
+// 긱워커 전용 하단 탭. 오늘 근무·관리자 대화·근태와 지급 세 가지만 둔다.
 const TABS = [
-  { href: '/gig', label: '근무', icon: 'home' },
-  { href: '/gig/workroom', label: '대화', icon: 'chat' },
-  { href: '/gig/settlement', label: '근태·정산', icon: 'settlement' },
+  { href: '/gig', label: '오늘', icon: 'home' },
+  { href: '/gig/workroom', label: '관리자 대화', icon: 'chat' },
+  { href: '/gig/settlement', label: '근태·지급', icon: 'settlement' },
 ];
 
 const ICONS = {

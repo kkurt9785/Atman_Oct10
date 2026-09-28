@@ -50,7 +50,7 @@ export default function IntroPage() {
         </p>
         <div className="mt-6 grid grid-cols-2 gap-2">
           <a href="https://admin.itdot.co.kr/login?demo=hospital" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[14px] font-extrabold text-white">
-            관리자 앱 바로 써보기
+            관리자 화면 시연
           </a>
           <a href="tel:01090455699" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[14px] font-extrabold text-primary">
             도입 상담
@@ -100,6 +100,13 @@ export default function IntroPage() {
           </video>
         </div>
         <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 10초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+        <div className="mt-5 rounded-card bg-white p-5 shadow-card">
+          <p className="text-[12px] font-extrabold text-primary">시연이 마음에 드셨나요?</p>
+          <h3 className="mt-1 text-[18px] font-extrabold text-ink">관리자 앱을 홈 화면에 바로 추가하세요</h3>
+          <p className="mt-2 text-[12px] leading-5 text-sub">앱스토어를 찾을 필요 없이 설치 안내를 따라 추가하고, 카카오로 바로 시작할 수 있어요.</p>
+          <a href="https://admin.itdot.co.kr/login?install=1" className="mt-4 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">관리자 앱 설치하기 →</a>
+          <a href="https://admin.itdot.co.kr/login?demo=hospital" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-bg text-[13px] font-bold text-sub">먼저 시연 화면 더 보기</a>
+        </div>
       </section>
 
       <section className="px-6 py-10">
@@ -136,17 +143,12 @@ export default function IntroPage() {
           <p className="mt-2 text-[13px] leading-5 text-white/70">
             병원·약국·요양병원 중 어떤 곳인지 알려주시면, 실제 운영 흐름에 맞춰 초기 세팅과 시연을 도와드립니다.
           </p>
+          <a href="https://admin.itdot.co.kr/login?install=1" className="mt-5 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">관리자 앱 설치하고 시작하기</a>
           <a
             href="tel:01090455699"
-            className="mt-5 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white"
-          >
-            도입 상담 · 010-9045-5699
-          </a>
-          <a
-            href="https://admin.itdot.co.kr/login?demo=hospital"
             className="mt-2 flex h-12 items-center justify-center rounded-btn bg-white/10 text-[15px] font-bold text-white"
           >
-            관리자 앱 시연 계정으로 바로 열기
+            도입 상담 · 010-9045-5699
           </a>
         </div>
       </section>

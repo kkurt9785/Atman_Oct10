@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
 import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 // 병원·약국 워커 전용 시연 입구: itdot.co.kr/demo
 // 긱워커 간편모드 시연은 /gig/demo 로 분리해, 첫 화면부터 두 모드가 섞여 보이지 않게 한다.
@@ -76,6 +77,12 @@ export default function WorkerDemoPage() {
           <span className="flex flex-col gap-0.5"><b className="text-[14px]">긱워커는 간편모드에서</b><span className="text-[12px] text-sub">초대 → 닿기 출퇴근 데모</span></span>
           <span className="shrink-0 text-[13px] font-extrabold">별도 보기 →</span>
         </Link>
+
+        <section className="mt-3 rounded-2xl bg-primary/5 p-4">
+          <p className="text-[13px] font-extrabold text-ink">시연 후에도 계속 사용하려면</p>
+          <p className="mt-1 text-[11px] leading-4 text-sub">병원·약국 워커와 긱워커가 함께 쓰는 잇닿 워커 앱 하나만 설치하면 돼요.</p>
+          <div className="mt-3"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
+        </section>
 
         {!ENABLED && <p className="mt-4 rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>}
         {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-600">{error}</p>}

@@ -47,12 +47,12 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   if (isGigworker) {
     const gigBoard=await getGigOperationsBoard(context.user.id);
     return <main className="px-4 pb-32">
+      {shop.isDemo && <AdminInstallButton compact />}
       <GigOperationsBoard board={gigBoard} facilityId={context.facilityId} facilityName={shop.name}/>
       <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[{href:'/timesheet',label:'근태 기록',detail:'출퇴근·조퇴 확인'},{href:'/gig-pay',label:'지급 관리',detail:'금액·계좌·지급일'},{href:'/attendance-qr',label:'현장 인증',detail:'GPS·동적 QR'}].map((item)=><Link key={item.href} href={item.href} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><b className="text-[14px] text-ink">{item.label}</b><span className="mt-1 block text-[11px] text-sub">{item.detail}</span><span className="mt-3 block text-right text-[14px] font-bold text-primary">→</span></Link>)}
       </section>
       <Link href="/membership" className="mt-5 flex items-center justify-between rounded-xl bg-bg px-4 py-3 text-[12px] text-sub"><span>긱워커 근태 무료 베타 · 최대 3명</span><b className="text-primary">이용 안내 →</b></Link>
-      {shop.isDemo && <AdminInstallButton compact />}
       {shop.isDemo && (()=>{const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL??(process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');const demoUrl=`${workerOrigin}/gig/demo`;return <section className="mt-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-card"><div className="flex items-center gap-4"><QrCanvas value={demoUrl} size={112} label="워커 시연 QR"/><div className="min-w-0"><p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">워커 기기</p><p className="mt-1 text-[15px] font-extrabold text-ink">이 QR을 찍으면 긱워커 시연 계정으로 바로 시작돼요</p><p className="mt-1 break-all text-[12px] text-sub">{demoUrl}</p><p className="mt-1 text-[11px] text-sub">초대 수락 → 닿기 출근 → 이 화면에 반영. 다시 찍으면 처음부터.</p></div></div></section>;})()}
     </main>;
   }
@@ -75,6 +75,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         <p className="text-body text-sub">{shop.name}</p>
         <h1 className="text-display font-extrabold text-ink mt-1">{isPharmacy?'약국장님':'원장님'}, 안녕하세요 👋</h1>
       </div>
+      {shop.isDemo && <AdminInstallButton compact />}
 
       {/* 첫 화면은 채용 공고보다 인력 공백과 다음 행동을 먼저 보여준다. */}
       <Card className={registeredShortage > 0 ? 'mb-4 border border-amber-200 bg-amber-50' : 'mb-4 shadow-sm'}>
@@ -147,7 +148,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         </span>
         <span className="text-label font-bold text-primary flex-shrink-0 ml-2">요금·청구 →</span>
       </Link>
-      {shop.isDemo && <div className="mb-4"><AdminInstallButton compact /></div>}
     </main>
   );
 }

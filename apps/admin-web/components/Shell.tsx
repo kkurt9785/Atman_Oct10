@@ -53,8 +53,8 @@ export function Shell({ children, facilityMode }: { children: React.ReactNode; f
         <header className="sticky top-0 z-10 flex h-16 items-center gap-2 bg-bg/90 px-4 backdrop-blur">
           <span className="shrink-0 whitespace-nowrap"><Wordmark size={17} suffix={null} /></span>
           <FacilitySwitcher />
-          <TextSizeToggle />
-          {facilityMode==='gig'&&<Link href="/notifications" aria-label="알림" title="알림" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sub active:bg-surface"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></Link>}
+          <span className="hidden sm:block"><TextSizeToggle /></span>
+          <Link href="/notifications" aria-label="알림" title="알림" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sub active:bg-surface"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></Link>
           <button
             onClick={handleLogout}
             aria-label="로그아웃"

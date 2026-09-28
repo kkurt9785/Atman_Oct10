@@ -4,12 +4,12 @@ import { usePathname } from 'next/navigation';
 import type { FacilityMode } from '@/lib/facility-mode';
 
 // 하단 탭은 사업장 모드별로 다르다. 모드는 서버 레이아웃이 계산해 내려주므로 여기서 다시 조회하지 않는다.
-//   medical: 홈 · 인력 모집 · 근무 관리 · 직원 · 관리
+//   medical: 홈 · 모집 · 근태 · 직원 · 관리. 알림은 상단으로 옮겨 모바일 탭을 다섯 개로 유지한다.
 //   gig:     운영 · 근무자 · 대화 · 관리. 알림은 상단으로 옮겨 현장 모바일 탭을 네 개로 유지한다.
 const MEDICAL_TABS = [
   { href: '/', icon: 'home', label: '홈' },
-  { href: '/shifts', icon: 'recruit', label: '인력 모집' },
-  { href: '/timesheet', icon: 'clock', label: '근무 관리' },
+  { href: '/shifts', icon: 'recruit', label: '모집' },
+  { href: '/timesheet', icon: 'clock', label: '근태' },
   { href: '/staff', icon: 'staff', label: '직원' },
   { href: '/more', icon: 'manage', label: '관리' },
 ];
@@ -31,10 +31,10 @@ const ICONS={
 
 function isActive(path:string,href:string,mode:FacilityMode|null){
   href=href.split('?')[0];
-  if(href==='/')return path==='/'||(mode==='gig'&&(path.startsWith('/timesheet')||path.startsWith('/attendance-')));
+  if(href==='/')return path==='/';
   if(href==='/shifts')return path.startsWith('/shifts')||path.startsWith('/applications')||path.startsWith('/chats');
   if(href==='/timesheet')return path.startsWith('/timesheet')||path.startsWith('/attendance-')||path.startsWith('/leave');
-  if(href==='/more')return path.startsWith('/more')||path.startsWith('/operations')||path.startsWith('/payroll')||path.startsWith('/gig-pay')||path.startsWith('/workforce')||path.startsWith('/membership')||path.startsWith('/settings');
+  if(href==='/more')return path.startsWith('/more')||path.startsWith('/operations')||path.startsWith('/payroll')||path.startsWith('/gig-pay')||path.startsWith('/workforce')||path.startsWith('/membership')||path.startsWith('/settings')||(mode==='gig'&&(path.startsWith('/timesheet')||path.startsWith('/attendance-')));
   return path.startsWith(href);
 }
 
@@ -53,10 +53,6 @@ export function BottomNav({ mode }: { mode: FacilityMode | null }) {
           </Link>
         );
       })}
-      {mode!=='gig'&&<Link href="/notifications" aria-label="알림" className={`flex-1 flex flex-col items-center justify-center gap-0.5 min-h-tap py-2 ${path.startsWith('/notifications') ? 'text-primary' : 'text-sub'}`}>
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
-        <span className="text-label font-semibold">알림</span>
-      </Link>}
     </nav>
   );
 }

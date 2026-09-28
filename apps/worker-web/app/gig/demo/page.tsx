@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
 import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 // 긱워커 시연 전용 입구: itdot.co.kr/gig/demo
 // 버튼 하나로 의료 이력이 없는 긱 전용 시연 계정에 로그인하고, 팝업스토어 데모 근무지의 초대를 초기화해 초대 확인 화면으로 간다.
@@ -49,7 +50,7 @@ export default function GigDemoPage() {
     <main className="min-h-screen bg-ink px-6 pb-10 pt-16 text-white">
       <div className="mx-auto flex min-h-[calc(100vh-104px)] max-w-md flex-col">
         <div className="flex items-center justify-between">
-          <Wordmark size={20} tone="dark" suffix="GIG" />
+          <Wordmark size={20} tone="dark" />
           <span className="rounded-full bg-white/15 px-3 py-1 text-[10px] font-extrabold tracking-[0.14em]">DEMO</span>
         </div>
 
@@ -76,6 +77,8 @@ export default function GigDemoPage() {
           <p className="rounded-2xl bg-white/10 p-4 text-center text-[13px] text-white/70">이 배포에서는 시연 로그인이 꺼져 있어요.</p>
         )}
         {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-300">{error}</p>}
+        <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" dark /></div>
+        <p className="mt-2 text-center text-[11px] leading-4 text-white/45">긱워커도 별도 앱 없이 잇닿 워커 하나로 사용해요.</p>
         <Link href="/" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-white/60">워커 유형 선택으로 돌아가기</Link>
       </div>
     </main>

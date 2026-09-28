@@ -1,6 +1,6 @@
 {
-  "name": "잇닿 사장님 — 관리 콘솔",
-  "short_name": "잇닿 사장님",
+  "name": "잇닿 관리자 — 사업장 운영",
+  "short_name": "잇닿 관리자",
   "description": "직원·근태·급여를 한 번에",
   "start_url": "/",
   "display": "standalone",

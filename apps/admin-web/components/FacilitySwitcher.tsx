@@ -78,7 +78,7 @@ export function FacilitySwitcher() {
       >
         {facilities.map((facility) => {
           const kind=facilityKindBadge(facility);
-          return <option key={facility.id} value={facility.id}>{kind.icon} {facility.name} · {kind.label}</option>;
+          return <option key={facility.id} value={facility.id}>{facility.name} · {kind.label}</option>;
         })}
       </select>
       <span className="pointer-events-none absolute right-2 text-[10px] text-sub">⌄</span>

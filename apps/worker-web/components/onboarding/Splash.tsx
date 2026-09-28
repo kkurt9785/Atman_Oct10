@@ -17,7 +17,7 @@ const DEMO_WORKERS = [
 ];
 
 // inviteVariant: 근태 초대 링크(atman_auth_next)로 들어온 가입이면 어느 제품의 초대인지.
-//   'gig'     → 긱워커 셸 브랜딩(잇닿 GIG), 긱워커 등록 문구
+//   'gig'     → 통합 잇닿 브랜드 + 긱워커 모드 배지, 긱워커 등록 문구
 //   'medical' → 병원·약국 직원 계정 연결 문구 (긱 브랜딩을 쓰지 않는다)
 //   null      → 일반 의료 워커 가입
 export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell | null }) {
@@ -102,7 +102,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
         {gigInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.1em] text-white">긱워커 간편모드</span>}
         {inviteVariant==='medical'&&<span className="rounded-full bg-primary/10 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-primary">직원 계정 연결</span>}
-        <Wordmark size={32} suffix={gigInvite ? 'GIG' : undefined} />
+        <Wordmark size={32} />
         <span className="text-center text-[15px] leading-6 text-tertiary">{gigInvite?<>초대받은 근무만 간단하게 확인하고<br/>출퇴근을 기록해요</>:inviteVariant==='medical'?<>초대받은 병원·약국 근무를 확인하고<br/>출퇴근과 휴가를 앱에서 관리해요</>:'병원·약국 의료인력을 위한 시프트'}</span>
       </div>
 

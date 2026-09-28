@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
+import { Wordmark } from '@/components/brand/BrandMark';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
 // (미리보기 → 카카오 가입 → claim)을 쓰되, 초대가 어느 제품 것인지는 서버(isGigworker)가 정한다.
@@ -151,7 +152,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     : null;
 
   return <main className={`min-h-screen px-5 pb-16 pt-8 ${isGig ? 'bg-gradient-to-b from-primary/15 via-bg to-bg' : 'bg-bg'}`}>
-    <div className="mx-auto mb-5 flex max-w-md items-center justify-between gap-3 px-1"><p className="text-[20px] font-extrabold tracking-[-0.5px] text-primary">잇닿 <span className="text-ink">WORKER</span></p><WorkerModeBadge shell={variant} /></div>
+    <div className="mx-auto mb-5 flex max-w-md items-center justify-between gap-3 px-1"><Wordmark size={20} /><WorkerModeBadge shell={variant} /></div>
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-card">
       <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
       <p className="mt-5 text-[13px] font-bold text-primary">{isGig ? '긱워커 전용 근태 초대' : '직원 계정 연결'}</p>

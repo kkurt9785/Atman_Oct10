@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
-import { BrandMark, Wordmark } from '@/components/BrandMark';
+import { Wordmark } from '@/components/BrandMark';
 import { AdminInstallButton } from '@/components/AdminInstallButton';
 import { subscribeToAdminPush } from '@/lib/push-subscribe';
 
@@ -19,10 +19,11 @@ const DEMO_ACCOUNTS = [
 function LoginInner() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [demoLoadingEmail, setDemoLoadingEmail] = useState<string | null>(null);
+  const [demoLoadingKey, setDemoLoadingKey] = useState<string | null>(null);
   const [demoError, setDemoError] = useState('');
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
+  const installRequested = searchParams.get('install') === '1';
 
   // 공개 시연 여부는 환경변수로만 제어한다.
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
@@ -50,7 +51,7 @@ function LoginInner() {
 
   // 데모 로그인 — 클라이언트 로그인 후 HttpOnly 서버 세션·시설 컨텍스트를 순서대로 수립
   async function handleDemoLogin(email: string, demoKind?: string) {
-    setDemoLoadingEmail(email);
+    setDemoLoadingKey(`${email}:${demoKind ?? 'default'}`);
     setDemoError('');
     try {
       const loginRes = await fetch('/api/demo-login', {
@@ -95,17 +96,20 @@ function LoginInner() {
       router.replace(facilityData?.facilityId ? '/' : '/setup/claim-facility');
     } catch (err) {
       setDemoError(err instanceof Error ? err.message : '데모 로그인에 실패했어요.');
-      setDemoLoadingEmail(null);
+      setDemoLoadingKey(null);
     }
   }
 
 
   return (
-    <div className="flex flex-col min-h-screen px-6">
-      <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        <BrandMark size={64} />
-        <Wordmark size={30} />
-        <span className="text-[15px] text-sub">병원·약국 모집 · 긱워커 근태 관리</span>
+    <div className="flex min-h-screen flex-col px-5 pb-[max(32px,env(safe-area-inset-bottom))] pt-[max(32px,env(safe-area-inset-top))]">
+      <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center text-center">
+        <div className="flex items-center gap-2">
+          <Wordmark size={34} suffix={null} />
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">관리자</span>
+        </div>
+        <h1 className="mt-7 text-[24px] font-extrabold tracking-[-0.7px] text-ink">근무자 운영을 한 화면에서</h1>
+        <p className="mt-2 text-[14px] leading-6 text-sub">병원·약국 모집부터 긱워커 근태까지<br />필요한 흐름만 간단하게 관리하세요.</p>
       </div>
 
       {error === 'unauthorized' && (
@@ -114,7 +118,19 @@ function LoginInner() {
         </div>
       )}
 
-      <div className="pb-10 flex flex-col gap-3">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-3">
+        {installRequested && (
+          <section className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <div className="flex items-center gap-3">
+              <img src="/icon-192.png" alt="" className="h-12 w-12 rounded-xl" />
+              <div className="min-w-0">
+                <p className="text-[15px] font-extrabold text-ink">잇닿 관리자 앱으로 계속하기</p>
+                <p className="mt-0.5 text-[11px] leading-4 text-sub">홈 화면에 설치한 뒤 카카오로 시작하면 돼요.</p>
+              </div>
+            </div>
+            <AdminInstallButton />
+          </section>
+        )}
         <button
           onClick={handleKakaoLogin}
           disabled={loading}
@@ -123,33 +139,38 @@ function LoginInner() {
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path fillRule="evenodd" clipRule="evenodd" d="M10 2C5.582 2 2 4.895 2 8.455c0 2.27 1.512 4.263 3.786 5.39l-.964 3.5a.25.25 0 00.38.273L9.58 15.1A9.18 9.18 0 0010 15.11c4.418 0 8-2.895 8-6.455S14.418 2 10 2z" fill="#191F28"/>
           </svg>
-          {loading ? '등록 중...' : '카카오로 관리자 등록·로그인'}
+          {loading ? '시작하는 중...' : '카카오로 시작하기'}
         </button>
-        <p className="-mt-1 text-center text-[11px] leading-4 text-sub">처음이면 관리자 계정이 바로 만들어지고, 긱워커 근태는 사업자서류 없이 시작할 수 있어요.</p>
+        <p className="-mt-1 text-center text-[11px] leading-4 text-sub">처음이면 관리자 계정이 만들어져요. 긱워커 근태는 사업자 서류 없이 바로 시작할 수 있어요.</p>
 
         {showDemoLogin && (
-          <div className="mt-2 rounded-2xl border border-primary/20 bg-primary/5 p-3">
-            <p className="text-[14px] font-extrabold text-ink">로그인 없이 빠른 시연</p>
-            <p className="mt-0.5 text-[12px] text-sub">대표 화면을 바로 보여드릴 수 있어요. 실제 데이터에는 반영되지 않아요.</p>
-            <div className="flex flex-col gap-2">
+          <details className="group mt-1 rounded-2xl border border-line bg-white">
+            <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-4 text-[13px] font-extrabold text-ink">
+              <span><span className="text-primary">시연</span> · 로그인 없이 둘러보기</span>
+              <span aria-hidden className="text-sub transition group-open:rotate-90">›</span>
+            </summary>
+            <div className="border-t border-line bg-primary/5 p-3">
+              <p className="mb-3 text-[12px] leading-5 text-sub">보여줄 사업장 유형을 고르면 대표 화면으로 바로 들어가요.</p>
+              <div className="flex flex-col gap-2">
               {DEMO_ACCOUNTS.map((account, index) => (
                 <button
                   key={`${account.email}:${account.demoKind ?? 'default'}`}
                   onClick={() => handleDemoLogin(account.email, account.demoKind)}
-                  disabled={loading || !!demoLoadingEmail}
+                  disabled={loading || !!demoLoadingKey}
                   className={`flex h-11 w-full items-center justify-between rounded-xl px-3 text-[14px] font-bold disabled:opacity-60 ${index === 0 ? 'bg-primary text-white shadow-sm' : 'border border-line bg-white text-ink'}`}
                 >
-                  <span>{demoLoadingEmail === account.email ? '시연 화면 여는 중...' : account.label}</span>
-                  {demoLoadingEmail !== account.email && <span className={`text-[11px] font-semibold ${index === 0 ? 'text-white/75' : 'text-sub'}`}>{account.detail}</span>}
+                  <span>{demoLoadingKey === `${account.email}:${account.demoKind ?? 'default'}` ? '시연 화면 여는 중...' : account.label}</span>
+                  {demoLoadingKey !== `${account.email}:${account.demoKind ?? 'default'}` && <span className={`text-[11px] font-semibold ${index === 0 ? 'text-white/75' : 'text-sub'}`}>{account.detail}</span>}
                 </button>
               ))}
+              </div>
+              {demoError && (
+                <p role="alert" className="mt-2 text-center text-[12px] font-bold text-red-500">{demoError}</p>
+              )}
+              {!installRequested && <AdminInstallButton />}
+              <DemoShareCard />
             </div>
-            {demoError && (
-              <p role="alert" className="text-[12px] font-bold text-red-500 text-center mt-2">{demoError}</p>
-            )}
-            <AdminInstallButton />
-            <DemoShareCard />
-          </div>
+          </details>
         )}
 
         <a

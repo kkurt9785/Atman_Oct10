@@ -5,15 +5,14 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
-import { getFacilityRegistrationSources, hasMedicalContext, isGigworkerDemoEmail, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
+import { getFacilityRegistrationSources, hasMedicalContext, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
-// 핵심 3탭 밖의 보조 설정. 계좌·정산은 /gig/settlement 에서만 관리한다.
+// 핵심 3탭 밖의 보조 설정. 계좌·지급은 /gig/settlement 에서만 관리한다.
 export default function GigSettingsPage() {
   const router = useRouter();
   const [name, setName] = useState('');
-  // 의료 직군으로 등록했거나 병원·약국 직원으로 연결된 사람은 모드 전환, 긱워커로만 가입한 사람(role=other)은 의료 워커 등록 안내
+  // 의료 직군으로 등록했거나 병원·약국 직원으로 연결된 계정에만 모드 전환을 보여 준다.
   const [canSwitch, setCanSwitch] = useState(false);
-  const [gigDemo, setGigDemo] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [pushNotice, setPushNotice] = useState('');
@@ -24,7 +23,6 @@ export default function GigSettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/'); return; }
       setName(user.user_metadata?.profile_nickname ?? '사용자');
-      setGigDemo(isGigworkerDemoEmail(user.email));
       const [{ data: worker }, { data: staffLinks }] = await Promise.all([
         supabase.from('workers').select('id,role,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
         supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
@@ -69,10 +67,6 @@ export default function GigSettingsPage() {
     rememberWorkerShell('medical');
     router.replace('/home');
   }
-  function startMedicalRegistration() {
-    rememberWorkerShell('medical');
-    router.push('/onboarding?step=terms');
-  }
   async function handleLogout() {
     await supabase.auth.signOut();
     setGigworkerModePreference(false);
@@ -85,7 +79,7 @@ export default function GigSettingsPage() {
       <div className="mb-6 mt-2 px-1">
         <span className="inline-flex rounded-full bg-ink px-2.5 py-1 text-[10px] font-extrabold tracking-[0.1em] text-white">긱워커 간편모드</span>
         <h1 className="mt-2 text-[24px] font-extrabold text-ink">앱 설정</h1>
-        <p className="mt-1 text-[13px] text-sub">알림과 워커 모드만 관리해요. 계좌와 지급은 근태·정산 탭에 있어요.</p>
+        <p className="mt-1 text-[13px] text-sub">알림과 연결된 워커 모드만 관리해요. 계좌와 지급은 근태·지급 탭에 있어요.</p>
       </div>
 
       <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm">
@@ -116,12 +110,12 @@ export default function GigSettingsPage() {
         </div>
       </button>
 
-      {!gigDemo && <section className="mb-4 rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
-        <p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">MEDICAL SHIFT</p>
-        <p className="mt-1 text-[16px] font-extrabold text-ink">{canSwitch ? '전체 워커 기능으로 돌아가기' : '병원·약국 근무 찾기도 추가할 수 있어요'}</p>
-        <p className="mt-1 text-[12px] leading-5 text-sub">{canSwitch ? '같은 계정의 프로필·지원 내역을 그대로 이어서 봐요.' : '직군과 활동 지역만 추가하면 긱 근무 기록을 유지한 채 기능이 넓어져요.'}</p>
-        <button type="button" onClick={canSwitch ? switchToMedical : startMedicalRegistration} className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-extrabold text-white">
-          {canSwitch ? '병원·약국 워커로 전환' : '병원·약국 워커 기능 추가'}
+      {canSwitch && <section className="mb-4 rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
+        <p className="text-[11px] font-extrabold text-primary">병원·약국 워커</p>
+        <p className="mt-1 text-[16px] font-extrabold text-ink">근무 찾기 화면으로 전환</p>
+        <p className="mt-1 text-[12px] leading-5 text-sub">같은 계정의 프로필과 지원 내역을 그대로 이어서 봐요.</p>
+        <button type="button" onClick={switchToMedical} className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-extrabold text-white">
+          병원·약국 모드 열기
         </button>
       </section>}
 
