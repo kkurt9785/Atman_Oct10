@@ -46,7 +46,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   if (!sb || !facilityId) return [];
   const today = todayKST();
   const year = Number(today.slice(0, 4));
-  const [staffResult, attendanceResult, balanceResult, leaveResult, facilityResult] = await Promise.all([
+  const [staffResult, attendanceResult, balanceResult, leaveResult, facilityResult, assignmentResult] = await Promise.all([
     sb.from('facility_staff').select('*').eq('facility_id', facilityId).neq('status', 'ended').order('name'),
     sb.from('staff_attendances').select('*').eq('facility_id', facilityId).gte('work_date', yesterdayKST()).lte('work_date', today),
     sb.from('staff_leave_balances').select('staff_id,granted_minutes,used_minutes')
@@ -54,8 +54,10 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
     sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId)
       .eq('status', 'approved').lte('start_date', today).gte('end_date', today),
     sb.from('facilities').select('facility_type,registration_source').eq('id', facilityId).maybeSingle(),
+    sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,pay_basis,pay_rate,status')
+      .eq('facility_id',facilityId).lte('starts_on',today).gte('ends_on',today).neq('status','cancelled'),
   ]);
-  const loadError = [staffResult.error, attendanceResult.error, balanceResult.error, leaveResult.error, facilityResult.error].find(Boolean);
+  const loadError = [staffResult.error, attendanceResult.error, balanceResult.error, leaveResult.error, facilityResult.error, assignmentResult.error].find(Boolean);
   // 요일 일정은 긱워커 근무지(하루·반복 근무)에서만 근태를 가른다. 병원·약국 직원의 work_weekdays 는
   // 등록 기본값(월~금)이 대부분이라 주말 근무를 막는 근거가 못 된다 — DB record_unified_attendance 와 같은 기준.
   const enforceWeekdays = isGigworkerFacility(facilityResult.data);
@@ -84,27 +86,30 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   const balanceMap = new Map((balances ?? []).map((row: any) => [row.staff_id, Math.max(0, row.granted_minutes - row.used_minutes)]));
   const inviteMap = new Map((invites ?? []).map((row:any)=>[row.staff_id,row]));
   const leaveSet = new Set((leaves ?? []).map((row: any) => row.staff_id));
+  const assignmentMap=new Map<string,any>();
+  const todayWeekday=new Date(`${today}T00:00:00Z`).getUTCDay()||7;
+  for(const row of (assignmentResult.data??[]) as any[])if((row.work_weekdays??[]).map(Number).includes(todayWeekday)&&!assignmentMap.has(row.staff_id))assignmentMap.set(row.staff_id,row);
   return ((staff ?? []) as any[]).map((row) => {
     const att: any = attendanceMap.get(row.id);
     const invite:any=inviteMap.get(row.id);
-    const workWeekdays=(row.work_weekdays??[1,2,3,4,5]).map(Number);
-    const weekday=new Date(`${today}T00:00:00Z`).getUTCDay()||7;
-    const inContract=(!row.contract_start||row.contract_start<=today)&&(!row.contract_end||row.contract_end>=today);
+    const assignment:any=enforceWeekdays?assignmentMap.get(row.id):null;
+    const workWeekdays=(assignment?.work_weekdays??row.work_weekdays??[1,2,3,4,5]).map(Number);
+    const inContract=assignment?true:(!row.contract_start||row.contract_start<=today)&&(!row.contract_end||row.contract_end>=today);
     const hasOpenAttendance=Boolean(att?.check_in_at&&!att?.check_out_at);
-    const scheduledToday=row.status==='active'&&inContract&&(!enforceWeekdays||workWeekdays.includes(weekday));
+    const scheduledToday=row.status==='active'&&inContract&&(!enforceWeekdays||Boolean(assignment));
     return {
-      id: row.id, workerId: row.worker_id, phone: row.phone, name: row.name, role: row.role, department: row.department,
+      id: row.id, workerId: row.worker_id, phone: row.phone, name: row.name, role: row.role, department: assignment?.title??row.department,
       source: row.source, engagementType: row.engagement_type,
-      contractStart: row.contract_start, contractEnd: row.contract_end,
+      contractStart: assignment?.starts_on??row.contract_start, contractEnd: assignment?.ends_on??row.contract_end,
       workWeekdays, scheduledToday:scheduledToday||hasOpenAttendance,
-      defaultStart: row.default_start_time, defaultEnd: row.default_end_time,
+      defaultStart: assignment?.start_time??row.default_start_time, defaultEnd: assignment?.end_time??row.default_end_time,
       status: row.status, attendanceStatus: att?.status ?? (row.status === 'leave' || leaveSet.has(row.id) ? 'leave' : scheduledToday ? 'scheduled' : 'off'),
       checkInAt: att?.check_in_at ?? null, checkOutAt: att?.check_out_at ?? null,
       checkoutRequestedAt: att?.checkout_requested_at ?? null,
       workDate: att?.work_date ?? today,
       leaveMinutes: Number(balanceMap.get(row.id) ?? 0),
       inviteToken: invite?.token ?? null, inviteExpiresAt: invite?.expires_at ?? null,
-      payBasis: row.pay_basis ?? null, payRate: row.pay_rate == null ? null : Number(row.pay_rate),
+      payBasis: assignment?.pay_basis??row.pay_basis??null, payRate: (assignment?.pay_rate??row.pay_rate) == null ? null : Number(assignment?.pay_rate??row.pay_rate),
       bankName:row.bank_name??null,accountLast4:row.account_last4??null,
       checkInMethod:att?.check_in_method??null,checkOutMethod:att?.check_out_method??null,
       checkInDistanceM:att?.check_in_distance_m??null,checkOutDistanceM:att?.check_out_distance_m??null,

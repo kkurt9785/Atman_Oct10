@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase-browser';
 type Message = {
   id: string;
   facility_id: string;
+  staff_id: string | null;
   sender_type: 'admin' | 'worker' | 'system';
   sender_user_id: string | null;
   sender_name: string;
@@ -15,6 +16,7 @@ type Message = {
   created_at: string;
 };
 type CheckStatusRow = { check_id: string; staff_id: string; staff_name: string; replied_at: string | null };
+type Member = { id: string; name: string; workerLinked: boolean };
 
 function timeLabel(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
@@ -25,7 +27,8 @@ function dueLabel(value: unknown) {
 }
 
 // 사업장 워크룸(관리자). 공지·대화·출퇴근 기록에 더해 '출석 확인'을 올리고 누가 답했는지 본다 — 단체톡 출석체크의 앱 버전.
-export function WorkroomClient({ facilityId, facilityName, memberCount }: { facilityId: string; facilityName: string; memberCount: number }) {
+export function WorkroomClient({ facilityId, facilityName, members, initialStaffId }: { facilityId: string; facilityName: string; members: Member[]; initialStaffId: string }) {
+  const [selectedStaffId, setSelectedStaffId] = useState(initialStaffId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [announcement, setAnnouncement] = useState(false);
@@ -37,6 +40,8 @@ export function WorkroomClient({ facilityId, facilityName, memberCount }: { faci
   const [checkDue, setCheckDue] = useState('');
   const [checkStatus, setCheckStatus] = useState<Record<string, CheckStatusRow[]>>({});
   const bottomRef = useRef<HTMLDivElement>(null);
+  const selectedMember=members.find((member)=>member.id===selectedStaffId)??null;
+  const linkedCount=members.filter((member)=>member.workerLinked).length;
 
   const loadStatus = useCallback(async () => {
     const { data } = await supabase.rpc('get_workroom_check_status', { p_facility_id: facilityId });
@@ -46,30 +51,36 @@ export function WorkroomClient({ facilityId, facilityName, memberCount }: { faci
   }, [facilityId]);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    const { data, error: loadError } = await supabase.from('facility_workroom_messages')
-      .select('id,facility_id,sender_type,sender_user_id,sender_name,message_type,body,metadata,created_at')
-      .eq('facility_id', facilityId).order('created_at', { ascending: true }).limit(200);
+    setLoading(true);setMessages([]);setError('');
+    let query=supabase.from('facility_workroom_messages')
+      .select('id,facility_id,staff_id,sender_type,sender_user_id,sender_name,message_type,body,metadata,created_at')
+      .eq('facility_id', facilityId);
+    query=selectedStaffId?query.eq('staff_id',selectedStaffId):query.is('staff_id',null);
+    const { data, error: loadError } = await query.order('created_at', { ascending: true }).limit(200);
     if (loadError) setError('워크룸을 불러오지 못했어요. 데이터베이스 업데이트 상태를 확인해 주세요.');
     else {
       setMessages((data ?? []) as Message[]);
-      await Promise.all([supabase.rpc('mark_facility_workroom_read', { p_facility_id: facilityId }), loadStatus()]);
+      await Promise.all([
+        selectedStaffId?supabase.rpc('mark_staff_workroom_read',{p_staff_id:selectedStaffId}):supabase.rpc('mark_facility_workroom_read', { p_facility_id: facilityId }),
+        loadStatus(),
+      ]);
     }
     setLoading(false);
-  }, [facilityId, loadStatus]);
+  }, [facilityId, loadStatus, selectedStaffId]);
 
   useEffect(() => {
     void load();
-    const channel = supabase.channel(`workroom-admin-${facilityId}`)
+    const channel = supabase.channel(`workroom-admin-${facilityId}-${selectedStaffId||'group'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'facility_workroom_messages', filter: `facility_id=eq.${facilityId}` }, (payload) => {
         const row = payload.new as Message;
+        if(selectedStaffId?row.staff_id!==selectedStaffId:row.staff_id!==null)return;
         setMessages((current) => current.some((item) => item.id === row.id) ? current : [...current, row]);
-        void supabase.rpc('mark_facility_workroom_read', { p_facility_id: facilityId });
+        void (selectedStaffId?supabase.rpc('mark_staff_workroom_read',{p_staff_id:selectedStaffId}):supabase.rpc('mark_facility_workroom_read', { p_facility_id: facilityId }));
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'facility_workroom_check_replies' }, () => { void loadStatus(); })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [facilityId, load, loadStatus]);
+  }, [facilityId, load, loadStatus, selectedStaffId]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -77,9 +88,9 @@ export function WorkroomClient({ facilityId, facilityName, memberCount }: { faci
     const body = input.trim();
     if (!body || sending) return;
     setSending(true); setError('');
-    const { data, error: sendError } = await supabase.rpc('send_facility_workroom_message', {
-      p_facility_id: facilityId, p_body: body, p_announcement: announcement,
-    });
+    const { data, error: sendError } = selectedStaffId
+      ? await supabase.rpc('send_staff_workroom_message',{p_staff_id:selectedStaffId,p_body:body})
+      : await supabase.rpc('send_facility_workroom_message', {p_facility_id: facilityId, p_body: body, p_announcement: announcement});
     setSending(false);
     if (sendError) { setError(sendError.message.replace(/^.*?: /, '')); return; }
     setInput(''); setAnnouncement(false);
@@ -94,9 +105,9 @@ export function WorkroomClient({ facilityId, facilityName, memberCount }: { faci
     const body = checkBody.trim();
     if (!body || sending) return;
     setSending(true); setError('');
-    const { error: checkError } = await supabase.rpc('create_workroom_check', {
-      p_facility_id: facilityId, p_body: body, p_due_at: checkDue ? new Date(checkDue).toISOString() : null,
-    });
+    const { error: checkError } = selectedStaffId
+      ? await supabase.rpc('create_staff_workroom_checks',{p_facility_id:facilityId,p_staff_ids:[selectedStaffId],p_body:body,p_due_at:checkDue?new Date(checkDue).toISOString():null})
+      : await supabase.rpc('create_workroom_check', {p_facility_id: facilityId, p_body: body, p_due_at: checkDue ? new Date(checkDue).toISOString() : null});
     setSending(false);
     if (checkError) { setError(checkError.message.replace(/^.*?: /, '')); return; }
     setCheckOpen(false); setCheckDue('');
@@ -104,16 +115,23 @@ export function WorkroomClient({ facilityId, facilityName, memberCount }: { faci
     fetch('/api/chat/nudge', { method: 'POST' }).catch(() => undefined);
   }
 
-  return <main className="flex min-h-[calc(100dvh-8.5rem)] flex-col px-4 pb-4">
+  return <main className="mx-auto flex min-h-[calc(100dvh-8.5rem)] w-full max-w-3xl flex-col px-4 pb-4">
     <header className="mb-3 rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">WORKROOM</span><span className="text-[12px] font-bold text-white/65">연결 {memberCount}명</span></div>
+      <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">WORKROOM</span><span className="text-[12px] font-bold text-white/65">연결 {linkedCount}명</span></div>
       <h1 className="mt-4 text-[25px] font-extrabold">{facilityName}</h1>
-      <p className="mt-1 text-[12px] leading-5 text-white/65">전화번호 대신 여기서 공지하고, 출석 확인과 출퇴근 기록을 함께 봐요.</p>
+      <p className="mt-1 text-[12px] leading-5 text-white/65">전체 공지와 근무자별 비공개 대화를 나눠 관리해요.</p>
     </header>
+
+    <div className="-mx-4 mb-3 overflow-x-auto px-4 pt-3 [scrollbar-width:none]">
+      <div className="flex w-max gap-2">
+        <button type="button" onClick={()=>setSelectedStaffId('')} className={`h-10 rounded-full px-4 text-[12px] font-extrabold ${!selectedStaffId?'bg-primary text-white':'border border-line bg-white text-sub'}`}>전체 공지</button>
+        {members.map((member)=><button key={member.id} type="button" disabled={!member.workerLinked} onClick={()=>setSelectedStaffId(member.id)} className={`h-10 rounded-full px-4 text-[12px] font-extrabold ${selectedStaffId===member.id?'bg-ink text-white':member.workerLinked?'border border-line bg-white text-sub':'border border-line bg-bg text-tertiary opacity-50'}`}>{member.name}{!member.workerLinked?' · 초대 전':''}</button>)}
+      </div>
+    </div>
 
     <section className="min-h-[360px] flex-1 overflow-y-auto rounded-2xl bg-white px-4 py-4 shadow-sm">
       {loading && <p className="py-16 text-center text-[13px] text-sub">워크룸 기록을 불러오고 있어요...</p>}
-      {!loading && messages.length === 0 && <div className="py-16 text-center"><p className="text-[15px] font-bold text-ink">첫 공지를 남겨보세요</p><p className="mt-1 text-[12px] text-sub">가입한 워커의 앱과 푸시 알림으로 전달돼요.</p></div>}
+      {!loading && messages.length === 0 && <div className="py-16 text-center"><p className="text-[15px] font-bold text-ink">{selectedMember?`${selectedMember.name}님과 첫 대화를 시작하세요`:'첫 공지를 남겨보세요'}</p><p className="mt-1 text-[12px] text-sub">{selectedMember?'이 대화는 해당 근무자와 관리자만 볼 수 있어요.':'가입한 모든 워커의 앱과 알림으로 전달돼요.'}</p></div>}
       <div className="flex flex-col gap-3">
         {messages.map((message) => {
           if (message.sender_type === 'system') return <div key={message.id} className={`rounded-2xl px-4 py-3 text-[12px] leading-5 ${message.message_type === 'attendance' ? 'border border-primary/15 bg-primary/5 text-ink' : 'bg-bg text-sub'}`}><p className="font-bold text-primary">{message.sender_name}</p><p>{message.body}</p><time className="mt-1 block text-[10px] text-tertiary">{timeLabel(message.created_at)}</time></div>;
@@ -158,12 +176,12 @@ export function WorkroomClient({ facilityId, facilityName, memberCount }: { faci
         </div>
       ) : (
         <div className="mb-2 flex items-center justify-between gap-2">
-          <label className="flex items-center gap-2 text-[12px] font-bold text-sub"><input type="checkbox" checked={announcement} onChange={(event)=>setAnnouncement(event.target.checked)} className="h-4 w-4 accent-primary"/>전체 공지로 강조하기</label>
+          {selectedMember?<p className="text-[12px] font-bold text-sub">{selectedMember.name}님만 보는 비공개 대화</p>:<label className="flex items-center gap-2 text-[12px] font-bold text-sub"><input type="checkbox" checked={announcement} onChange={(event)=>setAnnouncement(event.target.checked)} className="h-4 w-4 accent-primary"/>전체 공지로 강조하기</label>}
           <button type="button" onClick={()=>setCheckOpen(true)} className="h-8 rounded-lg bg-ink px-3 text-[12px] font-extrabold text-white">✓ 출석 확인 요청</button>
         </div>
       )}
       <div className="flex items-end gap-2">
-        <textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder="공지나 전달사항을 입력하세요" className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/>
+        <textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={selectedMember?`${selectedMember.name}님에게 메시지`:'전체 공지나 전달사항'} className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/>
         <button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button>
       </div>
     </section>

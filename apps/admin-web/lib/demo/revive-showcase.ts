@@ -143,6 +143,7 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   }
   const facilities = fac.data;
   const pharmacy=await req<Facility[]>('GET','/rest/v1/facilities?business_registration_number=eq.DEMO-TARGET-PHARMACY&select=id,name,business_registration_number,facility_type');
+  const gigworker=await req<Facility[]>('GET','/rest/v1/facilities?business_registration_number=eq.DEMO-GIGWORKER-2026&select=id,name,business_registration_number,facility_type');
   const demoTargets:Record<string,Facility|undefined>={
     'sales-demo-1@demo.atman.co.kr':facilities.find(f=>f.name==='W여성병원'),
     'sales-demo-2@demo.atman.co.kr':pharmacy.data?.[0],
@@ -153,6 +154,11 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     if(!target)throw new Error(`demo target missing for ${email}`);
     return {user_id:adminIds[email],facility_id:target.id,access_role:'super',can_view_payroll:true};
   });
+  const gigworkerTarget=gigworker.data?.[0];
+  if(!gigworkerTarget)throw new Error('gigworker demo target missing');
+  // sales-demo-1은 병원 시연과 긱 시연을 모두 전환해 보여 준다. 재시드가 기존 권한을 전부 지우므로
+  // 긱 접근도 같은 배치에 넣지 않으면 매일 다시 사라진다.
+  accessRows.push({user_id:adminIds['sales-demo-1@demo.atman.co.kr'],facility_id:gigworkerTarget.id,access_role:'super',can_view_payroll:true});
   await req('DELETE',`/rest/v1/facility_admin_access?user_id=in.(${Object.values(adminIds).join(',')})`);
   await req(
     'POST',

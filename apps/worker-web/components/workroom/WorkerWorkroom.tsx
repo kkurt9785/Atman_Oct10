@@ -12,6 +12,7 @@ type Room = {
   facility_name: string;
   address_text: string | null;
   registration_source: string;
+  staff_id: string;
   member_count: number;
   unread_count: number;
   last_message_at: string | null;
@@ -19,6 +20,7 @@ type Room = {
 type Message = {
   id: string;
   facility_id: string;
+  staff_id: string | null;
   sender_type: 'admin' | 'worker' | 'system';
   sender_user_id: string | null;
   sender_name: string;
@@ -58,7 +60,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     if (!user) { window.location.href = '/'; return; }
     setUserId(user.id);
     const [{ data, error: roomError }, { data: worker }] = await Promise.all([
-      supabase.rpc('get_my_workrooms'),
+      supabase.rpc('get_my_workrooms_v2'),
       supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
     ]);
     if (worker?.id) setWorkerId(worker.id);
@@ -79,29 +81,38 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
 
   const loadMessages = useCallback(async () => {
     if (!selectedId) { setMessages([]); return; }
+    const room=rooms.find((item)=>item.facility_id===selectedId);
+    let messageQuery=supabase.from('facility_workroom_messages')
+      .select('id,facility_id,staff_id,sender_type,sender_user_id,sender_name,message_type,body,metadata,created_at')
+      .eq('facility_id', selectedId);
+    messageQuery=isGig&&room?messageQuery.or(`staff_id.is.null,staff_id.eq.${room.staff_id}`):messageQuery.is('staff_id',null);
     const [{ data, error: loadError }, { data: replies }] = await Promise.all([
-      supabase.from('facility_workroom_messages')
-        .select('id,facility_id,sender_type,sender_user_id,sender_name,message_type,body,metadata,created_at')
-        .eq('facility_id', selectedId).order('created_at', { ascending: false }).limit(200),
+      messageQuery.order('created_at', { ascending: false }).limit(200),
       workerId ? supabase.from('facility_workroom_check_replies').select('check_id').eq('worker_id', workerId) : Promise.resolve({ data: [] as { check_id: string }[] }),
     ]);
     if (loadError) { setError('워크룸 대화를 불러오지 못했어요.'); return; }
     setMessages(((data ?? []) as Message[]).reverse());
     setReplied(new Set(((replies ?? []) as { check_id: string }[]).map((row) => row.check_id)));
-    await supabase.rpc('mark_facility_workroom_read', { p_facility_id: selectedId });
-  }, [selectedId, workerId]);
+    await Promise.all([
+      supabase.rpc('mark_facility_workroom_read', { p_facility_id: selectedId }),
+      isGig&&room?supabase.rpc('mark_staff_workroom_read',{p_staff_id:room.staff_id}):Promise.resolve(),
+    ]);
+  }, [isGig, rooms, selectedId, workerId]);
 
   useEffect(() => {
     if (!selectedId) return;
     void loadMessages();
+    const room=rooms.find((item)=>item.facility_id===selectedId);
     const channel = supabase.channel(`workroom-worker-${selectedId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'facility_workroom_messages', filter: `facility_id=eq.${selectedId}` }, (payload) => {
         const row = payload.new as Message;
+        if(isGig?row.staff_id!==null&&row.staff_id!==room?.staff_id:row.staff_id!==null)return;
         setMessages((current) => current.some((item) => item.id === row.id) ? current : [...current, row]);
         void supabase.rpc('mark_facility_workroom_read', { p_facility_id: selectedId });
+        if(isGig&&room)void supabase.rpc('mark_staff_workroom_read',{p_staff_id:room.staff_id});
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [selectedId, loadMessages]);
+  }, [isGig, rooms, selectedId, loadMessages]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -109,9 +120,10 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     const body = input.trim();
     if (!body || !selectedId || sending) return;
     setSending(true); setError('');
-    const { data, error: sendError } = await supabase.rpc('send_facility_workroom_message', {
-      p_facility_id: selectedId, p_body: body, p_announcement: false,
-    });
+    const room=rooms.find((item)=>item.facility_id===selectedId);
+    const { data, error: sendError } = isGig&&room
+      ? await supabase.rpc('send_staff_workroom_message',{p_staff_id:room.staff_id,p_body:body})
+      : await supabase.rpc('send_facility_workroom_message', {p_facility_id: selectedId, p_body: body, p_announcement: false});
     setSending(false);
     if (sendError) { setError(sendError.message.replace(/^.*?: /, '')); return; }
     setInput('');
@@ -171,6 +183,6 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
         </div><div ref={bottomRef}/>
       </section>}
 
-    {selected&&<section className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={isGig ? '관리자에게 근무 메시지 보내기' : '관리자와 함께 일하는 분들에게 메시지 보내기'} className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div><p className="mt-2 px-1 text-[10px] text-tertiary">개인 전화번호는 표시되지 않아요. 같은 근무지 관리자와 근무자가 이 대화를 함께 봅니다.</p></section>}
+    {selected&&<section className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea value={input} onChange={(event)=>setInput(event.target.value)} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={isGig ? '관리자에게 근무 메시지 보내기' : '관리자와 함께 일하는 분들에게 메시지 보내기'} className="min-h-[48px] flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[14px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div><p className="mt-2 px-1 text-[10px] text-tertiary">{isGig?'개인 전화번호는 표시되지 않고, 이 대화는 나와 근무지 관리자만 볼 수 있어요.':'개인 전화번호는 표시되지 않아요. 같은 근무지 구성원이 이 대화를 함께 봅니다.'}</p></section>}
   </main>;
 }

@@ -72,17 +72,27 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
 }
 
 type FacilityRef = { id: string; name: string; registration_source?: string | null };
+type GigAssignment = {
+  id: string; title: string; starts_on: string; ends_on: string; work_weekdays: number[];
+  start_time: string; end_time: string; status: string;
+};
 type Staff = {
   id: string; name: string; default_start_time: string; default_end_time: string;
   contract_start?: string | null; contract_end?: string | null; work_weekdays?: number[] | null;
   facilities: FacilityRef | FacilityRef[];
+  gig_assignments?: GigAssignment[] | null;
 };
 type AttendanceState = { staff_id: string; check_in_at: string | null; check_out_at: string | null; work_date: string; status?: string; break_minutes?: number };
 
 const facilityOf = (staff: Staff) => (Array.isArray(staff.facilities) ? staff.facilities[0] : staff.facilities) ?? null;
 function kstDate() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
+function assignmentFor(staff: Staff,date=kstDate()) {
+  const day=new Date(`${date}T00:00:00Z`).getUTCDay()||7;
+  return (staff.gig_assignments??[]).find((item)=>['planned','active'].includes(item.status)&&item.starts_on<=date&&item.ends_on>=date&&(item.work_weekdays??[]).map(Number).includes(day))??null;
+}
 function isScheduledToday(staff: Staff) {
   const date = kstDate();
+  if((staff.gig_assignments?.length??0)>0)return Boolean(assignmentFor(staff,date));
   if (staff.contract_start && date < staff.contract_start) return false;
   if (staff.contract_end && date > staff.contract_end) return false;
   const weekdays = staff.work_weekdays ?? [1, 2, 3, 4, 5];
@@ -111,7 +121,7 @@ function GigTodayContent() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSignedOut(true); setLoading(false); return; }
     const { data } = await supabase.from('facility_staff')
-      .select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source)')
+      .select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status)')
       .neq('status', 'ended').order('created_at', { ascending: false });
     const all = (data ?? []) as Staff[];
     const linked = all.filter((item) => isGigworkerSource(facilityOf(item)?.registration_source));
@@ -141,6 +151,7 @@ function GigTodayContent() {
 
   const staff = staffList.find((item) => item.id === selectedStaffId) ?? staffList[0] ?? null;
   const facility = staff ? facilityOf(staff) : null;
+  const assignment=staff?assignmentFor(staff):null;
   const mode = facility?.id ? attendanceModes[facility.id] ?? 'gps_or_qr' : 'gps_or_qr';
   const current = staff ? attendance[staff.id] : null;
   const scheduledToday = Boolean(staff && isScheduledToday(staff));
@@ -177,7 +188,7 @@ function GigTodayContent() {
 
         <section className="mt-3 rounded-3xl bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
-            <div><p className="text-[11px] font-extrabold tracking-[0.1em] text-primary">{scheduledToday || current?.check_in_at ? '근무 예정' : '오늘 일정 없음'}</p><h2 className="mt-1 text-[20px] font-extrabold text-ink">{facility?.name ?? '근무지'}</h2><p className="mt-1 text-[13px] text-sub">{staff.default_start_time.slice(0, 5)} – {staff.default_end_time.slice(0, 5)}{staff.contract_end ? ` · ${staff.contract_end}까지` : ''}</p></div>
+            <div><p className="text-[11px] font-extrabold tracking-[0.1em] text-primary">{scheduledToday || current?.check_in_at ? assignment?.title??'근무 예정' : '오늘 일정 없음'}</p><h2 className="mt-1 text-[20px] font-extrabold text-ink">{facility?.name ?? '근무지'}</h2><p className="mt-1 text-[13px] text-sub">{(assignment?.start_time??staff.default_start_time).slice(0, 5)} – {(assignment?.end_time??staff.default_end_time).slice(0, 5)}{assignment?.ends_on?` · ${assignment.ends_on}까지`:staff.contract_end?` · ${staff.contract_end}까지`:''}</p></div>
             <span className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold ${done ? 'bg-emerald-50 text-emerald-600' : pending ? 'bg-amber-50 text-amber-700' : current?.check_in_at ? 'bg-primary/10 text-primary' : 'bg-bg text-sub'}`}>{done ? '근무 완료' : pending ? '승인 대기' : current?.check_in_at ? '근무 중' : '출근 전'}</span>
           </div>
 
