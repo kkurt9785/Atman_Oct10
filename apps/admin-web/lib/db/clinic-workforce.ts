@@ -55,8 +55,8 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
     sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId)
       .eq('status', 'approved').lte('start_date', today).gte('end_date', today),
     sb.from('facilities').select('facility_type,registration_source').eq('id', facilityId).maybeSingle(),
-    sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,pay_basis,pay_rate,status')
-      .eq('facility_id',facilityId).lte('starts_on',today).gte('ends_on',today).neq('status','cancelled'),
+    sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,pay_basis,pay_rate,status,source')
+      .eq('facility_id',facilityId).lte('starts_on',today).gte('ends_on',today).neq('status','cancelled').order('source'),
   ]);
   const loadError = [staffResult.error, attendanceResult.error, balanceResult.error, leaveResult.error, facilityResult.error, assignmentResult.error].find(Boolean);
   // 요일 일정은 긱 근무자(하루·반복 근무)에게만 근태를 가른다. 직원의 work_weekdays 는
@@ -89,7 +89,12 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   const leaveSet = new Set((leaves ?? []).map((row: any) => row.staff_id));
   const assignmentMap=new Map<string,any>();
   const todayWeekday=new Date(`${today}T00:00:00Z`).getUTCDay()||7;
-  for(const row of (assignmentResult.data??[]) as any[])if((row.work_weekdays??[]).map(Number).includes(todayWeekday)&&!assignmentMap.has(row.staff_id))assignmentMap.set(row.staff_id,row);
+  // 근무 건 참여(source='admin')가 사람별 호환 건보다 우선한다 ('admin' < 'staff_compat' 정렬이라 먼저 온다)
+  const staffWithProject=new Set(((assignmentResult.data??[]) as any[]).filter((row)=>row.source==='admin').map((row)=>row.staff_id));
+  for(const row of (assignmentResult.data??[]) as any[]){
+    if(row.source!=='admin'&&staffWithProject.has(row.staff_id))continue;
+    if((row.work_weekdays??[]).map(Number).includes(todayWeekday)&&!assignmentMap.has(row.staff_id))assignmentMap.set(row.staff_id,row);
+  }
   return ((staff ?? []) as any[]).map((row) => {
     const att: any = attendanceMap.get(row.id);
     const invite:any=inviteMap.get(row.id);

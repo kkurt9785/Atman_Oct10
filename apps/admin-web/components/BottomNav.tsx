@@ -31,7 +31,7 @@ const ICONS={
 
 function isActive(path:string,href:string,mode:FacilityMode|null){
   href=href.split('?')[0];
-  if(href==='/')return path==='/';
+  if(href==='/')return path==='/'||(mode==='gig'&&path.startsWith('/gig-work'));
   if(href==='/shifts')return path.startsWith('/shifts')||path.startsWith('/applications')||path.startsWith('/chats');
   if(href==='/timesheet')return path.startsWith('/timesheet')||path.startsWith('/attendance-')||path.startsWith('/leave');
   if(href==='/more')return path.startsWith('/more')||path.startsWith('/operations')||path.startsWith('/payroll')||path.startsWith('/gig-pay')||path.startsWith('/workforce')||path.startsWith('/membership')||path.startsWith('/settings')||(mode==='gig'&&(path.startsWith('/timesheet')||path.startsWith('/attendance-')));

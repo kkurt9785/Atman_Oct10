@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 import type { GigOperationStatus, GigOperationsBoard as Board, GigOperationWorker } from '@/lib/db/gig-operations';
+import { projectRunsOn, projectScheduleText, type GigProject } from '@/lib/db/gig-projects';
 
 type Filter = 'all'|'issue'|'working'|'invite'|'pay';
 type Compose = 'message'|'check'|null;
@@ -30,7 +31,7 @@ function actionFor(row:GigOperationWorker) {
   return {href:`/workroom?staff=${row.staffId}`,label:'대화'};
 }
 
-export function GigOperationsBoard({ board, facilityId, facilityName }: { board: Board; facilityId: string; facilityName: string }) {
+export function GigOperationsBoard({ board, projects, facilityId, facilityName }: { board: Board; projects: GigProject[]; facilityId: string; facilityName: string }) {
   const router=useRouter();
   const [filter,setFilter]=useState<Filter>('all');
   const [selectedDate,setSelectedDate]=useState(board.today);
@@ -75,8 +76,18 @@ export function GigOperationsBoard({ board, facilityId, facilityName }: { board:
   return <>
     <div className="mt-4 px-1 sm:flex sm:items-end sm:justify-between">
       <div><p className="text-[13px] font-bold text-sub">{facilityName}</p><h1 className="mt-1 text-[27px] font-extrabold tracking-[-0.7px] text-ink">오늘 긱 운영</h1><p className="mt-1 text-[13px] text-sub">필요한 사람부터 바로 처리하세요.</p></div>
-      <Link href="/staff?view=contract&entry=gigworker" className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-ink px-4 text-[13px] font-extrabold text-white sm:mt-0 sm:w-auto">＋ 근무자·근무 등록</Link>
+      <Link href="/gig-work/new" className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-ink px-4 text-[13px] font-extrabold text-white sm:mt-0 sm:w-auto">＋ 근무 만들기</Link>
     </div>
+
+    {/* 사장님 머릿속 단위는 사람이 아니라 '근무 건'이다 — 행사·반복 근무를 먼저 보고, 그 안에 사람을 넣는다 */}
+    <section className="mt-5">
+      <div className="flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">근무 건</p><h2 className="mt-0.5 text-[19px] font-extrabold text-ink">진행·예정 근무 {projects.length}건</h2></div><Link href="/gig-work/new" className="text-[12px] font-bold text-primary">＋ 새 근무</Link></div>
+      {projects.length===0?<Link href="/gig-work/new" className="mt-3 block rounded-2xl border-2 border-dashed border-line bg-white px-4 py-7 text-center active:bg-bg"><b className="text-[15px] text-ink">첫 근무를 만들어 보세요</b><span className="mt-1 block text-[12px] text-sub">행사 하루든 매주 반복이든 하나 만들고 여러 명을 넣으면 돼요.</span></Link>
+        :<div className="mt-3 grid gap-2 lg:grid-cols-2">{projects.map((project)=>{const today=projectRunsOn(project,board.today);const filled=project.participants.length;const working=project.participants.filter((p)=>p.todayStatus==='working'||p.todayStatus==='late').length;const pending=project.participants.filter((p)=>!p.workerLinked).length;return <Link key={project.id} href={`/gig-work/${project.id}`} className={`rounded-2xl border bg-white p-4 shadow-sm active:bg-bg ${today?'border-primary/40':'border-transparent'}`}>
+          <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><b className="text-[16px] text-ink">{project.title}</b>{today&&<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-extrabold text-primary">오늘</span>}</div><p className="mt-1 text-[12px] text-sub">{projectScheduleText(project)}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${filled>=project.headcount?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-700'}`}>{filled}/{project.headcount}명</span></div>
+          <p className="mt-2 text-[11px] text-tertiary">{project.payRate?`시급 ${project.payRate.toLocaleString('ko-KR')}원`:'시급 미정'}{pending>0?` · 초대 대기 ${pending}명`:''}{today&&working>0?` · 근무 중 ${working}명`:''}{filled<project.headcount?` · ${project.headcount-filled}명 더 필요`:''}</p>
+        </Link>;})}</div>}
+    </section>
 
     <div className="mt-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -99,9 +110,9 @@ export function GigOperationsBoard({ board, facilityId, facilityName }: { board:
     </section>
 
     <section className="mt-6 rounded-3xl bg-white p-4 shadow-sm">
-      <div className="flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">다가오는 일정</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">7일 근무 일정</h2></div><Link href="/staff?view=contract&entry=gigworker" className="text-[11px] font-bold text-primary">일정 등록 →</Link></div>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{board.days.map((item)=><button type="button" key={item.date} onClick={()=>setSelectedDate(item.date)} className={`min-w-[58px] rounded-2xl px-2 py-2.5 text-center ${selectedDate===item.date?'bg-ink text-white':'bg-bg text-sub'}`}><span className="block text-[10px] font-bold">{item.dayLabel}</span><b className="mt-0.5 block text-[13px]">{item.dateLabel}</b><span className={`mt-1 block text-[10px] ${selectedDate===item.date?'text-white/60':'text-tertiary'}`}>{item.workers.length}명</span></button>)}</div>
-      <div className="mt-3 divide-y divide-line rounded-2xl bg-bg px-3">{day?.workers.length?day.workers.map((row)=><div key={`${day.date}:${row.staffId}`} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><b className="text-[13px] text-ink">{row.name}</b><span className="ml-2 text-[11px] text-sub">{row.title}</span></div><span className="shrink-0 text-[12px] font-bold text-primary">{row.startTime}~{row.endTime}</span></div>):<p className="py-5 text-center text-[12px] text-sub">등록된 근무가 없어요.</p>}</div>
+      <div className="flex items-end justify-between px-1"><div><p className="text-[11px] font-bold text-primary">다가오는 일정</p><h2 className="mt-0.5 text-[18px] font-extrabold text-ink">7일 근무 일정</h2></div><Link href="/gig-work/new" className="text-[11px] font-bold text-primary">근무 만들기 →</Link></div>
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{board.days.map((item)=><button type="button" key={item.date} onClick={()=>setSelectedDate(item.date)} className={`min-w-[58px] rounded-2xl px-2 py-2.5 text-center ${selectedDate===item.date?'bg-ink text-white':'bg-bg text-sub'}`}><span className="block text-[10px] font-bold">{item.dayLabel}</span><b className="mt-0.5 block text-[13px]">{item.dateLabel}</b><span className={`mt-1 block text-[10px] ${selectedDate===item.date?'text-white/60':'text-tertiary'}`}>{(()=>{const n=projects.filter((project)=>projectRunsOn(project,item.date)).length;return n?`${n}건`:`${item.workers.length}명`;})()}</span></button>)}</div>
+      {(()=>{const dayProjects=day?projects.filter((project)=>projectRunsOn(project,day.date)):[];return <div className="mt-3 divide-y divide-line rounded-2xl bg-bg px-3">{dayProjects.length?dayProjects.map((project)=><Link key={`${day?.date}:${project.id}`} href={`/gig-work/${project.id}`} className="flex items-center justify-between gap-3 py-3 active:opacity-70"><div className="min-w-0"><b className="text-[13px] text-ink">{project.title}</b><span className="ml-2 text-[11px] text-sub">{project.participants.length}/{project.headcount}명 · {project.participants.map((p)=>p.name).join(', ')||'참여자 없음'}</span></div><span className="shrink-0 text-[12px] font-bold text-primary">{project.startTime.slice(0,5)}~{project.endTime.slice(0,5)}</span></Link>):day?.workers.length?day.workers.map((row)=><div key={`${day.date}:${row.staffId}`} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><b className="text-[13px] text-ink">{row.name}</b><span className="ml-2 text-[11px] text-sub">{row.title}</span></div><span className="shrink-0 text-[12px] font-bold text-primary">{row.startTime}~{row.endTime}</span></div>):<p className="py-5 text-center text-[12px] text-sub">등록된 근무가 없어요.</p>}</div>;})()}
     </section>
 
     {selected.size>0&&<div className="fixed inset-x-3 bottom-[calc(74px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center gap-2 rounded-2xl bg-ink p-3 text-white shadow-2xl"><button type="button" onClick={()=>setSelected(new Set())} className="shrink-0 px-2 text-[12px] font-extrabold">{selected.size}명 ×</button><button type="button" onClick={()=>openCompose('check')} className="h-11 flex-1 rounded-xl bg-white/10 text-[12px] font-extrabold">출석 확인</button><button type="button" onClick={()=>openCompose('message')} className="h-11 flex-1 rounded-xl bg-primary text-[12px] font-extrabold">메시지</button></div>}

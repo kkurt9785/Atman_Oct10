@@ -39,14 +39,19 @@ export type GigOperationsBoard = {
 
 type AssignmentRow = {
   id: string; staff_id: string; title: string; starts_on: string; ends_on: string;
-  work_weekdays: number[]; start_time: string; end_time: string; status: string;
+  work_weekdays: number[]; start_time: string; end_time: string; status: string; source?: string;
 };
 
 function addDays(date: string, days: number) {
   return new Date(new Date(`${date}T00:00:00Z`).getTime() + days * 86_400_000).toISOString().slice(0, 10);
 }
 function weekday(date: string) { return new Date(`${date}T00:00:00Z`).getUTCDay() || 7; }
-function assignmentOn(rows: AssignmentRow[], date: string) {
+// 근무 건(source='admin') 참여가 하나라도 있으면 사람별 호환 건(staff_compat)은 일정으로 치지 않는다 — 호환 건은 계약 범위 전체를 덮어 매일 '출근 예정'이 되기 때문
+function scheduleRows(rows: AssignmentRow[]) {
+  return rows.some((row) => row.source === 'admin') ? rows.filter((row) => row.source === 'admin') : rows;
+}
+function assignmentOn(allRows: AssignmentRow[], date: string) {
+  const rows = scheduleRows(allRows);
   return rows.find((row) => ['planned','active'].includes(row.status) && row.starts_on <= date && row.ends_on >= date && row.work_weekdays.map(Number).includes(weekday(date))) ?? null;
 }
 
@@ -67,7 +72,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   if (staffIds.length === 0) return empty;
 
   const [assignmentResult,attendanceResult,inviteResult,bankResult,payoutResult,messageResult,readResult,graceResult] = await Promise.all([
-    sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status')
+    sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source')
       .eq('facility_id', facilityId).lte('starts_on', until).gte('ends_on', today).in('status', ['planned','active']).order('starts_on'),
     sb.from('staff_attendances').select('staff_id,work_date,status,check_in_at,check_out_at')
       .eq('facility_id', facilityId).in('staff_id', staffIds).gte('work_date', addDays(today, -31)).lte('work_date', today),

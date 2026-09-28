@@ -13,6 +13,7 @@ import { QrCanvas } from '@/components/QrCanvas';
 import { AdminInstallButton } from '@/components/AdminInstallButton';
 import { GigOperationsBoard } from '@/components/GigOperationsBoard';
 import { getGigOperationsBoard } from '@/lib/db/gig-operations';
+import { listGigProjects } from '@/lib/db/gig-projects';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
   const brnFailed = (await searchParams).brn === 'failed';
@@ -45,10 +46,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
     +shiftStaff.filter(s=>s.todayStatus==='근무중').length;
 
   if (isGigworker) {
-    const gigBoard=await getGigOperationsBoard(context.user.id);
+    const [gigBoard,gigProjects]=await Promise.all([getGigOperationsBoard(context.user.id),listGigProjects()]);
     return <main className="px-4 pb-32">
       {shop.isDemo && <AdminInstallButton compact />}
-      <GigOperationsBoard board={gigBoard} facilityId={context.facilityId} facilityName={shop.name}/>
+      <GigOperationsBoard board={gigBoard} projects={gigProjects} facilityId={context.facilityId} facilityName={shop.name}/>
       <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[{href:'/timesheet',label:'근태 기록',detail:'출퇴근·조퇴 확인'},{href:'/gig-pay',label:'지급 관리',detail:'금액·계좌·지급일'},{href:'/attendance-qr',label:'현장 인증',detail:'GPS·동적 QR'}].map((item)=><Link key={item.href} href={item.href} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><b className="text-[14px] text-ink">{item.label}</b><span className="mt-1 block text-[11px] text-sub">{item.detail}</span><span className="mt-3 block text-right text-[14px] font-bold text-primary">→</span></Link>)}
       </section>

@@ -75,7 +75,7 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
 type FacilityRef = { id: string; name: string };
 type GigAssignment = {
   id: string; title: string; starts_on: string; ends_on: string; work_weekdays: number[];
-  start_time: string; end_time: string; status: string;
+  start_time: string; end_time: string; status: string; source?: string;
 };
 type Staff = {
   id: string; name: string; default_start_time: string; default_end_time: string; worker_kind?: string | null;
@@ -87,9 +87,14 @@ type AttendanceState = { staff_id: string; check_in_at: string | null; check_out
 
 const facilityOf = (staff: Staff) => (Array.isArray(staff.facilities) ? staff.facilities[0] : staff.facilities) ?? null;
 function kstDate() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
+// 관리자가 만든 근무 건(source='admin') 참여가 있으면 그것만 일정이다. 사람별 호환 건은 계약 범위 전체라 매일 '근무 예정'이 돼 버린다.
+function scheduleAssignments(staff: Staff) {
+  const all = staff.gig_assignments ?? [];
+  return all.some((item) => item.source === 'admin') ? all.filter((item) => item.source === 'admin') : all;
+}
 function assignmentFor(staff: Staff,date=kstDate()) {
   const day=new Date(`${date}T00:00:00Z`).getUTCDay()||7;
-  return (staff.gig_assignments??[]).find((item)=>['planned','active'].includes(item.status)&&item.starts_on<=date&&item.ends_on>=date&&(item.work_weekdays??[]).map(Number).includes(day))??null;
+  return scheduleAssignments(staff).find((item)=>['planned','active'].includes(item.status)&&item.starts_on<=date&&item.ends_on>=date&&(item.work_weekdays??[]).map(Number).includes(day))??null;
 }
 function isScheduledToday(staff: Staff) {
   const date = kstDate();
@@ -129,7 +134,7 @@ function GigTodayContent() {
         setUnreadCount(((notices ?? []) as Notice[]).filter((row) => !row.read_at && noticeBelongsTo(classifyNotice(row, context), 'gig')).length);
       }).catch(() => undefined);
     const { data } = await supabase.from('facility_staff')
-      .select('id,name,worker_kind,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status)')
+      .select('id,name,worker_kind,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source)')
       .neq('status', 'ended').order('created_at', { ascending: false });
     const all = (data ?? []) as Staff[];
     const linked = all.filter(isGigLink);
