@@ -7,8 +7,9 @@ const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const target = process.argv[2] ?? 'worker';
 const port = target.startsWith('admin') ? 9332 : 9333;
 const root = `/private/tmp/atman-video-${target}`;
-const adminOrigin = target === 'admin-live' ? 'https://admin.itdot.co.kr' : 'http://localhost:3002';
-const workerOrigin = target === 'worker-live' ? 'https://itdot.co.kr' : 'http://localhost:3003';
+const live = target.endsWith('-live');
+const adminOrigin = live ? 'https://admin.itdot.co.kr' : 'http://localhost:3002';
+const workerOrigin = live ? 'https://itdot.co.kr' : 'http://localhost:3003';
 
 async function authStorageKey() {
   const env = await fs.readFile('apps/admin-web/.env.local', 'utf8');
@@ -99,7 +100,7 @@ async function main() {
     const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await fs.writeFile(`${root}/${name}.png`, Buffer.from(data, 'base64'));
   }
-  if (target === 'public') {
+  if (target === 'public' || target === 'public-live') {
     await go(`${workerOrigin}/`); await shot('01-worker-entry');
     await go(`${workerOrigin}/demo`); await shot('02-worker-demo');
     await go(`${workerOrigin}/gig/demo`); await shot('03-gig-demo');
@@ -203,7 +204,7 @@ async function main() {
         const headers = { Authorization: 'Bearer ' + ${JSON.stringify(credentials.accessToken)}, 'content-type': 'application/json' };
         const session = await fetch('/api/admin-session', { method: 'POST', headers });
         if (!session.ok) throw new Error('관리자 세션 설정 실패');
-        const facility = await fetch('/api/set-facility', { method: 'POST', headers, body: ${JSON.stringify(target === 'admin-gig' ? JSON.stringify({ demoKind: 'gigworker' }) : '{}')} });
+        const facility = await fetch('/api/set-facility', { method: 'POST', headers, body: ${JSON.stringify(target.startsWith('admin-gig') ? JSON.stringify({ demoKind: 'gigworker' }) : '{}')} });
         if (!facility.ok) throw new Error('시연 사업장 설정 실패');
         return true;
       })()
