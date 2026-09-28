@@ -10,6 +10,7 @@ import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-work
 import { getAdminContext } from '@/lib/admin-auth';
 import { OperationsFlow } from '@/components/OperationsFlow';
 import { QrCanvas } from '@/components/QrCanvas';
+import { AdminInstallButton } from '@/components/AdminInstallButton';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
   const brnFailed = (await searchParams).brn === 'failed';
@@ -52,6 +53,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
       <section className="mt-4 rounded-2xl bg-white p-5 shadow-card"><p className="text-[14px] font-extrabold text-ink">지금 확인할 일</p><div className="mt-3 divide-y divide-line"><Link href="/timesheet" className="flex items-center justify-between py-3"><span><b className="text-[14px] text-ink">출퇴근 확인</b><span className="ml-2 text-[12px] text-sub">조기 퇴근·미출근·인증 실패</span></span><b className="text-primary">{attendanceReviewCount}건 ›</b></Link><Link href="/staff?view=contract&entry=gigworker" className="flex items-center justify-between py-3"><span><b className="text-[14px] text-ink">초대 대기</b><span className="ml-2 text-[12px] text-sub">연결 {connectedCount}명 · 링크 대기 {pendingInviteCount}명</span></span><b className="text-primary">관리 →</b></Link></div></section>
       <Link href="/gig-pay" className="mt-3 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-card active:bg-bg"><span><b className="block text-[16px] text-ink">지급 관리</b><span className="mt-1 block text-[12px] text-sub">근무 끝나면 바로, 또는 날짜를 정해 지급 기록 → 근무자 앱 알림</span></span><span className="text-[20px] font-bold text-primary">→</span></Link>
       <Link href="/membership" className="mt-5 flex items-center justify-between rounded-xl bg-bg px-4 py-3 text-[12px] text-sub"><span>긱워커 근태 무료 베타 · 최대 3명</span><b className="text-primary">이용 안내 →</b></Link>
+      {shop.isDemo && <AdminInstallButton compact />}
       {shop.isDemo && (()=>{const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL??(process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');const demoUrl=`${workerOrigin}/gig/demo`;return <section className="mt-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-card"><div className="flex items-center gap-4"><QrCanvas value={demoUrl} size={112} label="워커 시연 QR"/><div className="min-w-0"><p className="text-[11px] font-extrabold tracking-[0.12em] text-primary">워커 기기</p><p className="mt-1 text-[15px] font-extrabold text-ink">이 QR을 찍으면 긱워커 시연 계정으로 바로 시작돼요</p><p className="mt-1 break-all text-[12px] text-sub">{demoUrl}</p><p className="mt-1 text-[11px] text-sub">초대 수락 → 닿기 출근 → 이 화면에 반영. 다시 찍으면 처음부터.</p></div></div></section>;})()}
     </main>;
   }
@@ -146,6 +148,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         </span>
         <span className="text-label font-bold text-primary flex-shrink-0 ml-2">요금·청구 →</span>
       </Link>
+      {shop.isDemo && <div className="mb-4"><AdminInstallButton compact /></div>}
     </main>
   );
 }

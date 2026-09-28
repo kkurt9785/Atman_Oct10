@@ -41,7 +41,9 @@ async function getFacilityPlan(sb: SupabaseClient, facilityId: string): Promise<
 export async function requireStaffCapacity(sb: SupabaseClient, facilityId: string): Promise<void> {
   const plan = await getFacilityPlan(sb, facilityId);
   const { count, error } = await sb.from('facility_staff').select('id', { count: 'exact', head: true })
-    .eq('facility_id', facilityId).neq('status', 'ended');
+    .eq('facility_id', facilityId).neq('status', 'ended')
+    // 종료일이 지난 단기 계약은 동시 관리 인원에서 제외한다. 기록과 정산은 그대로 남는다.
+    .or(`contract_end.is.null,contract_end.gte.${todayKST()}`);
   if (error) throw new Error('직원 사용량을 확인하지 못했어요.');
   if ((count ?? 0) < plan.includedAttendanceSlots) return;
   throw new Error(`${plan.name} 요금제는 직원 ${plan.includedAttendanceSlots}명까지 관리할 수 있어요.`);

@@ -2,6 +2,8 @@
 // 오프라인 캐싱은 하지 않는다 (근태·급여 데이터는 항상 최신이어야 함).
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => event.waitUntil(clients.claim()));
+// 설치 가능 조건을 안정적으로 충족하되, 운영 데이터는 캐시하지 않고 네트워크로 전달한다.
+self.addEventListener('fetch', () => {});
 self.addEventListener('push', (event) => {
   const payload = event.data?.json?.() ?? {};
   event.waitUntil(self.registration.showNotification(payload.title ?? '잇닿 근태 알림', {

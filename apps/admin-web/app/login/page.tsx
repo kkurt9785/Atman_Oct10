@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
 import { BrandMark, Wordmark } from '@/components/BrandMark';
+import { AdminInstallButton } from '@/components/AdminInstallButton';
 import { subscribeToAdminPush } from '@/lib/push-subscribe';
 
 // 시연용 계정. 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN으로 빌드 시 결정된다.
@@ -146,6 +147,7 @@ function LoginInner() {
             {demoError && (
               <p role="alert" className="text-[12px] font-bold text-red-500 text-center mt-2">{demoError}</p>
             )}
+            <AdminInstallButton />
             <DemoShareCard />
           </div>
         )}

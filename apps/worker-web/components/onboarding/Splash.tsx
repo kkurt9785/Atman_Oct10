@@ -10,7 +10,7 @@ import { Wordmark } from '@/components/brand/BrandMark';
 
 const DEMO_WORKERS = [
   { email: 'worker-demo-1@demo.atman.co.kr', label: '간호사 · 10명 내외 병원·요양병원' },
-  { email: 'worker-demo-4@demo.atman.co.kr', label: '긱워커 · 초대 근태', gigworker: true },
+  { email: 'worker-gig-demo@demo.atman.co.kr', label: '긱워커 · 초대 근태', gigworker: true },
   { email: 'worker-demo-5@demo.atman.co.kr', label: '간호조무사 · 요양병원' },
   { email: 'worker-demo-2@demo.atman.co.kr', label: '전산·사무직 · 약국' },
   { email: 'worker-demo-6@demo.atman.co.kr', label: '약사 · 약국' },

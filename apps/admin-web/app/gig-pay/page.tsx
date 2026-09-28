@@ -40,7 +40,7 @@ export default async function GigPayPage() {
       {board.map((row) => (
         <section key={row.staffId} className="rounded-2xl bg-white p-4 shadow-card">
           <div className="flex items-start justify-between gap-3">
-            <div><p className="text-[16px] font-extrabold text-ink">{row.name}</p><p className="mt-0.5 text-[12px] text-sub">{row.payBasis && row.payRate ? `${PAY[row.payBasis]} ${won(row.payRate)}` : '급여 기준 미설정'} · {!row.workerLinked ? '앱 미연결' : row.accountNumber ? '지급 계좌 전달 완료' : row.unpaidDays > 0 ? '근무자 계좌 전달 대기' : '근무 완료 후 계좌 전달'}</p></div>
+            <div><div className="flex items-center gap-2"><p className="text-[16px] font-extrabold text-ink">{row.name}</p>{row.status==='ended'&&<span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-bold text-sub">근무 종료</span>}</div><p className="mt-0.5 text-[12px] text-sub">{row.payBasis && row.payRate ? `${PAY[row.payBasis]} ${won(row.payRate)}` : '급여 기준 미설정'} · {!row.workerLinked ? '앱 미연결' : row.accountNumber ? '지급 계좌 전달 완료' : row.unpaidDays > 0 ? '근무자 계좌 전달 대기' : '근무 완료 후 계좌 전달'}</p></div>
             <span className="shrink-0 text-[18px] font-extrabold text-primary">{won(row.unpaidAmount)}</span>
           </div>
           <p className="mt-2 rounded-xl bg-bg px-3 py-2 text-[12px] text-sub">{row.unpaidDays > 0 ? `${row.unpaidSince} ~ ${row.unpaidUntil} · ${row.unpaidDays}일 · ${hours(row.unpaidMinutes)}` : '마지막 지급 이후 완료된 근무가 없어요'}</p>

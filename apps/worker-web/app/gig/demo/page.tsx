@@ -8,7 +8,7 @@ import { rememberWorkerShell } from '@/lib/worker-mode';
 import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
 
 // 긱워커 시연 전용 입구: itdot.co.kr/gig/demo
-// 버튼 하나로 시연 계정(worker-demo-4)에 로그인하고, 팝업스토어 데모 근무지의 초대를 초기화해 초대 확인 화면으로 간다.
+// 버튼 하나로 의료 이력이 없는 긱 전용 시연 계정에 로그인하고, 팝업스토어 데모 근무지의 초대를 초기화해 초대 확인 화면으로 간다.
 // 관리자 앱 '긱워커 근태 시연'과 같은 근무지·같은 초대라 두 기기 시연이 그대로 이어진다. 몇 번을 눌러도 처음 상태로 돌아온다.
 // 노출은 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 으로만 막는다 (주소를 아는 사람만 온다).
 

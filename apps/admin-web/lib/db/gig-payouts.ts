@@ -11,6 +11,7 @@ export type GigPayout = {
 };
 export type GigPayoutStaff = {
   staffId: string; name: string; workerLinked: boolean;
+  status: 'active' | 'leave' | 'ended';
   payBasis: 'hourly' | 'daily' | 'monthly' | null; payRate: number | null;
   bankName: string | null; accountNumber: string | null; accountLast4: string | null;
   accountHolderName: string | null; bankSharedAt: string | null;
@@ -48,7 +49,7 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
   const today = todayKST();
   const [{ data: staff, error: staffError }, { data: payouts, error: payoutError }] = await Promise.all([
     sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start,status')
-      .eq('facility_id', facilityId).neq('status', 'ended').order('name'),
+      .eq('facility_id', facilityId).order('name'),
     sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled').order('period_end', { ascending: false }),
   ]);
   if (staffError || payoutError) throw new Error('긱워커 지급 정보를 불러오지 못했어요.');
@@ -82,6 +83,7 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
     const rate = row.pay_rate == null ? null : Number(row.pay_rate);
     rows.push({
       staffId, name: row.name as string, workerLinked: Boolean(row.worker_id),
+      status: row.status as GigPayoutStaff['status'],
       payBasis: basis, payRate: rate,
       bankName: sharedBank?.bank_name ?? null,
       accountNumber: sharedBank?.account_number ?? null,

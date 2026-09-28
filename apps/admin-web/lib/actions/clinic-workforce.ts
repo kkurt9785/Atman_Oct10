@@ -418,14 +418,38 @@ export async function setStaffPayAction(form:FormData){
   revalidatePath('/staff');revalidatePath('/payroll');
 }
 
-export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay';
+export async function endGigStaffAction(form:FormData){
+  const context=await requireAdminContext(['owner','operator','super']);
+  const sb=adminClient();
+  if(!sb)throw new Error('서버 설정을 확인해 주세요.');
+  const staffId=text(form,'staff_id');
+  const [{data:facility},{data:staff}]=await Promise.all([
+    sb.from('facilities').select('facility_type,registration_source').eq('id',context.facilityId).maybeSingle(),
+    sb.from('facility_staff').select('id,name,status').eq('id',staffId).eq('facility_id',context.facilityId).maybeSingle(),
+  ]);
+  if(!isGigworkerFacility(facility))throw new Error('긱워커 근무지에서만 근무자를 종료할 수 있어요.');
+  if(!staff||staff.status==='ended')throw new Error('이미 종료됐거나 찾을 수 없는 근무자예요.');
+  const {count,error:attendanceError}=await sb.from('staff_attendances').select('id',{count:'exact',head:true})
+    .eq('staff_id',staffId).in('status',['working','late','checkout_pending']);
+  if(attendanceError)throw new Error('진행 중인 근태를 확인하지 못했어요.');
+  if((count??0)>0)throw new Error('출근 중이거나 조기 퇴근 승인 대기인 기록을 먼저 확정해 주세요.');
+  const now=new Date().toISOString();
+  const {error}=await sb.from('facility_staff').update({status:'ended',updated_at:now})
+    .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
+  if(error)throw new Error('근무 종료를 저장하지 못했어요.');
+  await sb.from('facility_staff_invites').update({status:'cancelled'})
+    .eq('staff_id',staffId).eq('status','pending');
+  revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/workroom');revalidatePath('/gig-pay');revalidatePath('/');
+}
+
+export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay'|'end_staff';
 export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string;data?:unknown}>{
   try{
     const actions:Record<WorkforceActionKind,(data:FormData)=>Promise<unknown>>={
       add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,shift_attendance:recordShiftAdminAttendanceAction,add_leave:addStaffLeaveAction,
       set_balance:setStaffLeaveBalanceAction,decide_leave:decideStaffLeaveAction,
       early_checkout:decideEarlyCheckoutAction,shift_early_checkout:decideShiftEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
-      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,set_staff_pay:setStaffPayAction,
+      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,set_staff_pay:setStaffPayAction,end_staff:endGigStaffAction,
     };
     const data=await actions[kind](form);
     return {ok:true,data};

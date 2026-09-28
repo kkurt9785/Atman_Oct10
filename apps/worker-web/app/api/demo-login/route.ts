@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const ALLOWED = new Set(Array.from({ length: 6 }, (_, index) => `worker-demo-${index + 1}@demo.atman.co.kr`));
+const GIG_DEMO_EMAIL = 'worker-gig-demo@demo.atman.co.kr';
+const ALLOWED = new Set([
+  ...Array.from({ length: 6 }, (_, index) => `worker-demo-${index + 1}@demo.atman.co.kr`),
+  GIG_DEMO_EMAIL,
+]);
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
 function rateLimited(request: NextRequest) {
@@ -31,7 +35,7 @@ export async function POST(request: NextRequest) {
   const code = typeof body.code === 'string' ? body.code.trim().toUpperCase() : '';
   const isGigworkerDemo = code === 'GIG2026';
   const email = isGigworkerDemo
-    ? 'worker-demo-4@demo.atman.co.kr'
+    ? GIG_DEMO_EMAIL
     : typeof body.email === 'string' ? body.email.toLowerCase() : '';
   const password = process.env.DEMO_ACCOUNT_PASSWORD;
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;

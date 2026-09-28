@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 // 어느 셸을 보여 줄지는 이 파일 하나가 정한다. 화면에서 registration_source 나 localStorage 를 직접 읽지 않는다.
 
 export const GIGWORKER_SOURCE = 'gigworker_trial';
+export const GIGWORKER_DEMO_EMAIL = 'worker-gig-demo@demo.atman.co.kr';
 export const GIGWORKER_MODE_KEY = 'atman_gigworker_mode';
 export const WORKER_MODE_CHANGED_EVENT = 'atman:worker-mode-changed';
 
@@ -23,7 +24,7 @@ export function isMedicalShellPath(path: string) {
 }
 
 type FacilityRelation = { id?: string; registration_source?: string | null };
-type StaffLinkRelation = { id?: string; facilities?: FacilityRelation | FacilityRelation[] | null };
+type StaffLinkRelation = { id?: string; status?: string | null; facilities?: FacilityRelation | FacilityRelation[] | null };
 
 export function facilityOfLink(row: unknown): FacilityRelation | null {
   const facilities = (row as StaffLinkRelation)?.facilities;
@@ -39,6 +40,10 @@ export function getFacilityRegistrationSources(rows: unknown[] | null | undefine
 
 export function isGigworkerSource(source: string | null | undefined) {
   return source === GIGWORKER_SOURCE;
+}
+
+export function isGigworkerDemoEmail(email: string | null | undefined) {
+  return email?.toLowerCase() === GIGWORKER_DEMO_EMAIL;
 }
 
 export function hasGigworkerLink(sources: string[]) {
@@ -123,10 +128,12 @@ async function fetchWorkerShellContext(knownUser?: User | null): Promise<WorkerS
   const user = knownUser ?? (await supabase.auth.getUser()).data.user;
   if (!user) return null;
   const [{ data: staffLinks }, { data: worker }] = await Promise.all([
-    supabase.from('facility_staff').select('id,facilities(id,registration_source)').neq('status', 'ended'),
+    // 종료된 긱 근무도 정산·지급 알림을 계속 볼 수 있어야 한다. 의료 직원의 종료 관계는 셸 판단에서 제외한다.
+    supabase.from('facility_staff').select('id,status,facilities(id,registration_source)'),
     supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
   ]);
-  const links = (staffLinks ?? []) as StaffLinkRelation[];
+  const links = ((staffLinks ?? []) as StaffLinkRelation[]).filter((link) =>
+    link.status !== 'ended' || isGigworkerSource(facilityOfLink(link)?.registration_source));
   const sources = getFacilityRegistrationSources(links);
   const role = worker?.role ?? null;
   const gigLinks = links.filter((link) => isGigworkerSource(facilityOfLink(link)?.registration_source));
@@ -138,7 +145,8 @@ async function fetchWorkerShellContext(knownUser?: User | null): Promise<WorkerS
     sources,
     hasGig: hasGigworkerLink(sources),
     hasMedical: hasMedicalContext(sources, role),
-    shell: resolveWorkerShell(sources, role),
+    // 전용 긱 데모는 초대를 초기화해 아직 staff 연결이 없는 순간에도 /home 으로 새면 안 된다.
+    shell: isGigworkerDemoEmail(user.email) ? 'gig' : resolveWorkerShell(sources, role),
     gigStaffIds,
     gigFacilityIds,
   };
