@@ -16,7 +16,7 @@ const hours = (minutes: number) => `${Math.floor(minutes / 60)}시간${minutes %
 export default async function GigPayPage() {
   const shop = await getShop();
   if (!shop) redirect('/setup/claim-facility');
-  if (shop.mode !== 'gig') redirect('/');
+  // 긱 사업장이든 병원이든, 긱 근무자가 있으면 쓴다 (getGigPayoutBoard 가 worker_kind='gig' 만 모은다)
   const context = await getAdminContext();
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super' || context?.accessRole === 'operator';
   if (!context || !canManage) redirect('/');
@@ -26,7 +26,7 @@ export default async function GigPayPage() {
   const paid = board.flatMap((row) => row.payouts.filter((p) => p.status === 'paid').map((p) => ({ ...p, name: row.name }))).sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? '')).slice(0, 10);
 
   return <main className="px-4 pb-28">
-    <ManageBackLink href="/" label="홈" />
+    <ManageBackLink href={shop.mode === 'gig' ? '/' : '/staff?view=contract'} label={shop.mode === 'gig' ? '홈' : '직원 관리'} />
     <div className="mt-3 mb-4 px-1"><p className="text-label font-bold text-primary">근무 끝나면 바로, 또는 날짜를 정해서</p><h1 className="text-display font-extrabold text-ink">지급 관리</h1><p className="mt-1 text-label leading-5 text-sub">완료된 출퇴근 기록으로 금액을 계산해요. 송금은 사장님이 하고, 여기서 기록하면 근무자 앱에 바로 알림이 가요.</p></div>
 
     <div className="grid grid-cols-2 gap-3">

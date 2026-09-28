@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
 import { amountFor, summarizeWork } from '@/lib/db/gig-payouts';
-import { isGigworkerFacility } from '@/lib/facility-mode';
+import { isGigStaff } from '@/lib/facility-mode';
 import { withholding } from '@/lib/withholding';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 
@@ -12,11 +12,10 @@ const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim()
 function todayKST() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
 function nextDay(date: string) { return new Date(new Date(`${date}T00:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10); }
 
-async function requireGigworkerFacility(sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string) {
-  const { data: facility, error } = await sb.from('facilities').select('name,facility_type,registration_source')
-    .eq('id', facilityId).is('deleted_at', null).maybeSingle();
+// 지급은 사업장 종류와 무관하게 '긱 근무자'에게만 기록한다. 직원 월급은 /payroll 이 맡는다.
+async function requireFacility(sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string) {
+  const { data: facility, error } = await sb.from('facilities').select('name').eq('id', facilityId).is('deleted_at', null).maybeSingle();
   if (error || !facility) throw new Error('근무지를 찾을 수 없어요.');
-  if (!isGigworkerFacility(facility)) throw new Error('지급 관리는 긱워커 근무지에서만 사용할 수 있어요.');
   return facility;
 }
 
@@ -48,13 +47,14 @@ export async function createGigPayoutAction(form: FormData) {
   if (mode === 'later' && (payAt ?? '') < today) throw new Error('지급 예정일은 오늘 이후로 선택해 주세요.');
 
   const [{ data: staff }, facility, { data: last }, { data: bankShare }] = await Promise.all([
-    sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
-    requireGigworkerFacility(sb, context.facilityId),
+    sb.from('facility_staff').select('id,name,worker_id,worker_kind,pay_basis,pay_rate,contract_start').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
+    requireFacility(sb, context.facilityId),
     sb.from('gig_payouts').select('period_end').eq('facility_id', context.facilityId).eq('staff_id', staffId)
       .neq('status', 'cancelled').order('period_end', { ascending: false }).limit(1).maybeSingle(),
     sb.from('gig_bank_account_shares').select('bank_account_id').eq('facility_id', context.facilityId).eq('staff_id', staffId).maybeSingle(),
   ]);
   if (!staff) throw new Error('근무자를 찾을 수 없어요.');
+  if (!isGigStaff(staff)) throw new Error('직원 급여는 급여 관리(/payroll)에서 처리해 주세요. 지급 관리는 단기·긱 근무자 전용이에요.');
   if (!bankShare?.bank_account_id || !staff.worker_id) throw new Error('근무자가 지급 계좌를 전달한 뒤 지급할 수 있어요.');
   const { data: activeBank } = await sb.from('worker_bank_accounts').select('id').eq('id', bankShare.bank_account_id)
     .eq('worker_id', staff.worker_id).eq('is_primary', true).is('deleted_at', null).maybeSingle();
@@ -85,7 +85,7 @@ export async function markGigPayoutPaidAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
-  const facility = await requireGigworkerFacility(sb, context.facilityId);
+  const facility = await requireFacility(sb, context.facilityId);
   const payoutId = text(form, 'payout_id');
   const { data: payout, error } = await sb.from('gig_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString(), pay_at: todayKST(), updated_at: new Date().toISOString() })
@@ -101,7 +101,7 @@ export async function cancelGigPayoutAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
-  await requireGigworkerFacility(sb, context.facilityId);
+  await requireFacility(sb, context.facilityId);
   const payoutId = text(form, 'payout_id');
   const { data, error } = await sb.from('gig_payouts').update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('id', payoutId).eq('facility_id', context.facilityId).eq('status', 'scheduled').select('id').maybeSingle();

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { isGigworkerSource } from '@/lib/worker-mode';
+import { isGigLink } from '@/lib/worker-mode';
 import { BankAccount, type BankAccountValue } from '@/components/onboarding/BankAccount';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
 
-type FacilityRef = { id: string; name: string; registration_source?: string | null };
-type Staff = { id: string; name: string; status: string; facilities: FacilityRef | FacilityRef[] };
+type FacilityRef = { id: string; name: string };
+type Staff = { id: string; name: string; status: string; worker_kind?: string | null; facilities: FacilityRef | FacilityRef[] };
 type Bank = { id: string; bank_name: string | null; account_number_last4: string | null };
 type Share = { staff_id: string; bank_account_id: string; shared_at: string };
 type Payout = {
@@ -39,9 +39,9 @@ export default function GigSettlementPage() {
     if (!user) { window.location.replace('/'); return; }
     const [{ data: worker }, { data: staffRows }] = await Promise.all([
       supabase.from('workers').select('id,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
-      supabase.from('facility_staff').select('id,name,status,facilities(id,name,registration_source)').order('created_at', { ascending: false }),
+      supabase.from('facility_staff').select('id,name,status,worker_kind,facilities(id,name)').order('created_at', { ascending: false }),
     ]);
-    const linked = ((staffRows ?? []) as Staff[]).filter((item) => isGigworkerSource(facilityOf(item)?.registration_source));
+    const linked = ((staffRows ?? []) as Staff[]).filter(isGigLink);
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id ?? '');
     setWorkerName(worker?.name ?? user.user_metadata?.profile_nickname ?? '');

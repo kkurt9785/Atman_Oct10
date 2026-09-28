@@ -11,7 +11,7 @@ import {
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
-import { getFacilityRegistrationSources, hasGigworkerLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
+import { getLinkKinds, hasGigworkerLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
 const PROFILE_TOTAL = 4;
 
@@ -43,10 +43,10 @@ export default function SettingsPage() {
           .select('role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
-        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
+        supabase.from('facility_staff').select('worker_kind').neq('status', 'ended'),
       ]);
 
-      setGigworkerLinked(hasGigworkerLink(getFacilityRegistrationSources(staffLinks)));
+      setGigworkerLinked(hasGigworkerLink(getLinkKinds(staffLinks)));
       setRole(workerProf?.role ?? '');
       setLocations(locPref?.locations ?? []);
 

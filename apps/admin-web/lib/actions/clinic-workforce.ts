@@ -1,6 +1,6 @@
 'use server';
 
-import { isGigworkerFacility } from '@/lib/facility-mode';
+import { isGigStaff, isGigworkerFacility } from '@/lib/facility-mode';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient, userClient } from '../supabase';
@@ -81,7 +81,8 @@ export async function addClinicStaffAction(form: FormData) {
   const bankName=text(form,'bank_name')||null;
   const accountLast4=text(form,'account_last4')||null;
   const { data: facility } = await sb.from('facilities').select('facility_type,registration_source').eq('id',context.facilityId).maybeSingle();
-  const isGigworker=isGigworkerFacility(facility);
+  // 긱 근무자 = 긱 사업장 소속이거나, 병원·약국이 '외부 단기근로자 초대'로 등록한 사람 (facility_staff.worker_kind)
+  const isGigworker=isGigworkerFacility(facility)||text(form,'worker_kind')==='gig';
   if (!name || !['rn','na','pharmacist','pharmacy_staff','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if(facility?.facility_type==='pharmacy'&&!['pharmacist','pharmacy_staff','admin','other'].includes(role)){
     throw new Error('약국 직원은 약사·약국 전산/사무직·관리 직종으로 등록해 주세요.');
@@ -103,6 +104,7 @@ export async function addClinicStaffAction(form: FormData) {
     : { data: null };
   const { data: created, error } = await sb.from('facility_staff').insert({
     facility_id: context.facilityId, worker_id: linkedWorker?.id ?? null, name, phone,
+    worker_kind: isGigworker ? 'gig' : 'staff',
     role, department: text(form, 'department') || null, source: 'direct',
     engagement_type: engagementType, contract_start: contractStart, contract_end: contractEnd,
     default_start_time: text(form, 'default_start_time') || '09:00',
@@ -423,11 +425,8 @@ export async function endGigStaffAction(form:FormData){
   const sb=adminClient();
   if(!sb)throw new Error('서버 설정을 확인해 주세요.');
   const staffId=text(form,'staff_id');
-  const [{data:facility},{data:staff}]=await Promise.all([
-    sb.from('facilities').select('facility_type,registration_source').eq('id',context.facilityId).maybeSingle(),
-    sb.from('facility_staff').select('id,name,status').eq('id',staffId).eq('facility_id',context.facilityId).maybeSingle(),
-  ]);
-  if(!isGigworkerFacility(facility))throw new Error('긱워커 근무지에서만 근무자를 종료할 수 있어요.');
+  const {data:staff}=await sb.from('facility_staff').select('id,name,status,worker_kind').eq('id',staffId).eq('facility_id',context.facilityId).maybeSingle();
+  if(!isGigStaff(staff))throw new Error('단기·긱 근무자만 종료할 수 있어요. 직원은 직원 관리에서 퇴사 처리해 주세요.');
   if(!staff||staff.status==='ended')throw new Error('이미 종료됐거나 찾을 수 없는 근무자예요.');
   const {count,error:attendanceError}=await sb.from('staff_attendances').select('id',{count:'exact',head:true})
     .eq('staff_id',staffId).in('status',['working','late','checkout_pending']);

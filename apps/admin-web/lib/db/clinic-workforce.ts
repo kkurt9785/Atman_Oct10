@@ -1,4 +1,4 @@
-import { isGigworkerFacility } from '@/lib/facility-mode';
+import { isGigStaff, isGigworkerFacility } from '@/lib/facility-mode';
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST, yesterdayKST } from '../date';
@@ -12,6 +12,7 @@ export type ClinicStaff = {
   department: string | null;
   source: 'direct' | 'atman' | 'imported';
   engagementType: 'regular' | 'fixed_term' | 'temporary' | 'daily';
+  workerKind: 'staff' | 'gig';
   contractStart: string | null;
   contractEnd: string | null;
   workWeekdays: number[];
@@ -58,9 +59,9 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       .eq('facility_id',facilityId).lte('starts_on',today).gte('ends_on',today).neq('status','cancelled'),
   ]);
   const loadError = [staffResult.error, attendanceResult.error, balanceResult.error, leaveResult.error, facilityResult.error, assignmentResult.error].find(Boolean);
-  // 요일 일정은 긱워커 근무지(하루·반복 근무)에서만 근태를 가른다. 병원·약국 직원의 work_weekdays 는
-  // 등록 기본값(월~금)이 대부분이라 주말 근무를 막는 근거가 못 된다 — DB record_unified_attendance 와 같은 기준.
-  const enforceWeekdays = isGigworkerFacility(facilityResult.data);
+  // 요일 일정은 긱 근무자(하루·반복 근무)에게만 근태를 가른다. 직원의 work_weekdays 는
+  // 등록 기본값(월~금)이 대부분이라 주말 근무를 막는 근거가 못 된다 — DB record_unified_attendance 와 같은 기준(worker_kind).
+  const facilityIsGig = isGigworkerFacility(facilityResult.data);
   if (loadError) throw new Error(`직원·근태 정보를 불러오지 못했어요: ${loadError.message}`);
   const staff = staffResult.data;
   const attendance = attendanceResult.data;
@@ -92,6 +93,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   return ((staff ?? []) as any[]).map((row) => {
     const att: any = attendanceMap.get(row.id);
     const invite:any=inviteMap.get(row.id);
+    const enforceWeekdays = facilityIsGig || isGigStaff(row);
     const assignment:any=enforceWeekdays?assignmentMap.get(row.id):null;
     const workWeekdays=(assignment?.work_weekdays??row.work_weekdays??[1,2,3,4,5]).map(Number);
     const inContract=assignment?true:(!row.contract_start||row.contract_start<=today)&&(!row.contract_end||row.contract_end>=today);
@@ -99,7 +101,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
     const scheduledToday=row.status==='active'&&inContract&&(!enforceWeekdays||Boolean(assignment));
     return {
       id: row.id, workerId: row.worker_id, phone: row.phone, name: row.name, role: row.role, department: assignment?.title??row.department,
-      source: row.source, engagementType: row.engagement_type,
+      source: row.source, engagementType: row.engagement_type, workerKind: isGigStaff(row) ? 'gig' : 'staff',
       contractStart: assignment?.starts_on??row.contract_start, contractEnd: assignment?.ends_on??row.contract_end,
       workWeekdays, scheduledToday:scheduledToday||hasOpenAttendance,
       defaultStart: assignment?.start_time??row.default_start_time, defaultEnd: assignment?.end_time??row.default_end_time,

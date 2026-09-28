@@ -51,7 +51,7 @@ function ContractRangePicker(){
 
 type CreatedStaff={inviteToken?:string|null;linked?:boolean};
 
-export function StaffRegistrationForm({facilityType='clinic',initialEngagementType,workerOrigin}:{facilityType?:string;initialEngagementType?:string;workerOrigin?:string}){
+export function StaffRegistrationForm({facilityType='clinic',initialEngagementType,workerOrigin,workerKind='staff'}:{facilityType?:string;initialEngagementType?:string;workerOrigin?:string;workerKind?:'staff'|'gig'}){
   const [engagementType,setEngagementType]=useState(initialEngagementType??'');
   const [payBasis,setPayBasis]=useState(initialEngagementType?'hourly':'monthly');
   const [scheduleMode,setScheduleMode]=useState<'single'|'repeat'>('single');
@@ -69,6 +69,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
       setInviteUrl(result.inviteToken&&workerOrigin?`${workerOrigin}/gig/join?token=${result.inviteToken}`:'');
     }} className="px-5 pb-6">
       <input type="hidden" name="role" value="other"/>
+      <input type="hidden" name="worker_kind" value="gig"/>
       <input type="hidden" name="engagement_type" value={scheduleMode==='single'?'daily':'temporary'}/>
       <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
         <h3 className="col-span-2 text-[13px] font-extrabold text-ink">누가 근무하나요?</h3>
@@ -157,6 +158,8 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
       <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
     <input type="hidden" name="default_break_minutes" value="60"/>
+    {/* 병원·약국의 '외부 단기근로자 초대'(entry=gigworker)는 직원이 아니라 긱 근무자로 저장한다 — 지급·계좌·비공개 대화가 열린다 */}
+    <input type="hidden" name="worker_kind" value={workerKind}/>
     <button className="mt-7 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">직원 등록하기</button>
   </WorkforceActionForm>;
 }

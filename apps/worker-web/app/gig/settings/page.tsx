@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
-import { getFacilityRegistrationSources, hasMedicalContext, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
+import { getLinkKinds, hasMedicalContext, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
 // 핵심 3탭 밖의 보조 설정. 계좌·지급은 /gig/settlement 에서만 관리한다.
 export default function GigSettingsPage() {
@@ -25,9 +25,9 @@ export default function GigSettingsPage() {
       setName(user.user_metadata?.profile_nickname ?? '사용자');
       const [{ data: worker }, { data: staffLinks }] = await Promise.all([
         supabase.from('workers').select('id,role,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
-        supabase.from('facility_staff').select('facilities(registration_source)').neq('status', 'ended'),
+        supabase.from('facility_staff').select('worker_kind').neq('status', 'ended'),
       ]);
-      setCanSwitch(hasMedicalContext(getFacilityRegistrationSources(staffLinks), worker?.role));
+      setCanSwitch(hasMedicalContext(getLinkKinds(staffLinks), worker?.role));
       setPushEnabled(Boolean(await getExistingSubscription()));
     }
     void load();

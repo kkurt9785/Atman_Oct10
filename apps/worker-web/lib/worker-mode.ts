@@ -3,10 +3,12 @@ import { supabase } from '@/lib/supabase';
 
 // 워커 앱은 두 제품을 한 도메인에서 서비스한다.
 //   - 의료 워커 셸: 병원·약국 시프트 탐색·지원, 직원 근태(/home /shifts /applications /workplace /workroom /earnings /settings /notifications)
-//   - 긱워커 셸:   초대받은 단기 근무지의 출퇴근·워크룸만(/gig/*)
-// 어느 셸을 보여 줄지는 이 파일 하나가 정한다. 화면에서 registration_source 나 localStorage 를 직접 읽지 않는다.
+//   - 긱워커 셸:   초대받은 단기 근무의 출퇴근·워크룸만(/gig/*)
+// 어느 셸을 보여 줄지는 이 파일 하나가 정한다. 화면에서 worker_kind 나 localStorage 를 직접 읽지 않는다.
+// 긱 여부는 "사업장"이 아니라 "근무자 연결"(facility_staff.worker_kind) 기준이다 — 병원 안에도 긱 근무자가 있다.
 
-export const GIGWORKER_SOURCE = 'gigworker_trial';
+export const GIG_KIND = 'gig';
+export type WorkerKind = 'gig' | 'staff';
 export const GIGWORKER_DEMO_EMAIL = 'worker-gig-demo@demo.atman.co.kr';
 export const GIGWORKER_MODE_KEY = 'atman_gigworker_mode';
 export const WORKER_MODE_CHANGED_EVENT = 'atman:worker-mode-changed';
@@ -23,31 +25,37 @@ export function isMedicalShellPath(path: string) {
   return MEDICAL_SHELL_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }
 
-type FacilityRelation = { id?: string; registration_source?: string | null };
-type StaffLinkRelation = { id?: string; status?: string | null; facilities?: FacilityRelation | FacilityRelation[] | null };
+type FacilityRelation = { id?: string; name?: string | null };
+type StaffLinkRelation = { id?: string; status?: string | null; worker_kind?: string | null; facilities?: FacilityRelation | FacilityRelation[] | null };
 
 export function facilityOfLink(row: unknown): FacilityRelation | null {
   const facilities = (row as StaffLinkRelation)?.facilities;
   return (Array.isArray(facilities) ? facilities[0] : facilities) ?? null;
 }
 
-export function getFacilityRegistrationSources(rows: unknown[] | null | undefined) {
-  return (rows ?? []).flatMap((row) => {
-    const source = facilityOfLink(row)?.registration_source;
-    return source ? [source] : [];
-  });
+// 연결 행의 근무자 종류. 값이 없으면(옛 캐시·예상 밖 행) 직원으로 본다 — 긱 셸로 잘못 보내는 것보다 안전하다.
+export function kindOfLink(row: unknown): WorkerKind {
+  return (row as StaffLinkRelation)?.worker_kind === GIG_KIND ? 'gig' : 'staff';
 }
 
-export function isGigworkerSource(source: string | null | undefined) {
-  return source === GIGWORKER_SOURCE;
+export function getLinkKinds(rows: unknown[] | null | undefined): WorkerKind[] {
+  return (rows ?? []).map(kindOfLink);
+}
+
+export function isGigKind(kind: string | null | undefined) {
+  return kind === GIG_KIND;
+}
+
+export function isGigLink(row: unknown) {
+  return kindOfLink(row) === 'gig';
 }
 
 export function isGigworkerDemoEmail(email: string | null | undefined) {
   return email?.toLowerCase() === GIGWORKER_DEMO_EMAIL;
 }
 
-export function hasGigworkerLink(sources: string[]) {
-  return sources.some(isGigworkerSource);
+export function hasGigworkerLink(kinds: string[]) {
+  return kinds.some(isGigKind);
 }
 
 // 'other' 는 근태 초대로 간편 가입한 사람의 직군이라 의료 워커라는 근거가 못 된다.
@@ -55,9 +63,9 @@ export function isMedicalRole(role: string | null | undefined) {
   return Boolean(role) && role !== 'other';
 }
 
-// 의료 셸을 쓸 이유가 하나라도 있는가 — 병원·약국 직원으로 연결됐거나 의료 직군으로 등록했거나.
-export function hasMedicalContext(sources: string[], role: string | null | undefined) {
-  return sources.some((source) => !isGigworkerSource(source)) || isMedicalRole(role);
+// 의료 셸을 쓸 이유가 하나라도 있는가 — 어딘가에 직원(staff)으로 연결됐거나 의료 직군으로 등록했거나.
+export function hasMedicalContext(kinds: string[], role: string | null | undefined) {
+  return kinds.some((kind) => !isGigKind(kind)) || isMedicalRole(role);
 }
 
 export function getGigworkerModePreference() {
@@ -88,23 +96,23 @@ export function rememberWorkerShell(shell: WorkerShell) {
 }
 
 // 셸 판정 규칙 (우선순위 순)
-//   1. 긱 근무지가 없으면 항상 의료 셸
-//   2. 긱 근무지만 있고 의료 쪽 근거가 없으면 항상 긱 셸
+//   1. 긱 근무 연결이 없으면 항상 의료 셸
+//   2. 긱 연결만 있고 의료 쪽 근거가 없으면 항상 긱 셸
 //   3. 둘 다 있으면 마지막으로 쓴 셸
 export function resolveWorkerShell(
-  sources: string[],
+  kinds: string[],
   role: string | null | undefined,
   preferred = getGigworkerModePreference(),
 ): WorkerShell {
-  if (!hasGigworkerLink(sources)) return 'medical';
-  if (!hasMedicalContext(sources, role)) return 'gig';
+  if (!hasGigworkerLink(kinds)) return 'medical';
+  if (!hasMedicalContext(kinds, role)) return 'gig';
   return preferred ? 'gig' : 'medical';
 }
 
 export type WorkerShellContext = {
   user: User;
   role: string | null;
-  sources: string[];
+  kinds: WorkerKind[];
   hasGig: boolean;
   hasMedical: boolean;
   shell: WorkerShell;
@@ -128,25 +136,24 @@ async function fetchWorkerShellContext(knownUser?: User | null): Promise<WorkerS
   const user = knownUser ?? (await supabase.auth.getUser()).data.user;
   if (!user) return null;
   const [{ data: staffLinks }, { data: worker }] = await Promise.all([
-    // 종료된 긱 근무도 정산·지급 알림을 계속 볼 수 있어야 한다. 의료 직원의 종료 관계는 셸 판단에서 제외한다.
-    supabase.from('facility_staff').select('id,status,facilities(id,registration_source)'),
+    // 종료된 긱 근무도 정산·지급 알림을 계속 볼 수 있어야 한다. 직원의 종료 관계는 셸 판단에서 제외한다.
+    supabase.from('facility_staff').select('id,status,worker_kind,facilities(id)'),
     supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
   ]);
-  const links = ((staffLinks ?? []) as StaffLinkRelation[]).filter((link) =>
-    link.status !== 'ended' || isGigworkerSource(facilityOfLink(link)?.registration_source));
-  const sources = getFacilityRegistrationSources(links);
+  const links = ((staffLinks ?? []) as StaffLinkRelation[]).filter((link) => link.status !== 'ended' || isGigLink(link));
+  const kinds = getLinkKinds(links);
   const role = worker?.role ?? null;
-  const gigLinks = links.filter((link) => isGigworkerSource(facilityOfLink(link)?.registration_source));
+  const gigLinks = links.filter(isGigLink);
   const gigStaffIds = gigLinks.map((link) => link.id).filter((id): id is string => Boolean(id));
   const gigFacilityIds = [...new Set(gigLinks.map((link) => facilityOfLink(link)?.id).filter((id): id is string => Boolean(id)))];
   return {
     user,
     role,
-    sources,
-    hasGig: hasGigworkerLink(sources),
-    hasMedical: hasMedicalContext(sources, role),
+    kinds,
+    hasGig: hasGigworkerLink(kinds),
+    hasMedical: hasMedicalContext(kinds, role),
     // 전용 긱 데모는 초대를 초기화해 아직 staff 연결이 없는 순간에도 /home 으로 새면 안 된다.
-    shell: isGigworkerDemoEmail(user.email) ? 'gig' : resolveWorkerShell(sources, role),
+    shell: isGigworkerDemoEmail(user.email) ? 'gig' : resolveWorkerShell(kinds, role),
     gigStaffIds,
     gigFacilityIds,
   };

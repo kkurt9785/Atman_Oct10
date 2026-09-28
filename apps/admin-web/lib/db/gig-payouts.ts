@@ -48,8 +48,9 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
   if (!sb || !facilityId) return [];
   const today = todayKST();
   const [{ data: staff, error: staffError }, { data: payouts, error: payoutError }] = await Promise.all([
+    // 병원·약국에서는 직원과 긱 근무자가 섞여 있다 — 지급 보드는 긱 근무자만 다룬다
     sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start,status')
-      .eq('facility_id', facilityId).order('name'),
+      .eq('facility_id', facilityId).eq('worker_kind', 'gig').order('name'),
     sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled').order('period_end', { ascending: false }),
   ]);
   if (staffError || payoutError) throw new Error('긱워커 지급 정보를 불러오지 못했어요.');

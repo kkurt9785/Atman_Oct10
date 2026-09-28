@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { Wordmark } from '@/components/brand/BrandMark';
-import { hasMedicalContext, isGigworkerSource, loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
+import { getLinkKinds, hasMedicalContext, isGigLink, loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
 import { classifyNotice, noticeBelongsTo, type Notice } from '@/lib/notification-scope';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { InstallAppButton } from '@/components/InstallAppButton';
@@ -72,13 +72,13 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
   </main>;
 }
 
-type FacilityRef = { id: string; name: string; registration_source?: string | null };
+type FacilityRef = { id: string; name: string };
 type GigAssignment = {
   id: string; title: string; starts_on: string; ends_on: string; work_weekdays: number[];
   start_time: string; end_time: string; status: string;
 };
 type Staff = {
-  id: string; name: string; default_start_time: string; default_end_time: string;
+  id: string; name: string; default_start_time: string; default_end_time: string; worker_kind?: string | null;
   contract_start?: string | null; contract_end?: string | null; work_weekdays?: number[] | null;
   facilities: FacilityRef | FacilityRef[];
   gig_assignments?: GigAssignment[] | null;
@@ -129,15 +129,14 @@ function GigTodayContent() {
         setUnreadCount(((notices ?? []) as Notice[]).filter((row) => !row.read_at && noticeBelongsTo(classifyNotice(row, context), 'gig')).length);
       }).catch(() => undefined);
     const { data } = await supabase.from('facility_staff')
-      .select('id,name,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name,registration_source),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status)')
+      .select('id,name,worker_kind,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status)')
       .neq('status', 'ended').order('created_at', { ascending: false });
     const all = (data ?? []) as Staff[];
-    const linked = all.filter((item) => isGigworkerSource(facilityOf(item)?.registration_source));
+    const linked = all.filter(isGigLink);
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id ?? '');
     const { data: workerRow } = await supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
-    const sources = all.map((item) => facilityOf(item)?.registration_source).filter((source): source is string => Boolean(source));
-    setHasMedicalLink(hasMedicalContext(sources, workerRow?.role));
+    setHasMedicalLink(hasMedicalContext(getLinkKinds(all), workerRow?.role));
     if (linked.length) {
       const facilityIds = [...new Set(linked.map((item) => facilityOf(item)?.id).filter(Boolean))] as string[];
       const [{ data: settings }, { data: records }] = await Promise.all([

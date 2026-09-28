@@ -4,19 +4,20 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 
 import {
-  GIGWORKER_SOURCE, hasMedicalContext, isMedicalShellPath, resolveWorkerShell,
+  GIG_KIND, hasMedicalContext, isMedicalShellPath, resolveWorkerShell,
 } from '@/lib/worker-mode';
 
-const GIG = GIGWORKER_SOURCE;
-const HOSPITAL = 'self_hospital';
+// 판정 재료는 근무자 연결의 종류(facility_staff.worker_kind)다 — 'gig' 또는 'staff'
+const GIG = GIG_KIND;
+const HOSPITAL = 'staff';
 
 describe('resolveWorkerShell — 셸 판정 규칙', () => {
-  it('긱 근무지가 없으면 무조건 의료 셸 (선호값 무시)', () => {
+  it('긱 연결이 없으면 무조건 의료 셸 (선호값 무시)', () => {
     expect(resolveWorkerShell([], 'rn', true)).toBe('medical');
     expect(resolveWorkerShell([HOSPITAL], 'other', true)).toBe('medical');
     expect(resolveWorkerShell([], null, true)).toBe('medical');
   });
-  it('긱 근무지만 있고 의료 근거가 없으면 무조건 긱 셸 (선호값 무시)', () => {
+  it('긱 연결만 있고 의료 근거가 없으면 무조건 긱 셸 (선호값 무시)', () => {
     expect(resolveWorkerShell([GIG], 'other', false)).toBe('gig');
     expect(resolveWorkerShell([GIG], null, false)).toBe('gig');
   });
@@ -33,7 +34,7 @@ describe('hasMedicalContext — 의료 셸을 쓸 근거', () => {
     expect(hasMedicalContext([GIG], 'other')).toBe(false);
     expect(hasMedicalContext([], 'other')).toBe(false);
   });
-  it('의료 직군이거나 병원·약국에 직원으로 연결되면 근거', () => {
+  it('의료 직군이거나 어딘가에 직원(staff)으로 연결되면 근거', () => {
     expect(hasMedicalContext([GIG], 'rn')).toBe(true);
     expect(hasMedicalContext([GIG, HOSPITAL], 'other')).toBe(true);
     expect(hasMedicalContext([], 'pharmacist')).toBe(true);

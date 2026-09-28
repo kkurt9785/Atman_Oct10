@@ -5,6 +5,8 @@
 // (예전에는 어떤 곳은 facility_type='gigworker' 를, 어떤 곳은 registration_source='gigworker_trial' 을 봐서 기준이 둘이었다.)
 
 export type FacilityMode = 'medical' | 'gig';
+// 근무자 종류. 사업장 종류와 별개다 — 병원 안에도 단기(긱) 근무자가 있다. facility_staff.worker_kind
+export type WorkerKind = 'staff' | 'gig';
 
 export const GIGWORKER_FACILITY_TYPE = 'gigworker';
 export const GIGWORKER_REGISTRATION_SOURCE = 'gigworker_trial';
@@ -27,10 +29,20 @@ export function facilityModeOf(facility: FacilityLike | null | undefined): Facil
   return isGigworkerFacility(facility) ? 'gig' : 'medical';
 }
 
+export function isGigStaff(row: { worker_kind?: string | null; workerKind?: string | null } | null | undefined) {
+  return (row?.worker_kind ?? row?.workerKind) === 'gig';
+}
+
+// 근무자 종류별 워커 앱 경로. 초대 링크는 사업장이 아니라 그 근무자가 쓰는 셸로 열려야 한다.
+export function workerShellPathsForKind(kind: WorkerKind) {
+  return workerShellPaths(kind === 'gig' ? 'gig' : 'medical');
+}
+
 // 긱워커 근무지에서는 없는 기능. 주소로 직접 들어와도 홈으로 돌려보낸다.
 // (공고 등록은 lib/actions/shifts.ts 가 서버에서도 한 번 더 막는다.)
+// 지급 관리(/gig-pay)는 긱 근무자가 있는 사업장이면 어디서든 쓰므로 어느 쪽 전용도 아니다.
 const MEDICAL_ONLY_PREFIXES = ['/shifts', '/applications', '/chats', '/leave', '/payroll', '/workforce', '/operations'];
-const GIG_ONLY_PREFIXES = ['/gig-pay'];
+const GIG_ONLY_PREFIXES: string[] = [];
 
 export function isMedicalOnlyPath(path: string) {
   return MEDICAL_ONLY_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
