@@ -19,7 +19,7 @@ export type BankAccountValue = { bankCode: string; bankName: string; accountNumb
 // onSkip 이 오면 계좌 없이 가입을 끝낼 수 있다. 사업장이 초대한 직원은 급여를
 // 사업장에서 직접 받으므로 가입 첫날 계좌를 요구할 이유가 없다.
 // compact: 설정 화면 안에 끼워 넣을 때 (온보딩용 제목·여백 없이 은행·계좌번호·저장 버튼만)
-export function BankAccount({ onNext, onSkip, submitting, submitError, compact = false }: { onNext: (value: BankAccountValue) => void; onSkip?: () => void; submitting?: boolean; submitError?: string; compact?: boolean }) {
+export function BankAccount({ onNext, onSkip, submitting, submitError, compact = false, shareOnInviteAccept = false }: { onNext: (value: BankAccountValue) => void; onSkip?: () => void; submitting?: boolean; submitError?: string; compact?: boolean; shareOnInviteAccept?: boolean }) {
   const [bankCode, setBankCode] = useState('');
   const [account, setAccount] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -40,11 +40,13 @@ export function BankAccount({ onNext, onSkip, submitting, submitError, compact =
       <label htmlFor="account-number" className="text-[13px] font-bold text-ink mb-2">계좌번호</label>
       <input id="account-number" type="tel" inputMode="numeric" autoComplete="off" aria-describedby="account-help" placeholder="숫자만 입력" value={account} onChange={(e) => setAccount(e.target.value.replace(/\D/g, '').slice(0, 20))} className="w-full h-[52px] px-4 bg-white rounded-card border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-2" />
       <div className={`bg-primary/5 border border-primary/15 rounded-xl p-3 ${compact ? "mb-4" : "mb-10"}`}>
-        <p id="account-help" className="text-[13px] text-sub leading-5">계좌번호는 서버에서 암호화해요. 등록만으로 관리자에게 공개되지 않으며, 근무 완료 후 직접 전달해야 보여요.</p>
+        <p id="account-help" className="text-[13px] text-sub leading-5">{shareOnInviteAccept
+          ? '계좌번호는 서버에서 암호화해요. 다음 화면에서 초대를 수락하면 해당 근무지의 지급 담당자에게만 전달됩니다.'
+          : '계좌번호는 서버에서 암호화해요. 등록만으로 관리자에게 공개되지 않으며, 내가 전달한 근무지에서만 확인할 수 있어요.'}</p>
       </div>
       <div className="mt-auto">
         {submitError && <p role="alert" className="text-[13px] font-bold text-red-600 text-center mb-3">{submitError}</p>}
-        <Button onClick={() => selected && onNext({ bankCode: selected.code, bankName: selected.name, accountNumber: account })} disabled={!selected || account.length < 8 || submitting}>{submitting ? '처리 중...' : '등록하고 시작하기'}</Button>
+        <Button onClick={() => selected && onNext({ bankCode: selected.code, bankName: selected.name, accountNumber: account })} disabled={!selected || account.length < 8 || submitting}>{submitting ? '처리 중...' : shareOnInviteAccept ? '계좌 저장하고 초대로 돌아가기' : '등록하고 시작하기'}</Button>
         {onSkip && (
           <button type="button" onClick={onSkip} disabled={submitting} className="mt-3 h-11 w-full text-[14px] font-bold text-sub disabled:opacity-50">
             계좌 없이 시작하기 · 나중에 등록

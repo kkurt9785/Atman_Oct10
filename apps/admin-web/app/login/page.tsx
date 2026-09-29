@@ -43,10 +43,13 @@ function LoginInner() {
   function handleKakaoLogin() {
     setLoading(true);
     const key = process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-    const scope = encodeURIComponent('openid profile_nickname profile_image');
-    window.location.href =
-      `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+    const state = crypto.randomUUID();
+    window.sessionStorage.setItem('itdot_admin_kakao_oauth_state', state);
+    const params = new URLSearchParams({
+      client_id: key ?? '', redirect_uri: `${window.location.origin}/auth/callback`,
+      response_type: 'code', scope: 'openid profile_nickname profile_image', state,
+    });
+    window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
   }
 
   // 데모 로그인 — 클라이언트 로그인 후 HttpOnly 서버 세션·시설 컨텍스트를 순서대로 수립
@@ -115,6 +118,11 @@ function LoginInner() {
       {error === 'unauthorized' && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
           <p role="alert" className="text-[13px] text-red-600 text-center">이 카카오 계정은 근무자용으로 가입돼 있어요.<br />사업장 계정은 다른 카카오 계정으로 로그인해 주세요.</p>
+        </div>
+      )}
+      {error === 'oauth_state' && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p role="alert" className="text-center text-[13px] text-amber-700">로그인 요청이 만료됐어요. 카카오 로그인을 다시 눌러 주세요.</p>
         </div>
       )}
 

@@ -1,18 +1,25 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { KAKAO_OAUTH_STATE_KEY } from '@/lib/kakao-login';
 
 function CallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [failed, setFailed] = useState(false);
+  const started = useRef(false);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     const code = searchParams.get('code');
-    if (!code) {
-      router.replace('/onboarding');
+    const returnedState = searchParams.get('state');
+    const expectedState = window.sessionStorage.getItem(KAKAO_OAUTH_STATE_KEY);
+    window.sessionStorage.removeItem(KAKAO_OAUTH_STATE_KEY);
+    if (!code || !returnedState || !expectedState || returnedState !== expectedState) {
+      setFailed(true);
       return;
     }
 

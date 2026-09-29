@@ -378,10 +378,13 @@ export async function createStaffInviteAction(form:FormData){
   if(!staff) throw new Error('직원을 찾지 못했어요.');
   if(staff.worker_id) throw new Error('이미 직원 계정과 연결돼 있어요.');
   const normalized=String(staff.phone??'').replace(/\D/g,'');
+  const {data:previousInvite}=await sb.from('facility_staff_invites').select('intended_worker_id')
+    .eq('staff_id',staffId).not('intended_worker_id','is',null).order('created_at',{ascending:false}).limit(1).maybeSingle();
   await sb.from('facility_staff_invites').update({status:'cancelled'})
     .eq('staff_id',staffId).eq('status','pending');
   const {error}=await sb.from('facility_staff_invites').insert({
     facility_id:context.facilityId,staff_id:staffId,phone_normalized:normalized||null,
+    intended_worker_id:previousInvite?.intended_worker_id??null,
     created_by:context.user.id,expires_at:new Date(Date.now()+7*86_400_000).toISOString(),
   });
   if(error) throw new Error('직원 초대를 만들지 못했어요.');
@@ -510,16 +513,15 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
     revalidatePath('/staff'); revalidatePath('/payroll');
     return { staffId: existing.id, inviteToken: null };
   }
-  // 같은 사람을 두 번 전환하지 않는다: 아직 수락 전인 전환 행이 있으면 그 초대를 다시 보내게 한다.
+  // 같은 사람을 두 번 전환하지 않는다. 전화번호가 아니라 이미 알고 있는 워커 계정 ID로 지정 초대를 찾는다.
   const normalizedPhone = String(worker.phone ?? '').replace(/\D/g, '');
-  if (normalizedPhone) {
-    const { data: pendingRow } = await sb.from('facility_staff').select('id')
-      .eq('facility_id', context.facilityId).eq('source','atman').is('worker_id', null).neq('status','ended').eq('phone', worker.phone).limit(1).maybeSingle();
-    if (pendingRow) {
-      const { data: pendingInvite } = await sb.from('facility_staff_invites').select('token')
-        .eq('staff_id', pendingRow.id).eq('status','pending').gt('expires_at', new Date().toISOString()).order('created_at',{ascending:false}).limit(1).maybeSingle();
-      if (pendingInvite?.token) return { staffId: pendingRow.id, inviteToken: pendingInvite.token as string };
-    }
+  const { data: pendingInvite } = await sb.from('facility_staff_invites').select('staff_id,token')
+    .eq('facility_id', context.facilityId).eq('intended_worker_id', worker.id).eq('status','pending')
+    .gt('expires_at', new Date().toISOString()).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if (pendingInvite) {
+    const {data:pendingRow}=await sb.from('facility_staff').select('id').eq('id',pendingInvite.staff_id)
+      .eq('facility_id',context.facilityId).eq('source','atman').is('worker_id',null).neq('status','ended').maybeSingle();
+    if(pendingRow)return {staffId:pendingRow.id,inviteToken:pendingInvite.token as string};
   }
   await requireStaffCapacity(sb, context.facilityId);
   const role = ['rn','na','pharmacist','pharmacy_staff'].includes(worker.role) ? worker.role : 'other';
@@ -534,7 +536,8 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
   }).select('id').single();
   if (error || !created) throw new Error('직원으로 전환하지 못했어요.');
   const { data: invite, error: inviteError } = await sb.from('facility_staff_invites').insert({
-    facility_id: context.facilityId, staff_id: created.id, phone_normalized: normalizedPhone || null, created_by: context.user.id,
+    facility_id: context.facilityId, staff_id: created.id, phone_normalized: normalizedPhone || null,
+    intended_worker_id: worker.id, created_by: context.user.id,
   }).select('token').single();
   if (inviteError || !invite?.token) throw new Error('직원은 등록됐지만 초대 링크를 만들지 못했어요. 직원 목록에서 다시 발급해 주세요.');
   revalidatePath('/staff'); revalidatePath('/timesheet');

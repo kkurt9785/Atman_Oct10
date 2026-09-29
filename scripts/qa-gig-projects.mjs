@@ -55,7 +55,9 @@ try {
   const { data: filled } = await service.from('gig_assignments').select('title,start_time,pay_rate,source,status').eq('project_id', projectId).eq('staff_id', staffId).maybeSingle();
   expect(filled?.title === '[QA] 주말 팝업 행사' && filled?.pay_rate === 15000 && filled?.source === 'admin' && filled?.status === 'active', '참여 건이 근무 건 일정·시급을 그대로 받음');
   // 관리자 메모 번호와 실제 워커 계정 번호가 달라도, 보유한 일회용 토큰을 로그인 계정이 직접 수락하면 연결돼야 한다.
-  const { data: invite } = await service.from('facility_staff_invites').insert({ facility_id: hospital.id, staff_id: staffId, phone_normalized: '01099998888' }).select('id,token').single();
+  const { data: invite } = await service.from('facility_staff_invites').insert({
+    facility_id: hospital.id, staff_id: staffId, phone_normalized: '01099998888', intended_worker_id: workerId,
+  }).select('id,token').single();
 
   // 3) 초대 미리보기: 사업장은 병원이지만 근무자가 긱 → 긱 셸에서 수락
   const anon = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
@@ -64,6 +66,13 @@ try {
 
   // 4) 이 병원에 아직 직원으로 연결되지 않은 의료 데모 워커를 골라 초대를 수락시킨다
   //    (한 워커는 한 근무지에 연결 하나 — 간호사 데모는 이미 W여성병원 직원이라 거부되는 게 맞다)
+  const wrongEmail = workerEmail === 'worker-demo-5@demo.atman.co.kr' ? 'worker-demo-2@demo.atman.co.kr' : 'worker-demo-5@demo.atman.co.kr';
+  const wrongLogin = await fetch(`${workerOrigin}/api/demo-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: wrongEmail }) }).then((r) => r.json());
+  expect(Boolean(wrongLogin?.accessToken), `다른 데모 워커 로그인 (${wrongEmail})`);
+  const wrongWorker = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${wrongLogin.accessToken}` } } });
+  const { data: wrongClaim, error: wrongClaimError } = await wrongWorker.rpc('claim_facility_staff_invite', { p_token: invite.token });
+  expect(Boolean(wrongClaimError) && String(wrongClaimError?.message).includes('지정') && !wrongClaim, '지정 초대를 다른 카카오 워커 계정으로 수락하면 차단');
+
   const login = await fetch(`${workerOrigin}/api/demo-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: workerEmail }) }).then((r) => r.json());
   expect(Boolean(login?.accessToken), `선택한 데모 워커 로그인 (${workerEmail || '없음'})`);
   worker = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${login.accessToken}` } } });
@@ -90,8 +99,17 @@ try {
   const { count: shareCount } = await service.from('gig_bank_account_shares').select('id', { count: 'exact', head: true }).eq('staff_id', staffId);
   const { data: staleClaim, error: staleError } = await worker.rpc('claim_facility_staff_invite', { p_token: invite.token });
   expect(unlinkedRow?.worker_id === null && (shareCount ?? 0) === 0 && Boolean(staleError) && !staleClaim, '해제 후 worker_id 비움 · 계좌 공유 회수 · 옛 링크 무효');
+  const { data: reissuedInvite } = await service.from('facility_staff_invites').select('intended_worker_id').eq('token', newToken).maybeSingle();
+  expect(reissuedInvite?.intended_worker_id === workerId, '지정 초대를 재발급해도 원래 대상 워커 계정 유지');
+  // 수기 등록 초대는 intended_worker_id가 없는 일반 일회용 링크다. 같은 claim 함수의 일반 경로도 함께 검증한다.
+  await service.from('facility_staff_invites').update({ intended_worker_id: null }).eq('token', newToken);
   const { data: reclaimed, error: reclaimError } = await worker.rpc('claim_facility_staff_invite', { p_token: newToken });
-  expect(!reclaimError && reclaimed === staffId, `새 초대로 다시 수락 ${reclaimError?.message ?? ''}`);
+  expect(!reclaimError && reclaimed === staffId, `대상 미지정 일반 초대로 다시 수락 ${reclaimError?.message ?? ''}`);
+
+  // 4d) 1:1 대화가 생긴 뒤 같은 staff_id를 다른 계정에 재사용하면 과거 대화가 노출되므로 해제를 막는다.
+  const { error: directMessageError } = await worker.rpc('send_staff_workroom_message', { p_staff_id: staffId, p_body: '[QA] 재연결 보호 확인' });
+  const { data: unsafeToken, error: unsafeUnlinkError } = await service.rpc('admin_unlink_facility_staff_worker', { p_staff_id: staffId });
+  expect(!directMessageError && Boolean(unsafeUnlinkError) && !unsafeToken, '1:1 대화 이력이 생긴 staff_id는 다른 계정으로 재연결 차단');
 
   // 5) 근무 건 수정 → 참여 일정 따라감 (트리거)
   await service.from('gig_projects').update({ start_time: '11:00', pay_rate: 16000 }).eq('id', projectId);

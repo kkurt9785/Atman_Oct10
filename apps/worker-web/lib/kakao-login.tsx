@@ -1,13 +1,22 @@
 // 카카오 로그인 시작. 카카오 인앱 브라우저는 OAuth 리다이렉트를 막으므로 외부 브라우저로 먼저 나간다.
+export const KAKAO_OAUTH_STATE_KEY = 'itdot_worker_kakao_oauth_state';
+
 export function startKakaoLogin() {
   if (navigator.userAgent.includes('KAKAO')) {
     window.location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(window.location.href);
     return;
   }
   const key = process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
-  const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-  const scope = encodeURIComponent('openid profile_nickname profile_image');
-  window.location.href = `https://kauth.kakao.com/oauth/authorize?client_id=${key}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+  const state = crypto.randomUUID();
+  window.sessionStorage.setItem(KAKAO_OAUTH_STATE_KEY, state);
+  const params = new URLSearchParams({
+    client_id: key ?? '',
+    redirect_uri: `${window.location.origin}/auth/callback`,
+    response_type: 'code',
+    scope: 'openid profile_nickname profile_image',
+    state,
+  });
+  window.location.href = `https://kauth.kakao.com/oauth/authorize?${params.toString()}`;
 }
 
 export function KakaoGlyph() {

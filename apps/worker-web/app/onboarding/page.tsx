@@ -207,7 +207,7 @@ function OnboardingInner() {
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); go('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); go('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} attendanceInvite={attendanceInvite} submitting={submitting} submitError={submitError} onNext={(value) => { setBasicInfo(value); if (inviteVariant === 'gig') { go('bank'); } else if (attendanceInvite) { void handleSubmit(null, value, 'other'); } else { go('area'); } }} />}
       {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); go('bank'); }} onSkip={() => { setAreas([]); go('bank'); }} />}
-      {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={inviteVariant === 'gig' ? undefined : () => handleSubmit(null)} submitting={submitting} submitError={submitError} />}
+      {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={inviteVariant === 'gig' ? undefined : () => handleSubmit(null)} submitting={submitting} submitError={submitError} shareOnInviteAccept={inviteVariant === 'gig'} />}
       {step === 'notification' && <NotificationSetup onNext={() => go(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
       {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}

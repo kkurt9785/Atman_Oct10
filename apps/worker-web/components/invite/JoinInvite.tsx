@@ -8,6 +8,7 @@ import { rememberWorkerShell } from '@/lib/worker-mode';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { InstallAppButton } from '@/components/InstallAppButton';
+import { startKakaoLogin } from '@/lib/kakao-login';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
 // (미리보기 → 카카오 가입 → claim)을 쓰되, 초대가 어느 제품 것인지는 서버(isGigworker)가 정한다.
@@ -136,7 +137,9 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     if (!token) return;
     rememberWorkerShell(variant);
     window.localStorage.setItem('atman_auth_next', `${routes.join}?token=${encodeURIComponent(token)}`);
-    window.location.href = signedIn ? '/onboarding?step=terms' : '/onboarding';
+    // 초대 화면에서 이미 카카오 계속하기를 눌렀으므로 온보딩 스플래시에서 같은 버튼을 다시 묻지 않는다.
+    if (!signedIn) { startKakaoLogin(); return; }
+    window.location.href = '/onboarding?step=terms';
   }
 
   async function claimInvite() {
@@ -193,7 +196,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       </div>}
 
       {status === 'preview' && preview && <>
-        <p className="mt-5 rounded-full bg-bg px-3 py-2 text-center text-[11px] font-bold text-sub">조건 확인 중 · 카카오 연결까지 약 1분 · 앱 추가는 선택</p>
+        <p className="mt-5 rounded-full bg-bg px-3 py-2 text-center text-[11px] font-bold text-sub">조건 확인 중 · 카카오로 안전하게 연결 · 앱 추가는 선택</p>
         <button type="button" onClick={() => void claimInvite()} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
           {!signedIn ? '카카오로 가입하고 잇기' : !hasWorker ? '인적사항 등록하고 잇기' : '잇기 · 초대 수락하고 연결'}
         </button>
