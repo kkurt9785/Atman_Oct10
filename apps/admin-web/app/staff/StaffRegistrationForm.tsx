@@ -61,8 +61,10 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
   const needsContract=engagementType&&engagementType!=='regular';
   const isPharmacy=facilityType==='pharmacy';
   const isGigworker=isGigworkerFacility({facility_type:facilityType});
+  // 긱 근무자 등록은 사업장 종류와 무관하게 간단 폼: 이름·일정·시급 → 잇기 링크. 직종·부서·계약 폼은 직원용이다.
+  const useGigForm=isGigworker||workerKind==='gig';
 
-  if(isGigworker){
+  if(useGigForm){
     return <WorkforceActionForm kind="add_staff" successMessage="근무자와 초대 정보를 만들었어요." onSuccess={(raw)=>{
       const result=(raw??{}) as CreatedStaff;
       setLinked(Boolean(result.linked));
@@ -103,7 +105,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
         <summary className="cursor-pointer text-[13px] font-extrabold text-sub">급여 기준도 함께 기록하기 · 선택</summary>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" className={inputClass} defaultValue=""><option value="">선택 안 함</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
-          <label className="text-label font-medium text-sub">금액<input name="pay_rate" type="number" min="1" step="100" className={inputClass} placeholder="예: 15000"/></label>
+          <label className="text-label font-medium text-sub">금액<input name="pay_rate" type="number" min="0" step="100" className={inputClass} placeholder="예: 15000"/></label>
         </div>
       </details>
 
@@ -112,7 +114,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
         {!linked&&<><p className="mt-1 text-[12px] leading-5 text-sub">근무자가 링크나 QR을 열어 가입하면 전화번호 대조 없이 이 사업장과 워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div></>}
       </section>}
       <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 가입 링크 만들기</button>
-      <p className="mt-2 text-center text-[11px] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>
+      {isGigworker&&<p className="mt-2 text-center text-[11px] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>}
     </WorkforceActionForm>;
   }
 

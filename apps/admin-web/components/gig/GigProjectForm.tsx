@@ -49,7 +49,7 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
     </section>
 
     <section className="mt-5 grid grid-cols-2 gap-3">
-      <label className="text-label font-medium text-sub">시급 <span className="font-normal text-tertiary">· 이 근무 공통</span><input name="pay_rate" type="number" min="1" step="100" defaultValue={project?.payRate ?? ''} className={inputClass} placeholder="예: 15000" /></label>
+      <label className="text-label font-medium text-sub">시급 <span className="font-normal text-tertiary">· 이 근무 공통</span><input name="pay_rate" type="number" min="0" step="100" defaultValue={project?.payRate ?? ''} className={inputClass} placeholder="예: 15000" /></label>
       <label className="text-label font-medium text-sub">필요 인원<input name="headcount" type="number" min="1" max="200" required defaultValue={project?.headcount ?? 1} className={inputClass} /></label>
       <label className="col-span-2 text-label font-medium text-sub">메모 <span className="font-normal text-tertiary">· 선택, 관리자만 봄</span><input name="note" maxLength={500} defaultValue={project?.note ?? ''} className={inputClass} placeholder="예: 행사장 2층 안내데스크 집합" /></label>
     </section>

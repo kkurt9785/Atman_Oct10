@@ -49,11 +49,12 @@ export default async function GigPayPage() {
           {!row.payBasis || !row.payRate ? (
             <WorkforceActionForm kind="set_staff_pay" values={{ staff_id: row.staffId }} className="mt-3 grid grid-cols-3 gap-2" successMessage="급여 기준을 저장했어요.">
               <select name="pay_basis" defaultValue="hourly" className="h-10 rounded-xl border border-line bg-white px-2 text-[12px]"><option value="hourly">시급</option><option value="daily">일급</option></select>
-              <input name="pay_rate" type="number" min="1" step="100" required placeholder="금액" className="h-10 rounded-xl border border-line bg-white px-2 text-[12px]" />
+              <input name="pay_rate" type="number" min="0" step="100" required placeholder="금액" className="h-10 rounded-xl border border-line bg-white px-2 text-[12px]" />
               <button className="h-10 rounded-xl bg-ink text-[12px] font-extrabold text-white">저장</button>
             </WorkforceActionForm>
-          ) : canManage ? (
-            <CreatePayoutForm staffId={row.staffId} amount={row.unpaidAmount} disabled={row.unpaidDays === 0 || !row.accountNumber} disabledReason={row.unpaidDays > 0 && !row.accountNumber ? '지급 계좌 전달 대기 중' : undefined} />
+          ) : canManage && row.unpaidDays > 0 ? (
+            // 지급할 근무가 없으면 0원짜리 폼을 보여 주지 않는다 — 위 '완료된 근무가 없어요' 한 줄이면 충분하다
+            <CreatePayoutForm staffId={row.staffId} amount={row.unpaidAmount} disabled={!row.accountNumber} disabledReason={!row.accountNumber ? '지급 계좌 전달 대기 중' : undefined} />
           ) : null}
         </section>
       ))}
