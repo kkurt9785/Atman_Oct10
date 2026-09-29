@@ -38,7 +38,7 @@ export default function GigSettlementPage() {
     if (!user) { window.location.replace('/'); return; }
     const [{ data: worker }, { data: staffRows }] = await Promise.all([
       supabase.from('workers').select('id,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
-      supabase.from('facility_staff').select('id,name,status,worker_kind,facilities(id,name)').order('created_at', { ascending: false }),
+      supabase.from('facility_staff').select('id,name,status,worker_kind,facilities!facility_id(id,name)').order('created_at', { ascending: false }),
     ]);
     const linked = ((staffRows ?? []) as Staff[]).filter(isGigLink);
     setStaffList(linked);

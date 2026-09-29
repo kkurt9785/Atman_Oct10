@@ -134,7 +134,7 @@ function GigTodayContent() {
         setUnreadCount(((notices ?? []) as Notice[]).filter((row) => !row.read_at && noticeBelongsTo(classifyNotice(row, context), 'gig')).length);
       }).catch(() => undefined);
     const { data } = await supabase.from('facility_staff')
-      .select('id,name,worker_kind,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities(id,name),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source)')
+      .select('id,name,worker_kind,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities!facility_id(id,name),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source)')
       .neq('status', 'ended').order('created_at', { ascending: false });
     const all = (data ?? []) as Staff[];
     const linked = all.filter(isGigLink);

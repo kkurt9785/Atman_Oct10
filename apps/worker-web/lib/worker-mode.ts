@@ -137,7 +137,9 @@ async function fetchWorkerShellContext(knownUser?: User | null): Promise<WorkerS
   if (!user) return null;
   const [{ data: staffLinks }, { data: worker }] = await Promise.all([
     // 종료된 긱 근무도 정산·지급 알림을 계속 볼 수 있어야 한다. 직원의 종료 관계는 셸 판단에서 제외한다.
-    supabase.from('facility_staff').select('id,status,worker_kind,facilities(id)'),
+    // facilities 임베드에 FK 힌트가 꼭 필요하다: gig_assignments·gig_bank_account_shares 가 두 테이블 모두를 참조해
+    // PostgREST 가 다대다 경로로도 해석하기 때문 (힌트 없이 쓰면 'more than one relationship' 으로 조회 전체가 실패한다)
+    supabase.from('facility_staff').select('id,status,worker_kind,facilities!facility_id(id)'),
     supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
   ]);
   const links = ((staffLinks ?? []) as StaffLinkRelation[]).filter((link) => link.status !== 'ended' || isGigLink(link));

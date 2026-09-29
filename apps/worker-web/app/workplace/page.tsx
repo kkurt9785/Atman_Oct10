@@ -52,7 +52,7 @@ function WorkplaceContent() {
       window.location.href='/';
       return;
     }
-    const {data}=await supabase.from('facility_staff').select('id,name,worker_kind,default_start_time,default_end_time,facilities(id,name)').neq('status','ended').order('created_at',{ascending:false});
+    const {data}=await supabase.from('facility_staff').select('id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)').neq('status','ended').order('created_at',{ascending:false});
     const linked=((data??[]) as Staff[]).filter(item=>!isGigLink(item));
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id??'');
@@ -80,7 +80,7 @@ function WorkplaceContent() {
       // 오늘 확정 근무 + 어제 시작한 야간 근무(아직 퇴근 전) + 오늘 완료한 근무(완료 문구용)
       const yesterday=new Date(Date.now()+9*60*60*1000-24*60*60*1000).toISOString().slice(0,10);
       const {data:applications}=await supabase.from('shift_applications')
-        .select('id,checked_in_at,checked_out_at,status,shift_attendances(checkout_requested_at),shifts!inner(shift_date,start_time,end_time,facilities(id,name))')
+        .select('id,checked_in_at,checked_out_at,status,shift_attendances(checkout_requested_at),shifts!inner(shift_date,start_time,end_time,facilities!facility_id(id,name))')
         .eq('worker_id',worker.id).in('status',['accepted','completed']).in('shifts.shift_date',[yesterday,today]).limit(10);
       const list=((applications??[]) as unknown as Array<ShiftTarget&{status:string}>);
       const dateOf=(t:ShiftTarget)=>(Array.isArray(t.shifts)?t.shifts[0]:t.shifts).shift_date;
