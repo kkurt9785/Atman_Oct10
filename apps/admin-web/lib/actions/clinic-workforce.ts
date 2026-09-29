@@ -120,7 +120,7 @@ export async function addClinicStaffAction(form: FormData) {
   if (inviteError) throw new Error('직원은 등록됐지만 초대 링크를 만들지 못했어요. 직원 목록에서 다시 발급해 주세요.');
   const inviteToken=invite?.token??null;
   revalidatePath('/staff'); revalidatePath('/timesheet');
-  return {staffId:created.id,inviteToken,linked:false};
+  return {staffId:created.id,inviteToken};
 }
 
 export async function recordStaffAttendanceAction(form: FormData) {
@@ -388,6 +388,22 @@ export async function createStaffInviteAction(form:FormData){
   revalidatePath('/staff');
 }
 
+// 초대 링크는 소지자 인증이라 엉뚱한 사람이 수락할 수 있다. 연결을 끊고 계좌 공유를 회수한 뒤 새 일회용 초대를 돌려준다.
+export async function unlinkStaffWorkerAction(form:FormData){
+  const context=await requireAdminContext(['owner','operator','super']);
+  const sb=adminClient();
+  if(!sb) throw new Error('서버 설정을 확인해 주세요.');
+  const staffId=text(form,'staff_id');
+  const {data:staff}=await sb.from('facility_staff').select('id,worker_id,status')
+    .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended').maybeSingle();
+  if(!staff) throw new Error('근무자를 찾지 못했어요.');
+  if(!staff.worker_id) throw new Error('아직 연결된 계정이 없어요.');
+  const {data:token,error}=await sb.rpc('admin_unlink_facility_staff_worker',{p_staff_id:staffId,p_actor:context.user.id});
+  if(error||!token) throw new Error(error?.message??'연결을 해제하지 못했어요.');
+  revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/workroom');revalidatePath('/gig-pay');revalidatePath('/');
+  return {staffId,inviteToken:String(token)};
+}
+
 export async function setStaffPayAction(form:FormData){
   const context=await requireAdminContext(['owner','operator','super']);
   const sb=adminClient();
@@ -436,14 +452,14 @@ export async function endGigStaffAction(form:FormData){
   revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/workroom');revalidatePath('/gig-pay');revalidatePath('/');
 }
 
-export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'set_staff_pay'|'end_staff';
+export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'unlink_worker'|'set_staff_pay'|'end_staff';
 export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string;data?:unknown}>{
   try{
     const actions:Record<WorkforceActionKind,(data:FormData)=>Promise<unknown>>={
       add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,shift_attendance:recordShiftAdminAttendanceAction,add_leave:addStaffLeaveAction,
       set_balance:setStaffLeaveBalanceAction,decide_leave:decideStaffLeaveAction,
       early_checkout:decideEarlyCheckoutAction,shift_early_checkout:decideShiftEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
-      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,set_staff_pay:setStaffPayAction,end_staff:endGigStaffAction,
+      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,unlink_worker:unlinkStaffWorkerAction,set_staff_pay:setStaffPayAction,end_staff:endGigStaffAction,
     };
     const data=await actions[kind](form);
     return {ok:true,data};
@@ -483,38 +499,44 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
     .eq('id', workerId).is('deleted_at', null).maybeSingle();
   if (!worker) throw new Error('전환할 지원자 정보를 찾지 못했어요.');
   const shift = Array.isArray((match as any).shifts) ? (match as any).shifts[0] : (match as any).shifts;
-  const { data: bank } = await sb.from('worker_bank_accounts')
-    .select('bank_name,account_number_last4')
-    .eq('worker_id',worker.id).eq('is_primary',true).is('deleted_at',null)
-    .order('created_at',{ascending:false}).limit(1).maybeSingle();
-  const linkedPay = {
-    pay_basis: 'hourly',
-    pay_rate: Number(shift?.hourly_wage) || null,
-    bank_name: bank?.bank_name ?? null,
-    account_last4: bank?.account_number_last4 ?? null,
-  };
-  const { data: existing } = await sb.from('facility_staff').select('id,pay_basis,pay_rate,bank_name,account_last4')
-    .eq('facility_id', context.facilityId).eq('worker_id', worker.id).maybeSingle();
+  const { data: existing } = await sb.from('facility_staff').select('id,pay_basis,pay_rate')
+    .eq('facility_id', context.facilityId).eq('worker_id', worker.id).neq('status','ended').maybeSingle();
   if (existing) {
     await sb.from('facility_staff').update({
-      pay_basis:existing.pay_basis??linkedPay.pay_basis,
-      pay_rate:existing.pay_rate??linkedPay.pay_rate,
-      bank_name:existing.bank_name??linkedPay.bank_name,
-      account_last4:existing.account_last4??linkedPay.account_last4,
+      pay_basis:existing.pay_basis??'hourly',
+      pay_rate:existing.pay_rate??(Number(shift?.hourly_wage)||null),
       updated_at:new Date().toISOString(),
     }).eq('id',existing.id).eq('facility_id',context.facilityId);
     revalidatePath('/staff'); revalidatePath('/payroll');
-    return;
+    return { staffId: existing.id, inviteToken: null };
+  }
+  // 같은 사람을 두 번 전환하지 않는다: 아직 수락 전인 전환 행이 있으면 그 초대를 다시 보내게 한다.
+  const normalizedPhone = String(worker.phone ?? '').replace(/\D/g, '');
+  if (normalizedPhone) {
+    const { data: pendingRow } = await sb.from('facility_staff').select('id')
+      .eq('facility_id', context.facilityId).eq('source','atman').is('worker_id', null).neq('status','ended').eq('phone', worker.phone).limit(1).maybeSingle();
+    if (pendingRow) {
+      const { data: pendingInvite } = await sb.from('facility_staff_invites').select('token')
+        .eq('staff_id', pendingRow.id).eq('status','pending').gt('expires_at', new Date().toISOString()).order('created_at',{ascending:false}).limit(1).maybeSingle();
+      if (pendingInvite?.token) return { staffId: pendingRow.id, inviteToken: pendingInvite.token as string };
+    }
   }
   await requireStaffCapacity(sb, context.facilityId);
   const role = ['rn','na','pharmacist','pharmacy_staff'].includes(worker.role) ? worker.role : 'other';
-  const { error } = await sb.from('facility_staff').insert({
-    facility_id: context.facilityId, worker_id: worker.id, name: worker.name,
+  // 계정·계좌 연결은 워커 본인이 초대를 수락할 때만 이루어진다 (긱 초대와 같은 원칙). 전화번호는 관리자 메모.
+  const { data: created, error } = await sb.from('facility_staff').insert({
+    facility_id: context.facilityId, worker_id: null, name: worker.name,
     phone: worker.phone ?? null, role, source: 'atman', engagement_type: 'temporary',
     default_start_time: text(form, 'default_start_time') || '09:00',
     default_end_time: text(form, 'default_end_time') || '18:00',
-    default_break_minutes: 60, ...linkedPay, created_by: context.user.id,
-  });
-  if (error) throw new Error('직원으로 전환하지 못했어요.');
+    default_break_minutes: 60, pay_basis: 'hourly', pay_rate: Number(shift?.hourly_wage) || null,
+    created_by: context.user.id,
+  }).select('id').single();
+  if (error || !created) throw new Error('직원으로 전환하지 못했어요.');
+  const { data: invite, error: inviteError } = await sb.from('facility_staff_invites').insert({
+    facility_id: context.facilityId, staff_id: created.id, phone_normalized: normalizedPhone || null, created_by: context.user.id,
+  }).select('token').single();
+  if (inviteError || !invite?.token) throw new Error('직원은 등록됐지만 초대 링크를 만들지 못했어요. 직원 목록에서 다시 발급해 주세요.');
   revalidatePath('/staff'); revalidatePath('/timesheet');
+  return { staffId: created.id as string, inviteToken: invite.token as string };
 }

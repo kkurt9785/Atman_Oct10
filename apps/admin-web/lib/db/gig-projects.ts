@@ -4,7 +4,7 @@ import { todayKST } from '../date';
 
 // 근무 건(프로젝트) 읽기 모델. 사장님은 사람이 아니라 "이번 주 근무"를 먼저 본다.
 export type GigProjectParticipant = {
-  assignmentId: string; staffId: string; name: string; workerLinked: boolean; invitePending: boolean; inviteToken: string | null;
+  assignmentId: string; staffId: string; name: string; accountName: string | null; workerLinked: boolean; invitePending: boolean; inviteToken: string | null;
   todayStatus: string | null; checkInAt: string | null; checkOutAt: string | null;
 };
 export type GigProject = {
@@ -44,7 +44,7 @@ async function hydrate(sb: NonNullable<ReturnType<typeof adminClient>>, facility
   const projectIds = rows.map((row) => row.id);
   const today = todayKST();
   const { data: assignments, error } = await sb.from('gig_assignments')
-    .select('id,project_id,staff_id,facility_staff!inner(id,name,worker_id,status)')
+    .select('id,project_id,staff_id,facility_staff!inner(id,name,worker_id,status,workers!worker_id(name))')
     .in('project_id', projectIds).neq('status', 'cancelled');
   if (error) throw new Error('근무 참여자를 불러오지 못했어요.');
   const staffIds = [...new Set((assignments ?? []).map((row) => row.staff_id as string))];
@@ -56,11 +56,11 @@ async function hydrate(sb: NonNullable<ReturnType<typeof adminClient>>, facility
   const attendanceBy = new Map((attendances ?? []).map((row) => [row.staff_id as string, row]));
   const participantsBy = new Map<string, GigProjectParticipant[]>();
   for (const row of assignments ?? []) {
-    const staff = (Array.isArray(row.facility_staff) ? row.facility_staff[0] : row.facility_staff) as { id: string; name: string; worker_id: string | null; status: string } | null;
+    const staff = (Array.isArray(row.facility_staff) ? row.facility_staff[0] : row.facility_staff) as { id: string; name: string; worker_id: string | null; status: string; workers?: { name: string } | { name: string }[] | null } | null;
     if (!staff || staff.status === 'ended') continue;
     const attendance = attendanceBy.get(staff.id);
     (participantsBy.get(row.project_id as string) ?? participantsBy.set(row.project_id as string, []).get(row.project_id as string)!).push({
-      assignmentId: row.id as string, staffId: staff.id, name: staff.name, workerLinked: Boolean(staff.worker_id),
+      assignmentId: row.id as string, staffId: staff.id, name: staff.name, accountName: (Array.isArray(staff.workers) ? staff.workers[0]?.name : staff.workers?.name) ?? null, workerLinked: Boolean(staff.worker_id),
       invitePending: inviteBy.has(staff.id), inviteToken: inviteBy.get(staff.id) ?? null,
       todayStatus: attendance?.status ?? null, checkInAt: attendance?.check_in_at ?? null, checkOutAt: attendance?.check_out_at ?? null,
     });

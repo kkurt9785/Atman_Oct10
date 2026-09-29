@@ -26,6 +26,7 @@ export type ClinicStaff = {
   checkoutRequestedAt: string | null;
   workDate: string;
   leaveMinutes: number;
+  accountName: string | null;
   inviteToken: string | null;
   inviteExpiresAt: string | null;
   payBasis: 'monthly'|'hourly'|'daily'|null;
@@ -48,7 +49,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   const today = todayKST();
   const year = Number(today.slice(0, 4));
   const [staffResult, attendanceResult, balanceResult, leaveResult, facilityResult, assignmentResult] = await Promise.all([
-    sb.from('facility_staff').select('*').eq('facility_id', facilityId).neq('status', 'ended').order('name'),
+    sb.from('facility_staff').select('*, workers!worker_id(name)').eq('facility_id', facilityId).neq('status', 'ended').order('name'),
     sb.from('staff_attendances').select('*').eq('facility_id', facilityId).gte('work_date', yesterdayKST()).lte('work_date', today),
     sb.from('staff_leave_balances').select('staff_id,granted_minutes,used_minutes')
       .eq('facility_id', facilityId).eq('leave_year', year),
@@ -115,6 +116,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       checkoutRequestedAt: att?.checkout_requested_at ?? null,
       workDate: att?.work_date ?? today,
       leaveMinutes: Number(balanceMap.get(row.id) ?? 0),
+      accountName: (Array.isArray(row.workers) ? row.workers[0]?.name : row.workers?.name) ?? null,
       inviteToken: invite?.token ?? null, inviteExpiresAt: invite?.expires_at ?? null,
       payBasis: assignment?.pay_basis??row.pay_basis??null, payRate: (assignment?.pay_rate??row.pay_rate) == null ? null : Number(assignment?.pay_rate??row.pay_rate),
       bankName:row.bank_name??null,accountLast4:row.account_last4??null,

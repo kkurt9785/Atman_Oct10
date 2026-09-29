@@ -152,7 +152,7 @@ export async function inviteGigParticipantAction(form: FormData) {
   if (inviteError || !invite?.token) throw new Error('근무자는 등록됐지만 초대 링크를 만들지 못했어요. 근무자 관리에서 다시 발급해 주세요.');
   const inviteToken = invite.token as string;
   touch(projectId);
-  return { staffId: created.id as string, inviteToken, linked: false };
+  return { staffId: created.id as string, inviteToken };
 }
 
 export async function removeGigParticipantAction(form: FormData) {

@@ -55,7 +55,7 @@ try {
   const { data: filled } = await service.from('gig_assignments').select('title,start_time,pay_rate,source,status').eq('project_id', projectId).eq('staff_id', staffId).maybeSingle();
   expect(filled?.title === '[QA] 주말 팝업 행사' && filled?.pay_rate === 15000 && filled?.source === 'admin' && filled?.status === 'active', '참여 건이 근무 건 일정·시급을 그대로 받음');
   // 관리자 메모 번호와 실제 워커 계정 번호가 달라도, 보유한 일회용 토큰을 로그인 계정이 직접 수락하면 연결돼야 한다.
-  const { data: invite } = await service.from('facility_staff_invites').insert({ facility_id: hospital.id, staff_id: staffId, phone_normalized: '01099998888' }).select('token').single();
+  const { data: invite } = await service.from('facility_staff_invites').insert({ facility_id: hospital.id, staff_id: staffId, phone_normalized: '01099998888' }).select('id,token').single();
 
   // 3) 초대 미리보기: 사업장은 병원이지만 근무자가 긱 → 긱 셸에서 수락
   const anon = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
@@ -77,6 +77,22 @@ try {
   const { data: visibleProject } = await worker.from('gig_projects').select('id,title').eq('id', projectId).maybeSingle();
   expect(visibleProject?.title === '[QA] 주말 팝업 행사', '워커가 참여한 근무 건만 읽을 수 있음 (RLS)');
 
+  // 4b) 관리자 입력 이름과 계정 이름이 다르면 참여 메시지에 계정 이름이 붙는다 (잘못 수락 식별)
+  const { data: joinMessage } = await service.from('facility_workroom_messages').select('body,metadata').eq('event_key', `membership:invite:${invite.id}`).maybeSingle();
+  expect(String(joinMessage?.body ?? '').includes('(계정 ') && Boolean(joinMessage?.metadata?.accountName), '수락 메시지에 계정 이름 표시');
+
+  // 4c) 엉뚱한 사람이 수락했을 때: 관리자 연결 해제 → 계좌 공유 회수 → 새 일회용 초대 → 본인이 다시 수락
+  const { error: workerUnlink } = await worker.rpc('admin_unlink_facility_staff_worker', { p_staff_id: staffId });
+  expect(Boolean(workerUnlink), '워커 계정으로는 연결 해제 RPC 호출 불가');
+  const { data: newToken, error: unlinkError } = await service.rpc('admin_unlink_facility_staff_worker', { p_staff_id: staffId });
+  expect(!unlinkError && typeof newToken === 'string' && newToken !== invite.token, `관리자 연결 해제 + 새 초대 발급 ${unlinkError?.message ?? ''}`);
+  const { data: unlinkedRow } = await service.from('facility_staff').select('worker_id').eq('id', staffId).maybeSingle();
+  const { count: shareCount } = await service.from('gig_bank_account_shares').select('id', { count: 'exact', head: true }).eq('staff_id', staffId);
+  const { data: staleClaim, error: staleError } = await worker.rpc('claim_facility_staff_invite', { p_token: invite.token });
+  expect(unlinkedRow?.worker_id === null && (shareCount ?? 0) === 0 && Boolean(staleError) && !staleClaim, '해제 후 worker_id 비움 · 계좌 공유 회수 · 옛 링크 무효');
+  const { data: reclaimed, error: reclaimError } = await worker.rpc('claim_facility_staff_invite', { p_token: newToken });
+  expect(!reclaimError && reclaimed === staffId, `새 초대로 다시 수락 ${reclaimError?.message ?? ''}`);
+
   // 5) 근무 건 수정 → 참여 일정 따라감 (트리거)
   await service.from('gig_projects').update({ start_time: '11:00', pay_rate: 16000 }).eq('id', projectId);
   const { data: synced } = await service.from('gig_assignments').select('start_time,pay_rate').eq('project_id', projectId).eq('staff_id', staffId).maybeSingle();
@@ -96,6 +112,8 @@ try {
   const quiet = async (fn) => { try { await fn(); } catch { /* 정리 실패는 무시 */ } };
   if (staffId) {
     await quiet(() => service.from('facility_workroom_messages').delete().eq('staff_id', staffId));
+    await quiet(() => service.from('facility_workroom_messages').delete().eq('metadata->>staffId', staffId));
+    await quiet(() => service.from('notification_outbox').delete().like('dedupe_key', `workroom:unlinked:${staffId}%`));
     await quiet(() => service.from('facility_staff').delete().eq('id', staffId));
   }
   if (projectId) await quiet(() => service.from('gig_projects').delete().eq('id', projectId));

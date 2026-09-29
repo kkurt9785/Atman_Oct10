@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { GigActionForm } from './GigActionForm';
 import { CopyInviteButton } from '@/app/staff/CopyInviteButton';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
+import { UnlinkWorkerButton } from '@/app/staff/UnlinkWorkerButton';
 import type { GigCandidate, GigProject } from '@/lib/db/gig-projects';
 
 const STATUS: Record<string, [string, string]> = {
@@ -30,6 +31,8 @@ export function GigParticipantsPanel({ project, candidates, workerOrigin }: { pr
                 : member.invitePending ? <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-extrabold text-violet-700">잇기 대기</span>
                 : <span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-extrabold text-sub">잇기 링크 필요</span>}
             </div>
+            {member.workerLinked && member.accountName && member.accountName !== member.name && <p className="mt-0.5 text-[11px] font-bold text-warn">수락한 계정: {member.accountName} · 본인 확인</p>}
+            {member.workerLinked && <div className="mt-1"><UnlinkWorkerButton staffId={member.staffId} name={member.name} accountName={member.accountName} inviteUrlBase={`${workerOrigin}/gig/join`} align="start" /></div>}
             {!member.workerLinked && member.inviteToken && <div className="mt-1 flex flex-wrap items-center gap-3"><CopyInviteButton url={`${workerOrigin}/gig/join?token=${member.inviteToken}`} /><WorkforceActionForm kind="create_invite" values={{ staff_id: member.staffId }} successMessage="이전 링크를 끄고 새 초대를 만들었어요."><button className="text-[11px] font-bold text-sub">재발급</button></WorkforceActionForm></div>}
           </div>
           <div className="flex shrink-0 items-center gap-2">

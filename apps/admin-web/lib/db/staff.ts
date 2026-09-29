@@ -7,6 +7,7 @@ export type StaffRow = {
   shiftId:string;
   applicationId:string|null;
   name: string;
+  phone: string|null;
   job: string;
   todayStatus: '근무중' | '퇴근' | '예정' | '결근' | '승인대기';
   monthMinutes: number;
@@ -75,7 +76,7 @@ export async function getStaff(): Promise<StaffRow[]> {
 
   // 병렬 조회
   const [workerResult,attendanceResult,wageResult,applicationResult] = await Promise.all([
-    sb.from('workers').select('id, name, role, is_demo').in('id', workerIds),
+    sb.from('workers').select('id, name, phone, role, is_demo').in('id', workerIds),
     sb.from('shift_attendances')
       .select('shift_id, worker_id, check_in_at, check_out_at,checkout_requested_at,early_leave_minutes,check_in_method,check_out_method,check_in_distance_m,check_out_distance_m')
       .in('shift_id', shiftIds),
@@ -123,6 +124,7 @@ export async function getStaff(): Promise<StaffRow[]> {
         shiftId:shift.id,
         applicationId:appByShift[shift.id]?.id??null,
         name:         worker.name,
+        phone:        worker.phone ?? null,
         job:          roleLabel(worker.role),
         todayStatus,
         monthMinutes: monthMap[worker.id] ?? 0,

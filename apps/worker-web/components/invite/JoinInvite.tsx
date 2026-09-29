@@ -65,6 +65,10 @@ function friendlyInviteError(message: string) {
 }
 
 export function JoinInvite({ variant }: { variant: JoinVariant }) {
+  const [standalone, setStandalone] = useState(false);
+  useEffect(() => {
+    try { setStandalone(window.matchMedia('(display-mode: standalone)').matches || (navigator as unknown as { standalone?: boolean }).standalone === true); } catch { /* 설치 여부를 못 읽으면 카드를 보여 준다 */ }
+  }, []);
   const params = useSearchParams();
   const token = params.get('token');
   const routes = ROUTES[variant];
@@ -201,14 +205,14 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'success' && <>
         {isGig && bankShared === 'shared' && <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-bold text-emerald-700">지급 계좌{bankLabel ? ` ${bankLabel}` : ''}를 전달했어요. 근무 시작부터 지급 준비가 돼 있어요.</p>}
         {isGig && bankShared === 'missing' && <Link href="/gig/settlement" className="mt-4 block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-700">지급 계좌가 아직 없어요 — 근태·지급 탭에서 등록하고 전달하기 →</Link>}
-        <div className="mt-5 rounded-2xl bg-ink p-4 text-white">
-          <p className="text-[11px] font-extrabold tracking-[0.12em] text-white/60">마지막 10초 · 선택</p>
-          <p className="mt-1 text-[16px] font-extrabold">근태·대화·지급을 홈 화면에서 바로 확인하세요</p>
-          <p className="mt-1 text-[11px] leading-5 text-white/65">앱스토어를 거치지 않고 추가할 수 있어요. 지금 하지 않아도 수락한 근무와 기록은 그대로 남습니다.</p>
-          <div className="mt-3"><InstallAppButton label="10초 만에 잇닿 워커 앱 추가" dark /></div>
-        </div>
-        <Link href={isGig?'/gig/workroom':'/workroom'} className="mt-3 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">사업장 워크룸 열기</Link>
-        <Link href={routes.home} className="mt-2 flex h-11 items-center justify-center rounded-xl text-[13px] font-bold text-sub">오늘 근무 확인하기</Link>
+        <Link href={routes.home} className="mt-5 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">{isGig ? '오늘 근무 보기 · 닿기는 여기서' : '내 근무지 보기'}</Link>
+        <Link href={isGig ? '/gig/workroom' : '/workroom'} className="mt-2 flex h-11 items-center justify-center rounded-xl border border-line bg-white text-[13px] font-bold text-ink">사업장 워크룸 열기</Link>
+        {!standalone && <div className="mt-4 rounded-2xl bg-ink p-4 text-white">
+          <p className="text-[11px] font-extrabold tracking-[0.12em] text-white/60">선택 · 10초</p>
+          <p className="mt-1 text-[15px] font-extrabold">홈 화면에 추가하면 닿기·대화·지급을 바로 열어요</p>
+          <p className="mt-1 text-[11px] leading-5 text-white/65">앱스토어 없이 추가돼요. 지금 하지 않아도 수락한 근무와 기록은 그대로 남습니다.</p>
+          <div className="mt-3"><InstallAppButton label="홈 화면에 잇닿 워커 추가" dark /></div>
+        </div>}
       </>}
       {status === 'error' && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
     </section>
