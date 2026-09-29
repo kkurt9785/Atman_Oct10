@@ -200,6 +200,7 @@ async function main() {
       await sleep(3000); await settle();
       await rest(`staff_attendances?staff_id=eq.${staffId}&work_date=eq.${kstToday}`, { method: 'PATCH', body: JSON.stringify({ check_in_at: new Date(Date.now() - 3 * 3600e3).toISOString() }) });
     }
+    await go(`${adminOrigin}/staff?view=contract&entry=gigworker`); await shot('admin-staff-linked', '연결된 근무자 카드: 계정 이름 · 연결 해제·재초대');
     await go(`${adminOrigin}/`); await shot('admin-home-working', '보드에 긱워커 데모 근무 중');
     await go(`${adminOrigin}/timesheet`); await shot('admin-timesheet-before');
     const clickedOut = await evalJson(`const cards = Array.from(document.querySelectorAll('div,article')).filter((el) => el.textContent?.includes('긱워커 데모') && Array.from(el.querySelectorAll('button')).some((b) => b.textContent?.trim() === '퇴근' && !b.disabled)); const card = cards.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!card) return false; Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === '퇴근' && !b.disabled).click(); return true;`);
@@ -233,8 +234,15 @@ async function main() {
     if (target === 'admin-gig') {
       await go(`${adminOrigin}/`);
       // 사업장 전환기(헤더 셀렉트)에서 긱 데모 근무지를 고른다 — 실제 사장님이 두 사업장을 오가는 동작과 같다
-      await evalJson(`const sel = document.querySelector('header select'); if (!sel) return false; const opt = Array.from(sel.options).find((o) => o.textContent.includes('팝업')); if (!opt) return false; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, opt.value); sel.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
-      await sleep(3500); await settle(); await go(`${adminOrigin}/`); await shot('gig-home', '근무 건 카드 + 보드');
+      // 전환 확인 루프 — full-loop 와 같은 방식. 확인 없이 진행하면 병원 화면을 긱 화면으로 오인해 찍는다.
+      let switchedGig = false;
+      for (let attempt = 0; attempt < 3 && !switchedGig; attempt += 1) {
+        await evalJson(`const sel = document.querySelector('header select'); const opt = sel && Array.from(sel.options).find((o) => o.textContent.includes('팝업')); if (!opt) return false; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, opt.value); sel.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+        for (let i = 0; i < 20 && !switchedGig; i += 1) { await sleep(700); switchedGig = await evalJson(`const nav = document.querySelector('nav[aria-label="주요 메뉴"]'); return Boolean(nav && nav.textContent.includes('운영'));`); }
+        if (!switchedGig) await go(`${adminOrigin}/`);
+      }
+      report.push({ step: '관리자 사업장 전환 → 팝업 근무지(긱 탭)', ok: switchedGig });
+      await go(`${adminOrigin}/`); await shot('gig-home', '근무 건 카드 + 보드');
       await go(`${adminOrigin}/gig-work/new`); await shot('gig-work-new');
       await fill('input[name="title"]', '[UX] 주말 팝업 행사');
       await click('기간 · 반복 근무');
@@ -245,7 +253,7 @@ async function main() {
       await click('근무 만들기 → 근무자 잇기'); await sleep(2500); await settle();
       await shot('gig-work-detail', '생성 직후 상세(참여자 0)');
       await fill('input[name="name"]', '[UX] 새 근무자');
-      await click('등록하고 잇기 링크 만들기'); await sleep(2500); await settle();
+      await click('등록하고 일회용 초대 만들기'); await sleep(2500); await settle();
       await shot('gig-work-invited', '새 사람 잇기 후(링크 복사 버튼)');
       await go(`${adminOrigin}/`); await shot('gig-home-after', '홈에 근무 건 카드 1/3');
       await go(`${adminOrigin}/staff?view=contract&entry=gigworker`); await shot('gig-staff');

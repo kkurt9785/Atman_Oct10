@@ -71,7 +71,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
       <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between">
         <span className="font-bold text-body">＋ {gigworkerMode||isGigworkerEntry?'긱워커 등록·잇기(초대)':'기존 직원 직접 등록'}</span><span className="text-sub group-open:rotate-180">⌄</span>
       </summary>
-      {(gigworkerMode||isGigworkerEntry)&&<p className="px-5 text-[12px] leading-5 text-sub">날짜·시간을 정한 뒤 링크를 보내거나 현장에서 QR을 보여주세요. 가입하면 워크룸까지 자동 연결돼요.</p>}
+      {(gigworkerMode||isGigworkerEntry)&&<p className="px-5 text-[12px] leading-5 text-sub">날짜·시간을 정한 뒤 링크를 보내거나 현장에서 QR을 보여주세요. 본인이 링크를 열어 수락하면 계정·워크룸이 연결돼요.</p>}
       <StaffRegistrationForm facilityType={shop?.facilityType} initialEngagementType={isGigworkerEntry?'temporary':undefined} workerOrigin={workerOrigin} workerKind={gigworkerMode||isGigworkerEntry?'gig':'staff'}/>
     </details>
 
