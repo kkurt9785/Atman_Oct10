@@ -7,10 +7,11 @@ import fs from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const target = process.argv[2] ?? 'worker-gig';
+const live = process.argv.includes('--live'); // 운영 배포본 대상
 const port = 9340 + ['worker-gig','worker-medical','admin-gig','admin-hospital'].indexOf(target);
-const root = `/private/tmp/atman-ux/${target}`;
-const adminOrigin = 'http://localhost:3002';
-const workerOrigin = 'http://localhost:3003';
+const root = `/private/tmp/atman-ux/${target}${live ? '-live' : ''}`;
+const adminOrigin = live ? 'https://admin.itdot.co.kr' : 'http://localhost:3002';
+const workerOrigin = live ? 'https://itdot.co.kr' : 'http://localhost:3003';
 async function adminDemoCredentials(email) {
   const env = await fs.readFile('apps/admin-web/.env.local', 'utf8');
   const value = (name) => env.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim();

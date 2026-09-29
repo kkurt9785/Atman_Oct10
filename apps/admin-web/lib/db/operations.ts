@@ -122,7 +122,7 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
   const alertStart = addDays(today, -1);
   const urgentEnd = addDays(today, 2);
   const weekday = new Date(`${today}T00:00:00Z`).getUTCDay() || 7;
-  const [shiftResult, staffResult, staffAttendanceResult, leaveResult] = await Promise.all([
+  const [shiftResult, staffResult, staffAttendanceResult, leaveResult, graceResult] = await Promise.all([
     sb.from('shifts').select('id,shift_date,start_time,end_time,is_overnight,department,status,is_replacement')
     .eq('facility_id', facilityId).gte('shift_date', alertStart).lte('shift_date', urgentEnd)
     .in('status', ['open','matched']).order('shift_date').order('start_time'),
@@ -131,7 +131,10 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
     sb.from('staff_attendances').select('staff_id,check_in_at,status').eq('facility_id', facilityId).eq('work_date', today),
     sb.from('staff_leave_requests').select('staff_id').eq('facility_id', facilityId).eq('status', 'approved')
       .lte('start_date', today).gte('end_date', today),
+    // 직원 미출근 경고는 시설의 지각 유예를 지난 뒤에만 — 긱 운영보드(lib/db/gig-operations.ts)와 같은 기준
+    sb.from('facility_attendance_settings').select('late_grace_minutes').eq('facility_id', facilityId).maybeSingle(),
   ]);
+  const staffNoShowMinutes = Math.max(5, Number(graceResult.data?.late_grace_minutes ?? 20));
   const baseError=[shiftResult.error,staffResult.error,staffAttendanceResult.error,leaveResult.error].find(Boolean);
   if(baseError)throw new Error(`오늘 운영 알림을 불러오지 못했어요: ${baseError.message}`);
   const shifts=shiftResult.data;
@@ -179,7 +182,7 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
     if (!workdays.includes(weekday)) continue;
     const startTime = String(person.default_start_time ?? '09:00:00');
     const startMs = Date.parse(`${today}T${startTime}+09:00`);
-    if (nowMs >= startMs + 5 * 60_000) {
+    if (nowMs >= startMs + staffNoShowMinutes * 60_000) {
       alerts.push({ shiftId: null, staffId: person.id, personName: person.name ?? '직원', employment: 'staff', kind: 'no_show', replacementEligible: false, shiftDate: today, startTime, department: person.department ?? null });
     }
   }
