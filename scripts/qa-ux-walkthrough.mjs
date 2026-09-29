@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const target = process.argv[2] ?? 'worker-gig';
 const live = process.argv.includes('--live'); // 운영 배포본 대상
-const port = 9340 + ['worker-gig','worker-medical','admin-gig','admin-hospital'].indexOf(target);
+const port = 9340 + ['worker-gig','worker-medical','admin-gig','admin-hospital','full-loop'].indexOf(target);
 const root = `/private/tmp/atman-ux/${target}${live ? '-live' : ''}`;
 const adminOrigin = live ? 'https://admin.itdot.co.kr' : 'http://localhost:3002';
 const workerOrigin = live ? 'https://itdot.co.kr' : 'http://localhost:3003';
@@ -156,6 +156,73 @@ async function main() {
     await go(`${workerOrigin}/notifications`); await shot('notifications');
     await go(`${workerOrigin}/settings`); await shot('settings');
     await go(`${workerOrigin}/gig`); await shot('medical-visits-gig', '의료 전용이 /gig → /home 이동 안내');
+  } else if (target === 'full-loop') {
+    // 한 바퀴: 워커 잇기·계좌 전달·닿기(GPS 출근) → 관리자 퇴근 처리 → 지급 완료 → 워커 정산·알림. 끝나면 데모를 초기화한다.
+    const env = await fs.readFile('apps/admin-web/.env.local', 'utf8');
+    const value = (name) => env.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim();
+    const base = value('SUPABASE_URL') ?? value('NEXT_PUBLIC_SUPABASE_URL'); const anon = value('NEXT_PUBLIC_SUPABASE_ANON_KEY'); const svc = value('SUPABASE_SERVICE_ROLE_KEY');
+    const rest = async (path, init = {}, token = svc) => { const r = await fetch(`${base}/rest/v1/${path}`, { ...init, headers: { apikey: token === svc ? svc : anon, Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Prefer: 'return=representation', ...(init.headers ?? {}) } }); const text = await r.text(); let data = null; try { data = text ? JSON.parse(text) : null; } catch { data = text; } return { ok: r.ok, status: r.status, data }; };
+    const rpc = (name, body, token) => rest(`rpc/${name}`, { method: 'POST', body: JSON.stringify(body ?? {}) }, token);
+    const login = await demoLogin({ code: 'GIG2026' });
+    const wt = login.accessToken;
+    await rest(`facility_staff_invites?token=eq.${login.gigInviteToken}`, { method: 'PATCH', body: JSON.stringify({ phone_normalized: null }) });
+    const claim = await rpc('claim_facility_staff_invite', { p_token: login.gigInviteToken }, wt);
+    const staffId = claim.data; report.push({ step: '워커 잇기(초대 수락)', ok: claim.ok, detail: claim.ok ? staffId : JSON.stringify(claim.data) });
+    const share = await rpc('share_my_gig_bank_account', { p_staff_id: staffId }, wt); report.push({ step: '워커 계좌 전달', ok: share.ok, detail: share.ok ? '' : JSON.stringify(share.data) });
+    // 닿기: 근무지(수원시청역 팝업 행사장) 좌표에서 GPS 출근 — 앱의 TouchToCheckButton 과 같은 RPC·인자
+    const touch = await rpc('record_unified_attendance', { p_target_type: 'staff', p_target_id: staffId, p_action: 'check_in', p_lat: 37.2636, p_lng: 127.0286, p_accuracy: 20, p_qr_token: null }, wt);
+    const touched = touch.ok && touch.data?.ok !== false;
+    const outsideWindow = touch.data?.reason === 'TIME_NOT_ALLOWED';
+    report.push({ step: outsideWindow ? '워커 닿기 — 출근 시간창 밖이라 규칙대로 차단(정상), 관리자 수동 출근으로 진행' : '워커 닿기(GPS 출근) RPC', ok: touched || outsideWindow, detail: JSON.stringify(touch.data).slice(0, 160) });
+    // 지급 계산은 휴게 60분을 빼므로, 출근 시각을 3시간 전으로 당겨 유의미한 근무시간을 만든다 (데모 데이터만)
+    const kstToday = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    await rest(`staff_attendances?staff_id=eq.${staffId}&work_date=eq.${kstToday}`, { method: 'PATCH', body: JSON.stringify({ check_in_at: new Date(Date.now() - 3 * 3600e3).toISOString() }) });
+
+    // 관리자: 로그인 → 팝업 근무지 → 타임시트에서 퇴근 처리 → 지급 완료
+    await go(`${adminOrigin}/login`);
+    const credentials = await adminDemoCredentials('sales-demo-1@demo.atman.co.kr');
+    await setSession('sales-demo-1@demo.atman.co.kr', credentials);
+    const ok = await evalJson(`return (async () => { const headers = { Authorization: 'Bearer ' + ${JSON.stringify(credentials.accessToken)}, 'content-type': 'application/json' }; const s = await fetch('/api/admin-session', { method: 'POST', headers }); const f = await fetch('/api/set-facility', { method: 'POST', headers, body: JSON.stringify({ demoKind: 'gigworker' }) }); return s.ok && f.ok; })()`);
+    if (!ok) throw new Error('관리자 세션/사업장 설정 실패');
+    await go(`${adminOrigin}/`);
+    let switched = false;
+    for (let attempt = 0; attempt < 3 && !switched; attempt += 1) {
+      await evalJson(`const sel = document.querySelector('header select'); const opt = sel && Array.from(sel.options).find((o) => o.textContent.includes('팝업')); if (!opt) return false; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, opt.value); sel.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
+      for (let i = 0; i < 20 && !switched; i += 1) { await sleep(700); switched = await evalJson(`const nav = document.querySelector('nav[aria-label="주요 메뉴"]'); return Boolean(nav && nav.textContent.includes('운영'));`); }
+      if (!switched) await go(`${adminOrigin}/`);
+    }
+    report.push({ step: '관리자 사업장 전환 → 팝업 근무지(긱 탭)', ok: switched });
+    if (!touched) {
+      // 시간창 밖: 앱 안내대로 관리자가 타임시트에서 수동 출근 처리
+      await go(`${adminOrigin}/timesheet`);
+      const clickedIn = await evalJson(`const cards = Array.from(document.querySelectorAll('div,article')).filter((el) => el.textContent?.includes('긱워커 데모') && Array.from(el.querySelectorAll('button')).some((b) => b.textContent?.trim() === '출근' && !b.disabled)); const card = cards.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!card) return false; Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === '출근' && !b.disabled).click(); return true;`);
+      report.push({ step: '관리자 타임시트 수동 출근 처리 클릭', ok: clickedIn });
+      await sleep(3000); await settle();
+      await rest(`staff_attendances?staff_id=eq.${staffId}&work_date=eq.${kstToday}`, { method: 'PATCH', body: JSON.stringify({ check_in_at: new Date(Date.now() - 3 * 3600e3).toISOString() }) });
+    }
+    await go(`${adminOrigin}/`); await shot('admin-home-working', '보드에 긱워커 데모 근무 중');
+    await go(`${adminOrigin}/timesheet`); await shot('admin-timesheet-before');
+    const clickedOut = await evalJson(`const cards = Array.from(document.querySelectorAll('div,article')).filter((el) => el.textContent?.includes('긱워커 데모') && Array.from(el.querySelectorAll('button')).some((b) => b.textContent?.trim() === '퇴근' && !b.disabled)); const card = cards.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!card) return false; Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === '퇴근' && !b.disabled).click(); return true;`);
+    report.push({ step: '관리자 타임시트 퇴근 처리 클릭', ok: clickedOut });
+    await sleep(3000); await settle(); await shot('admin-timesheet-after', '퇴근 완료 표시');
+    await go(`${adminOrigin}/gig-pay`); await shot('admin-gig-pay-before', '지급할 금액 > 0 기대');
+    const paid = await evalJson(`const btn = Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.includes('지금 지급 완료') && !b.disabled); if (!btn) return false; btn.click(); return true;`);
+    report.push({ step: '관리자 지금 지급 완료 클릭', ok: paid });
+    await sleep(3500); await settle(); await shot('admin-gig-pay-after', '지급 완료 목록에 표시');
+
+    // 검증: DB 행 + 워커 화면
+    const attendance = await rest(`staff_attendances?staff_id=eq.${staffId}&work_date=eq.${kstToday}&select=status,check_in_at,check_out_at,check_out_method`);
+    report.push({ step: '근태 completed', ok: attendance.data?.[0]?.status === 'completed', detail: JSON.stringify(attendance.data?.[0]) });
+    const payout = await rest(`gig_payouts?staff_id=eq.${staffId}&select=status,amount,net_amount,withholding_amount,worked_minutes`);
+    report.push({ step: '지급 기록 paid', ok: payout.data?.[0]?.status === 'paid', detail: JSON.stringify(payout.data?.[0]) });
+    const notice = await rest(`notification_outbox?event_type=eq.payout.paid&data->>staff_id=eq.${staffId}&select=title,body,status`);
+    report.push({ step: '워커 지급 알림 생성', ok: (notice.data?.length ?? 0) > 0, detail: JSON.stringify(notice.data?.[0]) });
+    await go(`${workerOrigin}/gig`); await setSession('worker-gig-demo@demo.atman.co.kr', login);
+    await evalJson(`localStorage.setItem('atman_gigworker_mode','1'); return true`);
+    await go(`${workerOrigin}/gig`); await shot('worker-home-done', '오늘 근무 완료 표시');
+    await go(`${workerOrigin}/gig/settlement`); await shot('worker-settlement-paid', '지급 완료 행');
+    await go(`${workerOrigin}/gig/notifications`); await shot('worker-notifications-paid', '지급 알림');
+    await rpc('reset_gigworker_invite_demo', {}, wt);
   } else {
     const kind = target === 'admin-gig' ? 'gigworker' : 'hospital';
     await go(`${adminOrigin}/login`); await shot('login', '관리자 로그인 화면');
@@ -210,7 +277,8 @@ async function main() {
     }
   }
   await fs.writeFile(`${root}/report.json`, JSON.stringify(report, null, 2));
-  for (const r of report) if (r.file) console.log(`${r.file}  ${r.url}  h=${r.pageHeight}${r.hOverflow ? '  ⚠가로넘침' : ''}${r.offscreen?.length ? '  ⚠화면밖:' + r.offscreen.join('|') : ''}${r.smallCount ? '  작은타깃' + r.smallCount : ''}${r.errors?.length ? '  ⚠' + r.errors.join(' / ') : ''}  ${r.navs?.map((v) => v.tabs.join('·')).join(' || ') ?? ''}`); else console.log('!!', JSON.stringify(r));
+  for (const r of report) if (r.step) console.log(`${r.ok ? 'PASS' : 'FAIL'} ${r.step}  ${r.detail ?? ''}`);
+  for (const r of report) if (r.file) console.log(`${r.file}  ${r.url}  h=${r.pageHeight}${r.hOverflow ? '  ⚠가로넘침' : ''}${r.offscreen?.length ? '  ⚠화면밖:' + r.offscreen.join('|') : ''}${r.smallCount ? '  작은타깃' + r.smallCount : ''}${r.errors?.length ? '  ⚠' + r.errors.join(' / ') : ''}  ${r.navs?.map((v) => v.tabs.join('·')).join(' || ') ?? ''}`); else if (!r.step) console.log('!!', JSON.stringify(r));
   cdp.close(); process.exit(0);
 }
 main().catch((error) => { console.error(error); process.exit(1); });
