@@ -49,7 +49,7 @@ function ContractRangePicker(){
   </div>;
 }
 
-type CreatedStaff={inviteToken?:string|null;linked?:boolean};
+type CreatedStaff={inviteToken?:string|null};
 
 export function StaffRegistrationForm({facilityType='clinic',initialEngagementType,workerOrigin,workerKind='staff'}:{facilityType?:string;initialEngagementType?:string;workerOrigin?:string;workerKind?:'staff'|'gig'}){
   const [engagementType,setEngagementType]=useState(initialEngagementType??'');
@@ -57,7 +57,6 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
   const [scheduleMode,setScheduleMode]=useState<'single'|'repeat'>('single');
   const [singleDate,setSingleDate]=useState('');
   const [inviteUrl,setInviteUrl]=useState('');
-  const [linked,setLinked]=useState(false);
   const needsContract=engagementType&&engagementType!=='regular';
   const isPharmacy=facilityType==='pharmacy';
   const isGigworker=isGigworkerFacility({facility_type:facilityType});
@@ -67,7 +66,6 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
   if(useGigForm){
     return <WorkforceActionForm kind="add_staff" successMessage="근무자와 초대 정보를 만들었어요." onSuccess={(raw)=>{
       const result=(raw??{}) as CreatedStaff;
-      setLinked(Boolean(result.linked));
       setInviteUrl(result.inviteToken&&workerOrigin?`${workerOrigin}/gig/join?token=${result.inviteToken}`:'');
     }} className="px-5 pb-6">
       <input type="hidden" name="role" value="other"/>
@@ -109,11 +107,11 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
         </div>
       </details>
 
-      {(inviteUrl||linked)&&<section className="mt-5 rounded-2xl border border-success/30 bg-success/5 p-4">
-        <p className="text-[14px] font-extrabold text-ink">{linked?'이미 가입한 번호라 바로 연결됐어요.':'등록 완료 · 이제 초대만 보내세요'}</p>
-        {!linked&&<><p className="mt-1 text-[12px] leading-5 text-sub">근무자가 링크나 QR을 열어 가입하면 전화번호 대조 없이 이 사업장과 워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div></>}
+      {inviteUrl&&<section className="mt-5 rounded-2xl border border-success/30 bg-success/5 p-4">
+        <p className="text-[14px] font-extrabold text-ink">등록 완료 · 근무자의 직접 수락이 필요해요</p>
+        <p className="mt-1 text-[12px] leading-5 text-sub">전화번호 입력 여부와 관계없이 링크나 QR을 연 워커가 카카오 로그인 후 수락해야 사업장·워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div>
       </section>}
-      <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 가입 링크 만들기</button>
+      <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 일회용 초대 만들기</button>
       {isGigworker&&<p className="mt-2 text-center text-[11px] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>}
     </WorkforceActionForm>;
   }

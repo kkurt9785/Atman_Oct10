@@ -99,11 +99,8 @@ export async function addClinicStaffAction(form: FormData) {
   }
   if(isGigworker&&contractStart!==contractEnd&&workWeekdays.length===0)throw new Error('반복 근무 요일을 하나 이상 선택해 주세요.');
   await requireStaffCapacity(sb, context.facilityId);
-  const { data: linkedWorker } = phone
-    ? await sb.from('workers').select('id').eq('phone', phone).is('deleted_at', null).limit(1).maybeSingle()
-    : { data: null };
   const { data: created, error } = await sb.from('facility_staff').insert({
-    facility_id: context.facilityId, worker_id: linkedWorker?.id ?? null, name, phone,
+    facility_id: context.facilityId, worker_id: null, name, phone,
     worker_kind: isGigworker ? 'gig' : 'staff',
     role, department: text(form, 'department') || null, source: 'direct',
     engagement_type: engagementType, contract_start: contractStart, contract_end: contractEnd,
@@ -113,19 +110,17 @@ export async function addClinicStaffAction(form: FormData) {
     pay_basis: payBasis||null, pay_rate:Number.isInteger(payRate)&&payRate>0?payRate:null, bank_name:bankName, account_last4:accountLast4,
     work_weekdays: workWeekdays.length ? workWeekdays : [1,2,3,4,5],
     created_by: context.user.id,
-  }).select('id,worker_id').single();
+  }).select('id').single();
   if (error) throw new Error('직원을 등록하지 못했어요.');
-  let inviteToken:string|null=null;
-  if (!created.worker_id) {
-    const { data:invite,error: inviteError } = await sb.from('facility_staff_invites').insert({
-      facility_id: context.facilityId, staff_id: created.id,
-      phone_normalized: normalizedPhone || null, created_by: context.user.id,
-    }).select('token').single();
-    if (inviteError) throw new Error('직원은 등록됐지만 초대 링크를 만들지 못했어요. 직원 목록에서 다시 발급해 주세요.');
-    inviteToken=invite?.token??null;
-  }
+  // 전화번호가 기존 가입자와 같아도 자동 연결하지 않는다. 일회용 링크를 연 본인이 직접 수락해야 한다.
+  const { data:invite,error: inviteError } = await sb.from('facility_staff_invites').insert({
+    facility_id: context.facilityId, staff_id: created.id,
+    phone_normalized: normalizedPhone || null, created_by: context.user.id,
+  }).select('token').single();
+  if (inviteError) throw new Error('직원은 등록됐지만 초대 링크를 만들지 못했어요. 직원 목록에서 다시 발급해 주세요.');
+  const inviteToken=invite?.token??null;
   revalidatePath('/staff'); revalidatePath('/timesheet');
-  return {staffId:created.id,inviteToken,linked:Boolean(created.worker_id)};
+  return {staffId:created.id,inviteToken,linked:false};
 }
 
 export async function recordStaffAttendanceAction(form: FormData) {

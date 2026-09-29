@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { Wordmark } from '@/components/brand/BrandMark';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
 // (미리보기 → 카카오 가입 → claim)을 쓰되, 초대가 어느 제품 것인지는 서버(isGigworker)가 정한다.
@@ -183,15 +184,16 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
           {preview.workDescription && <div className="flex justify-between gap-4 py-3"><dt className="shrink-0 text-sub">업무</dt><dd className="text-right font-bold text-ink">{preview.workDescription}</dd></div>}
           {payText && <div className="flex justify-between gap-4 py-3"><dt className="shrink-0 text-sub">급여 조건</dt><dd className="text-right font-bold text-ink">{payText}</dd></div>}
           {!payText && preview.payHidden && <div className="flex justify-between gap-4 py-3"><dt className="shrink-0 text-sub">급여 조건</dt><dd className="text-right text-[12px] text-sub">로그인하면 확인할 수 있어요</dd></div>}
-          {preview.phoneLast4 && <div className="flex justify-between gap-4 py-3"><dt className="shrink-0 text-sub">선택 연락처</dt><dd className="text-right font-bold text-ink">휴대폰 끝 4자리 {preview.phoneLast4}</dd></div>}
+          {preview.phoneLast4 && <div className="flex justify-between gap-4 py-3"><dt className="shrink-0 text-sub">관리자 메모 연락처</dt><dd className="text-right font-bold text-ink">끝 4자리 {preview.phoneLast4}<span className="ml-1 block text-[10px] font-medium text-sub">계정 인증에는 사용하지 않아요</span></dd></div>}
         </dl>
       </div>}
 
       {status === 'preview' && preview && <>
+        <p className="mt-5 rounded-full bg-bg px-3 py-2 text-center text-[11px] font-bold text-sub">조건 확인 중 · 카카오 연결까지 약 1분 · 앱 추가는 선택</p>
         <button type="button" onClick={() => void claimInvite()} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
           {!signedIn ? '카카오로 가입하고 잇기' : !hasWorker ? '인적사항 등록하고 잇기' : '잇기 · 초대 수락하고 연결'}
         </button>
-        <p className="mt-3 text-center text-[11px] leading-5 text-sub">이 일회용 링크가 본인 확인 수단이에요. 가입 후 공지·근무 대화·출퇴근 기록은 앱 안에 계속 남습니다.</p>
+        <p className="mt-3 text-center text-[11px] leading-5 text-sub">앱 설치 없이 현재 화면에서 수락할 수 있어요. 일회용 초대와 내 카카오 로그인 계정이 연결 기준이며, 전화번호는 인증에 사용하지 않습니다.</p>
         {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
         {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 긱워커 데모 먼저 보기 →</Link>}
       </>}
@@ -199,7 +201,15 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'success' && <>
         {isGig && bankShared === 'shared' && <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-bold text-emerald-700">지급 계좌{bankLabel ? ` ${bankLabel}` : ''}를 전달했어요. 근무 시작부터 지급 준비가 돼 있어요.</p>}
         {isGig && bankShared === 'missing' && <Link href="/gig/settlement" className="mt-4 block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-700">지급 계좌가 아직 없어요 — 근태·지급 탭에서 등록하고 전달하기 →</Link>}
-        <Link href={isGig?'/gig/workroom':'/workroom'} className="mt-6 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">사업장 워크룸 열기</Link><Link href={routes.home} className="mt-2 flex h-11 items-center justify-center rounded-xl text-[13px] font-bold text-sub">오늘 근무 확인하기</Link></>}
+        <div className="mt-5 rounded-2xl bg-ink p-4 text-white">
+          <p className="text-[11px] font-extrabold tracking-[0.12em] text-white/60">마지막 10초 · 선택</p>
+          <p className="mt-1 text-[16px] font-extrabold">근태·대화·지급을 홈 화면에서 바로 확인하세요</p>
+          <p className="mt-1 text-[11px] leading-5 text-white/65">앱스토어를 거치지 않고 추가할 수 있어요. 지금 하지 않아도 수락한 근무와 기록은 그대로 남습니다.</p>
+          <div className="mt-3"><InstallAppButton label="10초 만에 잇닿 워커 앱 추가" dark /></div>
+        </div>
+        <Link href={isGig?'/gig/workroom':'/workroom'} className="mt-3 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">사업장 워크룸 열기</Link>
+        <Link href={routes.home} className="mt-2 flex h-11 items-center justify-center rounded-xl text-[13px] font-bold text-sub">오늘 근무 확인하기</Link>
+      </>}
       {status === 'error' && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
     </section>
   </main>;

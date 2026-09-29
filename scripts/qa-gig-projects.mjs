@@ -15,11 +15,21 @@ const failures = [];
 const expect = (ok, label) => { console.log(`${ok ? 'PASS' : 'FAIL'} ${label}`); if (!ok) failures.push(label); };
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const plus = (d) => new Date(Date.now() + 9 * 3600e3 + d * 86400e3).toISOString().slice(0, 10);
-let projectId = '', staffId = '', worker = null, workerId = null;
+let projectId = '', staffId = '', worker = null, workerId = null, workerEmail = '', workerPhone = '';
 
 try {
   const { data: hospital } = await service.from('facilities').select('id,name,facility_type').eq('name', 'W여성병원').eq('is_demo', true).is('deleted_at', null).maybeSingle();
   expect(Boolean(hospital?.id) && hospital.facility_type !== 'gigworker', `병원 데모 사업장 확보 (${hospital?.name})`);
+
+  // 이 사업장에 아직 연결되지 않은 데모 워커를 먼저 고른다. 같은 번호로 근무자를 등록해도 자동 연결되면 안 된다.
+  for (const email of ['worker-demo-6@demo.atman.co.kr', 'worker-demo-5@demo.atman.co.kr', 'worker-demo-2@demo.atman.co.kr']) {
+    const { data: candidate } = await service.from('workers').select('id,email,phone').eq('email', email).is('deleted_at', null).maybeSingle();
+    if (!candidate?.phone) continue;
+    const { count } = await service.from('facility_staff').select('id', { count: 'exact', head: true }).eq('facility_id', hospital.id).eq('worker_id', candidate.id);
+    if ((count ?? 0) > 0) continue;
+    workerId = candidate.id; workerEmail = candidate.email; workerPhone = candidate.phone; break;
+  }
+  expect(Boolean(workerId && workerEmail && workerPhone), `병원 미연결 의료 데모 워커 확보 (${workerEmail || '없음'})`);
 
   // 1) 근무 건 만들기 (관리자 앱은 서비스 키로 같은 insert 를 한다)
   const { data: project, error: projectError } = await service.from('gig_projects').insert({
@@ -31,11 +41,12 @@ try {
 
   // 2) 긱 근무자 등록 + 참여 + 초대 (inviteGigParticipantAction 과 같은 순서)
   const { data: staff, error: staffError } = await service.from('facility_staff').insert({
-    facility_id: hospital.id, name: '[QA] 긱 근무자', worker_kind: 'gig', role: 'other', department: '[QA] 주말 팝업 행사', source: 'direct',
+    facility_id: hospital.id, name: '[QA] 긱 근무자', phone: workerPhone, worker_kind: 'gig', role: 'other', department: '[QA] 주말 팝업 행사', source: 'direct',
     engagement_type: 'temporary', contract_start: plus(1), contract_end: plus(2), work_weekdays: [1, 2, 3, 4, 5, 6, 7],
     default_start_time: '10:00', default_end_time: '18:00', default_break_minutes: 60, pay_basis: 'hourly', pay_rate: 15000,
-  }).select('id').single();
+  }).select('id,worker_id').single();
   expect(!staffError && staff?.id, `병원에 긱 근무자 등록 ${staffError?.message ?? ''}`);
+  expect(staff?.worker_id === null, '가입자와 같은 전화번호여도 관리자 등록만으로 계정을 자동 연결하지 않음');
   staffId = staff.id;
   const { data: compat } = await service.from('gig_assignments').select('id,source').eq('staff_id', staffId);
   expect((compat ?? []).some((row) => row.source === 'staff_compat'), '병원 소속이어도 worker_kind=gig 면 호환 근무 건이 생김');
@@ -43,7 +54,8 @@ try {
   expect(!assignError, `근무 건 참여 ${assignError?.message ?? ''}`);
   const { data: filled } = await service.from('gig_assignments').select('title,start_time,pay_rate,source,status').eq('project_id', projectId).eq('staff_id', staffId).maybeSingle();
   expect(filled?.title === '[QA] 주말 팝업 행사' && filled?.pay_rate === 15000 && filled?.source === 'admin' && filled?.status === 'active', '참여 건이 근무 건 일정·시급을 그대로 받음');
-  const { data: invite } = await service.from('facility_staff_invites').insert({ facility_id: hospital.id, staff_id: staffId, phone_normalized: null }).select('token').single();
+  // 관리자 메모 번호와 실제 워커 계정 번호가 달라도, 보유한 일회용 토큰을 로그인 계정이 직접 수락하면 연결돼야 한다.
+  const { data: invite } = await service.from('facility_staff_invites').insert({ facility_id: hospital.id, staff_id: staffId, phone_normalized: '01099998888' }).select('token').single();
 
   // 3) 초대 미리보기: 사업장은 병원이지만 근무자가 긱 → 긱 셸에서 수락
   const anon = createClient(supabaseUrl, anonKey, { auth: { persistSession: false } });
@@ -52,19 +64,11 @@ try {
 
   // 4) 이 병원에 아직 직원으로 연결되지 않은 의료 데모 워커를 골라 초대를 수락시킨다
   //    (한 워커는 한 근무지에 연결 하나 — 간호사 데모는 이미 W여성병원 직원이라 거부되는 게 맞다)
-  let login = null;
-  for (const email of ['worker-demo-6@demo.atman.co.kr', 'worker-demo-5@demo.atman.co.kr', 'worker-demo-2@demo.atman.co.kr']) {
-    const { data: w } = await service.from('workers').select('id').eq('email', email).is('deleted_at', null).maybeSingle();
-    if (!w) continue;
-    const { count } = await service.from('facility_staff').select('id', { count: 'exact', head: true }).eq('facility_id', hospital.id).eq('worker_id', w.id);
-    if ((count ?? 0) > 0) continue;
-    login = await fetch(`${workerOrigin}/api/demo-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) }).then((r) => r.json());
-    login.email = email; break;
-  }
-  expect(Boolean(login?.accessToken), `병원 미연결 의료 데모 워커 확보 (${login?.email ?? '없음'})`);
+  const login = await fetch(`${workerOrigin}/api/demo-login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: workerEmail }) }).then((r) => r.json());
+  expect(Boolean(login?.accessToken), `선택한 데모 워커 로그인 (${workerEmail || '없음'})`);
   worker = createClient(supabaseUrl, anonKey, { auth: { persistSession: false, autoRefreshToken: false }, global: { headers: { Authorization: `Bearer ${login.accessToken}` } } });
   const { data: claimed, error: claimError } = await worker.rpc('claim_facility_staff_invite', { p_token: invite.token });
-  expect(!claimError && claimed === staffId, `의료 데모 워커가 병원 긱 초대 수락 ${claimError?.message ?? ''}`);
+  expect(!claimError && claimed === staffId, `전화번호 자동 대조 없이 일회용 초대를 직접 수락 ${claimError?.message ?? ''}`);
   const { data: links } = await worker.from('facility_staff').select('id,worker_kind,status').eq('id', staffId).maybeSingle();
   expect(links?.worker_kind === 'gig', '워커가 자기 연결의 worker_kind=gig 를 읽음 (셸 판정 재료)');
   const { data: rooms } = await worker.rpc('get_my_workrooms_v2');

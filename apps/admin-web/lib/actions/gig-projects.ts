@@ -134,25 +134,25 @@ export async function inviteGigParticipantAction(form: FormData) {
   if (!name || name.length > 80) throw new Error('이름을 확인해 주세요.');
   if (phone && !/^010\d{8}$/.test(normalizedPhone)) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
   await requireStaffCapacity(sb, context.facilityId);
-  const { data: linkedWorker } = phone ? await sb.from('workers').select('id').eq('phone', phone).is('deleted_at', null).limit(1).maybeSingle() : { data: null };
   const { data: created, error } = await sb.from('facility_staff').insert({
-    facility_id: context.facilityId, worker_id: linkedWorker?.id ?? null, name, phone, worker_kind: 'gig',
+    facility_id: context.facilityId, worker_id: null, name, phone, worker_kind: 'gig',
     role: 'other', department: project.title, source: 'direct',
     engagement_type: project.starts_on === project.ends_on ? 'daily' : 'temporary',
     contract_start: project.starts_on, contract_end: project.ends_on, work_weekdays: (project.work_weekdays ?? []).map(Number),
     default_start_time: project.start_time, default_end_time: project.end_time, default_break_minutes: project.break_minutes,
     pay_basis: project.pay_rate ? project.pay_basis : null, pay_rate: project.pay_rate ?? null, created_by: context.user.id,
-  }).select('id,worker_id').single();
+  }).select('id').single();
   if (error || !created) throw new Error('근무자를 등록하지 못했어요.');
   const { error: assignError } = await sb.from('gig_assignments').insert({ facility_id: context.facilityId, staff_id: created.id, project_id: projectId, created_by: context.user.id });
   if (assignError) throw new Error(`근무 건에 넣지 못했어요: ${assignError.message}`);
-  let inviteToken: string | null = null;
-  if (!created.worker_id) {
-    const { data: invite } = await sb.from('facility_staff_invites').insert({ facility_id: context.facilityId, staff_id: created.id, phone_normalized: normalizedPhone || null, created_by: context.user.id }).select('token').single();
-    inviteToken = (invite?.token as string | undefined) ?? null;
-  }
+  // 전화번호는 관리자가 초대를 전달할 때 참고하는 선택 정보다. 계정 연결은 워커의 명시적 수락으로만 한다.
+  const { data: invite, error: inviteError } = await sb.from('facility_staff_invites').insert({
+    facility_id: context.facilityId, staff_id: created.id, phone_normalized: normalizedPhone || null, created_by: context.user.id,
+  }).select('token').single();
+  if (inviteError || !invite?.token) throw new Error('근무자는 등록됐지만 초대 링크를 만들지 못했어요. 근무자 관리에서 다시 발급해 주세요.');
+  const inviteToken = invite.token as string;
   touch(projectId);
-  return { staffId: created.id as string, inviteToken, linked: Boolean(created.worker_id) };
+  return { staffId: created.id as string, inviteToken, linked: false };
 }
 
 export async function removeGigParticipantAction(form: FormData) {

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { GigActionForm } from './GigActionForm';
 import { CopyInviteButton } from '@/app/staff/CopyInviteButton';
+import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import type { GigCandidate, GigProject } from '@/lib/db/gig-projects';
 
 const STATUS: Record<string, [string, string]> = {
@@ -29,7 +30,7 @@ export function GigParticipantsPanel({ project, candidates, workerOrigin }: { pr
                 : member.invitePending ? <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-extrabold text-violet-700">잇기 대기</span>
                 : <span className="rounded-full bg-bg px-2 py-0.5 text-[10px] font-extrabold text-sub">잇기 링크 필요</span>}
             </div>
-            {!member.workerLinked && member.inviteToken && <div className="mt-1"><CopyInviteButton url={`${workerOrigin}/gig/join?token=${member.inviteToken}`} /></div>}
+            {!member.workerLinked && member.inviteToken && <div className="mt-1 flex flex-wrap items-center gap-3"><CopyInviteButton url={`${workerOrigin}/gig/join?token=${member.inviteToken}`} /><WorkforceActionForm kind="create_invite" values={{ staff_id: member.staffId }} successMessage="이전 링크를 끄고 새 초대를 만들었어요."><button className="text-[11px] font-bold text-sub">재발급</button></WorkforceActionForm></div>}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {member.workerLinked && <Link href={`/workroom?staff=${member.staffId}`} className="rounded-lg bg-bg px-3 py-2 text-[11px] font-extrabold text-primary">대화</Link>}
@@ -45,14 +46,14 @@ export function GigParticipantsPanel({ project, candidates, workerOrigin }: { pr
     </GigActionForm>}
 
     <GigActionForm kind="invite_participant" values={{ project_id: project.id }} resetOnSuccess className="mt-3 rounded-xl border border-line p-3"
-      onSuccess={(raw) => { const result = (raw ?? {}) as { inviteToken?: string | null; linked?: boolean }; setInvitedName(result.linked ? '이미 가입한 번호라 바로 연결됐어요.' : '등록했어요 · 이 링크를 보내 주세요'); setInviteUrl(result.inviteToken ? `${workerOrigin}/gig/join?token=${result.inviteToken}` : ''); }}>
+      onSuccess={(raw) => { const result = (raw ?? {}) as { inviteToken?: string | null }; setInvitedName('등록했어요 · 근무자가 직접 수락할 초대를 보내 주세요'); setInviteUrl(result.inviteToken ? `${workerOrigin}/gig/join?token=${result.inviteToken}` : ''); }}>
       <p className="text-[12px] font-extrabold text-ink">새 사람 잇기 (초대)</p>
-      <p className="mt-1 text-[11px] leading-4 text-sub">이 근무 일정·시급으로 등록되고 가입 링크가 만들어져요. 전화번호는 몰라도 돼요.</p>
+      <p className="mt-1 text-[11px] leading-4 text-sub">이 근무 일정·시급으로 등록되고 일회용 초대가 만들어져요. 전화번호는 선택 정보이며 자동 연결에 사용하지 않아요.</p>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <input name="name" required maxLength={80} placeholder="이름" className="h-11 rounded-xl border border-line bg-white px-3 text-[13px]" />
         <input name="phone" inputMode="tel" placeholder="휴대전화 · 선택" className="h-11 rounded-xl border border-line bg-white px-3 text-[13px]" />
       </div>
-      <button className="mt-2 h-10 w-full rounded-xl bg-primary text-[12px] font-extrabold text-white">등록하고 잇기 링크 만들기</button>
+      <button className="mt-2 h-10 w-full rounded-xl bg-primary text-[12px] font-extrabold text-white">등록하고 일회용 초대 만들기</button>
       {invitedName && <div className="mt-3 rounded-xl border border-success/30 bg-success/5 p-3"><p className="text-[12px] font-extrabold text-ink">{invitedName}</p>{inviteUrl && <div className="mt-2"><CopyInviteButton url={inviteUrl} primary /></div>}</div>}
     </GigActionForm>
   </section>;
