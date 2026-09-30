@@ -50,8 +50,8 @@ function RootInner() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md flex-col">
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
-        <h1 className="mt-7 whitespace-pre-line text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">일을 찾거나,{`\n`}초대받은 근무를 시작하세요</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">내 상황에 맞는 시작 방법을 선택하세요.</p>
+        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">내 근무를 하나로 잇다</h1>
+        <p className="mt-2 text-[14px] leading-6 text-sub">일을 찾거나, 초대받은 근무를 시작하세요.</p>
       </div>
 
       <div className="min-h-7 flex-grow" />
@@ -62,7 +62,7 @@ function RootInner() {
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">구직 + 근무관리</span>
         </div>
         <p className="mt-2 text-[18px] font-extrabold text-ink">근무를 찾고 지원할게요</p>
-        <p className="mt-1 text-[13px] leading-5 text-sub">근무 찾기 · 지원 · 근무표 · 출퇴근</p>
+        <p className="mt-1 text-[13px] leading-5 text-sub">지원부터 급여 확인까지 한 번에.</p>
         <button type="button" onClick={startMedical} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink shadow-btn active:opacity-80">
           <KakaoGlyph />병원·약국 워커로 시작
         </button>
@@ -74,7 +74,7 @@ function RootInner() {
           <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-extrabold text-white/75">초대 근무만</span>
         </div>
         <p className="mt-2 text-[18px] font-extrabold">초대받은 근무를 시작할게요</p>
-        <p className="mt-1 text-[13px] leading-5 text-white/65">잇기(초대 수락) · 닿기(출퇴근) · 대화 · 지급 확인</p>
+        <p className="mt-1 text-[13px] leading-5 text-white/65">근무부터 지급 확인까지 한 번에.</p>
         <Link href="/gig" onClick={() => rememberWorkerShell('gig')} className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-white text-[15px] font-extrabold text-ink active:opacity-80">
           긱워커로 시작 →
         </Link>

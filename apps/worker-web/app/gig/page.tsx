@@ -44,8 +44,8 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
         <WorkerModeBadge shell="gig" dark />
       </div>
 
-      <h1 className="mt-14 text-[32px] font-extrabold leading-[1.2] tracking-[-1px]">잇고, 닿고.<br />초대받은 근무를 간단하게.</h1>
-      <p className="mt-4 text-[15px] leading-6 text-white/70">관리자와 앱에서 대화하고, <b className="text-white">닿기</b>로 출퇴근을 남겨요.<br />지급 계좌는 초대를 수락할 때 근무지에 전달돼 시작부터 안심이에요.</p>
+      <h1 className="mt-14 text-[32px] font-extrabold leading-[1.2] tracking-[-1px]">근무부터 지급 확인까지<br />한 번에.</h1>
+      <p className="mt-4 text-[15px] leading-6 text-white/70">초대받은 근무를 확인하고, 관리자와 대화하고,<br /><b className="text-white">닿기</b>로 출퇴근을 기록해요.</p>
 
       <ol className="mt-8 grid grid-cols-3 gap-2 text-center text-[12px] leading-4 text-white/80">
         <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">1</b>잇기<br /><span className="text-white/55">초대 수락·계좌 전달</span></li>

@@ -103,7 +103,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
         {gigInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.1em] text-white">긱워커 간편모드</span>}
         {inviteVariant==='medical'&&<span className="rounded-full bg-primary/10 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-primary">직원 계정 연결</span>}
         <Wordmark size={32} />
-        <span className="text-center text-[15px] leading-6 text-tertiary">{gigInvite?<>초대받은 근무만 간단하게 확인하고<br/>출퇴근을 기록해요</>:inviteVariant==='medical'?<>초대받은 병원·약국 근무를 확인하고<br/>출퇴근과 휴가를 앱에서 관리해요</>:'병원·약국 의료인력을 위한 시프트'}</span>
+        <span className="text-center text-[15px] leading-6 text-tertiary">{gigInvite?'근무부터 지급 확인까지 한 번에.':inviteVariant==='medical'?'초대 근무부터 근태 확인까지 한 번에.':'지원부터 급여 확인까지 한 번에.'}</span>
       </div>
 
       <div className="pb-10 flex flex-col gap-3">

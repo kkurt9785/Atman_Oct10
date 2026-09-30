@@ -111,8 +111,9 @@ function LoginInner() {
           <Wordmark size={34} suffix={null} />
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">관리자</span>
         </div>
-        <h1 className="mt-7 text-[24px] font-extrabold tracking-[-0.7px] text-ink">근무자 운영을 한 화면에서</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">병원·약국 모집부터 긱워커 근태까지<br />필요한 흐름만 간단하게 관리하세요.</p>
+        <h1 className="mt-7 text-[24px] font-extrabold tracking-[-0.7px] text-ink">공고부터 급여까지 한곳에서</h1>
+        <p className="mt-2 text-[14px] leading-6 text-sub">채용부터 근태·급여까지, 하나로 잇다.</p>
+        <span className="mt-3 rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-extrabold text-primary">직접 채용 · 소개 수수료 0원</span>
       </div>
 
       {error === 'unauthorized' && (
