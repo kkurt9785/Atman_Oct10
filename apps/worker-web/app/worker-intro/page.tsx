@@ -38,6 +38,7 @@ export default function WorkerIntroPage() {
         <Link href="/onboarding" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">워커 시작하기</Link>
         <Link href="/jobs" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[15px] font-extrabold text-primary">공고 먼저 보기</Link>
       </div>
+      <Link href="/demo" className="mt-2 flex h-11 items-center justify-center rounded-xl bg-white text-[13px] font-bold text-ink shadow-card">가입 없이 시연 계정으로 둘러보기 →</Link>
     </header>
 
     <section className="px-6 py-9">

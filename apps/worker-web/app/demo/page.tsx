@@ -63,7 +63,17 @@ export default function WorkerDemoPage() {
           <p className="mt-2 text-[14px] leading-6 text-sub">직군 하나를 고르면 그 시연 계정으로 바로 로그인돼요.<br />근무표 홈 → 근무 찾기·지원 → 출퇴근 흐름을 볼 수 있어요.</p>
         </div>
 
-        <p className="mt-8 text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국 근무 찾기</p>
+        <div className="mt-6 rounded-2xl bg-bg px-4 py-3" aria-label="시연에서 눌러볼 것">
+          <p className="text-[12px] font-extrabold text-ink">시연에서 이것만 눌러보세요</p>
+          <ol className="mt-1.5 space-y-1 text-[12px] leading-5 text-sub">
+            <li><b className="text-primary">①</b> 근무 찾기 → <b className="text-ink">지원하기</b></li>
+            <li><b className="text-primary">②</b> 내 근무 → 확정 근무 → <b className="text-ink">사업장 채팅</b></li>
+            <li><b className="text-primary">③</b> 홈 → <b className="text-ink">닿기로 출근</b></li>
+          </ol>
+          <Link href="/worker-intro#demo" className="mt-2 inline-block text-[12px] font-bold text-primary">먼저 1분 영상으로 보기 →</Link>
+        </div>
+
+        <p className="mt-6 text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국 근무 찾기</p>
         <div className="mt-2 flex flex-col gap-2">
           {MEDICAL_DEMOS.map((demo) => (
             <button key={demo.email} type="button" onClick={() => void start(demo.email)} disabled={!ENABLED || Boolean(loadingEmail)} className="flex items-center justify-between rounded-2xl bg-bg px-4 py-4 text-left active:opacity-80 disabled:opacity-60">
