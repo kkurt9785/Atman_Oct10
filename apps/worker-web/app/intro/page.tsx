@@ -63,6 +63,14 @@ export default function IntroPage() {
           <a href="https://admin.itdot.co.kr/login?demo=gigworker" className="flex h-10 items-center justify-center rounded-xl bg-ink text-[12px] font-bold text-white shadow-card">긱워커</a>
         </div>
         <p className="mt-2 text-[11px] text-sub">누르면 시연 계정으로 바로 관리자 화면이 열려요. 실제 데이터에는 반영되지 않아요.</p>
+        <div className="mt-3 rounded-xl bg-white px-4 py-3 shadow-card" aria-label="시연에서 눌러볼 것">
+          <p className="text-[12px] font-extrabold text-ink">시연에서 이것만 눌러보세요</p>
+          <ol className="mt-1.5 space-y-1 text-[12px] leading-5 text-sub">
+            <li><b className="text-primary">①</b> 모집 탭 → <b className="text-ink">새 시프트 등록</b></li>
+            <li><b className="text-primary">②</b> 지원 현황 → <b className="text-ink">수락</b></li>
+            <li><b className="text-primary">③</b> 근태 탭 → <b className="text-ink">출퇴근 인증</b></li>
+          </ol>
+        </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
             중개 수수료 0원
