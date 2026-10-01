@@ -67,6 +67,16 @@ export default function GigDemoPage() {
           <li className="text-white/55">다시 누르면 언제든 처음 상태(초대 대기)로 돌아와요.</li>
         </ol>
 
+        <section className="mt-5" aria-labelledby="gig-demo-video-title">
+          <p id="gig-demo-video-title" className="text-[12px] font-extrabold text-white/70">먼저 영상으로 보기 · 약 1분</p>
+          <div className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-black">
+            <video className="block aspect-[9/16] w-full bg-black" controls playsInline preload="metadata" poster="/demo/itdot-gig-demo-poster.jpg" aria-label="잇닿 긱워커 간편모드 시연 영상">
+              <source src="/demo/itdot-gig-demo.mp4" type="video/mp4" />
+              브라우저가 동영상 재생을 지원하지 않습니다.
+            </video>
+          </div>
+        </section>
+
         <div className="flex-grow" />
 
         {ENABLED ? (

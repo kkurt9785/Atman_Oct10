@@ -17,6 +17,7 @@ node scripts/render_demo_videos.mjs worker
 # 3) 배포 위치로 복사 + 포스터(첫 프레임) 갱신
 cp ~/Downloads/itdot_admin_demo_<date>_latest.mp4  apps/worker-web/public/demo/itdot-admin-demo.mp4
 cp ~/Downloads/itdot_worker_demo_<date>_latest.mp4 apps/worker-web/public/demo/itdot-worker-demo.mp4
+cp ~/Downloads/itdot_gig_demo_<date>_latest.mp4    apps/worker-web/public/demo/itdot-gig-demo.mp4
 ffmpeg -y -ss 0.5 -i apps/worker-web/public/demo/itdot-admin-demo.mp4  -frames:v 1 -q:v 3 apps/worker-web/public/demo/itdot-admin-demo-poster.jpg
 ffmpeg -y -ss 0.5 -i apps/worker-web/public/demo/itdot-worker-demo.mp4 -frames:v 1 -q:v 3 apps/worker-web/public/demo/itdot-worker-demo-poster.jpg
 ```
@@ -54,6 +55,21 @@ ffmpeg -y -ss 0.5 -i apps/worker-web/public/demo/itdot-worker-demo.mp4 -frames:v
 | 9 | `10-notifications` | `/notifications` | 새 시프트와 채용 확정, 사업장 메시지와 지급 상태는 알림으로 이어집니다. 다음 근무를 놓치지 않고 자연스럽게 다시 시작할 수 있습니다. |
 | 10 | `11-next-shifts` | `/home` (마무리, 주간 근무표) | 잇닿에서는 앱을 열면 이번 주 근무표와 내 지역에서 갈 수 있는 근무가 바로 보입니다. 원하는 근무를 고르고, 일한 시간과 지급 상태도 내가 직접 확인합니다. |
 
+## 긱워커 영상 (6장면 · 약 70초) — 2026-10-01 신설, `/gig/demo` 페이지에 임베드
+
+캡처: `node scripts/capture_demo_screens.mjs worker-gig-live` (GIG2026 시연 계정 → 초대 수락까지 자동) + 인트로는 `public-live`의 `03-gig-demo.png`를 `00-gig-intro.png`로 복사. 렌더: `node scripts/render_demo_videos.mjs gig`.
+
+| # | 프레임 | 화면 | 나레이션 |
+|---|---|---|---|
+| 1 | `00-gig-intro` | `/gig/demo` | 잇닿 워커 안의 긱워커 간편모드입니다. 팝업스토어나 행사, 단기 알바처럼 초대받은 근무의 출퇴근 기록과 지급 확인에만 집중합니다. 별도 앱 없이 잇닿 워커 하나로 씁니다. |
+| 2 | `00-gig-invite` | `/gig/join?token=` (수락 전) | 관리자가 보낸 초대 링크를 열면 근무 기간과 일정, 업무, 급여 조건이 먼저 보입니다. 전화번호나 카카오 친구 추가 없이, 잇기 버튼으로 수락하면 바로 연결됩니다. |
+| 3 | `01-gig-home` | `/gig` (닿기) | 근무 당일에는 닿기 버튼을 1초간 길게 누르면 출근이 기록됩니다. 위치는 누른 순간에만 확인하고, 실내처럼 위치가 불안정하면 관리자의 동적 큐알로 인증합니다. 퇴근도 같은 방식입니다. |
+| 4 | `02-gig-workroom` | `/gig/workroom` | 출퇴근 기록은 관리자 대화에 바로 쌓이고, 공지와 근무 메시지도 여기서 주고받습니다. 개인 전화번호는 표시되지 않고, 이 대화는 나와 근무지 관리자만 볼 수 있습니다. |
+| 5 | `03-gig-settlement` | `/gig/settlement` | 지급 계좌는 근무 시작 전에 전달해 둡니다. 계좌는 이 근무지의 지급 권한이 있는 관리자만 볼 수 있고, 여기서 기록된 근태와 지급 현황을 내가 직접 확인합니다. |
+| 6 | `05-gig-settings` | `/gig/settings` (마무리) | 출근 알림을 켜 두면 근무 시간을 놓치지 않습니다. 병원이나 약국 근무도 같은 계정에서 이어서 시작할 수 있습니다. 긱워커도 잇닿 하나로 충분합니다. |
+
+`04-gig-notifications`는 시연 계정에 알림이 없어(빈 화면) 쓰지 않는다.
+
 ## 나레이션 원칙
 
 - TTS(`say -v Yuna -r 205`) 발음을 위해 QR은 **"큐알"**, 단위는 **"30미터"·"60초"**로 표기한다.
@@ -67,3 +83,4 @@ ffmpeg -y -ss 0.5 -i apps/worker-web/public/demo/itdot-worker-demo.mp4 -frames:v
 - 2026-08-23 렌더 파이프라인 확정(admin 7·worker 10 장면, 나레이션 길이 기준)
 - 2026-09-07 프로덕션 재캡처(9/4·9/7 UI 반영), 워커 1장면 나레이션 축약, 이 문서를 mjs 기준으로 동기화
 - 2026-10-01 (3차): 9/7 이후 UI 변경(닿기 버튼·내 근무 탭·주간 근무표·홈 운영 카드·로그인 화면) 반영해 양쪽 재제작. **관리자 편 '0. 사업장 등록' 2장면 제거** — `app/setup/layout.tsx`가 사업장을 소유한 관리자를 홈으로 돌려보내는데 시연 관리자 3계정 모두 사업장을 가져 `/setup/claim-facility`를 찍을 수 없음. 대신 `/login` 1장면으로 "카카오 로그인 한 번 + 처음 한 번 사업장 등록"을 말로 전달. 워커 채팅 장면은 확정 근무가 여러 건이라 빈 방이 먼저 잡히던 문제를 '말풍선 가장 많은 방 선택'으로 해결.
+- 2026-10-01 (3차 추가): **긱워커 편 신설**(6장면) → `/gig/demo`에 임베드. 캡처 타깃 `worker-gig-live` 추가(초대 확인·근무 알림 프레임 포함).

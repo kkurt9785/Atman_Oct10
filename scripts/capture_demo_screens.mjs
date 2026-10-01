@@ -127,7 +127,7 @@ async function main() {
     await go(`${workerOrigin}/applications`); await sleep(1600); await shot('02-medical-work');
     await go(`${workerOrigin}/notifications`); await sleep(1200); await shot('03-medical-notices');
     await go(`${workerOrigin}/settings`); await sleep(1200); await shot('04-medical-settings');
-  } else if (target === 'worker-gig') {
+  } else if (target === 'worker-gig' || target === 'worker-gig-live') {
     await go(`${workerOrigin}/gig/demo`);
     const loginResponse = await fetch('https://itdot.co.kr/api/demo-login', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: 'GIG2026' }),
@@ -139,6 +139,7 @@ async function main() {
     const key = await authStorageKey();
     await cdp.send('Runtime.evaluate', { expression: `localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(session))}); true` });
     await go(`${workerOrigin}/gig/join?token=${encodeURIComponent(login.gigInviteToken)}`);
+    await sleep(1500); await shot('00-gig-invite'); // 초대 확인 화면(수락 전)
     for (let attempt = 0; attempt < 12; attempt += 1) {
       const clicked = await cdp.send('Runtime.evaluate', { expression: `(() => { const button = Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.includes('초대 수락')); if (!button) return false; button.click(); return true; })()`, returnByValue: true });
       if (clicked?.result?.value) break;
@@ -148,7 +149,8 @@ async function main() {
     await go(`${workerOrigin}/gig`); await sleep(2500); await shot('01-gig-home');
     await go(`${workerOrigin}/gig/workroom`); await sleep(1500); await shot('02-gig-workroom');
     await go(`${workerOrigin}/gig/settlement`); await sleep(1800); await shot('03-gig-settlement');
-    await go(`${workerOrigin}/gig/settings`); await sleep(1200); await shot('04-gig-settings');
+    await go(`${workerOrigin}/gig/notifications`); await sleep(1200); await shot('04-gig-notifications');
+    await go(`${workerOrigin}/gig/settings`); await sleep(1200); await shot('05-gig-settings');
   } else if (target === 'worker' || target === 'worker-live') {
     await go(`${workerOrigin}/worker-intro`); await shot('01-worker-intro');
     await go(`${workerOrigin}/onboarding?step=splash`); await shot('02-worker-register');
