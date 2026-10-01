@@ -6,7 +6,16 @@ import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
 import { Wordmark } from '@/components/BrandMark';
 import { AdminInstallButton } from '@/components/AdminInstallButton';
-import { subscribeToAdminPush } from '@/lib/push-subscribe';
+import { getAdminPushSubscription } from '@/lib/push-subscribe';
+
+// 카카오톡 인앱 브라우저는 OAuth 리다이렉트와 홈 화면 설치를 둘 다 막는다.
+// worker-web의 startKakaoLogin과 같은 방식으로 외부 브라우저로 먼저 내보낸다.
+function isKakaoInApp() {
+  return typeof navigator !== 'undefined' && /KAKAOTALK/i.test(navigator.userAgent);
+}
+function openInExternalBrowser() {
+  window.location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(window.location.href);
+}
 
 // 시연용 계정. 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN으로 빌드 시 결정된다.
 const DEMO_ACCOUNTS = [
@@ -24,6 +33,11 @@ function LoginInner() {
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
   const installRequested = searchParams.get('install') === '1';
+  // 설치 링크를 카카오톡에서 열면 인앱 브라우저라 '홈 화면에 추가'가 불가능하다 — 바로 크롬/사파리로 보낸다.
+  // 시연 링크(?demo=)는 인앱에서도 그대로 되므로 건드리지 않는다.
+  useEffect(() => {
+    if (installRequested && isKakaoInApp()) openInExternalBrowser();
+  }, [installRequested]);
 
   // 공개 시연 여부는 환경변수로만 제어한다.
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
@@ -41,6 +55,7 @@ function LoginInner() {
   }, [demoParam, showDemoLogin]);
 
   function handleKakaoLogin() {
+    if (isKakaoInApp()) { openInExternalBrowser(); return; }
     setLoading(true);
     const key = process.env.NEXT_PUBLIC_KAKAO_REST_API_KEY;
     const state = crypto.randomUUID();
@@ -72,13 +87,15 @@ function LoginInner() {
       });
       if (sessionError || !data.session) throw new Error('데모 세션을 만들지 못했어요.');
 
+      // 시연 시작 직후 알림 권한 팝업을 띄우지 않는다. 알림은 근태 화면(timesheet)의 토글에서 사용자가 직접 켠다.
+      // 이미 구독돼 있는 기기라면 프롬프트 없이 서버 레코드만 갱신한다.
       try {
-        const subscription = await subscribeToAdminPush();
+        const subscription = await getAdminPushSubscription();
         if (subscription) await supabase.from('push_subscriptions').upsert({
           worker_id: data.session.user.id, endpoint: subscription.endpoint, subscription: subscription.toJSON(), updated_at: new Date().toISOString(),
         }, { onConflict: 'worker_id,endpoint' });
       } catch {
-        // 알림을 거부해도 관리자 데모 진입은 막지 않는다.
+        // 구독 조회 실패는 데모 진입과 무관하다.
       }
 
       const sessionRes = await fetch('/api/admin-session', {

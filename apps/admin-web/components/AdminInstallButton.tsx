@@ -40,6 +40,12 @@ export function AdminInstallButton({ compact = false }: { compact?: boolean }) {
   }, []);
 
   async function install() {
+    // 카카오톡 인앱 브라우저는 설치가 불가능하다 — 안내문 대신 바로 외부 브라우저로 내보낸다.
+    // (인스타·페북·네이버 인앱은 전환 스킴이 없어 안내문으로 남긴다)
+    if (/KAKAOTALK/i.test(navigator.userAgent)) {
+      window.location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(window.location.href);
+      return;
+    }
     if (deferred) {
       await deferred.prompt();
       const { outcome } = await deferred.userChoice;
