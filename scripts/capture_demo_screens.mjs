@@ -174,17 +174,27 @@ async function main() {
     await sleep(1200);
     // The applications list loads asynchronously on production; poll for the
     // chat link instead of assuming it is present after the fixed navigation wait.
-    let href = null;
-    for (let attempt = 0; attempt < 16 && typeof href !== 'string'; attempt += 1) {
-      const chatHref = await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('a[href^="/chat/"]')).map((node) => node.getAttribute('href')).find(Boolean) ?? null`, returnByValue: true });
-      href = chatHref?.result?.value;
-      if (typeof href !== 'string') await sleep(500);
+    let hrefs = [];
+    for (let attempt = 0; attempt < 16 && hrefs.length === 0; attempt += 1) {
+      const chatHrefs = await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('a[href^="/chat/"]')).map((node) => node.getAttribute('href')).filter(Boolean)`, returnByValue: true });
+      hrefs = Array.isArray(chatHrefs?.result?.value) ? chatHrefs.result.value : [];
+      if (hrefs.length === 0) await sleep(500);
     }
-    if (typeof href === 'string') {
-      await go(`${workerOrigin}${href}`);
-      // The seeded showcase already holds a facility → worker exchange, which is
-      // the cleanest chat frame. Do not send quick replies here: every capture run
-      // would append more worker bubbles and the scene turns into a monologue.
+    // 확정 근무가 여러 건이면 채팅방도 여러 개다. 대화가 비어 있는 방(새로 확정된 근무)이
+    // 먼저 올 수 있으므로, 사업장↔워커 말풍선이 가장 많은 방을 골라 찍는다.
+    // The seeded showcase already holds a facility → worker exchange, which is
+    // the cleanest chat frame. Do not send quick replies here: every capture run
+    // would append more worker bubbles and the scene turns into a monologue.
+    let best = null;
+    for (const href of hrefs.slice(0, 6)) {
+      await go(`${workerOrigin}${href}`); await sleep(700);
+      const count = await cdp.send('Runtime.evaluate', { expression: `document.querySelectorAll('.self-end, .self-start').length`, returnByValue: true });
+      const bubbles = Number(count?.result?.value ?? 0);
+      if (!best || bubbles > best.bubbles) best = { href, bubbles };
+      if (bubbles >= 3) break;
+    }
+    if (best) {
+      await go(`${workerOrigin}${best.href}`);
       await sleep(700); await shot('07-chat');
     }
     await go(`${workerOrigin}/workplace`); await shot('08-workplace');
@@ -228,22 +238,11 @@ async function main() {
     })()`, awaitPromise: true, returnByValue: true });
     console.log('ADMIN_VIEW', JSON.stringify(adminView?.result?.value ?? {}));
     await shot('02-home');
-    // 0. 사업장 등록 — 이름 검색(카카오·잇닿 DB) → 지도 결과 카드 → 등록 시트(핀 조정 지도).
-    // 등록 버튼은 누르지 않는다(시연 계정은 이미 사업장을 소유). 검색어는 지역어+이름 조합이 결과가 좋다.
-    await go(`${adminOrigin}/setup/claim-facility`);
-    await cdp.send('Runtime.evaluate', { expression: `document.querySelector('input[aria-label="사업장명 검색"]')?.focus(); true` });
-    await cdp.send('Input.insertText', { text: '수원 온누리약국' });
-    await sleep(300);
-    await cdp.send('Runtime.evaluate', { expression: `document.querySelector('button[aria-label="검색"]')?.click(); true` });
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const count = await cdp.send('Runtime.evaluate', { expression: `document.querySelectorAll('ul li button').length`, returnByValue: true });
-      if ((count?.result?.value ?? 0) > 0) break;
-      await sleep(500);
-    }
-    await sleep(400); await shot('00-facility-search');
-    await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('ul li button')).find((node) => node.textContent?.includes('바로 등록 가능'))?.click(); true` });
-    await sleep(4000); // 카카오맵 타일·핀·반경 원 렌더 대기
-    await shot('00-facility-register');
+    // 0. 사업장 등록(검색 → 지도 핀) 장면은 더 이상 찍지 않는다 (2026-10-01).
+    // app/setup/layout.tsx 가 사업장을 이미 소유한 관리자를 홈으로 돌려보내는데, 시연 관리자
+    // (sales-demo-1~3)는 모두 사업장을 가지고 있어 /setup/claim-facility 가 열리지 않는다.
+    // 사업장 없는 계정이 생기면 이 자리에서 '병원·약국 인력 모집' 선택 → 사업장명 검색(aria-label
+    // "사업장명 검색") → '바로 등록 가능' 결과 클릭 순서로 00-facility-search / 00-facility-register 를 찍으면 된다.
     await go(`${adminOrigin}/shifts/new`); await shot('02-shift-create');
     await go(`${adminOrigin}/applications`); await shot('03-applications');
     await go(`${adminOrigin}/chats`); await shot('04-chats');
