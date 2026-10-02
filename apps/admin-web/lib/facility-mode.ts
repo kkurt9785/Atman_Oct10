@@ -41,7 +41,7 @@ export function workerShellPathsForKind(kind: WorkerKind) {
 // 긱워커 근무지에서는 없는 기능. 주소로 직접 들어와도 홈으로 돌려보낸다.
 // (공고 등록은 lib/actions/shifts.ts 가 서버에서도 한 번 더 막는다.)
 // 지급 관리(/gig-pay)는 긱 근무자가 있는 사업장이면 어디서든 쓰므로 어느 쪽 전용도 아니다.
-const MEDICAL_ONLY_PREFIXES = ['/shifts', '/applications', '/chats', '/leave', '/payroll', '/workforce', '/operations'];
+const MEDICAL_ONLY_PREFIXES = ['/shifts', '/applications', '/chats', '/leave', '/payroll', '/workforce', '/operations', '/vacancy'];
 const GIG_ONLY_PREFIXES: string[] = [];
 
 export function isMedicalOnlyPath(path: string) {

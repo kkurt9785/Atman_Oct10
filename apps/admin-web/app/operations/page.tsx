@@ -3,7 +3,7 @@ import { Card } from '@/components/ui';
 import { won } from '@/lib/format';
 import { todayKST } from '@/lib/date';
 import { getOperationsAlerts, getOperationsSummary, getShiftTemplates, getWorkforceCoverage, getWorkforceRecommendations, getStaffingRequirements } from '@/lib/db/operations';
-import { approveWorkforceRecommendationAction, createShiftTemplateAction, createStaffingRequirementAction, deactivateShiftTemplateAction, deactivateStaffingRequirementAction, fillSevenDayScheduleGapsAction, generateRecurringShiftsAction, requestUrgentReplacementAction, resetFacilityLiveDemoAction } from './actions';
+import { approveWorkforceRecommendationAction, createShiftTemplateAction, createStaffingRequirementAction, deactivateShiftTemplateAction, deactivateStaffingRequirementAction, fillSevenDayScheduleGapsAction, generateRecurringShiftsAction, resetFacilityLiveDemoAction } from './actions';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
 import { hasPlanFeature } from '@/lib/billing-gates';
@@ -116,13 +116,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
                       <p className="text-body font-bold mt-1">{alert.personName} · {dayLabel(alert.shiftDate)} {alert.startTime.slice(0,5)}</p>
                       <p className="mt-0.5 text-[0.75rem] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 근무'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p>
                     </div>
-                    {alert.kind === 'no_show' && !alert.replacementEligible
+                    {alert.kind === 'no_show' && alert.employment === 'shift' && !alert.replacementEligible
                       ? <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">출근 확인</Link>
-                      : hasOperations && alert.shiftId
-                        ? <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[0.75rem] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form>
-                        : alert.kind === 'unfilled'
-                          ? <Link href="/shifts" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">공고 보기</Link>
-                          : <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">근태 확인</Link>}
+                      : <div className="flex shrink-0 flex-col items-end gap-1.5">
+                          <Link href={alert.employment === 'staff' && alert.staffId ? `/vacancy?staff=${alert.staffId}&date=${alert.shiftDate}` : alert.kind === 'no_show' ? `/vacancy?replace=${alert.shiftId}` : `/vacancy?shift=${alert.shiftId}`} className="flex h-10 items-center rounded-xl bg-primary px-3 text-[0.75rem] font-extrabold whitespace-nowrap text-white">결원 채우기</Link>
+                          {alert.kind === 'no_show' && <Link href="/timesheet#approvals" className="text-[0.6875rem] font-bold text-sub underline">출근 확인</Link>}
+                        </div>}
                   </div>
                 </Card>
               ))}
@@ -164,10 +163,11 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
                   <div className="min-w-0"><p className="text-[0.75rem] font-extrabold text-warn">{dateLabel} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p><p className="text-body font-extrabold text-ink mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} {ROLE_LABEL[item.role]} {item.shortage}명이 부족해요</p><p className="text-label text-sub mt-1 leading-5">{item.reason} · 기준 {item.required}명 / 현재 반영 {item.scheduled}명</p></div>
                   <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[0.6875rem] font-extrabold text-primary">가능 인력풀 {item.candidateCount}명</span>
                 </div>
-                {item.candidateCount > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[0.75rem] text-sub">함께 일했던 인력풀 중 이 시간대에 가능한 인력이 <b className="text-ink">{item.candidateCount}명</b> 있어요. 공고를 올리면 조건이 맞는 근무자 모두에게 알림이 가요.</p>}
-                <form action={approveWorkforceRecommendationAction} className="mt-3">
+                {item.candidateCount > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[0.75rem] text-sub">함께 일했던 근무자 중 이 시간대에 가능한 분이 <b className="text-ink">{item.candidateCount}명</b> 있어요. 직원과 함께 일한 근무자에게 먼저 요청해 보세요.</p>}
+                <Link href={`/vacancy?rec=${encodeURIComponent(item.key)}`} className="mt-3 flex min-h-11 w-full items-center justify-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">직원·함께한 근무자에게 요청</Link>
+                <form action={approveWorkforceRecommendationAction} className="mt-2">
                   <input type="hidden" name="recommendation_key" value={item.key}/>
-                  <button className="w-full min-h-11 rounded-xl bg-primary px-4 text-label font-extrabold text-white">공고 올리고 조건 맞는 근무자에게 알림</button>
+                  <button className="w-full min-h-11 rounded-xl border border-primary/30 bg-white px-4 text-label font-bold text-primary">공개 공고로 올리고 근처 근무자에게 알림</button>
                 </form>
               </Card>;
             })}

@@ -45,10 +45,12 @@ export async function cancelApplication(applicationId: string): Promise<boolean>
   return !error && data === true;
 }
 
-export async function respondToInvitation(applicationId: string, accept: boolean): Promise<boolean> {
+// 결원 요청은 수락 즉시 확정되거나, 이미 다른 분이 맡았으면 이유와 함께 거절된다 — 이유를 화면에 그대로 보여 준다
+export async function respondToInvitation(applicationId: string, accept: boolean): Promise<{ ok: boolean; message?: string }> {
   const { data, error } = await supabase.rpc('respond_to_shift_invitation', {
     p_application_id: applicationId,
     p_accept: accept,
   });
-  return !error && data === true;
+  if (error) return { ok: false, message: error.message.replace(/^.*?: /, '') || undefined };
+  return { ok: data === true };
 }

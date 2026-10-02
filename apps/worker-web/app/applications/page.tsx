@@ -17,6 +17,7 @@ type ActivityFilter = 'active' | 'accepted' | 'completed' | 'all';
 type Application = {
   id: string;
   status: ApplicationStatus;
+  confirm_on_accept?: boolean;
   applied_at: string;
   checked_in_at: string | null;
   checked_out_at: string | null;
@@ -34,6 +35,11 @@ type Application = {
 };
 
 // ── 상수 ───────────────────────────────────────────────────────
+const VACANCY_STATUS: Partial<Record<ApplicationStatus, { label: string; description: string; className: string }>> = {
+  invited: { label: '근무 요청', description: '사업장에서 이 근무를 맡아 줄 수 있는지 물어봤어요. 먼저 수락한 분으로 바로 확정돼요.', className: 'bg-amber-100 text-amber-700' },
+  expired: { label: '마감', description: '다른 분이 먼저 맡았어요.', className: 'bg-[#F2F4F6] text-tertiary' },
+  cancelled: { label: '거절함', description: '이번 요청은 거절했어요.', className: 'bg-[#F2F4F6] text-tertiary' },
+};
 const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: string; className: string }> = {
   invited: {
     label: '반복근무 요청',
@@ -215,9 +221,11 @@ function ApplicationCard({
 }) {
   // 대타가 승인돼 빠진 근무는 '취소됨'이 아니다 — 본인이 취소한 것처럼 보이면 책임 있게 대타를 구한 행동이 묻힌다
   const coveredByOther = app.status === 'cancelled' && cover?.status === 'approved';
+  // 결원 요청(먼저 수락한 분으로 바로 확정)은 반복근무 요청과 안내가 다르다
+  const vacancyCopy = app.confirm_on_accept ? VACANCY_STATUS[app.status] : undefined;
   const { label, description, className } = coveredByOther
     ? { label: '대타 확정', description: `${cover?.claimer_name ?? '동료'}님이 이 근무를 맡았어요. 빠지셔도 돼요.`, className: 'bg-[#E5FAF4] text-success' }
-    : STATUS_CONFIG[app.status];
+    : vacancyCopy ?? STATUS_CONFIG[app.status];
   const startsAt = Date.parse(`${app.shift.shift_date}T${app.shift.start_time.slice(0, 5)}:00+09:00`);
   const canSeekCover = app.status === 'accepted' && !app.checked_in_at && !app.checked_out_at && startsAt > Date.now();
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
@@ -255,7 +263,7 @@ function ApplicationCard({
       {app.status === 'invited' && (
         <div className="grid grid-cols-2 gap-2 mt-3">
           <button onClick={() => onInvitation(app.id, false)} className="h-12 rounded-xl border border-line text-[14px] font-bold text-sub">이번에는 어려워요</button>
-          <button onClick={() => onInvitation(app.id, true)} className="h-12 rounded-xl bg-primary text-white text-[14px] font-extrabold">근무 요청 수락</button>
+          <button onClick={() => onInvitation(app.id, true)} className="h-12 rounded-xl bg-primary text-white text-[14px] font-extrabold">{app.confirm_on_accept ? '맡을게요 · 바로 확정' : '근무 요청 수락'}</button>
         </div>
       )}
 
@@ -360,7 +368,7 @@ export default function ApplicationsPage() {
       const { data } = await supabase
         .from('shift_applications')
         .select(`
-          id, status, applied_at, checked_in_at, checked_out_at,
+          id, status, confirm_on_accept, applied_at, checked_in_at, checked_out_at,
           shift:shifts (
             id, shift_date, start_time, end_time, is_overnight,
             estimated_total_pay, department, description,
@@ -389,11 +397,12 @@ export default function ApplicationsPage() {
   }
 
   async function handleInvitation(applicationId: string, accept: boolean) {
-    const ok = await respondToInvitation(applicationId, accept);
-    if (!ok) { setActionNotice('요청 상태를 변경하지 못했어요. 다시 시도해 주세요.'); return; }
+    const result = await respondToInvitation(applicationId, accept);
+    if (!result.ok) { setActionNotice(result.message ?? '요청 상태를 변경하지 못했어요. 다시 시도해 주세요.'); return; }
     setApps((prev) => prev.map((app) => app.id === applicationId
-      ? { ...app, status: accept ? 'applied' as const : 'cancelled' as const }
+      ? { ...app, status: accept ? (app.confirm_on_accept ? 'accepted' as const : 'applied' as const) : 'cancelled' as const }
       : app));
+    if (accept) setActionNotice(apps.find((app) => app.id === applicationId)?.confirm_on_accept ? '근무가 확정됐어요. 근무 당일 출근하기를 눌러 주세요.' : '');
   }
 
   async function handleRequestCover(applicationId: string, reason: string): Promise<boolean> {
