@@ -84,6 +84,6 @@ export default function WorkerIntroPage() {
 
     <section className="px-6"><div className="rounded-card bg-ink px-5 py-7 text-center"><p className="text-[17px] font-extrabold text-white">내 지역 근무를 받아볼까요?</p><p className="mt-2 text-[13px] leading-5 text-white/70">프로필을 등록하면 조건에 맞는 새 공고와 근무 상태를 한 곳에서 확인할 수 있어요.</p><div className="mt-5"><InstallAppButton label="잇닿 워커 앱 설치" dark /></div><Link href="/onboarding" className="mt-2 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">설치 없이 워커로 시작하기</Link><Link href="/jobs" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-white/10 text-[14px] font-bold text-white">로그인 없이 공고 보기</Link></div></section>
 
-    <footer className="px-6 pb-4 pt-9 text-[11px] leading-5 text-tertiary">잇닿(itdot.co.kr) · 케셰르 · 대표 김기한 · 사업자등록번호 481-44-01177<br />경기도 수원시 권선구 경수대로 202, 1203동 417호<br />잇닿은 직업정보제공사업 형태로 구인·구직 정보를 제공합니다.</footer>
+    <footer className="px-6 pb-4 pt-9 text-[11px] leading-5 text-tertiary">잇닿(itdot.co.kr) · 케셰르 · 대표 김기한 · 사업자등록번호 481-44-01177<br />경기도 수원시 권선구 경수대로 202<br />잇닿은 직업정보제공사업 형태로 구인·구직 정보를 제공합니다.</footer>
   </main>;
 }
