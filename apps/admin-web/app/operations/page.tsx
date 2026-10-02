@@ -12,6 +12,8 @@ import { ManageBackLink } from '@/components/ManageBackLink';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
+const ALERT_LIMIT = 8;
+const dayLabel = (date: string) => new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${date}T00:00:00+09:00`));
 
 const NOTICE: Record<string, string> = {
   template_saved: '반복 템플릿을 저장했어요.',
@@ -33,16 +35,26 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   if (!context || context.accessRole === 'sales') {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">운영 관리 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
-  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop] = await Promise.all([getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(), getWorkforceCoverage(), getWorkforceRecommendations(), getShop()]);
-  const isPharmacy = shop?.facilityType === 'pharmacy';
-  // 운영 자동화는 Pro·Pharmacy Plus 기능 — 미충족 플랜에는 실행 시점 에러 대신 먼저 안내한다
+  // 운영 자동화는 Pro·Pharmacy Plus 기능 — 미충족 플랜에는 실행 시점 에러 대신 먼저 안내한다.
+  // 플랜 조회도 같은 Promise.all 에 넣어 순차 왕복을 없앤다.
   const gateSb = adminClient();
-  const hasOperations = !!gateSb && (await hasPlanFeature(gateSb, context.facilityId, 'operations'));
+  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations] = await Promise.all([
+    getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(),
+    getWorkforceCoverage(), getWorkforceRecommendations(), getShop(),
+    gateSb ? hasPlanFeature(gateSb, context.facilityId, 'operations') : Promise.resolve(false),
+  ]);
+  const isPharmacy = shop?.facilityType === 'pharmacy';
   const roleOptions: [string, string][] = isPharmacy
     ? [['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직']]
     : [['rn', '간호사 RN'], ['na', '간호조무사 NA'], ['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직'], ['any', '자격 무관']];
-  const alerts = summary.urgentUnfilledCount + summary.expiringCredentialCount + summary.pendingWageCount
-    + operationAlerts.filter((alert) => alert.kind === 'no_show').length;
+  // '지금 확인할 일'의 단일 기준은 개별 알림 목록이다. 요약 숫자도 여기서 파생해야 위·아래 숫자가 어긋나지 않는다.
+  // (summary.urgentUnfilledCount 는 이미 시작한 시프트까지 세서 아래 카드 수와 달라졌다)
+  const noShowAlerts = operationAlerts.filter((alert) => alert.kind === 'no_show');
+  const unfilledAlerts = operationAlerts.filter((alert) => alert.kind === 'unfilled');
+  // 지금 벌어지고 있는 미출근을 먼저, 그다음 곧 시작하는데 지원자가 없는 근무
+  const todoAlerts = [...noShowAlerts, ...unfilledAlerts];
+  const hiddenAlerts = todoAlerts.slice(ALERT_LIMIT);
+  const todoCount = todoAlerts.length + summary.expiringCredentialCount + summary.pendingWageCount;
   const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
   const recruitingCount = coverage.reduce((sum, day) => sum + day.recruiting, 0);
   return (
@@ -51,8 +63,9 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[0.8125rem] font-bold text-success">{notice}</p>}
       {!hasOperations && (
         <Card className="mt-3 mb-4 border border-amber-200 bg-amber-50">
-          <p className="text-body font-extrabold text-ink">운영 자동화는 Pro·Pharmacy Plus 요금제 기능이에요</p>
-          <p className="text-label text-sub mt-1 leading-5">반복 근무표 자동 생성, 인력 공백 알림, 긴급 대체 모집을 쓸 수 있어요. 지금 플랜에서는 화면만 미리 볼 수 있습니다.</p>
+          <p className="text-body font-extrabold text-ink">{scheduleGapCount > 0 ? `앞으로 7일에 채울 자리가 ${scheduleGapCount}명 있어요` : '반복되는 근무표를 자동으로 만들어 드려요'}</p>
+          <p className="text-label text-sub mt-1 leading-5">{scheduleGapCount > 0 ? '운영 자동화를 켜면 이 공백을 공고로 한 번에 만들고, 조건이 맞는 워커에게 바로 알림이 갑니다. 지금은 아래에서 공백만 확인할 수 있어요.' : '병동·시간별 필요 인원을 한 번 저장해두면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.'}</p>
+          <p className="text-label text-sub mt-2 leading-5">Pro · Pharmacy Plus 요금제 기능입니다.</p>
           <Link href="/membership" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">요금제 살펴보기</Link>
         </Card>
       )}
@@ -68,17 +81,66 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         </Card>
       )}
 
+      {/* 사장님이 매일 처음 보는 숫자는 '나갈 돈'이 아니라 '지금 챙길 일'이다. 인건비는 맨 아래 보조 정보로 */}
       <Card className="shadow-sm mb-4">
-        <p className="text-label text-sub">이번 달 예정 인건비</p>
-        <p className="text-money font-extrabold text-ink mt-1">{won(summary.monthEstimatedCost)}</p>
+        <p className="text-label text-sub">오늘 운영</p>
+        <p className={`text-money font-extrabold mt-1 ${todoCount > 0 ? 'text-ink' : 'text-success'}`}>{todoCount > 0 ? `확인할 일 ${todoCount}건` : '확인할 일 없음'}</p>
         <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-line text-center">
-          <div><p className="text-title font-extrabold text-primary">{summary.openShiftCount}</p><p className="text-[0.6875rem] text-sub">모집 중</p></div>
-          <div><p className="text-title font-extrabold text-warn">{summary.urgentUnfilledCount}</p><p className="text-[0.6875rem] text-sub">48시간 내 미충원</p></div>
-          <div><p className="text-title font-extrabold text-ink">{alerts}</p><p className="text-[0.6875rem] text-sub">확인할 일</p></div>
+          <div><p className={`text-title font-extrabold ${noShowAlerts.length > 0 ? 'text-warn' : 'text-tertiary'}`}>{noShowAlerts.length}</p><p className="text-[0.75rem] text-sub">미출근</p></div>
+          <div><p className={`text-title font-extrabold ${unfilledAlerts.length > 0 ? 'text-warn' : 'text-tertiary'}`}>{unfilledAlerts.length}</p><p className="text-[0.75rem] text-sub">지원자 없음</p></div>
+          <div><p className="text-title font-extrabold text-primary">{summary.openShiftCount}</p><p className="text-[0.75rem] text-sub">이번 달 모집 중</p></div>
+        </div>
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-bg px-3 py-2.5">
+          <span className="text-label text-sub">이번 달 예정 인건비</span>
+          <b className="text-label font-extrabold text-ink">{won(summary.monthEstimatedCost)}</b>
         </div>
       </Card>
 
-      <div className={!hasOperations ? 'pointer-events-none select-none opacity-60' : ''} aria-disabled={!hasOperations}>
+      {todoCount > 0 && (
+        <section className="mb-6" aria-labelledby="todo-now">
+          <div className="flex items-end justify-between px-1 mb-3">
+            <h2 id="todo-now" className="text-title font-extrabold text-ink">지금 확인할 일</h2>
+            <span className="text-label font-bold text-sub">{todoCount}건</span>
+          </div>
+          {todoAlerts.length > 0 && (
+            <div className="space-y-2">
+              {todoAlerts.slice(0, ALERT_LIMIT).map((alert) => (
+                <Card key={`${alert.kind}:${alert.shiftId ?? alert.staffId}`} className={alert.kind === 'no_show' ? 'border border-red-200' : 'border border-amber-200'}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 시간 지남 · 출근 확인 필요') : '곧 시작 · 지원자 없음'}</p>
+                      <p className="text-body font-bold mt-1">{alert.personName} · {dayLabel(alert.shiftDate)} {alert.startTime.slice(0,5)}</p>
+                      <p className="mt-0.5 text-[0.75rem] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 시프트'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p>
+                    </div>
+                    {alert.kind === 'no_show' && !alert.replacementEligible
+                      ? <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">출근 확인</Link>
+                      : hasOperations && alert.shiftId
+                        ? <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[0.75rem] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form>
+                        : alert.kind === 'unfilled'
+                          ? <Link href="/shifts" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">공고 보기</Link>
+                          : <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">근태 확인</Link>}
+                  </div>
+                </Card>
+              ))}
+              {/* 예전엔 9번째부터 안내 없이 버려졌다 — 남은 건수와 갈 곳을 알려준다 */}
+              {hiddenAlerts.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 py-1 text-label font-bold text-primary">
+                  {hiddenAlerts.some((alert) => alert.kind === 'no_show') && <Link href="/timesheet#approvals">미출근 {hiddenAlerts.filter((alert) => alert.kind === 'no_show').length}건 더 →</Link>}
+                  {hiddenAlerts.some((alert) => alert.kind === 'unfilled') && <Link href="/shifts">지원자 없는 근무 {hiddenAlerts.filter((alert) => alert.kind === 'unfilled').length}건 더 →</Link>}
+                </div>
+              )}
+            </div>
+          )}
+          {(summary.expiringCredentialCount > 0 || summary.pendingWageCount > 0) && (
+            <Card className={`${todoAlerts.length > 0 ? 'mt-2' : ''} divide-y divide-line py-1`}>
+              {summary.expiringCredentialCount > 0 && <Link href="/workforce" className="flex items-center justify-between py-3 text-label"><span className="text-ink">30일 안에 만료되는 자격</span><b className="text-warn">{summary.expiringCredentialCount}건 →</b></Link>}
+              {summary.pendingWageCount > 0 && <Link href="/payroll" className="flex items-center justify-between py-3 text-label"><span className="text-ink">급여 승인·지급 대기</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
+            </Card>
+          )}
+        </section>
+      )}
+
+      {hasOperations && (<>
       <section className="mb-5" aria-labelledby="staffing-recommendations">
         <div className="flex items-end justify-between px-1 mb-3">
           <div><p className="text-label font-bold text-primary">근무표·휴가·근태 자동 분석</p><h2 id="staffing-recommendations" className="text-title font-extrabold text-ink mt-1">인력 공백 알림</h2></div>
@@ -126,6 +188,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           </form>
         </details>
       </section>
+      </>)}
 
       <section id="coverage" className="scroll-mt-20 mb-5">
         <div className="flex items-end justify-between px-1 mb-3">
@@ -136,7 +199,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           <Card className="mb-3 border border-primary/20 bg-primary/5">
             <div className="flex items-center justify-between gap-3">
               <div><p className="text-body font-extrabold text-ink">공백 {scheduleGapCount}명 · 모집 중 {recruitingCount}명</p><p className="text-label text-sub mt-1 leading-5">한 번 생성하면 공고 등록과 워커 알림은 뒤에서 처리돼요.</p></div>
-              {scheduleGapCount > 0 && <form action={fillSevenDayScheduleGapsAction}><button className="min-h-11 shrink-0 rounded-xl bg-primary px-4 text-[0.75rem] font-extrabold text-white">공백 한 번에 모집</button></form>}
+              {hasOperations && scheduleGapCount > 0 && <form action={fillSevenDayScheduleGapsAction}><button className="min-h-11 shrink-0 rounded-xl bg-primary px-4 text-[0.75rem] font-extrabold text-white">공백 한 번에 모집</button></form>}
             </div>
           </Card>
         )}
@@ -160,30 +223,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         </Card>
       </section>
 
-      {alerts > 0 && (
-        <Card className="border border-amber-200 bg-amber-50 mb-5">
-          <p className="text-body font-extrabold text-ink">지금 확인할 항목</p>
-          <div className="mt-3 space-y-2 text-label">
-            {summary.urgentUnfilledCount > 0 && <Link href="/shifts" className="flex justify-between"><span>48시간 내 지원자 없는 시프트</span><b className="text-warn">{summary.urgentUnfilledCount}건 →</b></Link>}
-            {summary.expiringCredentialCount > 0 && <Link href="/workforce" className="flex justify-between"><span>30일 내 만료 또는 만료 자격</span><b className="text-warn">{summary.expiringCredentialCount}건 →</b></Link>}
-            {summary.pendingWageCount > 0 && <Link href="/payroll" className="flex justify-between"><span>승인·지급 처리 대기</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
-          </div>
-        </Card>
-      )}
-
-      {operationAlerts.length > 0 && (
-        <div className="space-y-2 mb-5">
-          {operationAlerts.slice(0, 8).map((alert) => (
-            <Card key={`${alert.kind}:${alert.shiftId ?? alert.staffId}`} className={alert.kind === 'no_show' ? 'border border-red-200' : 'border border-amber-200'}>
-              <div className="flex items-center justify-between gap-3">
-                <div><p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 시간 지남 · 출근 확인 필요') : '48시간 내 지원자 없음'}</p><p className="text-body font-bold mt-1">{alert.personName} · {alert.shiftDate} {alert.startTime.slice(0,5)}</p><p className="mt-0.5 text-[0.6875rem] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 시프트'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p></div>
-                {alert.kind === 'no_show' && !alert.replacementEligible ? <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">출근 확인</Link> : alert.shiftId ? <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[0.75rem] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form> : <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">근태 확인</Link>}
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
+      {hasOperations && (<>
       <div id="templates" className="scroll-mt-20 flex items-center justify-between px-1 mt-7 mb-3">
         <h2 className="text-title font-bold text-ink">반복 시프트 템플릿</h2>
         <span className="text-label text-sub">최대 8주 생성</span>
@@ -219,7 +259,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">템플릿 저장</button>
         </form>
       </details>
-      </div>
+      </>)}
     </main>
   );
 }
