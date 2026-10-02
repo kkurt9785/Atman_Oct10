@@ -44,6 +44,12 @@ function LoginInner() {
 
   // 시연 사이트(itdot.co.kr/intro)에서 ?demo=hospital|gigworker|pharmacy|care 로 오면 버튼을 누르지 않아도 그 시연으로 바로 들어간다.
   const demoParam = searchParams.get('demo');
+  // 영업 링크(/login?mode=recruit|gigworker) — 카카오 로그인 왕복 뒤 가입 화면에서 시작 방식을 건너뛰도록 탭에 기억한다
+  const entryMode = searchParams.get('mode');
+  useEffect(() => {
+    if (entryMode !== 'recruit' && entryMode !== 'gigworker') return;
+    try { window.sessionStorage.setItem('itdot_admin_entry_mode', entryMode); } catch {}
+  }, [entryMode]);
   useEffect(() => {
     if (!showDemoLogin || !demoParam) return;
     const target = demoParam === 'gigworker' ? DEMO_ACCOUNTS[1]

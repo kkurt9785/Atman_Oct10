@@ -56,8 +56,12 @@ export default function ClaimFacilityPage() {
   const mapSearchUnavailable=searched&&sources.kakao&&sources.kakao!=='ok';
   const canSearch=entryChoice==='recruit';
 
+  // 영업 링크로 들어오면 시작 방식 선택을 건너뛴다 — ?mode=gigworker / ?mode=recruit(병원·약국 모집, 검색창이 바로 열림)
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('mode') === 'gigworker') setEntryChoice('gigworker');
+    let stored: string | null = null;
+    try { stored = window.sessionStorage.getItem('itdot_admin_entry_mode'); window.sessionStorage.removeItem('itdot_admin_entry_mode'); } catch {}
+    const mode = new URLSearchParams(window.location.search).get('mode') ?? stored;
+    if (mode === 'gigworker' || mode === 'recruit') setEntryChoice(mode);
   }, []);
 
   function chooseEntry(choice:EntryChoice){
