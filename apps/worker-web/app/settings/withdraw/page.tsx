@@ -62,7 +62,7 @@ export default function WithdrawPage() {
         </ul>
         <p className="mt-4 text-[15px] font-bold text-ink">3년 동안 보관돼요</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6 text-sub">
-          <li>이미 한 근무의 출퇴근·지급 기록(이름·직군과 함께) — 사업장의 근로관계 기록이라 법에서 보관을 정하고 있어요</li>
+          <li>이미 한 근무의 출퇴근·지급 기록과 근무 관련 대화(이름·직군과 함께) — 사업장의 근로관계 기록이라 법에서 보관을 정하고 있어요. 3년이 지나면 이름 등을 지워 익명으로 바꿔요</li>
           <li>동의·철회 기록</li>
         </ul>
         <p className="mt-4 rounded-xl bg-bg px-3 py-2.5 text-[13px] leading-5 text-sub">앞으로 확정된 근무가 남아 있으면 탈퇴할 수 없어요. 내 근무에서 대타를 구하거나 사업장과 먼저 정리해 주세요.</p>
