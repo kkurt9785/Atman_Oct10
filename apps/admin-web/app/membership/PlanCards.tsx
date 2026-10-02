@@ -45,7 +45,7 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
             type="button"
             onClick={() => setCycle(c.key)}
             aria-pressed={cycle === c.key}
-            className={`h-10 rounded-xl text-[12px] font-bold ${cycle === c.key ? 'bg-primary text-white' : 'bg-bg text-sub'}`}
+            className={`h-10 rounded-xl text-[0.75rem] font-bold ${cycle === c.key ? 'bg-primary text-white' : 'bg-bg text-sub'}`}
           >
             {c.label}
           </button>
@@ -53,10 +53,10 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
       </div>
       {cycle !== 'monthly' && (
         <div className="mb-3 rounded-xl bg-primary/5 border border-primary/15 px-3 py-2.5">
-          <p className="text-[11px] leading-4 text-sub">
+          <p className="text-[0.6875rem] leading-4 text-sub">
             {meta.months}개월 선결제 · 부가세 별도 · 중도해지 시 이용 개월은 할인 전 정상가로 정산 후 잔액 환불
           </p>
-          <a href="#invoices" className="mt-1 inline-block text-[12px] font-bold text-primary">전환을 원하시면 다음 청구서에 반영을 요청하세요 →</a>
+          <a href="#invoices" className="mt-1 inline-block text-[0.75rem] font-bold text-primary">전환을 원하시면 다음 청구서에 반영을 요청하세요 →</a>
         </div>
       )}
       <div className="space-y-3 mb-4">
@@ -76,30 +76,30 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-title font-extrabold">{plan.name}</p>
-                  {popular && <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-primary text-white">★ 인기</span>}
-                  {isCurrent && <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-success/15 text-success">이용 중</span>}
+                  {popular && <span className="text-[0.6875rem] font-extrabold px-2 py-0.5 rounded-full bg-primary text-white">★ 인기</span>}
+                  {isCurrent && <span className="text-[0.6875rem] font-bold px-2 py-0.5 rounded-full bg-success/15 text-success">이용 중</span>}
                 </div>
                 <div className="text-right flex-shrink-0">
                   {plan.monthly_fee === 0 ? (
-                    <p className="text-[22px] font-extrabold text-ink leading-none">무료</p>
+                    <p className="text-[1.375rem] font-extrabold text-ink leading-none">무료</p>
                   ) : discountable ? (
                     <>
-                      <p className="text-[22px] font-extrabold text-ink leading-none">{won(perMonth)}<span className="text-[12px] font-bold text-sub"> /월</span></p>
-                      <p className="text-[11px] text-tertiary mt-0.5">{meta.months === 12 ? '연' : `${meta.months}개월`} {won(total)} 선결제</p>
-                      <p className="text-[11px] font-bold text-primary mt-0.5">월간 대비 {won(savings)} 절약</p>
+                      <p className="text-[1.375rem] font-extrabold text-ink leading-none">{won(perMonth)}<span className="text-[0.75rem] font-bold text-sub"> /월</span></p>
+                      <p className="text-[0.6875rem] text-tertiary mt-0.5">{meta.months === 12 ? '연' : `${meta.months}개월`} {won(total)} 선결제</p>
+                      <p className="text-[0.6875rem] font-bold text-primary mt-0.5">월간 대비 {won(savings)} 절약</p>
                     </>
                   ) : (
                     <>
-                      <p className="text-[22px] font-extrabold text-ink leading-none">{won(plan.monthly_fee)}</p>
-                      <p className="text-[11px] text-tertiary mt-0.5">월 · 부가세 별도</p>
+                      <p className="text-[1.375rem] font-extrabold text-ink leading-none">{won(plan.monthly_fee)}</p>
+                      <p className="text-[0.6875rem] text-tertiary mt-0.5">월 · 부가세 별도</p>
                     </>
                   )}
                 </div>
               </div>
-              {typeof plan.features?.tagline === 'string' && <p className="text-[13px] text-sub mt-1.5">{plan.features.tagline as string}</p>}
+              {typeof plan.features?.tagline === 'string' && <p className="text-[0.8125rem] text-sub mt-1.5">{plan.features.tagline as string}</p>}
               <ul className="mt-3 space-y-1.5">
                 {perks.map((perk, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[13px] text-ink"><span className={popular ? 'text-primary' : 'text-sub'}>✓</span>{perk}</li>
+                  <li key={i} className="flex items-center gap-2 text-[0.8125rem] text-ink"><span className={popular ? 'text-primary' : 'text-sub'}>✓</span>{perk}</li>
                 ))}
               </ul>
             </article>

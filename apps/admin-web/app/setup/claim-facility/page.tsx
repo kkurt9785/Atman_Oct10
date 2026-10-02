@@ -160,16 +160,16 @@ export default function ClaimFacilityPage() {
         {/* 헤더 */}
         <div className="text-center space-y-2">
           <div className="text-4xl">🏥💊</div>
-          <h1 className="text-[22px] font-bold text-ink">{entryChoice==='recruit'?'병원·약국 단기인력 모집':'어떻게 시작할까요?'}</h1>
-          <p className="text-[14px] text-sub">{entryChoice==='recruit'?'잇닿에서 근무 조건을 올리고 지원자를 확인해 근무를 확정해요.':'시작 방식을 선택해 주세요.'}</p>
+          <h1 className="text-[1.375rem] font-bold text-ink">{entryChoice==='recruit'?'병원·약국 단기인력 모집':'어떻게 시작할까요?'}</h1>
+          <p className="text-[0.875rem] text-sub">{entryChoice==='recruit'?'잇닿에서 근무 조건을 올리고 지원자를 확인해 근무를 확정해요.':'시작 방식을 선택해 주세요.'}</p>
         </div>
 
         <section className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm" aria-label="시작 방식">
           <button type="button" onClick={()=>chooseEntry('gigworker')} aria-pressed={false} className="rounded-xl bg-bg px-3 py-3 text-left text-ink">
-            <p className="text-[14px] font-extrabold">긱워커 근태 시작</p><p className="mt-1 text-[11px] leading-4 text-sub">외부 단기근로자 초대</p>
+            <p className="text-[0.875rem] font-extrabold">긱워커 근태 시작</p><p className="mt-1 text-[0.6875rem] leading-4 text-sub">외부 단기근로자 초대</p>
           </button>
           <button type="button" onClick={()=>chooseEntry('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
-            <p className="text-[14px] font-extrabold">병원·약국 인력 모집</p><p className={`mt-1 text-[11px] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>공고 등록 · 지원자 관리</p>
+            <p className="text-[0.875rem] font-extrabold">병원·약국 인력 모집</p><p className={`mt-1 text-[0.6875rem] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>공고 등록 · 지원자 관리</p>
           </button>
         </section>
 
@@ -184,7 +184,7 @@ export default function ClaimFacilityPage() {
             placeholder={canSearch?'병원·약국명 검색':'위에서 시작 방식을 선택해 주세요'}
             aria-label="사업장명 검색"
             disabled={!canSearch}
-            className="h-11 min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-sub disabled:cursor-not-allowed"
+            className="h-11 min-w-0 flex-1 bg-transparent text-[1rem] outline-none placeholder:text-sub disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSearch}
@@ -197,8 +197,8 @@ export default function ClaimFacilityPage() {
               : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2.4"/><path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"/></svg>}
           </button>
         </div>
-        {canSearch&&<p className="-mt-4 px-1 text-[12px] text-sub">예: 수원 온누리약국, 아주대학교병원 — 지역과 이름을 함께 넣으면 정확해요</p>}
-        {mapSearchUnavailable&&<p role="status" className="-mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] text-amber-700">지도 검색이 잠시 불가해 잇닿에 등록된 사업장만 보여요. 없으면 아래 등록 요청을 이용해 주세요.</p>}
+        {canSearch&&<p className="-mt-4 px-1 text-[0.75rem] text-sub">예: 수원 온누리약국, 아주대학교병원 — 지역과 이름을 함께 넣으면 정확해요</p>}
+        {mapSearchUnavailable&&<p role="status" className="-mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.75rem] text-amber-700">지도 검색이 잠시 불가해 잇닿에 등록된 사업장만 보여요. 없으면 아래 등록 요청을 이용해 주세요.</p>}
 
         {/* 유형 필터 칩 — 결과를 거르기만 하고, 기본 '전체'라 아무것도 숨기지 않는다 */}
         {searched && results.length > 0 && (
@@ -206,7 +206,7 @@ export default function ClaimFacilityPage() {
             {([['all',`전체 ${results.length}`],['medical',`병원·의원 ${medicalCount}`],['care',`요양병원 ${careCount}`],['pharmacy',`약국 ${pharmacyCount}`]] as const).map(([key,label])=>(
               <button key={key} type="button" onClick={()=>{setTypeFilter(key);setSelected(null);setRegisterHit(null);}}
                 aria-pressed={typeFilter===key}
-                className={`h-9 rounded-full border px-3 text-[13px] font-bold ${typeFilter===key?'border-primary bg-primary/5 text-primary':'border-line bg-white text-sub'}`}>
+                className={`h-9 rounded-full border px-3 text-[0.8125rem] font-bold ${typeFilter===key?'border-primary bg-primary/5 text-primary':'border-line bg-white text-sub'}`}>
                 {label}
               </button>
             ))}
@@ -216,23 +216,23 @@ export default function ClaimFacilityPage() {
         {/* 결과 */}
         {searched && searchFailed && (
           <div role="alert" className="rounded-2xl border border-line bg-white p-5 text-center">
-            <p className="text-[14px] font-bold text-ink">검색에 실패했어요</p>
-            <p className="mt-1 text-[12px] text-sub">네트워크 상태를 확인하고 다시 시도해 주세요.</p>
-            <button type="button" onClick={handleSearch} className="mt-4 h-11 w-full rounded-xl bg-primary text-[14px] font-bold text-white">다시 검색</button>
+            <p className="text-[0.875rem] font-bold text-ink">검색에 실패했어요</p>
+            <p className="mt-1 text-[0.75rem] text-sub">네트워크 상태를 확인하고 다시 시도해 주세요.</p>
+            <button type="button" onClick={handleSearch} className="mt-4 h-11 w-full rounded-xl bg-primary text-[0.875rem] font-bold text-white">다시 검색</button>
           </div>
         )}
         {searched && !searchFailed && visibleResults.length === 0 && (
           <div className="rounded-2xl border border-line bg-white p-5 text-center">
-            <p className="text-[14px] font-bold text-ink">검색 결과가 없어요</p>
+            <p className="text-[0.875rem] font-bold text-ink">검색 결과가 없어요</p>
             {hiddenByFilter>0?(
               <>
-                <p className="mt-1 text-[12px] text-sub">다른 유형에서 {hiddenByFilter}건을 찾았어요.</p>
-                <button type="button" onClick={()=>setTypeFilter('all')} className="mt-4 h-11 w-full rounded-xl bg-primary text-[14px] font-bold text-white">전체 결과 보기</button>
+                <p className="mt-1 text-[0.75rem] text-sub">다른 유형에서 {hiddenByFilter}건을 찾았어요.</p>
+                <button type="button" onClick={()=>setTypeFilter('all')} className="mt-4 h-11 w-full rounded-xl bg-primary text-[0.875rem] font-bold text-white">전체 결과 보기</button>
               </>
             ):(
               <>
-                <p className="mt-1 text-[12px] text-sub">사업장 정보를 보내주시면 확인 후 연결 방법을 안내해 드려요.</p>
-                <button type="button" onClick={()=>{setRequestDone(false);setError('');setShowRequest(true);setRequestForm(current=>({...current,name:query}));}} className="mt-4 h-11 w-full rounded-xl bg-primary text-[14px] font-bold text-white">신규 사업장 등록 요청</button>
+                <p className="mt-1 text-[0.75rem] text-sub">사업장 정보를 보내주시면 확인 후 연결 방법을 안내해 드려요.</p>
+                <button type="button" onClick={()=>{setRequestDone(false);setError('');setShowRequest(true);setRequestForm(current=>({...current,name:query}));}} className="mt-4 h-11 w-full rounded-xl bg-primary text-[0.875rem] font-bold text-white">신규 사업장 등록 요청</button>
               </>
             )}
           </div>
@@ -250,13 +250,13 @@ export default function ClaimFacilityPage() {
                   className={`w-full text-left p-4 rounded-xl border transition-colors ${active?'border-primary bg-primary/5':'border-line bg-white'}`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-semibold text-[15px] text-ink">{f.name}</span>
-                    <span className="shrink-0 text-[12px] text-sub bg-surface px-2 py-0.5 rounded-full">
+                    <span className="font-semibold text-[0.9375rem] text-ink">{f.name}</span>
+                    <span className="shrink-0 text-[0.75rem] text-sub bg-surface px-2 py-0.5 rounded-full">
                       {TYPE_LABEL[f.facilityType] ?? f.typeLabel}
                     </span>
                   </div>
-                  <p className="text-[13px] text-sub mt-0.5">{f.address}</p>
-                  <p className={`mt-1.5 text-[11px] font-bold ${registered?'text-sub':'text-primary'}`}>
+                  <p className="text-[0.8125rem] text-sub mt-0.5">{f.address}</p>
+                  <p className={`mt-1.5 text-[0.6875rem] font-bold ${registered?'text-sub':'text-primary'}`}>
                     {registered?'잇닿 등록 사업장 · 초대 코드로 연결':f.source==='hira'?'심평원 요양기관 · 바로 등록 가능':'지도 검색 결과 · 바로 등록 가능'}
                   </p>
                 </button>
@@ -268,35 +268,35 @@ export default function ClaimFacilityPage() {
         {/* 초대 코드 + 연결 버튼 (잇닿 등록 사업장) */}
         {selected && (
           <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-white border-t border-line space-y-3">
-            <p className="text-[13px] text-sub text-center">
+            <p className="text-[0.8125rem] text-sub text-center">
               <span className="font-semibold text-ink">{selected.name}</span>
-              <span className="ml-1 rounded-full bg-surface px-2 py-0.5 text-[11px]">{TYPE_LABEL[selected.facilityType]??selected.typeLabel}</span>에 연결할게요
+              <span className="ml-1 rounded-full bg-surface px-2 py-0.5 text-[0.6875rem]">{TYPE_LABEL[selected.facilityType]??selected.typeLabel}</span>에 연결할게요
             </p>
             {error && (
-              <p role="alert" className="text-center text-[14px] font-semibold text-warn">{error}</p>
+              <p role="alert" className="text-center text-[0.875rem] font-semibold text-warn">{error}</p>
             )}
             <input
               type="text"
               value={inviteCode}
               onChange={e => setInviteCode(e.target.value.toUpperCase())}
               placeholder="초대 코드 입력 (예: A1B2C3D4)"
-              className="w-full border border-line rounded-xl px-4 py-3 text-[15px] font-mono tracking-widest outline-none focus:border-primary"
+              className="w-full border border-line rounded-xl px-4 py-3 text-[0.9375rem] font-mono tracking-widest outline-none focus:border-primary"
             />
             <button
               onClick={handleClaim}
               disabled={isPending || inviteCode.trim().length < 4}
-              className="w-full py-4 bg-primary text-white rounded-xl font-bold text-[16px] disabled:opacity-50"
+              className="w-full py-4 bg-primary text-white rounded-xl font-bold text-[1rem] disabled:opacity-50"
             >
               {isPending ? '연결 중...' : `내 ${isPharmacyType(selected.facilityType)?'약국':'병원'}으로 연결하기`}
             </button>
             {inviteCode.trim().length < 4 && (
-              <p className="text-center text-[12px] text-sub">
+              <p className="text-center text-[0.75rem] text-sub">
                 잇닿에서 받은 초대 코드를 입력하면 버튼이 활성화돼요
               </p>
             )}
           </div>
         )}
-        {error&&!selected&&!registerHit&&!showRequest&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-600">{error}</p>}
+        {error&&!selected&&!registerHit&&!showRequest&&<p role="alert" className="rounded-xl bg-red-50 p-3 text-[0.75rem] font-bold text-red-600">{error}</p>}
       </div>
 
       {/* 즉시 등록 시트 (심평원·카카오 결과) */}
@@ -305,26 +305,26 @@ export default function ClaimFacilityPage() {
           <button type="button" aria-label="등록 닫기" onClick={()=>!isPending&&setRegisterHit(null)} className="fixed inset-0 z-30 bg-black/40"/>
           <section role="dialog" aria-modal="true" aria-labelledby="register-title" className="fixed inset-x-0 bottom-0 z-40 mx-auto max-h-[92vh] max-w-app overflow-y-auto rounded-t-[24px] bg-white px-5 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-5">
             <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line"/>
-            <h2 id="register-title" className="text-[19px] font-extrabold">이 사업장으로 등록할게요</h2>
-            <p className="mt-1 text-[12px] leading-5 text-sub">
+            <h2 id="register-title" className="text-[1.1875rem] font-extrabold">이 사업장으로 등록할게요</h2>
+            <p className="mt-1 text-[0.75rem] leading-5 text-sub">
               지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정합니다. 등록 후 잇닿이 확인하면 공고 등록이 열려요.
             </p>
-            <div className="mt-4 rounded-xl bg-surface px-4 py-3 text-[12px] text-sub">
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-primary">{TYPE_LABEL[registerHit.facilityType]??registerHit.typeLabel}</span>
+            <div className="mt-4 rounded-xl bg-surface px-4 py-3 text-[0.75rem] text-sub">
+              <span className="rounded-full bg-white px-2 py-0.5 text-[0.6875rem] font-bold text-primary">{TYPE_LABEL[registerHit.facilityType]??registerHit.typeLabel}</span>
               <span className="ml-2">{registerHit.source==='hira'?'심평원 요양기관기호 '+registerHit.hiraYkiho:registerHit.address}</span>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <label className="col-span-2 text-[12px] font-bold text-sub">사업장명<input value={registerForm.name} onChange={e=>setRegisterForm(c=>({...c,name:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]"/></label>
-              <label className="col-span-2 text-[12px] font-bold text-sub">주소<input value={registerForm.address} onChange={e=>setRegisterForm(c=>({...c,address:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="도로명 주소"/><span className="mt-1 block text-[11px] font-medium text-sub">이전했거나 주소가 다르면 고쳐 주세요. 주소를 바꿔도 핀은 따로 옮겨야 해요.</span></label>
-              <label className="col-span-2 text-[12px] font-bold text-sub">대표 전화 (선택)<input inputMode="tel" value={registerForm.phone} onChange={e=>setRegisterForm(c=>({...c,phone:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="031-000-0000"/></label>
+              <label className="col-span-2 text-[0.75rem] font-bold text-sub">사업장명<input value={registerForm.name} onChange={e=>setRegisterForm(c=>({...c,name:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]"/></label>
+              <label className="col-span-2 text-[0.75rem] font-bold text-sub">주소<input value={registerForm.address} onChange={e=>setRegisterForm(c=>({...c,address:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="도로명 주소"/><span className="mt-1 block text-[0.6875rem] font-medium text-sub">이전했거나 주소가 다르면 고쳐 주세요. 주소를 바꿔도 핀은 따로 옮겨야 해요.</span></label>
+              <label className="col-span-2 text-[0.75rem] font-bold text-sub">대표 전화 (선택)<input inputMode="tel" value={registerForm.phone} onChange={e=>setRegisterForm(c=>({...c,phone:e.target.value}))} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="031-000-0000"/></label>
             </div>
-            <p className="mt-4 text-[12px] font-bold text-sub">사업자 확인 <span className="font-medium">· 지금 올리면 확인이 빨라요. 나중에 설정에서도 가능</span></p>
+            <p className="mt-4 text-[0.75rem] font-bold text-sub">사업자 확인 <span className="font-medium">· 지금 올리면 확인이 빨라요. 나중에 설정에서도 가능</span></p>
             <div className="mt-1"><BrnDocumentFields brn={brnForm.brn} file={brnForm.file} onBrn={v=>setBrnForm(c=>({...c,brn:v}))} onFile={(f,err)=>{setBrnForm(c=>({...c,file:f}));setBrnFileError(err??null);}} fileError={brnFileError} disabled={isPending}/></div>
-            <p className="mt-4 text-[12px] font-bold text-sub">출퇴근 인증 위치 <span className="font-medium">· 기본 반경 30m, 설정에서 변경 가능</span></p>
+            <p className="mt-4 text-[0.75rem] font-bold text-sub">출퇴근 인증 위치 <span className="font-medium">· 기본 반경 30m, 설정에서 변경 가능</span></p>
             <FacilityPinMap className="mt-1" lng={registerForm.lng} lat={registerForm.lat} radiusMeters={30} onChange={({lng,lat})=>setRegisterForm(c=>({...c,lng,lat}))}/>
-            {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-600">{error}</p>}
-            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?(brnForm.file?'등록·서류 올리는 중...':'요양기관 정보 대조 중...'):'사업장 등록하고 시작하기'}</button>
-            <p className="mt-2 text-center text-[11px] text-sub">이미 다른 관리자가 등록한 사업장이면 초대 코드 연결로 안내돼요</p>
+            {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-[0.75rem] font-bold text-red-600">{error}</p>}
+            <button type="button" onClick={handleRegister} disabled={isPending||registerForm.name.trim().length<2||registerForm.address.trim().length<5} className="mt-4 h-12 w-full rounded-xl bg-primary text-[0.9375rem] font-bold text-white disabled:opacity-40">{isPending?(brnForm.file?'등록·서류 올리는 중...':'요양기관 정보 대조 중...'):'사업장 등록하고 시작하기'}</button>
+            <p className="mt-2 text-center text-[0.6875rem] text-sub">이미 다른 관리자가 등록한 사업장이면 초대 코드 연결로 안내돼요</p>
           </section>
         </>
       )}
@@ -338,31 +338,31 @@ export default function ClaimFacilityPage() {
             {requestDone?(
               <div className="py-6 text-center">
                 <div className="text-4xl">✓</div>
-                <h2 id="request-title" className="mt-3 text-[20px] font-extrabold">등록 요청을 접수했어요</h2>
-                <p className="mt-2 text-[13px] leading-5 text-sub">사업장 정보를 확인한 뒤 입력한 연락처로 연결 방법을 안내해 드릴게요.</p>
+                <h2 id="request-title" className="mt-3 text-[1.25rem] font-extrabold">등록 요청을 접수했어요</h2>
+                <p className="mt-2 text-[0.8125rem] leading-5 text-sub">사업장 정보를 확인한 뒤 입력한 연락처로 연결 방법을 안내해 드릴게요.</p>
                 <button type="button" onClick={()=>setShowRequest(false)} className="mt-6 h-12 w-full rounded-xl bg-primary font-bold text-white">확인</button>
               </div>
             ):(
               <>
-                <h2 id="request-title" className="text-[19px] font-extrabold">신규 사업장 등록 요청</h2>
-                <p className="mt-1 text-[12px] text-sub">사업자등록증 제출은 담당자 확인 단계에서 별도로 안내합니다.</p>
-                <p className="mt-4 text-[12px] font-bold text-sub">사업장 유형</p>
+                <h2 id="request-title" className="text-[1.1875rem] font-extrabold">신규 사업장 등록 요청</h2>
+                <p className="mt-1 text-[0.75rem] text-sub">사업자등록증 제출은 담당자 확인 단계에서 별도로 안내합니다.</p>
+                <p className="mt-4 text-[0.75rem] font-bold text-sub">사업장 유형</p>
                 <div className="mt-1 grid grid-cols-3 gap-2">
-                  <button type="button" onClick={()=>setRequestType('pharmacy')} aria-pressed={requestType==='pharmacy'} className={`min-h-16 rounded-xl border px-2 text-center text-[13px] font-bold ${requestType==='pharmacy'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">약국</span><span className="mt-1 block text-[10px] font-medium text-sub">5명 59,000원부터</span></button>
-                  <button type="button" onClick={()=>setRequestType('medical')} aria-pressed={requestType==='medical'} className={`min-h-16 rounded-xl border px-2 text-center text-[13px] font-bold ${requestType==='medical'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">병원·의원</span><span className="mt-1 block text-[10px] font-medium text-sub">10명 69,000원</span></button>
-                  <button type="button" onClick={()=>setRequestType('care')} aria-pressed={requestType==='care'} className={`min-h-16 rounded-xl border px-2 text-center text-[13px] font-bold ${requestType==='care'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">요양병원</span><span className="mt-1 block text-[10px] font-medium text-sub">20명 119,000원</span></button>
+                  <button type="button" onClick={()=>setRequestType('pharmacy')} aria-pressed={requestType==='pharmacy'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='pharmacy'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">약국</span><span className="mt-1 block text-[0.625rem] font-medium text-sub">5명 59,000원부터</span></button>
+                  <button type="button" onClick={()=>setRequestType('medical')} aria-pressed={requestType==='medical'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='medical'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">병원·의원</span><span className="mt-1 block text-[0.625rem] font-medium text-sub">10명 69,000원</span></button>
+                  <button type="button" onClick={()=>setRequestType('care')} aria-pressed={requestType==='care'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='care'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">요양병원</span><span className="mt-1 block text-[0.625rem] font-medium text-sub">20명 119,000원</span></button>
                 </div>
-                <p className="mt-2 text-[11px] leading-4 text-sub">30일 무료 체험 후 선택한 업종과 관리 인원에 맞는 요금제만 표시됩니다.</p>
+                <p className="mt-2 text-[0.6875rem] leading-4 text-sub">30일 무료 체험 후 선택한 업종과 관리 인원에 맞는 요금제만 표시됩니다.</p>
                 <div className="mt-4 grid grid-cols-2 gap-3">
-                  <label className="col-span-2 text-[12px] font-bold text-sub">사업장명<input value={requestForm.name} onChange={e=>updateRequest('name',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="사업장명"/></label>
-                  <label className="col-span-2 text-[12px] font-bold text-sub">주소<input value={requestForm.address} onChange={e=>updateRequest('address',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="도로명 주소"/></label>
-                  <label className="text-[12px] font-bold text-sub">담당자명<input value={requestForm.contactName} onChange={e=>updateRequest('contactName',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="홍길동"/></label>
-                  <label className="text-[12px] font-bold text-sub">연락처<input inputMode="tel" value={requestForm.contactPhone} onChange={e=>updateRequest('contactPhone',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[14px]" placeholder="010-0000-0000"/></label>
-                  <label className="col-span-2 text-[12px] font-bold text-sub">요청 메모 (선택)<textarea value={requestForm.note} onChange={e=>updateRequest('note',e.target.value)} className="mt-1 min-h-20 w-full resize-none rounded-xl border border-line p-3 text-[14px]" placeholder="연결을 원하는 담당자나 운영 상황"/></label>
+                  <label className="col-span-2 text-[0.75rem] font-bold text-sub">사업장명<input value={requestForm.name} onChange={e=>updateRequest('name',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="사업장명"/></label>
+                  <label className="col-span-2 text-[0.75rem] font-bold text-sub">주소<input value={requestForm.address} onChange={e=>updateRequest('address',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="도로명 주소"/></label>
+                  <label className="text-[0.75rem] font-bold text-sub">담당자명<input value={requestForm.contactName} onChange={e=>updateRequest('contactName',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="홍길동"/></label>
+                  <label className="text-[0.75rem] font-bold text-sub">연락처<input inputMode="tel" value={requestForm.contactPhone} onChange={e=>updateRequest('contactPhone',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="010-0000-0000"/></label>
+                  <label className="col-span-2 text-[0.75rem] font-bold text-sub">요청 메모 (선택)<textarea value={requestForm.note} onChange={e=>updateRequest('note',e.target.value)} className="mt-1 min-h-20 w-full resize-none rounded-xl border border-line p-3 text-[0.875rem]" placeholder="연결을 원하는 담당자나 운영 상황"/></label>
                 </div>
-                {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-[12px] font-bold text-red-600">{error}</p>}
-                <button type="button" onClick={handleRegistrationRequest} disabled={isPending||!requestType||requestForm.name.trim().length<2||requestForm.address.trim().length<5||requestForm.contactName.trim().length<2||requestForm.contactPhone.replace(/\D/g,'').length<9} className="mt-4 h-12 w-full rounded-xl bg-primary text-[15px] font-bold text-white disabled:opacity-40">{isPending?'접수 중...':'등록 요청 보내기'}</button>
-                {!requestType&&<p className="mt-2 text-center text-[12px] text-sub">사업장 유형을 선택하면 보낼 수 있어요</p>}
+                {error&&<p role="alert" className="mt-3 rounded-xl bg-red-50 p-3 text-[0.75rem] font-bold text-red-600">{error}</p>}
+                <button type="button" onClick={handleRegistrationRequest} disabled={isPending||!requestType||requestForm.name.trim().length<2||requestForm.address.trim().length<5||requestForm.contactName.trim().length<2||requestForm.contactPhone.replace(/\D/g,'').length<9} className="mt-4 h-12 w-full rounded-xl bg-primary text-[0.9375rem] font-bold text-white disabled:opacity-40">{isPending?'접수 중...':'등록 요청 보내기'}</button>
+                {!requestType&&<p className="mt-2 text-center text-[0.75rem] text-sub">사업장 유형을 선택하면 보낼 수 있어요</p>}
               </>
             )}
           </section>

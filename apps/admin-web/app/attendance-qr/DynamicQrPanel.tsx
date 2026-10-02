@@ -27,9 +27,9 @@ export function DynamicQrPanel({workerOrigin,workerPath='/workplace'}:{workerOri
   // 워커 앱이 스캔 후 여는 주소 그대로를 QR에 담는다
   const src=token?`${workerOrigin}${workerPath}?attendanceToken=${encodeURIComponent(token)}`:'';
   return <section className="mt-5 rounded-3xl bg-white p-5 text-center shadow-card">
-    <div className="flex items-center justify-between text-left"><div><p className="text-title font-extrabold">동적 출퇴근 QR</p><p className="mt-1 text-[12px] text-sub">직원이 휴대폰 카메라로 스캔해요.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-[12px] font-bold text-primary">{seconds}초</span></div>
+    <div className="flex items-center justify-between text-left"><div><p className="text-title font-extrabold">동적 출퇴근 QR</p><p className="mt-1 text-[0.75rem] text-sub">직원이 휴대폰 카메라로 스캔해요.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-[0.75rem] font-bold text-primary">{seconds}초</span></div>
     {src?<div className="mt-4 flex h-[310px] items-center justify-center"><QrCanvas value={src} size={280} label="동적 출퇴근 QR"/></div>:<div className="py-20 text-sub">{error||'QR 생성 중...'}</div>}
     <button onClick={()=>void refresh()} className="h-11 w-full rounded-xl border border-line font-bold">새 QR로 갱신</button>
-    <p className="mt-3 text-[11px] leading-5 text-sub">60초마다 자동으로 교체됩니다. 방금 스캔한 QR은 전송 지연을 고려해 교체 후 최대 30초만 더 사용할 수 있고, QR 원문은 저장하지 않습니다.</p>
+    <p className="mt-3 text-[0.6875rem] leading-5 text-sub">60초마다 자동으로 교체됩니다. 방금 스캔한 QR은 전송 지연을 고려해 교체 후 최대 30초만 더 사용할 수 있고, QR 원문은 저장하지 않습니다.</p>
   </section>;
 }

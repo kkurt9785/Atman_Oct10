@@ -89,12 +89,12 @@ export default async function ChatsPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="text-body font-bold text-ink">{row.workerName}</p>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                  <span className={`text-[0.6875rem] font-bold px-2 py-0.5 rounded-full ${
                     row.status === 'accepted' ? 'bg-primary/10 text-primary' : 'bg-bg text-sub'
                   }`}>
                     {row.status === 'accepted' ? '채용확정' : '완료'}
                   </span>
-                  {row.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-[10px] font-extrabold text-white">새 메시지</span>}
+                  {row.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-[0.625rem] font-extrabold text-white">새 메시지</span>}
                 </div>
                 <p className="text-label text-sub truncate mt-0.5">
                   {row.lastMessage ?? `${row.shiftDate} ${row.startTime} 근무`}

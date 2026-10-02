@@ -26,11 +26,11 @@ export function UnlinkWorkerButton({ staffId, name, accountName, inviteUrlBase, 
     router.refresh();
   }
   if (inviteUrl) return <div className="mt-2 rounded-xl border border-warn/30 bg-warn/5 p-3">
-    <p className="text-[12px] font-extrabold text-ink">연결을 해제했어요 · 본인에게 새 초대를 보내 주세요</p>
+    <p className="text-[0.75rem] font-extrabold text-ink">연결을 해제했어요 · 본인에게 새 초대를 보내 주세요</p>
     <div className="mt-2"><CopyInviteButton url={inviteUrl} primary /></div>
   </div>;
   return <div className={`flex flex-col ${align === 'end' ? 'items-end' : 'items-start'}`}>
-    <button type="button" onClick={() => void unlink()} disabled={loading} className="text-[11px] font-bold text-sub disabled:opacity-50">{loading ? '해제 중…' : '연결 해제·재초대'}</button>
-    {error && <p role="alert" className="mt-1 text-[11px] font-bold text-red-600">{error}</p>}
+    <button type="button" onClick={() => void unlink()} disabled={loading} className="text-[0.6875rem] font-bold text-sub disabled:opacity-50">{loading ? '해제 중…' : '연결 해제·재초대'}</button>
+    {error && <p role="alert" className="mt-1 text-[0.6875rem] font-bold text-red-600">{error}</p>}
   </div>;
 }

@@ -18,7 +18,7 @@ export function TextSizeToggle() {
       title={big ? '기본 글씨로 보기' : '큰 글씨로 보기'}
       className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold transition
         ${big ? 'bg-primary text-white' : 'bg-white text-sub'}`}>
-      <span className="text-[14px] leading-none">{big ? '가−' : '가+'}</span>
+      <span className="text-[0.875rem] leading-none">{big ? '가−' : '가+'}</span>
     </button>
   );
 }

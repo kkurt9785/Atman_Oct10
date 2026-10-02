@@ -48,7 +48,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   return (
     <main className="px-4 pb-28">
       <ManageBackLink href="/more/operations" label="근무 운영" />
-      {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[13px] font-bold text-success">{notice}</p>}
+      {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[0.8125rem] font-bold text-success">{notice}</p>}
       {!hasOperations && (
         <Card className="mt-3 mb-4 border border-amber-200 bg-amber-50">
           <p className="text-body font-extrabold text-ink">운영 자동화는 Pro·Pharmacy Plus 요금제 기능이에요</p>
@@ -64,7 +64,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
 
       {shop?.isDemo && (
         <Card className="mb-4 border border-violet-200 bg-violet-50">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[12px] leading-5 text-sub mt-1">초기화 후 워커가 지원하면 관리자 알림 → 수락 → 워커 알림 → 채팅을 직접 확인할 수 있어요.</p></div><form action={resetFacilityLiveDemoAction}><button className="min-h-11 shrink-0 rounded-xl bg-violet-600 px-4 text-[12px] font-extrabold text-white">시연 초기화</button></form></div>
+          <div className="flex items-center justify-between gap-3"><div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[0.75rem] leading-5 text-sub mt-1">초기화 후 워커가 지원하면 관리자 알림 → 수락 → 워커 알림 → 채팅을 직접 확인할 수 있어요.</p></div><form action={resetFacilityLiveDemoAction}><button className="min-h-11 shrink-0 rounded-xl bg-violet-600 px-4 text-[0.75rem] font-extrabold text-white">시연 초기화</button></form></div>
         </Card>
       )}
 
@@ -72,9 +72,9 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         <p className="text-label text-sub">이번 달 예정 인건비</p>
         <p className="text-money font-extrabold text-ink mt-1">{won(summary.monthEstimatedCost)}</p>
         <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-line text-center">
-          <div><p className="text-title font-extrabold text-primary">{summary.openShiftCount}</p><p className="text-[11px] text-sub">모집 중</p></div>
-          <div><p className="text-title font-extrabold text-warn">{summary.urgentUnfilledCount}</p><p className="text-[11px] text-sub">48시간 내 미충원</p></div>
-          <div><p className="text-title font-extrabold text-ink">{alerts}</p><p className="text-[11px] text-sub">확인할 일</p></div>
+          <div><p className="text-title font-extrabold text-primary">{summary.openShiftCount}</p><p className="text-[0.6875rem] text-sub">모집 중</p></div>
+          <div><p className="text-title font-extrabold text-warn">{summary.urgentUnfilledCount}</p><p className="text-[0.6875rem] text-sub">48시간 내 미충원</p></div>
+          <div><p className="text-title font-extrabold text-ink">{alerts}</p><p className="text-[0.6875rem] text-sub">확인할 일</p></div>
         </div>
       </Card>
 
@@ -94,10 +94,10 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
               const dateLabel = new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${item.date}T00:00:00+09:00`));
               return <Card key={item.key} className="border border-amber-200 bg-amber-50/70">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><p className="text-[12px] font-extrabold text-warn">{dateLabel} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p><p className="text-body font-extrabold text-ink mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} {ROLE_LABEL[item.role]} {item.shortage}명이 부족해요</p><p className="text-label text-sub mt-1 leading-5">{item.reason} · 기준 {item.required}명 / 현재 반영 {item.scheduled}명</p></div>
-                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-primary">가능 인력풀 {item.candidateCount}명</span>
+                  <div className="min-w-0"><p className="text-[0.75rem] font-extrabold text-warn">{dateLabel} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p><p className="text-body font-extrabold text-ink mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} {ROLE_LABEL[item.role]} {item.shortage}명이 부족해요</p><p className="text-label text-sub mt-1 leading-5">{item.reason} · 기준 {item.required}명 / 현재 반영 {item.scheduled}명</p></div>
+                  <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[0.6875rem] font-extrabold text-primary">가능 인력풀 {item.candidateCount}명</span>
                 </div>
-                {item.candidateCount > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[12px] text-sub">함께 일했던 인력풀 중 이 시간대에 가능한 인력이 <b className="text-ink">{item.candidateCount}명</b> 있어요. 공고를 올리면 조건이 맞는 워커 모두에게 알림이 갑니다.</p>}
+                {item.candidateCount > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[0.75rem] text-sub">함께 일했던 인력풀 중 이 시간대에 가능한 인력이 <b className="text-ink">{item.candidateCount}명</b> 있어요. 공고를 올리면 조건이 맞는 워커 모두에게 알림이 갑니다.</p>}
                 <form action={approveWorkforceRecommendationAction} className="mt-3">
                   <input type="hidden" name="recommendation_key" value={item.key}/>
                   <button className="w-full min-h-11 rounded-xl bg-primary px-4 text-label font-extrabold text-white">공고 올리고 조건 맞는 워커에게 알림</button>
@@ -111,7 +111,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       <section id="staffing-settings" className="scroll-mt-20 mb-6">
         <div className="px-1 mb-3"><p className="text-label font-bold text-primary">최초 한 번 설정</p><h2 className="text-title font-extrabold text-ink mt-1">병동·시간별 필요 인원</h2><p className="text-label text-sub mt-1">공고 수가 아니라 실제 운영에 반드시 필요한 최소 인원입니다.</p></div>
         {requirements.length > 0 && <div className="space-y-2 mb-3">{requirements.map((item) => <Card key={item.id} className="py-3.5">
-          <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-body font-extrabold text-ink">{item.name} · {item.requiredHeadcount}명</p><p className="text-[12px] text-sub mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} · {ROLE_LABEL[item.requiredRole]} · {item.weekdays.map((day) => DAY_LABEL[day]).join('·')} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p></div><form action={deactivateStaffingRequirementAction}><input type="hidden" name="requirement_id" value={item.id}/><button className="text-[11px] text-sub underline whitespace-nowrap">사용 중지</button></form></div>
+          <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-body font-extrabold text-ink">{item.name} · {item.requiredHeadcount}명</p><p className="text-[0.75rem] text-sub mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} · {ROLE_LABEL[item.requiredRole]} · {item.weekdays.map((day) => DAY_LABEL[day]).join('·')} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p></div><form action={deactivateStaffingRequirementAction}><input type="hidden" name="requirement_id" value={item.id}/><button className="text-[0.6875rem] text-sub underline whitespace-nowrap">사용 중지</button></form></div>
         </Card>)}</div>}
         <details className="bg-white rounded-2xl p-5" open={requirements.length === 0}>
           <summary className="cursor-pointer text-body font-extrabold text-ink">+ 필요 인원 기준 추가</summary>
@@ -120,7 +120,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
             <div className="grid grid-cols-2 gap-2"><input name="department" placeholder={isPharmacy ? '조제실 (비우면 약국 전체)' : '3병동'} className="h-12 rounded-xl bg-bg px-3"/><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className="grid grid-cols-3 gap-2"><input type="time" name="start_time" defaultValue="09:00" required aria-label="시작 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="time" name="end_time" defaultValue="18:00" required aria-label="종료 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="number" name="required_headcount" min="1" max="100" defaultValue="2" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/></div>
             <div className="flex justify-between gap-1">{Object.entries(DAY_LABEL).map(([day,label]) => <label key={day} className="flex-1"><input type="checkbox" name="weekdays" value={day} defaultChecked={Number(day) <= 5} className="sr-only peer"/><span className="h-10 rounded-xl bg-bg text-sub peer-checked:bg-primary peer-checked:text-white flex items-center justify-center text-label font-bold">{label}</span></label>)}</div>
-            <div><p className="text-[12px] font-bold text-ink mb-2">부족할 때 생성할 대체 공고 조건</p><input type="number" name="replacement_hourly_wage" min="10320" step="100" defaultValue={isPharmacy ? 35000 : 15000} required aria-label="대체 근무 시급" className="w-full h-12 rounded-xl bg-bg px-4"/></div>
+            <div><p className="text-[0.75rem] font-bold text-ink mb-2">부족할 때 생성할 대체 공고 조건</p><input type="number" name="replacement_hourly_wage" min="10320" step="100" defaultValue={isPharmacy ? 35000 : 15000} required aria-label="대체 근무 시급" className="w-full h-12 rounded-xl bg-bg px-4"/></div>
             <textarea name="replacement_description" required rows={3} placeholder={isPharmacy ? '조제 보조 및 고객 응대 업무' : '해당 병동의 단기 대체 근무'} className="w-full rounded-xl bg-bg px-4 py-3 resize-none"/>
             <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">필요 인원 기준 저장</button>
           </form>
@@ -136,7 +136,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           <Card className="mb-3 border border-primary/20 bg-primary/5">
             <div className="flex items-center justify-between gap-3">
               <div><p className="text-body font-extrabold text-ink">공백 {scheduleGapCount}명 · 모집 중 {recruitingCount}명</p><p className="text-label text-sub mt-1 leading-5">한 번 생성하면 공고 등록과 워커 알림은 뒤에서 처리돼요.</p></div>
-              {scheduleGapCount > 0 && <form action={fillSevenDayScheduleGapsAction}><button className="min-h-11 shrink-0 rounded-xl bg-primary px-4 text-[12px] font-extrabold text-white">공백 한 번에 모집</button></form>}
+              {scheduleGapCount > 0 && <form action={fillSevenDayScheduleGapsAction}><button className="min-h-11 shrink-0 rounded-xl bg-primary px-4 text-[0.75rem] font-extrabold text-white">공백 한 번에 모집</button></form>}
             </div>
           </Card>
         )}
@@ -146,14 +146,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
             const isRecruiting = day.recruiting > 0;
             const label = new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${day.date}T00:00:00+09:00`));
             return <div key={day.date} className="flex items-center gap-3 px-4 py-3.5">
-              <div className="w-[72px] shrink-0"><p className="text-body font-extrabold text-ink">{label}</p><p className="text-[11px] text-sub mt-0.5">예정 {day.planned}명</p></div>
+              <div className="w-[72px] shrink-0"><p className="text-body font-extrabold text-ink">{label}</p><p className="text-[0.6875rem] text-sub mt-0.5">예정 {day.planned}명</p></div>
               <div className="min-w-0 flex-1">
-                {isGap ? <><p className="text-label font-extrabold text-red-600">근무표 공백 {day.scheduleGap}명</p><p className="text-[11px] text-sub mt-0.5">반복 일정이 아직 공고로 생성되지 않았어요</p></>
-                  : isRecruiting ? <><p className="text-label font-extrabold text-warn">{day.recruiting}명 모집 중</p><p className="text-[11px] text-sub mt-0.5">확정 {day.filled}명 · 지원 현황을 확인하세요</p></>
-                  : day.planned > 0 ? <><p className="text-label font-extrabold text-success">필요 인원 충원 완료</p><p className="text-[11px] text-sub mt-0.5">확정 {day.filled}명</p></>
+                {isGap ? <><p className="text-label font-extrabold text-red-600">근무표 공백 {day.scheduleGap}명</p><p className="text-[0.6875rem] text-sub mt-0.5">반복 일정이 아직 공고로 생성되지 않았어요</p></>
+                  : isRecruiting ? <><p className="text-label font-extrabold text-warn">{day.recruiting}명 모집 중</p><p className="text-[0.6875rem] text-sub mt-0.5">확정 {day.filled}명 · 지원 현황을 확인하세요</p></>
+                  : day.planned > 0 ? <><p className="text-label font-extrabold text-success">필요 인원 충원 완료</p><p className="text-[0.6875rem] text-sub mt-0.5">확정 {day.filled}명</p></>
                   : <p className="text-label text-sub">등록된 근무 없음</p>}
               </div>
-              {isRecruiting && !isGap ? <Link href="/applications" className="h-9 shrink-0 rounded-xl bg-primary px-3 flex items-center text-[11px] font-extrabold text-white">지원 확인</Link>
+              {isRecruiting && !isGap ? <Link href="/applications" className="h-9 shrink-0 rounded-xl bg-primary px-3 flex items-center text-[0.6875rem] font-extrabold text-white">지원 확인</Link>
                 : null}
             </div>;
           })}
@@ -176,8 +176,8 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           {operationAlerts.slice(0, 8).map((alert) => (
             <Card key={`${alert.kind}:${alert.shiftId ?? alert.staffId}`} className={alert.kind === 'no_show' ? 'border border-red-200' : 'border border-amber-200'}>
               <div className="flex items-center justify-between gap-3">
-                <div><p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 시간 지남 · 출근 확인 필요') : '48시간 내 지원자 없음'}</p><p className="text-body font-bold mt-1">{alert.personName} · {alert.shiftDate} {alert.startTime.slice(0,5)}</p><p className="mt-0.5 text-[11px] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 시프트'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p></div>
-                {alert.kind === 'no_show' && !alert.replacementEligible ? <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[12px] font-bold whitespace-nowrap text-white">출근 확인</Link> : alert.shiftId ? <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[12px] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form> : <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[12px] font-bold whitespace-nowrap text-white">근태 확인</Link>}
+                <div><p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 시간 지남 · 출근 확인 필요') : '48시간 내 지원자 없음'}</p><p className="text-body font-bold mt-1">{alert.personName} · {alert.shiftDate} {alert.startTime.slice(0,5)}</p><p className="mt-0.5 text-[0.6875rem] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 시프트'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p></div>
+                {alert.kind === 'no_show' && !alert.replacementEligible ? <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">출근 확인</Link> : alert.shiftId ? <form action={requestUrgentReplacementAction}><input type="hidden" name="shift_id" value={alert.shiftId}/><input type="hidden" name="kind" value={alert.kind}/><button className="h-10 px-3 rounded-xl bg-ink text-white text-[0.75rem] font-bold whitespace-nowrap">{alert.kind === 'no_show' ? '대체 공고·알림' : '긴급 알림 재전송'}</button></form> : <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">근태 확인</Link>}
               </div>
             </Card>
           ))}
@@ -201,7 +201,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
                 <select name="weeks" defaultValue="4" className="h-11 rounded-xl bg-bg px-2 text-label"><option value="2">2주</option><option value="4">4주</option><option value="8">8주</option></select>
                 <button className="col-span-2 h-11 rounded-xl bg-primary text-white text-label font-extrabold">선택 기간 시프트 일괄 생성</button>
               </form>
-              <form action={deactivateShiftTemplateAction} className="mt-2 text-right"><input type="hidden" name="template_id" value={template.id}/><button className="text-[11px] text-sub underline">템플릿 사용 중지</button></form>
+              <form action={deactivateShiftTemplateAction} className="mt-2 text-right"><input type="hidden" name="template_id" value={template.id}/><button className="text-[0.6875rem] text-sub underline">템플릿 사용 중지</button></form>
             </Card>
           ))}
         </div>

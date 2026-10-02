@@ -37,15 +37,15 @@ export default async function TossPaymentSuccessPage({
     <main className="px-4 min-h-[70vh] flex items-center justify-center">
       <div className="bg-white rounded-2xl shadow-card p-6 w-full text-center">
         <p className="text-5xl mb-4">{result.ok ? '✅' : '⚠️'}</p>
-        <h1 className="text-[22px] font-extrabold text-ink">
+        <h1 className="text-[1.375rem] font-extrabold text-ink">
           {result.ok ? '서비스 이용료 결제 완료' : '결제 확인 필요'}
         </h1>
-        <p className="text-[14px] text-sub mt-2 break-keep">
+        <p className="text-[0.875rem] text-sub mt-2 break-keep">
           {result.ok
             ? `청구서가 결제 완료 처리됐어요${result.alreadyProcessed ? ' (중복 요청은 한 번만 반영됨)' : ''}.`
             : result.message}
         </p>
-        <Link href="/membership" className="mt-6 h-12 rounded-xl bg-primary text-white text-[15px] font-bold flex items-center justify-center">
+        <Link href="/membership" className="mt-6 h-12 rounded-xl bg-primary text-white text-[0.9375rem] font-bold flex items-center justify-center">
           청구서 확인하기
         </Link>
       </div>

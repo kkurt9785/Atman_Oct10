@@ -140,13 +140,13 @@ export default function CheckinPage() {
       <a
         href="/"
         aria-label="체크인 닫기"
-        className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full bg-white/15 text-white text-[20px] flex items-center justify-center active:bg-white/30"
+        className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full bg-white/15 text-white text-[1.25rem] flex items-center justify-center active:bg-white/30"
       >
         ✕
       </a>
       {state === 'scanning' && (
         <>
-          <p className="text-white text-[17px] font-bold mb-6">일회용 QR 스캔</p>
+          <p className="text-white text-[1.0625rem] font-bold mb-6">일회용 QR 스캔</p>
           <div className="relative w-72 h-72 rounded-2xl overflow-hidden">
             <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
             <div className="absolute inset-0 border-4 border-primary rounded-2xl pointer-events-none" />
@@ -156,7 +156,7 @@ export default function CheckinPage() {
             <div className="absolute bottom-2 right-2 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-xl" />
           </div>
           <canvas ref={canvasRef} className="hidden" />
-          <p className="text-white/60 text-[14px] mt-6 text-center">
+          <p className="text-white/60 text-[0.875rem] mt-6 text-center">
             워커 앱에서 방금 발급한 QR을 스캔해 주세요.<br />QR은 60초 후 만료되고 한 번만 사용할 수 있어요.
           </p>
         </>
@@ -165,7 +165,7 @@ export default function CheckinPage() {
       {state === 'loading' && (
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-white text-[15px]">권한·위치·근무기록을 확인 중...</p>
+          <p className="text-white text-[0.9375rem]">권한·위치·근무기록을 확인 중...</p>
         </div>
       )}
 
@@ -176,13 +176,13 @@ export default function CheckinPage() {
               <path d="M7 16L13 22L25 10" stroke="#00C896" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
-          <h2 className="text-[22px] font-extrabold text-ink mb-1">
+          <h2 className="text-[1.375rem] font-extrabold text-ink mb-1">
             {result.action === 'checkin' ? '체크인 완료!' : '체크아웃·지급 요청 등록 완료!'}
           </h2>
-          <p className="text-[17px] font-bold text-primary mb-1">{result.workerName}</p>
-          <p className="text-[14px] text-sub">{result.shiftDate} · {result.startTime.slice(0, 5)}</p>
+          <p className="text-[1.0625rem] font-bold text-primary mb-1">{result.workerName}</p>
+          <p className="text-[0.875rem] text-sub">{result.shiftDate} · {result.startTime.slice(0, 5)}</p>
           {result.action === 'checkout' && typeof result.gross === 'number' && (
-            <div className="mt-4 w-full rounded-2xl bg-bg p-4 text-[13px] space-y-2">
+            <div className="mt-4 w-full rounded-2xl bg-bg p-4 text-[0.8125rem] space-y-2">
               <div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>{result.gross.toLocaleString('ko-KR')}원</b></div>
               <div className="flex justify-between"><span className="text-sub">공제 상태</span><b>사업장 확인 예정</b></div>
               <div className="flex justify-between border-t border-line pt-2"><span className="text-ink font-bold">지급 방식</span><b className="text-primary">사업장 직접 지급</b></div>
@@ -197,8 +197,8 @@ export default function CheckinPage() {
       {state === 'error' && (
         <div className="bg-white rounded-3xl p-8 w-full max-w-sm flex flex-col items-center">
           <span className="text-5xl mb-4">⚠️</span>
-          <h2 className="text-[20px] font-extrabold text-ink mb-2">스캔 실패</h2>
-          <p className="text-[14px] text-sub text-center break-keep">{errorMsg}</p>
+          <h2 className="text-[1.25rem] font-extrabold text-ink mb-2">스캔 실패</h2>
+          <p className="text-[0.875rem] text-sub text-center break-keep">{errorMsg}</p>
           <button onClick={reset} className="mt-8 w-full bg-primary text-white font-bold rounded-2xl py-4 active:opacity-80">
             다시 시도
           </button>

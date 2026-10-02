@@ -126,21 +126,21 @@ function LoginInner() {
       <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center text-center">
         <div className="flex items-center gap-2">
           <Wordmark size={34} suffix={null} />
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">관리자</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[0.625rem] font-extrabold text-primary">관리자</span>
         </div>
-        <h1 className="mt-7 text-[24px] font-extrabold tracking-[-0.7px] text-ink">공고부터 급여까지 한곳에서</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">채용부터 근태·급여까지, 하나로 잇다.</p>
-        <span className="mt-3 rounded-full bg-primary/10 px-3 py-1.5 text-[11px] font-extrabold text-primary">직접 채용 · 소개 수수료 0원</span>
+        <h1 className="mt-7 text-[1.5rem] font-extrabold tracking-[-0.7px] text-ink">공고부터 급여까지 한곳에서</h1>
+        <p className="mt-2 text-[0.875rem] leading-6 text-sub">채용부터 근태·급여까지, 하나로 잇다.</p>
+        <span className="mt-3 rounded-full bg-primary/10 px-3 py-1.5 text-[0.6875rem] font-extrabold text-primary">직접 채용 · 소개 수수료 0원</span>
       </div>
 
       {error === 'unauthorized' && (
         <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200">
-          <p role="alert" className="text-[13px] text-red-600 text-center">이 카카오 계정은 근무자용으로 가입돼 있어요.<br />사업장 계정은 다른 카카오 계정으로 로그인해 주세요.</p>
+          <p role="alert" className="text-[0.8125rem] text-red-600 text-center">이 카카오 계정은 근무자용으로 가입돼 있어요.<br />사업장 계정은 다른 카카오 계정으로 로그인해 주세요.</p>
         </div>
       )}
       {error === 'oauth_state' && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-          <p role="alert" className="text-center text-[13px] text-amber-700">로그인 요청이 만료됐어요. 카카오 로그인을 다시 눌러 주세요.</p>
+          <p role="alert" className="text-center text-[0.8125rem] text-amber-700">로그인 요청이 만료됐어요. 카카오 로그인을 다시 눌러 주세요.</p>
         </div>
       )}
 
@@ -150,8 +150,8 @@ function LoginInner() {
             <div className="flex items-center gap-3">
               <img src="/icon-192.png" alt="" className="h-12 w-12 rounded-xl" />
               <div className="min-w-0">
-                <p className="text-[15px] font-extrabold text-ink">잇닿 관리자 앱으로 계속하기</p>
-                <p className="mt-0.5 text-[11px] leading-4 text-sub">홈 화면에 설치한 뒤 카카오로 시작하면 돼요.</p>
+                <p className="text-[0.9375rem] font-extrabold text-ink">잇닿 관리자 앱으로 계속하기</p>
+                <p className="mt-0.5 text-[0.6875rem] leading-4 text-sub">홈 화면에 설치한 뒤 카카오로 시작하면 돼요.</p>
               </div>
             </div>
             <AdminInstallButton />
@@ -160,38 +160,38 @@ function LoginInner() {
         <button
           onClick={handleKakaoLogin}
           disabled={loading}
-          className="w-full h-12 rounded-xl bg-[#FEE500] text-[#191F28] font-bold text-[15px] flex items-center justify-center gap-2 disabled:opacity-60"
+          className="w-full h-12 rounded-xl bg-[#FEE500] text-[#191F28] font-bold text-[0.9375rem] flex items-center justify-center gap-2 disabled:opacity-60"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path fillRule="evenodd" clipRule="evenodd" d="M10 2C5.582 2 2 4.895 2 8.455c0 2.27 1.512 4.263 3.786 5.39l-.964 3.5a.25.25 0 00.38.273L9.58 15.1A9.18 9.18 0 0010 15.11c4.418 0 8-2.895 8-6.455S14.418 2 10 2z" fill="#191F28"/>
           </svg>
           {loading ? '시작하는 중...' : '카카오로 시작하기'}
         </button>
-        <p className="-mt-1 text-center text-[11px] leading-4 text-sub">처음이면 관리자 계정이 만들어져요. 긱워커 근태는 사업자 서류 없이 바로 시작할 수 있어요.</p>
+        <p className="-mt-1 text-center text-[0.6875rem] leading-4 text-sub">처음이면 관리자 계정이 만들어져요. 긱워커 근태는 사업자 서류 없이 바로 시작할 수 있어요.</p>
 
         {showDemoLogin && (
           <details className="group mt-1 rounded-2xl border border-line bg-white">
-            <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-4 text-[13px] font-extrabold text-ink">
+            <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-4 text-[0.8125rem] font-extrabold text-ink">
               <span><span className="text-primary">시연</span> · 로그인 없이 둘러보기</span>
               <span aria-hidden className="text-sub transition group-open:rotate-90">›</span>
             </summary>
             <div className="border-t border-line bg-primary/5 p-3">
-              <p className="mb-3 text-[12px] leading-5 text-sub">보여줄 사업장 유형을 고르면 대표 화면으로 바로 들어가요.</p>
+              <p className="mb-3 text-[0.75rem] leading-5 text-sub">보여줄 사업장 유형을 고르면 대표 화면으로 바로 들어가요.</p>
               <div className="flex flex-col gap-2">
               {DEMO_ACCOUNTS.map((account, index) => (
                 <button
                   key={`${account.email}:${account.demoKind ?? 'default'}`}
                   onClick={() => handleDemoLogin(account.email, account.demoKind)}
                   disabled={loading || !!demoLoadingKey}
-                  className={`flex h-11 w-full items-center justify-between rounded-xl px-3 text-[14px] font-bold disabled:opacity-60 ${index === 0 ? 'bg-primary text-white shadow-sm' : 'border border-line bg-white text-ink'}`}
+                  className={`flex h-11 w-full items-center justify-between rounded-xl px-3 text-[0.875rem] font-bold disabled:opacity-60 ${index === 0 ? 'bg-primary text-white shadow-sm' : 'border border-line bg-white text-ink'}`}
                 >
                   <span>{demoLoadingKey === `${account.email}:${account.demoKind ?? 'default'}` ? '시연 화면 여는 중...' : account.label}</span>
-                  {demoLoadingKey !== `${account.email}:${account.demoKind ?? 'default'}` && <span className={`text-[11px] font-semibold ${index === 0 ? 'text-white/75' : 'text-sub'}`}>{account.detail}</span>}
+                  {demoLoadingKey !== `${account.email}:${account.demoKind ?? 'default'}` && <span className={`text-[0.6875rem] font-semibold ${index === 0 ? 'text-white/75' : 'text-sub'}`}>{account.detail}</span>}
                 </button>
               ))}
               </div>
               {demoError && (
-                <p role="alert" className="mt-2 text-center text-[12px] font-bold text-red-500">{demoError}</p>
+                <p role="alert" className="mt-2 text-center text-[0.75rem] font-bold text-red-500">{demoError}</p>
               )}
               {!installRequested && <AdminInstallButton />}
               <DemoShareCard />
@@ -201,7 +201,7 @@ function LoginInner() {
 
         <a
           href="https://itdot.co.kr"
-          className="mt-4 block rounded-xl border border-line bg-white py-3 text-center text-[13px] font-semibold text-sub active:opacity-70"
+          className="mt-4 block rounded-xl border border-line bg-white py-3 text-center text-[0.8125rem] font-semibold text-sub active:opacity-70"
         >
           근무하러 오셨나요? <span className="font-bold text-primary">잇닿 워커 앱으로 →</span>
         </a>

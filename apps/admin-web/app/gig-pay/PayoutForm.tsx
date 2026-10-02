@@ -35,38 +35,38 @@ export function CreatePayoutForm({ staffId, amount, disabled, disabledReason }: 
   }
 
   return <div className="mt-3">
-    {disabledReason && <p className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-[12px] font-bold text-amber-700">{disabledReason}</p>}
+    {disabledReason && <p className="mb-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-[0.75rem] font-bold text-amber-700">{disabledReason}</p>}
     <div className="rounded-xl bg-bg p-3">
-      <label className="flex items-center justify-between gap-2 text-[12px] font-bold text-ink">
+      <label className="flex items-center justify-between gap-2 text-[0.75rem] font-bold text-ink">
         <span className="flex items-center gap-2"><input type="checkbox" checked={withhold} onChange={(event) => setWithhold(event.target.checked)} className="h-4 w-4 accent-primary" />3.3% 원천징수 (사업소득)</span>
-        <span className="text-[11px] font-medium text-sub">소득세 3% + 지방소득세 0.3%</span>
+        <span className="text-[0.6875rem] font-medium text-sub">소득세 3% + 지방소득세 0.3%</span>
       </label>
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-        <div><p className="text-[10px] text-sub">세전</p><p className="text-[13px] font-bold text-ink">{won(amount)}</p></div>
-        <div><p className="text-[10px] text-sub">공제</p><p className="text-[13px] font-bold text-red-600">−{won(tax.total)}</p></div>
-        <div><p className="text-[10px] text-sub">실지급</p><p className="text-[15px] font-extrabold text-primary">{won(tax.net)}</p></div>
+        <div><p className="text-[0.625rem] text-sub">세전</p><p className="text-[0.8125rem] font-bold text-ink">{won(amount)}</p></div>
+        <div><p className="text-[0.625rem] text-sub">공제</p><p className="text-[0.8125rem] font-bold text-red-600">−{won(tax.total)}</p></div>
+        <div><p className="text-[0.625rem] text-sub">실지급</p><p className="text-[0.9375rem] font-extrabold text-primary">{won(tax.net)}</p></div>
       </div>
     </div>
     {!later ? (
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <button type="button" disabled={disabled || pending} onClick={() => submit('now')} className="h-11 rounded-xl bg-primary text-[13px] font-extrabold text-white disabled:opacity-40">{pending ? '기록 중...' : `지금 지급 완료 · ${won(tax.net)}`}</button>
-        <button type="button" disabled={disabled || pending} onClick={() => setLater(true)} className="h-11 rounded-xl border border-line bg-white text-[13px] font-extrabold text-ink disabled:opacity-40">나중에 지급</button>
+        <button type="button" disabled={disabled || pending} onClick={() => submit('now')} className="h-11 rounded-xl bg-primary text-[0.8125rem] font-extrabold text-white disabled:opacity-40">{pending ? '기록 중...' : `지금 지급 완료 · ${won(tax.net)}`}</button>
+        <button type="button" disabled={disabled || pending} onClick={() => setLater(true)} className="h-11 rounded-xl border border-line bg-white text-[0.8125rem] font-extrabold text-ink disabled:opacity-40">나중에 지급</button>
       </div>
     ) : (
       <div className="mt-2 rounded-xl bg-bg p-3">
-        <label className="block text-[11px] font-bold text-sub">지급 예정일<input type="date" value={payAt} min={todayKST()} onChange={(event) => setPayAt(event.target.value)} className="mt-1 h-10 w-full rounded-xl border border-line bg-white px-3 text-[13px]" /></label>
-        <div className="mt-2 grid grid-cols-3 gap-1.5 text-[11px] font-bold">
+        <label className="block text-[0.6875rem] font-bold text-sub">지급 예정일<input type="date" value={payAt} min={todayKST()} onChange={(event) => setPayAt(event.target.value)} className="mt-1 h-10 w-full rounded-xl border border-line bg-white px-3 text-[0.8125rem]" /></label>
+        <div className="mt-2 grid grid-cols-3 gap-1.5 text-[0.6875rem] font-bold">
           {[['내일', 1], ['이번 주', 7], ['2주 뒤', 14]].map(([label, days]) => <button key={String(label)} type="button" onClick={() => setPayAt(plusDays(Number(days)))} className="h-8 rounded-lg bg-white text-sub">{label}</button>)}
         </div>
-        <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={80} placeholder="메모 (선택) · 예: 매주 금요일 정산" className="mt-2 h-10 w-full rounded-xl border border-line bg-white px-3 text-[12px]" />
+        <input value={note} onChange={(event) => setNote(event.target.value)} maxLength={80} placeholder="메모 (선택) · 예: 매주 금요일 정산" className="mt-2 h-10 w-full rounded-xl border border-line bg-white px-3 text-[0.75rem]" />
         <div className="mt-2 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setLater(false)} className="h-10 rounded-xl bg-white text-[12px] font-bold text-sub">취소</button>
-          <button type="button" disabled={pending} onClick={() => submit('later')} className="h-10 rounded-xl bg-ink text-[12px] font-extrabold text-white disabled:opacity-40">{pending ? '기록 중...' : '지급 예정으로 기록'}</button>
+          <button type="button" onClick={() => setLater(false)} className="h-10 rounded-xl bg-white text-[0.75rem] font-bold text-sub">취소</button>
+          <button type="button" disabled={pending} onClick={() => submit('later')} className="h-10 rounded-xl bg-ink text-[0.75rem] font-extrabold text-white disabled:opacity-40">{pending ? '기록 중...' : '지급 예정으로 기록'}</button>
         </div>
       </div>
     )}
-    {error && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{error}</p>}
-    {done && <p role="status" className="mt-2 text-[12px] font-bold text-emerald-600">{done}</p>}
+    {error && <p role="alert" className="mt-2 text-[0.75rem] font-bold text-red-600">{error}</p>}
+    {done && <p role="status" className="mt-2 text-[0.75rem] font-bold text-emerald-600">{done}</p>}
   </div>;
 }
 
@@ -79,9 +79,9 @@ export function PayoutRowActions({ payoutId }: { payoutId: string }) {
     start(async () => { try { await action(form); } catch (caught) { setError(caught instanceof Error ? caught.message : '처리하지 못했어요.'); } });
   }
   return <div className="flex items-center gap-1.5">
-    <button type="button" disabled={pending} onClick={() => run(markGigPayoutPaidAction)} className="h-8 rounded-lg bg-primary px-3 text-[11px] font-extrabold text-white disabled:opacity-40">지급 완료</button>
-    <button type="button" disabled={pending} onClick={() => run(cancelGigPayoutAction)} className="h-8 rounded-lg bg-white px-2 text-[11px] font-bold text-sub disabled:opacity-40">취소</button>
-    {error && <span className="text-[11px] font-bold text-red-600">{error}</span>}
+    <button type="button" disabled={pending} onClick={() => run(markGigPayoutPaidAction)} className="h-8 rounded-lg bg-primary px-3 text-[0.6875rem] font-extrabold text-white disabled:opacity-40">지급 완료</button>
+    <button type="button" disabled={pending} onClick={() => run(cancelGigPayoutAction)} className="h-8 rounded-lg bg-white px-2 text-[0.6875rem] font-bold text-sub disabled:opacity-40">취소</button>
+    {error && <span className="text-[0.6875rem] font-bold text-red-600">{error}</span>}
   </div>;
 }
 
@@ -91,16 +91,16 @@ export function WithholdingCalculator() {
   const amount = Number(value.replace(/\D/g, '')) || 0;
   const tax = withholding(amount, true);
   return <section className="mt-6 rounded-2xl border border-line bg-white p-4 shadow-card">
-    <div className="flex items-baseline justify-between"><h2 className="text-[15px] font-extrabold text-ink">3.3% 계산기</h2><span className="text-[11px] text-sub">세전 → 실지급</span></div>
+    <div className="flex items-baseline justify-between"><h2 className="text-[0.9375rem] font-extrabold text-ink">3.3% 계산기</h2><span className="text-[0.6875rem] text-sub">세전 → 실지급</span></div>
     <div className="mt-3 flex items-center gap-2">
-      <input inputMode="numeric" value={value ? amount.toLocaleString('ko-KR') : ''} onChange={(event) => setValue(event.target.value)} placeholder="세전 금액" aria-label="세전 금액" className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 text-[15px] font-bold text-ink outline-none" />
-      <span className="text-[13px] text-sub">원</span>
+      <input inputMode="numeric" value={value ? amount.toLocaleString('ko-KR') : ''} onChange={(event) => setValue(event.target.value)} placeholder="세전 금액" aria-label="세전 금액" className="h-11 min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 text-[0.9375rem] font-bold text-ink outline-none" />
+      <span className="text-[0.8125rem] text-sub">원</span>
     </div>
     <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-      <div className="rounded-xl bg-bg py-2"><p className="text-[10px] text-sub">소득세 3%</p><p className="text-[13px] font-bold text-ink">{won(tax.incomeTax)}</p></div>
-      <div className="rounded-xl bg-bg py-2"><p className="text-[10px] text-sub">지방소득세 0.3%</p><p className="text-[13px] font-bold text-ink">{won(tax.localTax)}</p></div>
-      <div className="rounded-xl bg-primary/10 py-2"><p className="text-[10px] text-primary">실지급</p><p className="text-[15px] font-extrabold text-primary">{won(tax.net)}</p></div>
+      <div className="rounded-xl bg-bg py-2"><p className="text-[0.625rem] text-sub">소득세 3%</p><p className="text-[0.8125rem] font-bold text-ink">{won(tax.incomeTax)}</p></div>
+      <div className="rounded-xl bg-bg py-2"><p className="text-[0.625rem] text-sub">지방소득세 0.3%</p><p className="text-[0.8125rem] font-bold text-ink">{won(tax.localTax)}</p></div>
+      <div className="rounded-xl bg-primary/10 py-2"><p className="text-[0.625rem] text-primary">실지급</p><p className="text-[0.9375rem] font-extrabold text-primary">{won(tax.net)}</p></div>
     </div>
-    <p className="mt-2 text-[11px] leading-4 text-sub">10원 미만 절사 기준의 간이 계산이에요. 일용근로자 처리(하루 15만원 이하 비과세 등)나 신고는 세무 기준을 따라 주세요.</p>
+    <p className="mt-2 text-[0.6875rem] leading-4 text-sub">10원 미만 절사 기준의 간이 계산이에요. 일용근로자 처리(하루 15만원 이하 비과세 등)나 신고는 세무 기준을 따라 주세요.</p>
   </section>;
 }

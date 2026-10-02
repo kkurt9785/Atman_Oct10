@@ -66,8 +66,8 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
     <div className={className}>
       <div ref={mapEl} className="h-56 w-full rounded-xl bg-[#E8EDF2]" aria-label="사업장 위치 지도" />
       <CurrentLocationButton className="mt-2" radiusMeters={radiusMeters} onChange={onChange} />
-      {error ? <p role="alert" className="mt-2 text-[12px] text-warn">{error}</p>
-        : <p className="mt-2 text-[12px] text-sub">사업장 안에서 위 버튼을 누르면 가장 정확해요. 핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰도 됩니다. 원은 출퇴근 인증 반경 미리보기예요.</p>}
+      {error ? <p role="alert" className="mt-2 text-[0.75rem] text-warn">{error}</p>
+        : <p className="mt-2 text-[0.75rem] text-sub">사업장 안에서 위 버튼을 누르면 가장 정확해요. 핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰도 됩니다. 원은 출퇴근 인증 반경 미리보기예요.</p>}
     </div>
   );
 }
@@ -120,11 +120,11 @@ export function CurrentLocationButton({ radiusMeters = 30, onChange, className, 
         type="button"
         onClick={capture}
         disabled={locating}
-        className="flex h-11 w-full items-center justify-center rounded-xl border border-primary bg-white text-[14px] font-bold text-primary disabled:opacity-60"
+        className="flex h-11 w-full items-center justify-center rounded-xl border border-primary bg-white text-[0.875rem] font-bold text-primary disabled:opacity-60"
       >
         {locating ? '위치를 확인하는 중…' : label}
       </button>
-      {note && <p role="status" className="mt-2 text-[12px] text-sub">{note}</p>}
+      {note && <p role="status" className="mt-2 text-[0.75rem] text-sub">{note}</p>}
     </div>
   );
 }

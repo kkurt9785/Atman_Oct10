@@ -31,22 +31,22 @@ export default async function PlatformFacilitiesPage() {
       <section className="mt-6">
         <p className="mb-2 px-1 text-label font-bold text-sub">승인 대기 {pending.length}건</p>
         {pending.length === 0
-          ? <p className="rounded-2xl bg-white p-5 text-center text-[14px] text-sub">대기 중인 사업장이 없어요.</p>
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">대기 중인 사업장이 없어요.</p>
           : <div className="space-y-3">{pending.map((f) => <ApprovalCard key={f.id} facility={f} />)}</div>}
       </section>
 
       <section className="mt-8">
         <p className="mb-2 px-1 text-label font-bold text-sub">수동 등록 요청 {requests.length}건</p>
         {requests.length === 0
-          ? <p className="rounded-2xl bg-white p-5 text-center text-[14px] text-sub">검토할 요청이 없어요.</p>
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">검토할 요청이 없어요.</p>
           : <div className="space-y-3">{requests.map((r) => <RequestCard key={r.id} request={r} />)}</div>}
-        <p className="mt-2 px-1 text-[11px] leading-4 text-tertiary">요청은 사업장 계정이 없을 때 남긴 것이라, 연락해서 셀프 등록을 안내하거나 잇닿이 직접 등록한 뒤 초대 코드를 보내요.</p>
+        <p className="mt-2 px-1 text-[0.6875rem] leading-4 text-tertiary">요청은 사업장 계정이 없을 때 남긴 것이라, 연락해서 셀프 등록을 안내하거나 잇닿이 직접 등록한 뒤 초대 코드를 보내요.</p>
       </section>
 
       <section className="mt-8">
         <p className="mb-2 px-1 text-label font-bold text-sub">워커 자격 심사 대기 {pendingWorkers.length}건</p>
         {pendingWorkers.length === 0
-          ? <p className="rounded-2xl bg-white p-5 text-center text-[14px] text-sub">심사할 워커가 없어요. 간호사·간호조무사·약사는 사업장이 채용 전 직접 확인하고, 약국 전산·사무직만 여기서 이력서를 확인해요.</p>
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">심사할 워커가 없어요. 간호사·간호조무사·약사는 사업장이 채용 전 직접 확인하고, 약국 전산·사무직만 여기서 이력서를 확인해요.</p>
           : <div className="space-y-3">{pendingWorkers.map((w) => <WorkerApprovalCard key={w.id} worker={w} />)}</div>}
       </section>
 
@@ -56,8 +56,8 @@ export default async function PlatformFacilitiesPage() {
           <ul className="divide-y divide-line rounded-2xl bg-white">
             {recent.map((f) => (
               <li key={f.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0"><p className="truncate text-[14px] font-bold text-ink">{f.name}</p><p className="truncate text-[12px] text-sub">{f.business_registration_number} · {f.admin_email ?? '관리자 없음'}</p></div>
-                <span className="shrink-0 text-[11px] text-sub">{new Date(f.approved_at as string).toLocaleDateString('ko-KR')}</span>
+                <div className="min-w-0"><p className="truncate text-[0.875rem] font-bold text-ink">{f.name}</p><p className="truncate text-[0.75rem] text-sub">{f.business_registration_number} · {f.admin_email ?? '관리자 없음'}</p></div>
+                <span className="shrink-0 text-[0.6875rem] text-sub">{new Date(f.approved_at as string).toLocaleDateString('ko-KR')}</span>
               </li>
             ))}
           </ul>

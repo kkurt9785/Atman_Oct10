@@ -11,7 +11,7 @@ export function CancelButton({ shiftId }: { shiftId: string }) {
     return (
       <button
         onClick={() => setArming(true)}
-        className="text-[12px] font-bold px-3 py-1.5 rounded-full border border-line text-sub active:bg-bg"
+        className="text-[0.75rem] font-bold px-3 py-1.5 rounded-full border border-line text-sub active:bg-bg"
       >
         취소하기
       </button>
@@ -20,18 +20,18 @@ export function CancelButton({ shiftId }: { shiftId: string }) {
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="text-[12px] text-warn font-bold">워커에게 알림이 가요</span>
+      <span className="text-[0.75rem] text-warn font-bold">워커에게 알림이 가요</span>
       <button
         onClick={() => startTransition(() => cancelShiftAction(shiftId))}
         disabled={isPending}
-        className="text-[12px] font-bold px-3 py-1.5 rounded-full bg-red-50 text-red-600 disabled:opacity-40"
+        className="text-[0.75rem] font-bold px-3 py-1.5 rounded-full bg-red-50 text-red-600 disabled:opacity-40"
       >
         {isPending ? '취소 중...' : '취소 확정'}
       </button>
       <button
         onClick={() => setArming(false)}
         disabled={isPending}
-        className="text-[12px] font-bold px-2.5 py-1.5 rounded-full border border-line text-sub"
+        className="text-[0.75rem] font-bold px-2.5 py-1.5 rounded-full border border-line text-sub"
       >
         닫기
       </button>

@@ -29,21 +29,21 @@ function ContractRangePicker(){
     <input type="hidden" name="contract_start" value={start}/>
     <input type="hidden" name="contract_end" value={end}/>
     <button type="button" onClick={()=>setOpen(value=>!value)} className={`mt-2 flex min-h-14 w-full items-center justify-between rounded-xl border bg-white px-4 text-left ${open?'border-primary ring-2 ring-primary/10':'border-line'}`}>
-      <span><span className={`block text-[14px] font-bold ${start?'text-ink':'text-tertiary'}`}>{start?(end?`${formatDate(start)}  →  ${formatDate(end)}`:`${formatDate(start)}  →  종료일 선택`):'시작일과 종료일을 선택해 주세요'}</span>{start&&end&&<span className="mt-0.5 block text-[11px] text-sub">{start} ~ {end}</span>}</span>
-      <span aria-hidden className="text-[18px]">▣</span>
+      <span><span className={`block text-[0.875rem] font-bold ${start?'text-ink':'text-tertiary'}`}>{start?(end?`${formatDate(start)}  →  ${formatDate(end)}`:`${formatDate(start)}  →  종료일 선택`):'시작일과 종료일을 선택해 주세요'}</span>{start&&end&&<span className="mt-0.5 block text-[0.6875rem] text-sub">{start} ~ {end}</span>}</span>
+      <span aria-hidden className="text-[1.125rem]">▣</span>
     </button>
     {open&&<div className="mt-3 rounded-2xl border border-line bg-white p-4 shadow-card">
       <div className="flex items-center justify-between">
-        <button type="button" aria-label="이전 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))} className="h-10 w-10 rounded-full text-[20px] active:bg-bg">‹</button>
-        <b className="text-[15px]">{month.getFullYear()}년 {month.getMonth()+1}월</b>
-        <button type="button" aria-label="다음 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))} className="h-10 w-10 rounded-full text-[20px] active:bg-bg">›</button>
+        <button type="button" aria-label="이전 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))} className="h-10 w-10 rounded-full text-[1.25rem] active:bg-bg">‹</button>
+        <b className="text-[0.9375rem]">{month.getFullYear()}년 {month.getMonth()+1}월</b>
+        <button type="button" aria-label="다음 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))} className="h-10 w-10 rounded-full text-[1.25rem] active:bg-bg">›</button>
       </div>
-      <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[12px] font-bold text-primary">{!start?'계약 시작일을 선택하세요':!end?'이제 계약 종료일을 선택하세요':'계약기간 선택 완료'}</p>
-      <div className="mt-3 grid grid-cols-7 text-center text-[11px] font-bold text-sub">{['일','월','화','수','목','금','토'].map(day=><span key={day} className="py-2">{day}</span>)}</div>
-      <div className="grid grid-cols-7">{days.map(date=>{const key=toDateKey(date);const current=date.getMonth()===month.getMonth();const selected=key===start||key===end;const between=start&&end&&key>start&&key<end;return <button type="button" key={key} onClick={()=>selectDate(key)} className={`h-11 text-[13px] font-semibold ${!current?'text-tertiary/40':'text-ink'} ${between?'bg-primary/5 text-primary':''} ${selected?'rounded-xl bg-primary text-white':''}`}>{date.getDate()}</button>;})}</div>
+      <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[0.75rem] font-bold text-primary">{!start?'계약 시작일을 선택하세요':!end?'이제 계약 종료일을 선택하세요':'계약기간 선택 완료'}</p>
+      <div className="mt-3 grid grid-cols-7 text-center text-[0.6875rem] font-bold text-sub">{['일','월','화','수','목','금','토'].map(day=><span key={day} className="py-2">{day}</span>)}</div>
+      <div className="grid grid-cols-7">{days.map(date=>{const key=toDateKey(date);const current=date.getMonth()===month.getMonth();const selected=key===start||key===end;const between=start&&end&&key>start&&key<end;return <button type="button" key={key} onClick={()=>selectDate(key)} className={`h-11 text-[0.8125rem] font-semibold ${!current?'text-tertiary/40':'text-ink'} ${between?'bg-primary/5 text-primary':''} ${selected?'rounded-xl bg-primary text-white':''}`}>{date.getDate()}</button>;})}</div>
       <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={()=>{setStart('');setEnd('');}} className="h-11 rounded-xl bg-bg text-[13px] font-bold text-sub">다시 선택</button>
-        <button type="button" disabled={!start||!end} onClick={()=>setOpen(false)} className="h-11 rounded-xl bg-ink text-[13px] font-bold text-white disabled:opacity-30">기간 적용</button>
+        <button type="button" onClick={()=>{setStart('');setEnd('');}} className="h-11 rounded-xl bg-bg text-[0.8125rem] font-bold text-sub">다시 선택</button>
+        <button type="button" disabled={!start||!end} onClick={()=>setOpen(false)} className="h-11 rounded-xl bg-ink text-[0.8125rem] font-bold text-white disabled:opacity-30">기간 적용</button>
       </div>
     </div>}
   </div>;
@@ -72,25 +72,25 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
       <input type="hidden" name="worker_kind" value="gig"/>
       <input type="hidden" name="engagement_type" value={scheduleMode==='single'?'daily':'temporary'}/>
       <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
-        <h3 className="col-span-2 text-[13px] font-extrabold text-ink">누가 근무하나요?</h3>
+        <h3 className="col-span-2 text-[0.8125rem] font-extrabold text-ink">누가 근무하나요?</h3>
         <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
         <label className="col-span-2 text-label font-medium text-sub">휴대전화 <span className="font-normal text-tertiary">· 선택, 서로 공개되지 않아요</span><input name="phone" inputMode="tel" className={inputClass} placeholder="몰라도 바로 초대할 수 있어요"/></label>
         <label className="col-span-2 text-label font-medium text-sub">근무 내용 <span className="font-normal text-tertiary">· 선택</span><input name="department" className={inputClass} placeholder="예: 행사 안내, 포장, 매장 보조"/></label>
       </section>
 
       <section className="mt-7 rounded-2xl bg-bg p-4">
-        <h3 className="text-[13px] font-extrabold text-ink">언제 근무하나요?</h3>
+        <h3 className="text-[0.8125rem] font-extrabold text-ink">언제 근무하나요?</h3>
         <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="근무 일정 방식">
-          <button type="button" onClick={()=>setScheduleMode('single')} aria-pressed={scheduleMode==='single'} className={`h-11 rounded-xl text-[13px] font-extrabold ${scheduleMode==='single'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>하루 근무</button>
-          <button type="button" onClick={()=>setScheduleMode('repeat')} aria-pressed={scheduleMode==='repeat'} className={`h-11 rounded-xl text-[13px] font-extrabold ${scheduleMode==='repeat'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>반복 근무</button>
+          <button type="button" onClick={()=>setScheduleMode('single')} aria-pressed={scheduleMode==='single'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode==='single'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>하루 근무</button>
+          <button type="button" onClick={()=>setScheduleMode('repeat')} aria-pressed={scheduleMode==='repeat'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode==='repeat'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>반복 근무</button>
         </div>
         {scheduleMode==='single'?<div className="mt-4">
           <label className="text-label font-medium text-sub">근무 날짜<input type="date" required value={singleDate} onChange={(event)=>setSingleDate(event.target.value)} className={inputClass}/></label>
           <input type="hidden" name="contract_start" value={singleDate}/><input type="hidden" name="contract_end" value={singleDate}/>
-          <p className="mt-2 text-[11px] leading-4 text-sub">선택한 날짜의 요일이 자동 적용돼요.</p>
+          <p className="mt-2 text-[0.6875rem] leading-4 text-sub">선택한 날짜의 요일이 자동 적용돼요.</p>
         </div>:<>
           <ContractRangePicker/>
-          <fieldset className="mt-4"><legend className="mb-3 text-label font-medium text-sub">반복 요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-white text-[12px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
+          <fieldset className="mt-4"><legend className="mb-3 text-label font-medium text-sub">반복 요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-white text-[0.75rem] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
         </>}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="text-label font-medium text-sub">출근시간<input name="default_start_time" type="time" defaultValue="09:00" required className={inputClass}/></label>
@@ -100,7 +100,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
       </section>
 
       <details className="mt-5 rounded-2xl border border-line bg-white p-4">
-        <summary className="cursor-pointer text-[13px] font-extrabold text-sub">급여 기준도 함께 기록하기 · 선택</summary>
+        <summary className="cursor-pointer text-[0.8125rem] font-extrabold text-sub">급여 기준도 함께 기록하기 · 선택</summary>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" className={inputClass} defaultValue=""><option value="">선택 안 함</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
           <label className="text-label font-medium text-sub">금액<input name="pay_rate" type="number" min="0" step="100" className={inputClass} placeholder="예: 15000"/></label>
@@ -108,17 +108,17 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
       </details>
 
       {inviteUrl&&<section className="mt-5 rounded-2xl border border-success/30 bg-success/5 p-4">
-        <p className="text-[14px] font-extrabold text-ink">등록 완료 · 근무자의 직접 수락이 필요해요</p>
-        <p className="mt-1 text-[12px] leading-5 text-sub">전화번호 입력 여부와 관계없이 링크나 QR을 연 워커가 카카오 로그인 후 수락해야 사업장·워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div>
+        <p className="text-[0.875rem] font-extrabold text-ink">등록 완료 · 근무자의 직접 수락이 필요해요</p>
+        <p className="mt-1 text-[0.75rem] leading-5 text-sub">전화번호 입력 여부와 관계없이 링크나 QR을 연 워커가 카카오 로그인 후 수락해야 사업장·워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div>
       </section>}
       <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 일회용 초대 만들기</button>
-      {isGigworker&&<p className="mt-2 text-center text-[11px] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>}
+      {isGigworker&&<p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>}
     </WorkforceActionForm>;
   }
 
   return <WorkforceActionForm kind="add_staff" resetOnSuccess successMessage="직원을 등록했어요." className="px-5 pb-6">
     <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
-      <h3 className="col-span-2 text-[13px] font-extrabold text-ink">기본 정보</h3>
+      <h3 className="col-span-2 text-[0.8125rem] font-extrabold text-ink">기본 정보</h3>
       <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
       <label className="text-label font-medium text-sub">{isGigworker?'업무 유형':'직종'}<select name="role" className={inputClass}>{isGigworker?<><option value="other">일반 업무</option><option value="admin">매장·사무</option><option value="coordinator">현장 운영</option></>:isPharmacy?<><option value="pharmacist">약사</option><option value="pharmacy_staff">약국 전산·사무직</option><option value="admin">관리·행정</option><option value="other">기타</option></>:<><option value="rn">간호사</option><option value="na">간호조무사</option><option value="pharmacist">약사</option><option value="coordinator">코디네이터</option><option value="admin">행정</option><option value="other">기타</option></>}</select></label>
       <label className="text-label font-medium text-sub">{isPharmacy?'담당 업무':isGigworker?'근무 내용':'부서'}<input name="department" className={inputClass} placeholder={isPharmacy?'예: 조제실, 전산·접수':isGigworker?'예: 행사 안내, 포장':'예: 외래'}/></label>
@@ -126,8 +126,8 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
     </section>
 
     <section className="mt-7 rounded-2xl bg-bg p-4">
-      <h3 className="text-[13px] font-extrabold text-ink">근무 계약</h3>
-      <p className="mt-1 text-[12px] leading-5 text-sub">근무 형태를 먼저 선택하면 필요한 계약기간만 보여드려요.</p>
+      <h3 className="text-[0.8125rem] font-extrabold text-ink">근무 계약</h3>
+      <p className="mt-1 text-[0.75rem] leading-5 text-sub">근무 형태를 먼저 선택하면 필요한 계약기간만 보여드려요.</p>
       <label className="mt-4 block text-label font-medium text-sub">근무 형태
         <select name="engagement_type" required value={engagementType} onChange={event=>setEngagementType(event.target.value)} className={inputClass}>
           <option value="" disabled>선택해 주세요</option>
@@ -137,25 +137,25 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
           <option value="daily">단기 근무</option>
         </select>
       </label>
-      {engagementType==='regular'&&<p className="mt-3 rounded-xl bg-white px-3 py-3 text-[12px] leading-5 text-sub">상시 직원은 계약 종료일을 입력하지 않아도 됩니다.</p>}
+      {engagementType==='regular'&&<p className="mt-3 rounded-xl bg-white px-3 py-3 text-[0.75rem] leading-5 text-sub">상시 직원은 계약 종료일을 입력하지 않아도 됩니다.</p>}
       {needsContract&&<ContractRangePicker/>}
     </section>
 
     <section className="mt-8 grid grid-cols-2 gap-x-3 gap-y-5 border-t border-line pt-6">
-      <div className="col-span-2"><h3 className="text-[13px] font-extrabold text-ink">기본 근무시간</h3><p className="mt-1 text-[12px] leading-5 text-sub">야간근무는 퇴근시간을 다음 날 시간으로 선택해 주세요.</p></div>
+      <div className="col-span-2"><h3 className="text-[0.8125rem] font-extrabold text-ink">기본 근무시간</h3><p className="mt-1 text-[0.75rem] leading-5 text-sub">야간근무는 퇴근시간을 다음 날 시간으로 선택해 주세요.</p></div>
       <label className="text-label font-medium text-sub">기본 출근<input name="default_start_time" type="time" defaultValue="09:00" className={inputClass}/></label>
       <label className="text-label font-medium text-sub">기본 퇴근<input name="default_end_time" type="time" defaultValue="18:00" className={inputClass}/></label>
-      <fieldset className="col-span-2"><legend className="text-label font-medium text-sub mb-3">기본 근무요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-line bg-white text-[12px] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
+      <fieldset className="col-span-2"><legend className="text-label font-medium text-sub mb-3">기본 근무요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-line bg-white text-[0.75rem] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
     </section>
     <section className="mt-8 border-t border-line pt-6">
-      <h3 className="text-[13px] font-extrabold text-ink">급여 기준</h3>
-      <p className="mt-1 text-[12px] leading-5 text-sub">근태 기록과 연결해 급여 지급관리에서 세전 예상액을 계산합니다.</p>
+      <h3 className="text-[0.8125rem] font-extrabold text-ink">급여 기준</h3>
+      <p className="mt-1 text-[0.75rem] leading-5 text-sub">근태 기록과 연결해 급여 지급관리에서 세전 예상액을 계산합니다.</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" value={payBasis} onChange={event=>setPayBasis(event.target.value)} className={inputClass}><option value="monthly">월급</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
         <label className="text-label font-medium text-sub">{payBasis==='monthly'?'세전 월급':payBasis==='hourly'?'시급':'일급'}<input name="pay_rate" type="number" min="1" step={payBasis==='monthly'?'10000':'100'} required className={inputClass} placeholder={payBasis==='monthly'?'예: 3000000':payBasis==='hourly'?'예: 15000':'예: 150000'}/></label>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-label font-medium text-sub">지급 은행<input name="bank_name" maxLength={40} className={inputClass} placeholder="예: 국민은행"/></label><label className="text-label font-medium text-sub">계좌 끝 4자리<input name="account_last4" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} className={inputClass} placeholder="1234"/></label></div>
-      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
+      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
     <input type="hidden" name="default_break_minutes" value="60"/>
     {/* 병원·약국의 '외부 단기근로자 초대'(entry=gigworker)는 직원이 아니라 긱 근무자로 저장한다 — 지급·계좌·비공개 대화가 열린다 */}

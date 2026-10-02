@@ -38,6 +38,6 @@ export default async function TimesheetPage(){
     </div>
     {!isGigworker&&<div className="mt-3"><OperationsFlow active="attendance"/></div>}
     <AttendanceDashboard staff={staff} matched={isGigworker?[]:matched} upcoming={isGigworker?[]:upcoming} failures={failures} arrivalAlerts={arrivalAlerts.filter((alert) => alert.kind === 'no_show')} facilityId={facilityId} summaryHref={summaryHref} isGigworker={isGigworker}/>
-    <p className="mt-4 px-1 text-[11px] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 출퇴근 기록입니다. 수정 이력은 감사 기록에 남아요.</p>
+    <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 출퇴근 기록입니다. 수정 이력은 감사 기록에 남아요.</p>
   </main>;
 }

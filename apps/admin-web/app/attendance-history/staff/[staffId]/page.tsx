@@ -22,22 +22,22 @@ export default async function StaffAttendancePage({params,searchParams}:{params:
       <Link href="/attendance-history" className="text-label font-bold text-primary">← 근태 내역</Link>
       <div className="mt-2 flex items-center gap-2">
         <h1 className="text-display font-extrabold">{staff.name}</h1>
-        <span className="rounded-full bg-bg px-2 py-0.5 text-[11px] font-bold text-sub">{ROLE[staff.role]??staff.role} · {ENGAGEMENT[staff.engagementType]??staff.engagementType}</span>
+        <span className="rounded-full bg-bg px-2 py-0.5 text-[0.6875rem] font-bold text-sub">{ROLE[staff.role]??staff.role} · {ENGAGEMENT[staff.engagementType]??staff.engagementType}</span>
       </div>
       <p className="mt-1 text-label text-sub">{staff.department??'부서 미지정'}{staff.defaultStart?` · 근무 ${staff.defaultStart.slice(0,5)}~${staff.defaultEnd?.slice(0,5)??''}`:''}{firstWorkDate?` · 첫 기록 ${firstWorkDate}`:''}</p>
     </div>
     <div className="mt-4 flex items-center justify-between rounded-2xl bg-white p-2 shadow-sm">
       {hasPrev?<Link href={`/attendance-history/staff/${staffId}?month=${moveMonth(month,-1)}`} className="flex h-11 w-11 items-center justify-center text-xl">‹</Link>:<span className="flex h-11 w-11 items-center justify-center text-xl text-line">‹</span>}
-      <b className="text-[14px]">{month.slice(0,4)}년 {Number(month.slice(5,7))}월</b>
+      <b className="text-[0.875rem]">{month.slice(0,4)}년 {Number(month.slice(5,7))}월</b>
       {hasNext?<Link href={`/attendance-history/staff/${staffId}?month=${moveMonth(month,1)}`} className="flex h-11 w-11 items-center justify-center text-xl">›</Link>:<span className="flex h-11 w-11 items-center justify-center text-xl text-line">›</span>}
     </div>
     <div className="mt-3 grid grid-cols-3 gap-2">
-      <Card className="p-3"><p className="text-[11px] text-sub">근무일</p><b className="mt-1 block text-title">{summary.workDays}일</b></Card>
-      <Card className="p-3"><p className="text-[11px] text-sub">인정 근무</p><b className="mt-1 block text-title">{Math.floor(summary.workedMinutes/60)}시간</b></Card>
-      <Card className="p-3"><p className="text-[11px] text-sub">지각·조퇴</p><b className={`mt-1 block text-title ${summary.lateCount>0||summary.earlyLeaveMinutes>0?'text-warn':''}`}>{summary.lateCount}회{summary.earlyLeaveMinutes>0?` · ${summary.earlyLeaveMinutes}분`:''}</b></Card>
+      <Card className="p-3"><p className="text-[0.6875rem] text-sub">근무일</p><b className="mt-1 block text-title">{summary.workDays}일</b></Card>
+      <Card className="p-3"><p className="text-[0.6875rem] text-sub">인정 근무</p><b className="mt-1 block text-title">{Math.floor(summary.workedMinutes/60)}시간</b></Card>
+      <Card className="p-3"><p className="text-[0.6875rem] text-sub">지각·조퇴</p><b className={`mt-1 block text-title ${summary.lateCount>0||summary.earlyLeaveMinutes>0?'text-warn':''}`}>{summary.lateCount}회{summary.earlyLeaveMinutes>0?` · ${summary.earlyLeaveMinutes}분`:''}</b></Card>
     </div>
-    {summary.absentCount>0&&<Card className="mt-2 border border-red-200 bg-red-50 p-3 text-[12px] font-bold text-red-600">이 달 결근 {summary.absentCount}건</Card>}
+    {summary.absentCount>0&&<Card className="mt-2 border border-red-200 bg-red-50 p-3 text-[0.75rem] font-bold text-red-600">이 달 결근 {summary.absentCount}건</Card>}
     <AttendanceCalendar month={month} rows={rows} today={todayKst}/>
-    <p className="mt-4 text-center text-[11px] text-sub">기록 수정·월 마감은 근태 내역(최근 3개월)에서 할 수 있어요.</p>
+    <p className="mt-4 text-center text-[0.6875rem] text-sub">기록 수정·월 마감은 근태 내역(최근 3개월)에서 할 수 있어요.</p>
   </main>;
 }

@@ -41,7 +41,7 @@ export function AttendanceCalendar({ month, rows, today }: { month: string; rows
   return (
     <div className="mt-4">
       <div className="rounded-2xl bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-7 text-center text-[11px] font-bold text-sub">
+        <div className="grid grid-cols-7 text-center text-[0.6875rem] font-bold text-sub">
           {['일', '월', '화', '수', '목', '금', '토'].map((d, i) => (
             <span key={d} className={`py-1 ${i === 0 ? 'text-red-400' : ''}`}>{d}</span>
           ))}
@@ -63,7 +63,7 @@ export function AttendanceCalendar({ month, rows, today }: { month: string; rows
                 aria-pressed={isSelected}
                 className="flex min-h-11 items-center justify-center py-0.5"
               >
-                <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-bold ${style} ${isSelected ? 'ring-2 ring-ink' : isToday ? 'ring-1 ring-line' : ''}`}>
+                <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[0.8125rem] font-bold ${style} ${isSelected ? 'ring-2 ring-ink' : isToday ? 'ring-1 ring-line' : ''}`}>
                   {Number(date.slice(8))}
                 </span>
               </button>
@@ -72,7 +72,7 @@ export function AttendanceCalendar({ month, rows, today }: { month: string; rows
         </div>
         <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-3">
           {LEGEND.map(([color, label]) => (
-            <span key={label} className="flex items-center gap-1 text-[11px] text-sub">
+            <span key={label} className="flex items-center gap-1 text-[0.6875rem] text-sub">
               <span className={`h-2.5 w-2.5 rounded-full ${color}`} aria-hidden="true" />{label}
             </span>
           ))}
@@ -80,23 +80,23 @@ export function AttendanceCalendar({ month, rows, today }: { month: string; rows
       </div>
 
       {rows.length === 0 ? (
-        <div className="mt-3 rounded-2xl bg-white py-8 text-center text-[13px] font-bold shadow-sm">이 달 근태 기록이 없어요.</div>
+        <div className="mt-3 rounded-2xl bg-white py-8 text-center text-[0.8125rem] font-bold shadow-sm">이 달 근태 기록이 없어요.</div>
       ) : row ? (
         <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm" role="region" aria-live="polite" aria-label="선택한 날짜 상세">
           <div className="flex items-center justify-between">
-            <p className="text-[13px] font-extrabold">{row.workDate} <span className="ml-1 font-medium text-sub">예정 {row.scheduledStart?.slice(0, 5) ?? '—'}~{row.scheduledEnd?.slice(0, 5) ?? '—'}</span></p>
-            <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold">{STATUS_LABEL[row.status] ?? row.status}</span>
+            <p className="text-[0.8125rem] font-extrabold">{row.workDate} <span className="ml-1 font-medium text-sub">예정 {row.scheduledStart?.slice(0, 5) ?? '—'}~{row.scheduledEnd?.slice(0, 5) ?? '—'}</span></p>
+            <span className="rounded-full bg-bg px-2.5 py-1 text-[0.6875rem] font-bold">{STATUS_LABEL[row.status] ?? row.status}</span>
           </div>
-          <div className="mt-3 rounded-xl bg-bg p-3 text-[12px]">
+          <div className="mt-3 rounded-xl bg-bg p-3 text-[0.75rem]">
             <div className="flex justify-between"><span className="text-sub">실제 출퇴근</span><b>{dt(row.checkInAt)} → {dt(row.checkOutAt)}</b></div>
             <div className="mt-2 flex justify-between"><span className="text-sub">인정 근무</span><b>{hm(row.workedMinutes)}</b></div>
             <div className="mt-2 flex justify-between"><span className="text-sub">인증</span><b>{AUTH[row.method ?? ''] ?? row.method ?? '—'}</b></div>
             {(row.lateMinutes > 0 || row.earlyLeaveMinutes > 0) && <p className="mt-2 text-right font-bold text-warn">{row.lateMinutes > 0 ? `지각 ${row.lateMinutes}분` : ''}{row.earlyLeaveMinutes > 0 ? ` · 조퇴 ${row.earlyLeaveMinutes}분` : ''}</p>}
-            {row.correctionReason && <p className="mt-2 text-[11px] text-sub">수정 사유: {row.correctionReason}</p>}
+            {row.correctionReason && <p className="mt-2 text-[0.6875rem] text-sub">수정 사유: {row.correctionReason}</p>}
           </div>
         </div>
       ) : (
-        <p className="mt-3 text-center text-[12px] text-sub">날짜를 누르면 그 날 기록이 여기 표시돼요.</p>
+        <p className="mt-3 text-center text-[0.75rem] text-sub">날짜를 누르면 그 날 기록이 여기 표시돼요.</p>
       )}
     </div>
   );

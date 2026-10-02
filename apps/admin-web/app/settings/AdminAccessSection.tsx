@@ -26,17 +26,17 @@ export function AdminAccessSection({ admins, facilityWord }: { admins: FacilityA
 
   return (
     <section className="mx-4 mt-4 rounded-2xl bg-white p-5">
-      <p className="text-[13px] font-bold text-sub">관리자 권한</p>
-      <p className="mt-1 text-[12px] leading-5 text-tertiary">급여 정보(급여 화면·CSV·홈 인건비)는 {facilityWord} 소유자만 봐요. 함께 운영하는 관리자에게 보여주려면 여기서 허용하세요.</p>
+      <p className="text-[0.8125rem] font-bold text-sub">관리자 권한</p>
+      <p className="mt-1 text-[0.75rem] leading-5 text-tertiary">급여 정보(급여 화면·CSV·홈 인건비)는 {facilityWord} 소유자만 봐요. 함께 운영하는 관리자에게 보여주려면 여기서 허용하세요.</p>
       <div className="mt-3 divide-y divide-line">
         {rows.map((admin) => (
           <div key={admin.userId} className="flex items-center justify-between gap-3 py-3">
             <div className="min-w-0">
-              <p className="truncate text-[14px] font-bold text-ink">{admin.email}</p>
-              <p className="mt-0.5 text-[12px] text-sub">{ROLE_LABEL[admin.role]}{admin.role === 'owner' && ' · 급여 항상 열람'}</p>
+              <p className="truncate text-[0.875rem] font-bold text-ink">{admin.email}</p>
+              <p className="mt-0.5 text-[0.75rem] text-sub">{ROLE_LABEL[admin.role]}{admin.role === 'owner' && ' · 급여 항상 열람'}</p>
             </div>
             {admin.role === 'owner' ? (
-              <span className="shrink-0 rounded-full bg-bg px-2.5 py-1 text-[12px] font-bold text-sub">열람 가능</span>
+              <span className="shrink-0 rounded-full bg-bg px-2.5 py-1 text-[0.75rem] font-bold text-sub">열람 가능</span>
             ) : (
               <button
                 type="button"
@@ -53,8 +53,8 @@ export function AdminAccessSection({ admins, facilityWord }: { admins: FacilityA
           </div>
         ))}
       </div>
-      <p className="mt-1 text-[12px] text-tertiary">스위치를 켜면 급여 열람 허용 · 끄면 급여 메뉴와 금액이 숨겨져요. 변경은 감사 기록에 남습니다.</p>
-      {message && <p role="alert" className="mt-2 text-[12px] text-warn">{message}</p>}
+      <p className="mt-1 text-[0.75rem] text-tertiary">스위치를 켜면 급여 열람 허용 · 끄면 급여 메뉴와 금액이 숨겨져요. 변경은 감사 기록에 남습니다.</p>
+      {message && <p role="alert" className="mt-2 text-[0.75rem] text-warn">{message}</p>}
     </section>
   );
 }

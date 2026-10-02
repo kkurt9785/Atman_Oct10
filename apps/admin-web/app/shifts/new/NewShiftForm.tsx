@@ -147,7 +147,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        {recentShift&&!invitedWorker&&<button type="button" onClick={applyRecentShift} className="flex min-h-14 items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 text-left active:bg-primary/10"><span><b className="block text-[13px] text-primary">{copiedShift?'이 공고 조건을 불러왔어요':'최근 공고 조건 불러오기'}</b><span className="mt-0.5 block text-[11px] text-sub">시간·시급·업무를 채우고 날짜만 새로 선택해요</span></span><span className="text-primary">{copiedShift?'✓':'›'}</span></button>}
+        {recentShift&&!invitedWorker&&<button type="button" onClick={applyRecentShift} className="flex min-h-14 items-center justify-between rounded-2xl border border-primary/20 bg-primary/5 px-4 text-left active:bg-primary/10"><span><b className="block text-[0.8125rem] text-primary">{copiedShift?'이 공고 조건을 불러왔어요':'최근 공고 조건 불러오기'}</b><span className="mt-0.5 block text-[0.6875rem] text-sub">시간·시급·업무를 채우고 날짜만 새로 선택해요</span></span><span className="text-primary">{copiedShift?'✓':'›'}</span></button>}
         {invitedWorker && (
           <section className="bg-primary/10 border border-primary/20 rounded-2xl p-5">
             <p className="text-label font-bold text-primary">자체 인력풀 반복근무 요청</p>
@@ -164,7 +164,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
                 key={value}
                 type="button"
                 onClick={() => setRole(value)}
-                className={`min-h-12 px-2 py-3 rounded-xl text-[13px] font-bold transition-colors ${
+                className={`min-h-12 px-2 py-3 rounded-xl text-[0.8125rem] font-bold transition-colors ${
                   role === value
                     ? 'bg-primary text-white'
                     : 'bg-bg text-sub'
@@ -175,18 +175,18 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
             ))}
           </div>
           {role === 'pharmacy_staff' && (
-            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[12px] leading-5 text-amber-800">
+            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.75rem] leading-5 text-amber-800">
               전산 입력 보조·서류·재고·매대·고객 안내만 등록할 수 있어요. 조제·판매·복약지도는 약사 공고로 등록해 주세요.
             </p>
           )}
           {(role==='pharmacist'||role==='pharmacy_staff')&&(
             <div className="mt-4">
-              <p className="text-[12px] font-bold text-sub">주요 업무를 선택하세요</p>
+              <p className="text-[0.75rem] font-bold text-sub">주요 업무를 선택하세요</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {PHARMACY_TASKS[role].map(task=><button key={task} type="button" onClick={()=>toggleTask(task)}
-                  className={`rounded-full border px-3 py-2 text-[12px] font-bold ${selectedTasks.includes(task)?'border-primary bg-primary/10 text-primary':'border-line bg-white text-sub'}`}>{task}</button>)}
+                  className={`rounded-full border px-3 py-2 text-[0.75rem] font-bold ${selectedTasks.includes(task)?'border-primary bg-primary/10 text-primary':'border-line bg-white text-sub'}`}>{task}</button>)}
               </div>
-              {selectedTasks.length>0&&<p className="mt-3 text-[11px] font-medium text-primary">선택한 업무가 아래 설명에 자동 반영됐어요.</p>}
+              {selectedTasks.length>0&&<p className="mt-3 text-[0.6875rem] font-medium text-primary">선택한 업무가 아래 설명에 자동 반영됐어요.</p>}
             </div>
           )}
         </section>

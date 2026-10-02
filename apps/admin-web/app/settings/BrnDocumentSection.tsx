@@ -30,13 +30,13 @@ export function BrnDocumentSection({ facilityId, brnSubmitted, hasDocument }: { 
   return (
     <form id="brn-document" onSubmit={submit} className="scroll-mt-20 px-4 pt-5">
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-        <p className="text-[13px] font-bold text-amber-800">사업자 확인 · 승인 대기 중</p>
-        <p className="mb-4 mt-1 text-[12px] leading-5 text-amber-700">사업자등록번호와 등록증을 올려 주시면 확인이 빨라져요. {uploaded ? '등록증은 이미 받았어요.' : ''}</p>
+        <p className="text-[0.8125rem] font-bold text-amber-800">사업자 확인 · 승인 대기 중</p>
+        <p className="mb-4 mt-1 text-[0.75rem] leading-5 text-amber-700">사업자등록번호와 등록증을 올려 주시면 확인이 빨라져요. {uploaded ? '등록증은 이미 받았어요.' : ''}</p>
         <div className="rounded-xl bg-white p-4">
           <BrnDocumentFields brn={brn} file={file} onBrn={setBrn} onFile={(f, err) => { setFile(f); setMessage(err ? { kind: 'error', text: err } : null); }} disabled={isPending} existingDocument={uploaded} />
         </div>
-        {message && <p role={message.kind === 'ok' ? 'status' : 'alert'} className={`mt-3 text-[13px] font-bold ${message.kind === 'ok' ? 'text-success' : 'text-warn'}`}>{message.text}</p>}
-        <button type="submit" disabled={isPending || (brn.replace(/\D/g, '').length !== 10 && !file)} className="mt-4 h-12 w-full rounded-xl bg-amber-600 text-[14px] font-bold text-white disabled:opacity-50">{isPending ? '올리는 중...' : '제출하기'}</button>
+        {message && <p role={message.kind === 'ok' ? 'status' : 'alert'} className={`mt-3 text-[0.8125rem] font-bold ${message.kind === 'ok' ? 'text-success' : 'text-warn'}`}>{message.text}</p>}
+        <button type="submit" disabled={isPending || (brn.replace(/\D/g, '').length !== 10 && !file)} className="mt-4 h-12 w-full rounded-xl bg-amber-600 text-[0.875rem] font-bold text-white disabled:opacity-50">{isPending ? '올리는 중...' : '제출하기'}</button>
       </section>
     </form>
   );

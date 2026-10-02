@@ -36,9 +36,9 @@ export default async function WorkforcePage() {
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-5">
-        <Card className="p-3"><p className="text-[11px] text-sub">전체</p><p className="text-title font-extrabold mt-1">{members.length}명</p></Card>
-        <Card className="p-3"><p className="text-[11px] text-sub">초대 가능</p><p className="text-title font-extrabold text-primary mt-1">{active.length}명</p></Card>
-        <Card className="p-3"><p className="text-[11px] text-sub">자격 확인</p><p className="text-title font-extrabold text-warn mt-1">{needsAttention.length}건</p></Card>
+        <Card className="p-3"><p className="text-[0.6875rem] text-sub">전체</p><p className="text-title font-extrabold mt-1">{members.length}명</p></Card>
+        <Card className="p-3"><p className="text-[0.6875rem] text-sub">초대 가능</p><p className="text-title font-extrabold text-primary mt-1">{active.length}명</p></Card>
+        <Card className="p-3"><p className="text-[0.6875rem] text-sub">자격 확인</p><p className="text-title font-extrabold text-warn mt-1">{needsAttention.length}건</p></Card>
       </div>
 
       {members.length === 0 ? (
@@ -57,12 +57,12 @@ export default async function WorkforcePage() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-body font-extrabold text-ink">{member.name}</p>
-                      <span className="text-[11px] font-bold rounded-full bg-primary/10 text-primary px-2 py-0.5">{ROLE_LABEL[member.role]}</span>
+                      <span className="text-[0.6875rem] font-bold rounded-full bg-primary/10 text-primary px-2 py-0.5">{ROLE_LABEL[member.role]}</span>
                     </div>
                     <p className="text-label text-sub mt-1">완료 {member.completedShiftCount}회 · 누적 {hours(member.totalWorkedMinutes)}</p>
-                    {member.lastWorkedAt && <p className="text-[11px] text-sub mt-1">최근 근무 {member.lastWorkedAt}</p>}
+                    {member.lastWorkedAt && <p className="text-[0.6875rem] text-sub mt-1">최근 근무 {member.lastWorkedAt}</p>}
                   </div>
-                  <span className={`shrink-0 text-[11px] font-bold rounded-full px-2.5 py-1 ${CREDENTIAL_STYLE[member.credentialStatus]}`}>
+                  <span className={`shrink-0 text-[0.6875rem] font-bold rounded-full px-2.5 py-1 ${CREDENTIAL_STYLE[member.credentialStatus]}`}>
                     {CREDENTIAL_LABEL[member.credentialStatus]}
                   </span>
                 </div>

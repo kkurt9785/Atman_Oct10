@@ -35,8 +35,8 @@ export function WorkforceActionForm({
   }
   return <form ref={formRef} onSubmit={submit} className={className}>
     <fieldset disabled={loading} className="contents disabled:opacity-60">{children}</fieldset>
-    {loading&&<p className="col-span-full text-[12px] font-bold text-primary mt-1">처리 중...</p>}
-    {error&&<p role="alert" className="col-span-full rounded-lg bg-red-50 px-3 py-2 text-[12px] font-bold text-red-600 mt-1">{error}</p>}
-    {message&&<p role="status" className="col-span-full rounded-lg bg-success/10 px-3 py-2 text-[12px] font-bold text-success mt-1">{message}</p>}
+    {loading&&<p className="col-span-full text-[0.75rem] font-bold text-primary mt-1">처리 중...</p>}
+    {error&&<p role="alert" className="col-span-full rounded-lg bg-red-50 px-3 py-2 text-[0.75rem] font-bold text-red-600 mt-1">{error}</p>}
+    {message&&<p role="status" className="col-span-full rounded-lg bg-success/10 px-3 py-2 text-[0.75rem] font-bold text-success mt-1">{message}</p>}
   </form>;
 }

@@ -24,10 +24,10 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
     <label className="block text-label font-medium text-sub">근무 이름<input name="title" required maxLength={120} defaultValue={project?.title ?? ''} className={inputClass} placeholder="예: 주말 팝업 행사, 매장 보조" /></label>
 
     <section className="mt-5 rounded-2xl bg-bg p-4">
-      <h3 className="text-[13px] font-extrabold text-ink">언제 하나요?</h3>
+      <h3 className="text-[0.8125rem] font-extrabold text-ink">언제 하나요?</h3>
       <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="근무 일정 방식">
-        <button type="button" onClick={() => { setScheduleMode('single'); setEndsOn(startsOn); }} aria-pressed={scheduleMode === 'single'} className={`h-11 rounded-xl text-[13px] font-extrabold ${scheduleMode === 'single' ? 'bg-primary text-white' : 'border border-line bg-white text-sub'}`}>하루 · 단기 행사</button>
-        <button type="button" onClick={() => setScheduleMode('repeat')} aria-pressed={scheduleMode === 'repeat'} className={`h-11 rounded-xl text-[13px] font-extrabold ${scheduleMode === 'repeat' ? 'bg-primary text-white' : 'border border-line bg-white text-sub'}`}>기간 · 반복 근무</button>
+        <button type="button" onClick={() => { setScheduleMode('single'); setEndsOn(startsOn); }} aria-pressed={scheduleMode === 'single'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode === 'single' ? 'bg-primary text-white' : 'border border-line bg-white text-sub'}`}>하루 · 단기 행사</button>
+        <button type="button" onClick={() => setScheduleMode('repeat')} aria-pressed={scheduleMode === 'repeat'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode === 'repeat' ? 'bg-primary text-white' : 'border border-line bg-white text-sub'}`}>기간 · 반복 근무</button>
       </div>
       {scheduleMode === 'single' ? <div className="mt-4">
         <label className="text-label font-medium text-sub">근무 날짜<input name="starts_on" type="date" required value={startsOn} onChange={(event) => { setStartsOn(event.target.value); setEndsOn(event.target.value); }} className={inputClass} /></label>
@@ -38,7 +38,7 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
           <label className="text-label font-medium text-sub">종료일<input name="ends_on" type="date" required value={endsOn} min={startsOn} onChange={(event) => setEndsOn(event.target.value)} className={inputClass} /></label>
         </div>
         <fieldset className="mt-4"><legend className="mb-2 text-label font-medium text-sub">반복 요일</legend>
-          <div className="grid grid-cols-7 gap-1.5">{WEEKDAYS.map(([day, label]) => <label key={day} className={`flex h-10 cursor-pointer items-center justify-center rounded-xl text-[13px] font-bold ${weekdays.includes(day) ? 'bg-ink text-white' : 'border border-line bg-white text-sub'}`}><input type="checkbox" name="work_weekdays" value={day} checked={weekdays.includes(day)} onChange={(event) => setWeekdays((current) => event.target.checked ? [...current, day] : current.filter((item) => item !== day))} className="sr-only" />{label}</label>)}</div>
+          <div className="grid grid-cols-7 gap-1.5">{WEEKDAYS.map(([day, label]) => <label key={day} className={`flex h-10 cursor-pointer items-center justify-center rounded-xl text-[0.8125rem] font-bold ${weekdays.includes(day) ? 'bg-ink text-white' : 'border border-line bg-white text-sub'}`}><input type="checkbox" name="work_weekdays" value={day} checked={weekdays.includes(day)} onChange={(event) => setWeekdays((current) => event.target.checked ? [...current, day] : current.filter((item) => item !== day))} className="sr-only" />{label}</label>)}</div>
         </fieldset>
       </>}
       <div className="mt-4 grid grid-cols-2 gap-3">

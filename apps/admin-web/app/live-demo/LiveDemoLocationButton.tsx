@@ -50,10 +50,10 @@ export function LiveDemoLocationButton() {
   }
 
   return <div className="mt-3">
-    <button type="button" onClick={anchorLocation} disabled={pending} className="min-h-11 w-full rounded-xl border border-violet-300 bg-white px-4 text-[13px] font-extrabold text-violet-700 disabled:opacity-50">
+    <button type="button" onClick={anchorLocation} disabled={pending} className="min-h-11 w-full rounded-xl border border-violet-300 bg-white px-4 text-[0.8125rem] font-extrabold text-violet-700 disabled:opacity-50">
       {pending ? '시연 위치 저장 중…' : '관리자 현재 위치로 GPS 시연 준비'}
     </button>
-    {message && <p role="status" className="mt-2 rounded-lg bg-white/80 px-3 py-2 text-[12px] font-bold text-violet-800">{message}</p>}
-    {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-bold leading-5 text-red-600">{error}</p>}
+    {message && <p role="status" className="mt-2 rounded-lg bg-white/80 px-3 py-2 text-[0.75rem] font-bold text-violet-800">{message}</p>}
+    {error && <p role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[0.75rem] font-bold leading-5 text-red-600">{error}</p>}
   </div>;
 }

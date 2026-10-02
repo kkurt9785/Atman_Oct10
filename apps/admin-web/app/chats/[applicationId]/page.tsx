@@ -88,27 +88,27 @@ export default function AdminChatPage() {
   return (
     <div className="flex flex-col h-screen bg-bg">
       <div className="bg-white px-5 pt-4 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
-        <button onClick={() => router.back()} aria-label="뒤로 가기" className="text-ink text-[20px] leading-none -ml-2 flex h-11 w-11 items-center justify-center">←</button>
+        <button onClick={() => router.back()} aria-label="뒤로 가기" className="text-ink text-[1.25rem] leading-none -ml-2 flex h-11 w-11 items-center justify-center">←</button>
         <div className="flex-1">
-          <h1 className="text-[16px] font-extrabold text-ink">워커 채팅</h1>
-          <p className="text-[11px] text-tertiary">개인 연락처 공유 대신 채팅을 이용해 주세요 · 기록 보관</p>
+          <h1 className="text-[1rem] font-extrabold text-ink">워커 채팅</h1>
+          <p className="text-[0.6875rem] text-tertiary">개인 연락처 공유 대신 채팅을 이용해 주세요 · 기록 보관</p>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
         {messages.map((m) =>
           m.sender_type === 'system' ? (
-            <div key={m.id} className="bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 text-[13px] text-ink whitespace-pre-line">
+            <div key={m.id} className="bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 text-[0.8125rem] text-ink whitespace-pre-line">
               {m.body}
             </div>
           ) : (
             <div key={m.id} className={`max-w-[78%] ${m.sender_type === 'facility' ? 'self-end' : 'self-start'}`}>
-              <div className={`rounded-2xl px-3.5 py-2.5 text-[14px] whitespace-pre-line ${
+              <div className={`rounded-2xl px-3.5 py-2.5 text-[0.875rem] whitespace-pre-line ${
                 m.sender_type === 'facility' ? 'bg-primary text-white rounded-br-md' : 'bg-white text-ink border border-line rounded-bl-md'
               }`}>
                 {m.body}
               </div>
-              <p className={`text-[10px] text-tertiary mt-0.5 ${m.sender_type === 'facility' ? 'text-right' : ''}`}>
+              <p className={`text-[0.625rem] text-tertiary mt-0.5 ${m.sender_type === 'facility' ? 'text-right' : ''}`}>
                 {m.sender_type === 'worker' ? '워커 · ' : ''}{timeLabel(m.created_at)}
               </p>
             </div>
@@ -118,26 +118,26 @@ export default function AdminChatPage() {
       </div>
 
       <div className="bg-white border-t border-line px-4 pt-3 pb-6 flex-shrink-0">
-        {error && <p className="text-[12px] font-bold text-red-500 mb-2">{error}</p>}
+        {error && <p className="text-[0.75rem] font-bold text-red-500 mb-2">{error}</p>}
         {open ? (
-          <><div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">{quickReplies.map(reply=><button key={reply} type="button" onClick={()=>setInput(reply)} className="h-8 shrink-0 rounded-full border border-line bg-white px-3 text-[11px] font-bold text-sub">{reply}</button>)}</div><div className="flex gap-2">
+          <><div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">{quickReplies.map(reply=><button key={reply} type="button" onClick={()=>setInput(reply)} className="h-8 shrink-0 rounded-full border border-line bg-white px-3 text-[0.6875rem] font-bold text-sub">{reply}</button>)}</div><div className="flex gap-2">
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send(); }}
               placeholder="메시지 입력"
-              className="flex-1 h-11 px-4 bg-bg rounded-xl text-[14px] text-ink outline-none"
+              className="flex-1 h-11 px-4 bg-bg rounded-xl text-[0.875rem] text-ink outline-none"
             />
             <button
               onClick={send}
               disabled={!input.trim() || sending}
-              className="h-11 px-4 rounded-xl bg-primary text-white text-[14px] font-bold disabled:opacity-40 flex-shrink-0"
+              className="h-11 px-4 rounded-xl bg-primary text-white text-[0.875rem] font-bold disabled:opacity-40 flex-shrink-0"
             >
               전송
             </button>
           </div></>
         ) : (
-          <p className="text-[13px] text-tertiary text-center py-2">🔒 종료된 채팅이에요 — 기록은 계속 확인할 수 있어요</p>
+          <p className="text-[0.8125rem] text-tertiary text-center py-2">🔒 종료된 채팅이에요 — 기록은 계속 확인할 수 있어요</p>
         )}
       </div>
     </div>

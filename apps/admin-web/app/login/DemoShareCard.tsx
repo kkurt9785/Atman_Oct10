@@ -50,14 +50,14 @@ export function DemoShareCard() {
           className="h-36 w-36 shrink-0 rounded-xl"
         />
         <div className="min-w-0">
-          <p className="text-[15px] font-extrabold text-ink">휴대폰으로 시연해 보세요</p>
-          <p className="mt-1 text-[13px] leading-5 text-sub">
+          <p className="text-[0.9375rem] font-extrabold text-ink">휴대폰으로 시연해 보세요</p>
+          <p className="mt-1 text-[0.8125rem] leading-5 text-sub">
             카메라로 찍으면 서비스 설명이 먼저 열리고, 바로 관리자 데모를 선택할 수 있어요.
           </p>
           <button
             type="button"
             onClick={shareDemo}
-            className="mt-3 h-10 rounded-xl bg-bg px-4 text-[13px] font-bold text-primary active:opacity-70"
+            className="mt-3 h-10 rounded-xl bg-bg px-4 text-[0.8125rem] font-bold text-primary active:opacity-70"
           >
             {copied ? '링크를 복사했어요' : '링크 복사'}
           </button>
@@ -65,12 +65,12 @@ export function DemoShareCard() {
       </div>
 
       <div className="md:hidden">
-        <p className="text-[14px] font-extrabold text-ink">다른 분과 함께 볼까요?</p>
-        <p className="mt-1 text-[12px] leading-5 text-sub">간단한 소개와 관리자 데모가 연결된 링크예요.</p>
+        <p className="text-[0.875rem] font-extrabold text-ink">다른 분과 함께 볼까요?</p>
+        <p className="mt-1 text-[0.75rem] leading-5 text-sub">간단한 소개와 관리자 데모가 연결된 링크예요.</p>
         <button
           type="button"
           onClick={shareDemo}
-          className="mt-3 h-11 w-full rounded-xl border border-primary/20 bg-primary-light text-[14px] font-bold text-primary active:opacity-70"
+          className="mt-3 h-11 w-full rounded-xl border border-primary/20 bg-primary-light text-[0.875rem] font-bold text-primary active:opacity-70"
         >
           {copied ? '링크를 복사했어요' : '소개·데모 링크 공유'}
         </button>

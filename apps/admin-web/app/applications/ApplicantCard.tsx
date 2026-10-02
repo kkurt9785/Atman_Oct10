@@ -109,7 +109,7 @@ export function ApplicantCard({
   return (
     <div className="py-4 px-5">
       {actionError && (
-        <p role="alert" className="mb-2 rounded-xl bg-red-50 text-red-600 text-[13px] font-bold px-3 py-2">{actionError}</p>
+        <p role="alert" className="mb-2 rounded-xl bg-red-50 text-red-600 text-[0.8125rem] font-bold px-3 py-2">{actionError}</p>
       )}
       {/* 상단: 이름 + 역할 + 거리 + 버튼 */}
       <div className="flex items-center justify-between">
@@ -117,24 +117,24 @@ export function ApplicantCard({
           <div className="w-10 h-10 rounded-full bg-bg flex items-center justify-center text-xl flex-shrink-0">👤</div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[15px] font-bold text-ink">{applicant.name}</span>
+              <span className="text-[0.9375rem] font-bold text-ink">{applicant.name}</span>
               {applicant.isDemo && (
-                <span className="text-[12px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                <span className="text-[0.75rem] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                   데모
                 </span>
               )}
-              <span className={`text-[13px] font-bold px-2 py-0.5 rounded-full ${ROLE_COLOR[applicant.role] ?? 'bg-line text-sub'}`}>
+              <span className={`text-[0.8125rem] font-bold px-2 py-0.5 rounded-full ${ROLE_COLOR[applicant.role] ?? 'bg-line text-sub'}`}>
                 {ROLE_LABEL[applicant.role] ?? applicant.role}
               </span>
               {applicant.verificationStatus === 'approved' && (
-                <span className="text-[13px] text-success font-semibold">✓인증</span>
+                <span className="text-[0.8125rem] text-success font-semibold">✓인증</span>
               )}
-              {needsFacilityCredentialCheck && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[12px] font-bold text-amber-700">사업장 확인 필요</span>}
-              {alreadyConfirmed && <span className="rounded-full bg-success/10 px-2 py-0.5 text-[12px] font-bold text-success">✓ 사업장 확인 · {verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ?? '완료'}</span>}
+              {needsFacilityCredentialCheck && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[0.75rem] font-bold text-amber-700">사업장 확인 필요</span>}
+              {alreadyConfirmed && <span className="rounded-full bg-success/10 px-2 py-0.5 text-[0.75rem] font-bold text-success">✓ 사업장 확인 · {verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ?? '완료'}</span>}
             </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {applicant.distanceMeters != null && (
-                <span className="text-[12px] text-sub">{km(applicant.distanceMeters)}</span>
+                <span className="text-[0.75rem] text-sub">{km(applicant.distanceMeters)}</span>
               )}
 
             </div>
@@ -145,7 +145,7 @@ export function ApplicantCard({
           <button
             onClick={handleReject}
             disabled={disabled || loading != null}
-            className="h-9 px-4 rounded-lg border border-line text-sub text-[13px] font-semibold disabled:opacity-40 active:bg-bg"
+            className="h-9 px-4 rounded-lg border border-line text-sub text-[0.8125rem] font-semibold disabled:opacity-40 active:bg-bg"
           >
             {loading === 'reject' ? '...' : '거절'}
           </button>
@@ -154,7 +154,7 @@ export function ApplicantCard({
             disabled={disabled || loading != null}
             aria-label={`${applicant.name} 지원 수락`}
             data-demo-target="accept-application"
-            className="h-9 px-4 rounded-lg bg-primary text-white text-[13px] font-semibold disabled:opacity-40 active:opacity-80"
+            className="h-9 px-4 rounded-lg bg-primary text-white text-[0.8125rem] font-semibold disabled:opacity-40 active:opacity-80"
           >
             수락
           </button>
@@ -167,12 +167,12 @@ export function ApplicantCard({
           {/* 면허증 / 이력서 (사무직은 이력서가 license_photo_url에 저장됨) */}
           {hasLicense && (
             <div className="flex items-center gap-2">
-              <span className="text-[13px] text-sub w-12 flex-shrink-0">{applicant.role === 'pharmacy_staff' ? '이력서' : '면허증'}</span>
+              <span className="text-[0.8125rem] text-sub w-12 flex-shrink-0">{applicant.role === 'pharmacy_staff' ? '이력서' : '면허증'}</span>
               {applicant.licensePhotoUrl ? (
                 <>
                   <button
                     onClick={() => setLicenseOpen(true)}
-                    className="text-[12px] font-semibold text-primary underline"
+                    className="text-[0.75rem] font-semibold text-primary underline"
                   >
                     사진 보기 →
                   </button>
@@ -192,7 +192,7 @@ export function ApplicantCard({
                   )}
                 </>
               ) : (
-                <span className="text-[12px] font-semibold text-ink">{applicant.licenseNumber}</span>
+                <span className="text-[0.75rem] font-semibold text-ink">{applicant.licenseNumber}</span>
               )}
             </div>
           )}
@@ -200,8 +200,8 @@ export function ApplicantCard({
           {/* 경력 + 최근 근무지 */}
           {(applicant.experienceYears || applicant.lastWorkplace) && (
             <div className="flex items-start gap-2">
-              <span className="text-[13px] text-sub w-12 flex-shrink-0 pt-0.5">경력</span>
-              <span className="text-[12px] text-ink">
+              <span className="text-[0.8125rem] text-sub w-12 flex-shrink-0 pt-0.5">경력</span>
+              <span className="text-[0.75rem] text-ink">
                 {[applicant.experienceYears, applicant.lastWorkplace].filter(Boolean).join(' · ')}
               </span>
             </div>
@@ -210,10 +210,10 @@ export function ApplicantCard({
           {/* 부서 태그 */}
           {applicant.departmentTags && applicant.departmentTags.length > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-[13px] text-sub w-12 flex-shrink-0">부서</span>
+              <span className="text-[0.8125rem] text-sub w-12 flex-shrink-0">부서</span>
               <div className="flex flex-wrap gap-1">
                 {applicant.departmentTags.map((tag) => (
-                  <span key={tag} className="text-[13px] font-semibold bg-bg text-sub px-2 py-0.5 rounded-full">
+                  <span key={tag} className="text-[0.8125rem] font-semibold bg-bg text-sub px-2 py-0.5 rounded-full">
                     {tag}
                   </span>
                 ))}
@@ -225,7 +225,7 @@ export function ApplicantCard({
 
       {/* 프로필 미등록 안내 */}
       {!hasProfile && (
-        <p className="mt-2 ml-[52px] text-[12px] text-sub">프로필 카드 미등록</p>
+        <p className="mt-2 ml-[52px] text-[0.75rem] text-sub">프로필 카드 미등록</p>
       )}
 
       {confirmOpen && (
@@ -233,46 +233,46 @@ export function ApplicantCard({
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setConfirmOpen(false)} />
           <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-3xl z-50 px-5 pt-6 pb-10">
             <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
-            <p className="text-[20px] font-extrabold text-ink">채용을 확정할까요?</p>
-            <p className="text-[14px] text-sub mt-1">
+            <p className="text-[1.25rem] font-extrabold text-ink">채용을 확정할까요?</p>
+            <p className="text-[0.875rem] text-sub mt-1">
               확정 후 워커에게 수락 알림이 전송됩니다.
             </p>
 
             <div className="bg-bg rounded-2xl p-4 mt-5 space-y-2">
-              <div className="flex justify-between text-[13px]">
+              <div className="flex justify-between text-[0.8125rem]">
                 <span className="text-sub">선택 워커</span>
                 <span className="font-bold text-ink">{applicant.name}</span>
               </div>
-              <div className="flex justify-between text-[13px]">
+              <div className="flex justify-between text-[0.8125rem]">
                 <span className="text-sub">사업장 직접 지급 예상액</span>
                 <span className="font-bold text-primary">{won(estimatedPay)}</span>
               </div>
-              <div className="flex justify-between gap-4 text-[13px]
+              <div className="flex justify-between gap-4 text-[0.8125rem]
               ">
                 <span className="text-sub">근무 일정</span>
                 <span className="text-right font-bold text-ink">{shiftDate} · {startTime.slice(0, 5)}–{endTime.slice(0, 5)}</span>
               </div>
-              <div className="flex justify-between text-[13px]">
+              <div className="flex justify-between text-[0.8125rem]">
                 <span className="text-sub">직무</span>
                 <span className="font-bold text-ink">{ROLE_LABEL[requiredRole] ?? requiredRole}</span>
               </div>
             </div>
-            <p className="text-[12px] text-sub mt-3">잇닿 이용료는 이 임금과 별도로 월 SaaS 청구서에 반영됩니다.</p>
+            <p className="text-[0.75rem] text-sub mt-3">잇닿 이용료는 이 임금과 별도로 월 SaaS 청구서에 반영됩니다.</p>
 
             {alreadyConfirmed && (
               <details className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                <summary className="cursor-pointer text-[13px] font-extrabold text-emerald-700">사업장 확인 기록 보기</summary>
-                <p className="mt-2 text-[12px] leading-5 text-emerald-800">확인 방식: {verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ?? '기존 확인 기록'}</p>
-                <p className="text-[12px] leading-5 text-emerald-800">확인 시각: {applicant.credentialConfirmedAt ? new Date(applicant.credentialConfirmedAt).toLocaleString('ko-KR') : '기록된 시간 없음'}</p>
-                <p className="break-all text-[11px] leading-5 text-emerald-700">확인 관리자 ID: {applicant.credentialConfirmedBy ?? '기록된 관리자 없음'}</p>
+                <summary className="cursor-pointer text-[0.8125rem] font-extrabold text-emerald-700">사업장 확인 기록 보기</summary>
+                <p className="mt-2 text-[0.75rem] leading-5 text-emerald-800">확인 방식: {verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ?? '기존 확인 기록'}</p>
+                <p className="text-[0.75rem] leading-5 text-emerald-800">확인 시각: {applicant.credentialConfirmedAt ? new Date(applicant.credentialConfirmedAt).toLocaleString('ko-KR') : '기록된 시간 없음'}</p>
+                <p className="break-all text-[0.6875rem] leading-5 text-emerald-700">확인 관리자 ID: {applicant.credentialConfirmedBy ?? '기록된 관리자 없음'}</p>
               </details>
             )}
 
             {needsFacilityCredentialCheck && (
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <input type="checkbox" checked={credentialConfirmed} onChange={(event) => setCredentialConfirmed(event.target.checked)} className="mt-0.5 h-5 w-5 accent-primary" />
-                <span className="min-w-0 flex-1"><b className="block text-[14px] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[12px] leading-5 text-sub">확인 방법과 관리자·시간이 감사 기록에 남습니다.</span>
-                  <select value={credentialVerificationMethod} onChange={(event) => setCredentialVerificationMethod(event.target.value)} className="mt-3 h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-[13px] font-semibold text-ink">
+                <span className="min-w-0 flex-1"><b className="block text-[0.875rem] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[0.75rem] leading-5 text-sub">확인 방법과 관리자·시간이 감사 기록에 남습니다.</span>
+                  <select value={credentialVerificationMethod} onChange={(event) => setCredentialVerificationMethod(event.target.value)} className="mt-3 h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-[0.8125rem] font-semibold text-ink">
                     <option value="original_document">원본 확인</option>
                     <option value="official_lookup">공식 조회</option>
                     <option value="internal_hr_process">병원 내부 절차</option>
@@ -283,19 +283,19 @@ export function ApplicantCard({
 
             <div className="mt-5 flex flex-col gap-2">
                 {needsFacilityCredentialCheck && !credentialConfirmed && (
-                  <p id="credential-gate-help" className="text-[12px] font-medium text-amber-700">자격을 확인하고 위 항목에 체크해야 채용을 확정할 수 있어요.</p>
+                  <p id="credential-gate-help" className="text-[0.75rem] font-medium text-amber-700">자격을 확인하고 위 항목에 체크해야 채용을 확정할 수 있어요.</p>
                 )}
                 <button
                   onClick={handleAccept}
                   aria-describedby={needsFacilityCredentialCheck && !credentialConfirmed ? 'credential-gate-help' : undefined}
                   disabled={loading != null || (needsFacilityCredentialCheck && !credentialConfirmed)}
-                  className="w-full h-14 bg-primary text-white text-[16px] font-extrabold rounded-2xl disabled:opacity-50"
+                  className="w-full h-14 bg-primary text-white text-[1rem] font-extrabold rounded-2xl disabled:opacity-50"
                 >
                   {loading === 'accept' ? '확정 중...' : '채용 확정하기'}
                 </button>
               <button
                 onClick={() => setConfirmOpen(false)}
-                className="w-full h-12 text-[14px] font-semibold text-sub"
+                className="w-full h-12 text-[0.875rem] font-semibold text-sub"
               >
                 닫기
               </button>

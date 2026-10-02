@@ -30,8 +30,8 @@ export function GigActionForm({ kind, values, className, children, resetOnSucces
   }
   return <form ref={formRef} onSubmit={submit} className={className}>
     <fieldset disabled={loading} className="contents disabled:opacity-60">{children}</fieldset>
-    {loading && <p className="col-span-full mt-1 text-[12px] font-bold text-primary">처리 중...</p>}
-    {error && <p role="alert" className="col-span-full mt-1 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-bold text-red-600">{error}</p>}
-    {message && <p role="status" className="col-span-full mt-1 rounded-lg bg-success/10 px-3 py-2 text-[12px] font-bold text-success">{message}</p>}
+    {loading && <p className="col-span-full mt-1 text-[0.75rem] font-bold text-primary">처리 중...</p>}
+    {error && <p role="alert" className="col-span-full mt-1 rounded-lg bg-red-50 px-3 py-2 text-[0.75rem] font-bold text-red-600">{error}</p>}
+    {message && <p role="status" className="col-span-full mt-1 rounded-lg bg-success/10 px-3 py-2 text-[0.75rem] font-bold text-success">{message}</p>}
   </form>;
 }

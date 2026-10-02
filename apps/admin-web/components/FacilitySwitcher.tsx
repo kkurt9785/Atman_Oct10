@@ -62,8 +62,8 @@ export function FacilitySwitcher() {
   if (!current) return null;
   if (facilities.length === 1) return (
     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white px-2.5 py-1.5">
-      <span aria-hidden className="text-[16px]">{badge.icon}</span>
-      <div className="min-w-0"><p className="truncate text-[11px] font-extrabold text-ink">{current.name}</p><p className="text-[9px] font-bold text-sub">{badge.label}</p></div>
+      <span aria-hidden className="text-[1rem]">{badge.icon}</span>
+      <div className="min-w-0"><p className="truncate text-[0.6875rem] font-extrabold text-ink">{current.name}</p><p className="text-[0.5625rem] font-bold text-sub">{badge.label}</p></div>
     </div>
   );
 
@@ -73,7 +73,7 @@ export function FacilitySwitcher() {
       <select
         value={selected}
         onChange={(event) => void handleChange(event.target.value)}
-        className="min-w-0 flex-1 appearance-none bg-transparent pr-4 text-[11px] font-extrabold text-ink outline-none"
+        className="min-w-0 flex-1 appearance-none bg-transparent pr-4 text-[0.6875rem] font-extrabold text-ink outline-none"
         aria-label="사업장 선택"
       >
         {facilities.map((facility) => {
@@ -81,7 +81,7 @@ export function FacilitySwitcher() {
           return <option key={facility.id} value={facility.id}>{facility.name} · {kind.label}</option>;
         })}
       </select>
-      <span className="pointer-events-none absolute right-2 text-[10px] text-sub">⌄</span>
+      <span className="pointer-events-none absolute right-2 text-[0.625rem] text-sub">⌄</span>
     </label>
   );
 }

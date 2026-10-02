@@ -101,7 +101,7 @@ export function WorkerApprovalCard({ worker }: { worker: PendingWorker }) {
           </div>
         </div>
         {actionError && (
-          <p role="alert" className="mt-2 rounded-xl bg-red-50 text-red-600 text-[13px] font-bold px-3 py-2">{actionError}</p>
+          <p role="alert" className="mt-2 rounded-xl bg-red-50 text-red-600 text-[0.8125rem] font-bold px-3 py-2">{actionError}</p>
         )}
       </div>
 

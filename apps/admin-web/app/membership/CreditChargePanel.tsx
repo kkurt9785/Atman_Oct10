@@ -20,8 +20,8 @@ export default function ServiceInvoicePayButton({ invoiceId, amount }: { invoice
       {busy?'결제 상태 확인 중...':error?'결제 다시 시도':`${amount.toLocaleString('ko-KR')}원 결제`}
     </button>
     {error&&<div role="alert" className="mt-2 rounded-lg bg-red-50 px-3 py-2">
-      <p className="text-[12px] font-bold text-red-600">결제가 완료되지 않았어요</p>
-      <p className="text-[11px] text-sub mt-1">{error} 승인 문자를 받았다면 중복 결제하지 말고 청구서 상태를 새로고침해 확인해 주세요.</p>
+      <p className="text-[0.75rem] font-bold text-red-600">결제가 완료되지 않았어요</p>
+      <p className="text-[0.6875rem] text-sub mt-1">{error} 승인 문자를 받았다면 중복 결제하지 말고 청구서 상태를 새로고침해 확인해 주세요.</p>
     </div>}
   </div>;
 }

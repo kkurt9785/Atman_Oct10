@@ -29,15 +29,15 @@ export default async function ApplicationsPage({ searchParams }: { searchParams?
 
       <nav aria-label="지원자 필터" className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {[['all', '전체'], ['needs_check', '확인 필요'], ['confirmed', '확인 완료']].map(([value, label]) => (
-          <a key={value} href={`/applications${value === 'all' ? '' : `?filter=${value}`}`} className={`shrink-0 rounded-full px-3 py-2 text-[12px] font-extrabold ${filter === value ? 'bg-ink text-white' : 'bg-bg text-sub'}`}>{label}</a>
+          <a key={value} href={`/applications${value === 'all' ? '' : `?filter=${value}`}`} className={`shrink-0 rounded-full px-3 py-2 text-[0.75rem] font-extrabold ${filter === value ? 'bg-ink text-white' : 'bg-bg text-sub'}`}>{label}</a>
         ))}
       </nav>
 
       {total > 0 && (
         <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
-          <p className="text-[13px] font-extrabold text-ink">수락하면 운영 흐름에 바로 연결돼요</p>
-          <p className="mt-1 text-[12px] leading-5 text-sub">확정 인력은 직원 관리와 해당 시프트 근태에 반영되고, 근무 완료 후 공고 시급 기준으로 급여 검토까지 이어집니다.</p>
-          <div className="mt-2 flex items-center gap-1 text-[11px] font-bold text-primary" aria-label="수락 이후 처리 흐름">
+          <p className="text-[0.8125rem] font-extrabold text-ink">수락하면 운영 흐름에 바로 연결돼요</p>
+          <p className="mt-1 text-[0.75rem] leading-5 text-sub">확정 인력은 직원 관리와 해당 시프트 근태에 반영되고, 근무 완료 후 공고 시급 기준으로 급여 검토까지 이어집니다.</p>
+          <div className="mt-2 flex items-center gap-1 text-[0.6875rem] font-bold text-primary" aria-label="수락 이후 처리 흐름">
             <span>지원 수락</span><span aria-hidden>→</span><span>근태</span><span aria-hidden>→</span><span>급여 검토</span>
           </div>
         </div>

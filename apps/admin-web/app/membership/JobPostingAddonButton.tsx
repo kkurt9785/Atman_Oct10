@@ -40,6 +40,6 @@ export function JobPostingAddonButton() {
       className="w-full h-11 rounded-xl bg-primary text-white text-label font-extrabold disabled:opacity-50">
       {busy ? '결제 준비 중...' : '공고 1건 추가 · 9,900원'}
     </button>
-    {error && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{error}</p>}
+    {error && <p role="alert" className="mt-2 text-[0.75rem] font-bold text-red-600">{error}</p>}
   </div>;
 }
