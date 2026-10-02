@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getPlatformAdminSession } from '@/lib/platform-admin';
-import { listSelfRegisteredFacilities, listRegistrationRequests, listTrialFollowUps } from '@/lib/actions/platform';
+import { listSelfRegisteredFacilities, listRegistrationRequests, listTrialFollowUps, runHealthCheckNowAction } from '@/lib/actions/platform';
+import { getLatestHealthRun } from '@/lib/ops-health';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { ApprovalCard, RequestCard } from './ApprovalCard';
 import { getPendingWorkers } from '@/lib/db/workers';
@@ -12,12 +13,13 @@ export const dynamic = 'force-dynamic';
 export default async function PlatformFacilitiesPage() {
   const session = await getPlatformAdminSession();
   if (!session) notFound();
-  const [pending, recent, requests, pendingWorkers, trials] = await Promise.all([
+  const [pending, recent, requests, pendingWorkers, trials, health] = await Promise.all([
     listSelfRegisteredFacilities(true),
     listSelfRegisteredFacilities(false).then((rows) => rows.filter((r) => r.approved_at).slice(0, 10)),
     listRegistrationRequests(),
     getPendingWorkers(),
     listTrialFollowUps(),
+    getLatestHealthRun(),
   ]);
 
   return (
@@ -28,6 +30,41 @@ export default async function PlatformFacilitiesPage() {
         <h1 className="mt-1 text-display font-extrabold text-ink">등록 심사</h1>
         <p className="mt-2 text-body text-sub">셀프 등록한 사업장은 사업자등록번호를 확인한 뒤 승인해야 공고를 올릴 수 있어요. 운영자 {session.user.email ?? (session.user.user_metadata?.name as string | undefined) ?? '카카오 계정'}</p>
       </div>
+
+      <section id="health" className="mt-6 scroll-mt-20">
+        <div className="mb-2 flex items-end justify-between px-1">
+          <p className="text-label font-bold text-sub">시스템 점검 · 매일 09:00</p>
+          <form action={runHealthCheckNowAction}><button className="text-[0.75rem] font-bold text-primary">지금 점검 →</button></form>
+        </div>
+        {!health ? (
+          <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">아직 점검 기록이 없어요. ‘지금 점검’을 눌러 보세요.</p>
+        ) : (() => {
+          const issues = health.checks.filter((c) => c.level !== 'ok');
+          const when = new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' }).format(new Date(health.ranAt));
+          return (
+            <div className={`rounded-2xl bg-white p-4 ${health.status === 'error' ? 'border border-warn/40' : health.status === 'warn' ? 'border border-amber-200' : ''}`}>
+              <div className="flex items-center justify-between gap-3">
+                <p className={`text-body font-extrabold ${health.status === 'error' ? 'text-warn' : health.status === 'warn' ? 'text-amber-700' : 'text-success'}`}>
+                  {health.status === 'ok' ? '모두 정상' : `${health.status === 'error' ? '문제' : '주의'} ${issues.length}건`}
+                </p>
+                <span className="text-[0.6875rem] text-sub">{when} · {health.trigger === 'cron' ? '자동' : '수동'} · {health.checks.length}개 항목</span>
+              </div>
+              {issues.length > 0 && (
+                <ul className="mt-3 space-y-1.5">
+                  {issues.map((c) => (
+                    <li key={c.key} className="text-[0.8125rem] leading-5">
+                      <span className={`mr-1.5 inline-block rounded px-1.5 py-0.5 text-[0.625rem] font-extrabold ${c.level === 'error' ? 'bg-warn/10 text-warn' : 'bg-amber-100 text-amber-700'}`}>{c.level === 'error' ? '문제' : '주의'}</span>
+                      <b className="text-ink">{c.label}</b>{c.count != null ? <span className="text-sub"> · {c.count}</span> : null}
+                      {c.detail && <span className="block pl-9 text-[0.75rem] text-sub">{c.detail}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-3 text-[0.6875rem] leading-4 text-tertiary">문제가 있으면 운영자 앱으로 알림이 가요(관리자 앱 근태 화면에서 알림을 켜 두세요). 주의는 여기에만 남아요.</p>
+            </div>
+          );
+        })()}
+      </section>
 
       <section className="mt-6">
         <p className="mb-2 px-1 text-label font-bold text-sub">승인 대기 {pending.length}건</p>

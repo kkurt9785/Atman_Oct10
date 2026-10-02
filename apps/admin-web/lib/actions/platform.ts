@@ -6,6 +6,7 @@ import { getPlatformAdminSession } from '../platform-admin';
 import { approveFacilityCore, rejectFacilityCore } from '../platform-approval';
 import { nudgeNotificationDispatch } from '../notify-nudge';
 import { todayKST } from '../date';
+import { runHealthCheck } from '../ops-health';
 
 export type SelfRegisteredFacility = {
   id: string; name: string; facility_type: string; address_text: string | null; contact_phone: string | null;
@@ -151,4 +152,11 @@ export async function setRegistrationRequestStatus(input: { requestId: string; s
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : '처리하지 못했어요.' };
   }
+}
+
+// 운영자 화면 '지금 점검' — 매일 09:00 자동 점검과 같은 절차
+export async function runHealthCheckNowAction(): Promise<void> {
+  await requirePlatform();
+  await runHealthCheck('manual');
+  revalidatePath('/ops/facilities');
 }
