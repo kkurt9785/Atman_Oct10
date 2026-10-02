@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getPlatformAdminSession } from '@/lib/platform-admin';
-import { listSelfRegisteredFacilities, listRegistrationRequests } from '@/lib/actions/platform';
+import { listSelfRegisteredFacilities, listRegistrationRequests, listTrialFollowUps } from '@/lib/actions/platform';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { ApprovalCard, RequestCard } from './ApprovalCard';
 import { getPendingWorkers } from '@/lib/db/workers';
@@ -12,11 +12,12 @@ export const dynamic = 'force-dynamic';
 export default async function PlatformFacilitiesPage() {
   const session = await getPlatformAdminSession();
   if (!session) notFound();
-  const [pending, recent, requests, pendingWorkers] = await Promise.all([
+  const [pending, recent, requests, pendingWorkers, trials] = await Promise.all([
     listSelfRegisteredFacilities(true),
     listSelfRegisteredFacilities(false).then((rows) => rows.filter((r) => r.approved_at).slice(0, 10)),
     listRegistrationRequests(),
     getPendingWorkers(),
+    listTrialFollowUps(),
   ]);
 
   return (
@@ -33,6 +34,40 @@ export default async function PlatformFacilitiesPage() {
         {pending.length === 0
           ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">대기 중인 사업장이 없어요.</p>
           : <div className="space-y-3">{pending.map((f) => <ApprovalCard key={f.id} facility={f} />)}</div>}
+      </section>
+
+      <section className="mt-8">
+        <p className="mb-2 px-1 text-label font-bold text-sub">체험 종료 임박 {trials.length}곳</p>
+        {trials.length === 0
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">7일 안에 체험이 끝나거나 최근 2주 안에 끝난 사업장이 없어요.</p>
+          : (
+            <ul className="divide-y divide-line rounded-2xl bg-white">
+              {trials.map((t) => {
+                const unused = t.staffCount === 0 && t.shiftCount === 0;
+                return (
+                  <li key={t.facilityId} className="flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[0.6875rem] font-bold ${t.expired ? 'bg-bg text-sub' : t.daysLeft <= 3 ? 'bg-warn/10 text-warn' : 'bg-primary/10 text-primary'}`}>
+                          {t.expired ? `종료 ${-t.daysLeft}일 지남` : t.daysLeft === 0 ? '오늘 종료' : `D-${t.daysLeft}`}
+                        </span>
+                        <p className="truncate text-[0.875rem] font-bold text-ink">{t.name}</p>
+                      </div>
+                      <p className="mt-0.5 truncate text-[0.75rem] text-sub">
+                        {t.planName} 체험 · 직원 {t.staffCount} · 공고 {t.shiftCount} · 확정 {t.acceptedCount}
+                        {unused && <span className="font-bold text-warn"> · 아직 사용 전</span>}
+                      </p>
+                      <p className="truncate text-[0.6875rem] text-tertiary">{t.adminEmail ?? '이메일 없음(카카오)'}</p>
+                    </div>
+                    {t.contactPhone
+                      ? <a href={`tel:${t.contactPhone}`} className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-[0.8125rem] font-bold text-primary">전화</a>
+                      : <span className="shrink-0 text-[0.6875rem] text-tertiary">번호 없음</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        <p className="mt-2 px-1 text-[0.6875rem] leading-4 text-tertiary">고객에게 자동 알림은 보내지 않아요. 사용 신호를 보고 직접 연락해 주세요. 체험은 사업장이 처음 연결된 날부터 30일이에요.</p>
       </section>
 
       <section className="mt-8">

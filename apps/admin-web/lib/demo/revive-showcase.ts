@@ -24,6 +24,7 @@ export type ReviveSummary = {
   purged_shifts: number;
   matched: { shifts: number; applications: number; attendances_status: number };
   open: { shifts: number; applications: number };
+  covers: number;
   workforce: { clinic: unknown; pharmacy: unknown; demo1_application: unknown };
   totals: { matched_today: number; open_today: number };
 };
@@ -166,6 +167,15 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     accessRows,
     'resolution=merge-duplicates',
   );
+
+  // 시연 사업장은 최상위 플랜 상시 활성(이번 달 말일까지로 굴림). 공고·초대 사용량은 매일 비워
+  // 여러 영업 담당이 같은 계정으로 시연해도 월 한도에 걸리지 않게 한다.
+  const demoPlans = await req('POST', '/rest/v1/rpc/ensure_demo_subscriptions', {});
+  if (demoPlans.status !== 200) {
+    throw new Error(`demo subscriptions refresh failed: ${demoPlans.status} ${JSON.stringify(demoPlans.data)}`);
+  }
+  const entryFacilityIds = [...accessRows.map((r) => r.facility_id), gigworkerTarget.id];
+  await req('DELETE', `/rest/v1/service_usage_events?facility_id=in.(${entryFacilityIds.join(',')})`);
 
   // ── 4. 기존 데모 시프트 청소 (attendances → applications → shifts 순) ───────
   const old = await req<Array<{ id: string }>>('GET', '/rest/v1/shifts?notes=like.DEMO-SHOWCASE-*&select=id');
@@ -335,7 +345,72 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     throw new Error(`demo1 application refresh failed: ${demo1Application.status} ${JSON.stringify(demo1Application.data)}`);
   }
 
-  // ── 9. 오늘 데이터 집계 ─────────────────────────────────────────────────────
+  // ── 9. 대타 요청 (병원 시연 2곳) — 내일 확정 근무 + 다른 워커가 맡겠다고 한 상태 ──
+  // 관리자 홈 '대타 승인'과 모집 탭 상단 카드에서 바로 승인·거절을 시연한다. 약국은 약사가 1명이라 제외.
+  // 근무 notes 가 DEMO-SHOWCASE-* 라 다음 재시드의 4단계 청소에서 대타 요청까지 함께 지워진다.
+  const TOMORROW = todayKST(new Date(now + 24 * HOUR));
+  const coverTargets = [demoTargets['sales-demo-1@demo.atman.co.kr'], demoTargets['sales-demo-3@demo.atman.co.kr']];
+  const rnWorkers = byRole.rn;
+  let covers = 0;
+  for (const [i, f] of coverTargets.entries()) {
+    if (!f || rnWorkers.length < 4) continue;
+    // 오늘 쇼케이스 배정과 겹치지 않도록 목록 끝쪽 워커를 쓴다 (내일 09~18시는 오늘 야간 07시 종료와도 안 겹침)
+    const requester = rnWorkers[rnWorkers.length - 1 - i * 2];
+    const claimer = rnWorkers[rnWorkers.length - 2 - i * 2];
+    const shift = await req<Array<{ id: string }>>('POST', '/rest/v1/shifts', {
+      facility_id: f.id,
+      required_role: 'rn',
+      shift_date: TOMORROW,
+      start_time: '09:00',
+      end_time: '18:00',
+      hourly_wage: 17000,
+      estimated_total_pay: 17000 * 8,
+      description: '시연용 대타 요청 근무입니다. 확정 워커가 대타를 요청했고 인력풀 워커가 맡겠다고 했어요.',
+      department: f.facility_type === 'care_hospital' ? '요양병동' : '일반병동',
+      notes: `DEMO-SHOWCASE-COVER-${String(i + 1).padStart(4, '0')}`,
+      status: 'matched',
+      matched_worker_id: requester.id,
+      matched_at: iso(26 * HOUR),
+    }, 'return=representation');
+    const shiftId = shift.data?.[0]?.id;
+    if (shift.status !== 201 || !shiftId) throw new Error(`cover shift insert failed: ${shift.status} ${JSON.stringify(shift.data)}`);
+    const app = await req<Array<{ id: string }>>('POST', '/rest/v1/shift_applications', {
+      shift_id: shiftId,
+      worker_id: requester.id,
+      status: 'accepted',
+      match_score: 93,
+      distance_meters: 1400,
+      applied_at: iso(28 * HOUR),
+      responded_at: iso(26 * HOUR),
+    }, 'return=representation');
+    const appId = app.data?.[0]?.id;
+    if (app.status !== 201 || !appId) throw new Error(`cover application insert failed: ${app.status} ${JSON.stringify(app.data)}`);
+    // 대타는 인력풀(함께 일해 본 사람)만 맡을 수 있다
+    await req('POST', '/rest/v1/facility_worker_pool?on_conflict=facility_id,worker_id', {
+      facility_id: f.id,
+      worker_id: claimer.id,
+      status: 'active',
+      source: 'completed_shift',
+      first_worked_at: '2026-08-01',
+      last_worked_at: todayKST(new Date(now - 7 * 24 * HOUR)),
+      completed_shift_count: 4,
+    }, 'resolution=merge-duplicates');
+    const cover = await req('POST', '/rest/v1/shift_cover_requests', {
+      shift_id: shiftId,
+      facility_id: f.id,
+      requester_application_id: appId,
+      requester_worker_id: requester.id,
+      reason: '가족 행사가 갑자기 잡혔어요',
+      status: 'claimed',
+      claimer_worker_id: claimer.id,
+      claimed_at: iso(40 * MIN),
+      created_at: iso(3 * HOUR),
+    });
+    if (cover.status !== 201) throw new Error(`cover request insert failed: ${cover.status} ${JSON.stringify(cover.data)}`);
+    covers += 1;
+  }
+
+  // ── 10. 오늘 데이터 집계 ────────────────────────────────────────────────────
   const matchedCount = await req<Array<{ id: string }>>(
     'GET',
     `/rest/v1/shifts?notes=like.DEMO-SHOWCASE-MATCHED-*&shift_date=eq.${TODAY}&select=id`,
@@ -353,6 +428,7 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     purged_shifts: oldIds.length,
     matched: { shifts: created.data.length, applications: appRows.data.length, attendances_status: att.status },
     open: { shifts: createdOpen.data.length, applications: openApps.length },
+    covers,
     workforce: {
       clinic: clinicWorkforce.data,
       pharmacy: pharmacyWorkforce.data,

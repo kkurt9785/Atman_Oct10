@@ -5,6 +5,7 @@ import { adminClient } from '../supabase';
 import { getPlatformAdminSession } from '../platform-admin';
 import { approveFacilityCore, rejectFacilityCore } from '../platform-approval';
 import { nudgeNotificationDispatch } from '../notify-nudge';
+import { todayKST } from '../date';
 
 export type SelfRegisteredFacility = {
   id: string; name: string; facility_type: string; address_text: string | null; contact_phone: string | null;
@@ -40,6 +41,71 @@ export async function listSelfRegisteredFacilities(pendingOnly = true): Promise<
     row.documentUrl = signed?.signedUrl ?? null;
   }));
   return rows;
+}
+
+export type TrialFollowUp = {
+  facilityId: string; name: string; planName: string; trialEndsAt: string; daysLeft: number; expired: boolean;
+  contactPhone: string | null; adminEmail: string | null;
+  staffCount: number; shiftCount: number; acceptedCount: number;
+};
+
+// 체험 종료 임박(7일 이내)·종료 직후(14일 이내) 실사업장. 연결된 관리자가 있는 곳만 — 연락할 사람이 있어야 한다.
+// 고객에게 자동 알림은 보내지 않고, 운영자가 사용 신호를 보고 직접 연락한다.
+export async function listTrialFollowUps(): Promise<TrialFollowUp[]> {
+  const { sb } = await requirePlatform();
+  const today = todayKST();
+  const shift = (days: number) => todayKST(new Date(Date.now() + days * 86_400_000));
+  const { data, error } = await sb.from('facility_subscriptions')
+    .select('status,trial_ends_at,service_plans(name),facilities!inner(id,name,contact_phone,admin_user_id,is_demo,deleted_at)')
+    .not('trial_ends_at', 'is', null)
+    .is('trial_converted_at', null)
+    .in('status', ['active', 'past_due', 'pending', 'expired'])
+    .gte('trial_ends_at', shift(-14))
+    .lte('trial_ends_at', shift(7))
+    .eq('facilities.is_demo', false)
+    .is('facilities.deleted_at', null)
+    .not('facilities.admin_user_id', 'is', null)
+    .order('trial_ends_at', { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as any[];
+  // 같은 사업장에 만료 행과 새 체험 행이 함께 있으면 최근 것 하나만
+  const byFacility = new Map<string, any>();
+  for (const row of rows) {
+    const f = Array.isArray(row.facilities) ? row.facilities[0] : row.facilities;
+    if (!f) continue;
+    const prev = byFacility.get(f.id);
+    if (!prev || row.trial_ends_at > prev.trial_ends_at) byFacility.set(f.id, { ...row, facility: f });
+  }
+  // 이미 다른 활성 구독(새 체험·유료)으로 넘어간 만료 행은 제외
+  const expiredIds = [...byFacility.values()].filter((r) => r.status === 'expired').map((r) => r.facility.id);
+  if (expiredIds.length) {
+    const { data: current } = await sb.from('facility_subscriptions').select('facility_id')
+      .in('facility_id', expiredIds).in('status', ['active', 'past_due', 'pending']);
+    for (const c of current ?? []) byFacility.delete(c.facility_id);
+  }
+
+  const todayMs = Date.parse(`${today}T00:00:00+09:00`);
+  const result = await Promise.all([...byFacility.values()].map(async (r): Promise<TrialFollowUp> => {
+    const fid = r.facility.id as string;
+    const [staff, shifts, accepted, admin] = await Promise.all([
+      sb.from('facility_staff').select('id', { count: 'exact', head: true }).eq('facility_id', fid).neq('status', 'ended'),
+      sb.from('shifts').select('id', { count: 'exact', head: true }).eq('facility_id', fid),
+      sb.from('shift_applications').select('id,shifts!inner(facility_id)', { count: 'exact', head: true })
+        .eq('shifts.facility_id', fid).eq('status', 'accepted'),
+      sb.auth.admin.getUserById(r.facility.admin_user_id),
+    ]);
+    const plan = Array.isArray(r.service_plans) ? r.service_plans[0] : r.service_plans;
+    const daysLeft = Math.round((Date.parse(`${r.trial_ends_at}T00:00:00+09:00`) - todayMs) / 86_400_000);
+    return {
+      facilityId: fid, name: r.facility.name, planName: plan?.name ?? r.status,
+      trialEndsAt: r.trial_ends_at, daysLeft, expired: r.status === 'expired' || daysLeft < 0,
+      contactPhone: r.facility.contact_phone ?? null, adminEmail: admin.data?.user?.email ?? null,
+      staffCount: staff.count ?? 0, shiftCount: shifts.count ?? 0, acceptedCount: accepted.count ?? 0,
+    };
+  }));
+  // 임박한 것 먼저, 그다음 막 끝난 것
+  return result.sort((a, b) => (a.expired === b.expired ? (a.expired ? b.daysLeft - a.daysLeft : a.daysLeft - b.daysLeft) : a.expired ? 1 : -1));
 }
 
 export async function listRegistrationRequests(): Promise<RegistrationRequest[]> {
