@@ -14,10 +14,11 @@ import { AdminInstallButton } from '@/components/AdminInstallButton';
 import { GigOperationsBoard } from '@/components/GigOperationsBoard';
 import { getGigOperationsBoard } from '@/lib/db/gig-operations';
 import { listGigProjects } from '@/lib/db/gig-projects';
+import { getActiveCoverRequests } from '@/lib/db/cover';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
   const brnFailed = (await searchParams).brn === 'failed';
-  const [shop, staff, clinicStaff, attendanceFailures, pendingCount, ops, alerts, context] = await Promise.all([
+  const [shop, staff, clinicStaff, attendanceFailures, pendingCount, ops, alerts, context, covers] = await Promise.all([
     getShop(),
     getStaff(),
     getClinicStaff(),
@@ -26,6 +27,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
     getOperationsSummary(),
     getOperationsAlerts(),
     getAdminContext(),
+    // 홈은 대타 조회가 실패해도 떠야 한다 — 실패하면 이 줄만 0건으로 둔다
+    getActiveCoverRequests().catch(() => []),
   ]);
   if (!context) redirect('/login');
   const canViewPayroll = context?.canViewPayroll ?? false;
@@ -36,6 +39,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   const isPharmacy = shop.facilityType === 'pharmacy';
   const isGigworker = shop.mode === 'gig';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
+  const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
   const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + attendanceFailures.length;
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
   const todayCount=clinicStaff.length+shiftStaff.length;
@@ -119,6 +123,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         <div className="mb-3 flex items-end justify-between px-1"><div><p className="text-[0.6875rem] font-bold text-primary">오늘 처리할 일</p><h2 className="mt-0.5 text-title font-extrabold text-ink">확인이 필요한 업무</h2></div><Link href="/more" className="text-[0.75rem] font-bold text-sub">전체 관리 →</Link></div>
         <Card className="divide-y divide-line p-0 overflow-hidden">
           {[
+            // 대타 승인은 근무 직전에 생기는 일이라 가장 급하다 — 있을 때만 맨 위에
+            ...(coverToApprove>0?[{label:'대타 승인',description:'못 나오게 된 근무를 동료가 맡겠다고 했어요',count:coverToApprove,href:'/applications#cover'}]:[]),
             {label:'새 지원자',description:'지원자를 확인하고 근무를 확정해요',count:pendingCount,href:'/applications'},
             {label:'출퇴근 확인',description:'조기 퇴근·미출근·인증 실패를 확인해요',count:attendanceReviewCount,href:'/timesheet'},
             {label:'지급 대기',description:canViewPayroll?'근무시간을 확인하고 지급을 완료해요':'급여 담당자에게 확인을 요청해요',count:canViewPayroll?ops.pendingWageCount:0,href:canViewPayroll?'/payroll':'/timesheet'},
@@ -127,7 +133,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
             <span className={`flex min-w-[58px] items-center justify-end gap-1 text-[1.0625rem] font-extrabold ${item.count>0?'text-primary':'text-sub'}`}>{item.count}건 <span className="text-sub">›</span></span>
           </Link>)}
         </Card>
-        {pendingCount+attendanceReviewCount+(canViewPayroll?ops.pendingWageCount:0)===0&&<p className="mt-2 px-1 text-[0.75rem] font-medium text-success">오늘 바로 처리할 업무를 모두 마쳤어요.</p>}
+        {coverToApprove+pendingCount+attendanceReviewCount+(canViewPayroll?ops.pendingWageCount:0)===0&&<p className="mt-2 px-1 text-[0.75rem] font-medium text-success">오늘 바로 처리할 업무를 모두 마쳤어요.</p>}
       </section>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <Link href="/shifts/new" className="rounded-2xl bg-primary px-5 py-5 text-white shadow-btn active:opacity-85"><span className="text-[1.25rem]">＋</span><p className="mt-2 text-[1.0625rem] font-extrabold">근무자 모집</p><p className="mt-1 text-[0.75rem] text-white/80">날짜와 시간만 정하면 돼요</p></Link>
