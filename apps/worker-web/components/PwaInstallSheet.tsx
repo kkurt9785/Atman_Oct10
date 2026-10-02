@@ -4,8 +4,8 @@ const STEPS = [
   {
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M12 3v13M8 8l4-4 4 4" stroke="#3182F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="#3182F6" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M12 3v13M8 8l4-4 4 4" stroke="#1B64DA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="#1B64DA" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
     text: '사파리 하단 공유 버튼(↑) 탭',
@@ -13,8 +13,8 @@ const STEPS = [
   {
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="3" width="18" height="18" rx="4" stroke="#3182F6" strokeWidth="2"/>
-        <path d="M12 8v8M8 12h8" stroke="#3182F6" strokeWidth="2" strokeLinecap="round"/>
+        <rect x="3" y="3" width="18" height="18" rx="4" stroke="#1B64DA" strokeWidth="2"/>
+        <path d="M12 8v8M8 12h8" stroke="#1B64DA" strokeWidth="2" strokeLinecap="round"/>
       </svg>
     ),
     text: '"홈 화면에 추가" 선택',
@@ -22,7 +22,7 @@ const STEPS = [
   {
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-        <path d="M5 13l4 4L19 7" stroke="#3182F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M5 13l4 4L19 7" stroke="#1B64DA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
     text: '오른쪽 상단 "추가"를 누르면 설치 완료',

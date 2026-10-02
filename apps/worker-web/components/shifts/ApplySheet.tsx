@@ -128,7 +128,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
           <div className="flex flex-col items-center py-6 gap-3">
             <div className="w-16 h-16 rounded-full bg-success-light flex items-center justify-center mb-2">
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                <path d="M7 16L13 22L25 10" stroke="#00C896" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M7 16L13 22L25 10" stroke="#007A47" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <h2 className="text-[20px] font-extrabold text-ink">지원 완료!</h2>

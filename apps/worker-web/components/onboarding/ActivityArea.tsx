@@ -20,7 +20,7 @@ const AREA_COORDS: Record<string, { lat: number; lng: number }> = {
   '서울 마포구':  { lat: 37.5663, lng: 126.9014 },
 };
 
-const PinIcon = ({ color = '#3182F6' }: { color?: string }) => (
+const PinIcon = ({ color = '#1B64DA' }: { color?: string }) => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
     <path d="M8 1.5C5.515 1.5 3.5 3.515 3.5 6c0 3.75 4.5 9 4.5 9s4.5-5.25 4.5-9c0-2.485-2.015-4.5-4.5-4.5zm0 6a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" fill={color}/>
   </svg>
@@ -105,7 +105,7 @@ export function ActivityArea({
       <div className="w-full rounded-card overflow-hidden bg-[#E8EDF2] flex-shrink-0 mb-5 flex flex-col items-center justify-center gap-2"
         style={{ height: '40vw', maxHeight: 180 }}>
         <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-          <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10zm0 13a3 3 0 110-6 3 3 0 010 6z" fill="#8B95A1"/>
+          <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10zm0 13a3 3 0 110-6 3 3 0 010 6z" fill="#6B7684"/>
         </svg>
         <span className="text-[12px] text-tertiary">카카오맵</span>
       </div>
@@ -142,7 +142,7 @@ export function ActivityArea({
               <button onClick={() => setSecond(null)}
                 className="w-6 h-6 rounded-full bg-line flex items-center justify-center flex-shrink-0">
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M1 1l8 8M9 1L1 9" stroke="#8B95A1" strokeWidth="1.5" strokeLinecap="round"/>
+                  <path d="M1 1l8 8M9 1L1 9" stroke="#6B7684" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
               </button>
             </div>
@@ -154,8 +154,8 @@ export function ActivityArea({
         <button onClick={() => setShowSearch('second')}
           className="w-full flex items-center justify-center gap-2 py-4 rounded-card border-2 border-dashed border-line text-sub mb-3 active:opacity-70 transition-opacity">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <circle cx="9" cy="9" r="8" stroke="#8B95A1" strokeWidth="1.5"/>
-            <path d="M9 5.5v7M5.5 9h7" stroke="#8B95A1" strokeWidth="1.5" strokeLinecap="round"/>
+            <circle cx="9" cy="9" r="8" stroke="#6B7684" strokeWidth="1.5"/>
+            <path d="M9 5.5v7M5.5 9h7" stroke="#6B7684" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
           <span className="text-[15px] font-medium">자주 가는 지역 추가하기</span>
           <span className="text-[12px] text-tertiary">(선택)</span>

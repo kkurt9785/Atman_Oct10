@@ -5,15 +5,15 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        primary: '#3182F6',
+        primary: '#1B64DA',
         'primary-light': '#EBF3FF',
         bg: '#F2F4F6',
         card: '#FFFFFF',
         ink: '#191F28',
         sub: '#4E5968',
-        tertiary: '#8B95A1',
-        warn: '#FF8B00',
-        success: '#00C896',
+        tertiary: '#6B7684',
+        warn: '#C62828',
+        success: '#007A47',
         'success-light': '#E5FAF4',
         kakao: '#FEE500',
         line: '#E5E8EB',

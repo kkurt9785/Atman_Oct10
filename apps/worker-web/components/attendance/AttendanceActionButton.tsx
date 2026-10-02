@@ -123,7 +123,7 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
     if(event.key==='Enter'||event.key===' '){event.preventDefault();void run();}
   }
 
-  const ringColor=checkingIn?'#3182F6':'#FFFFFF';
+  const ringColor=checkingIn?'#1B64DA':'#FFFFFF';
   const fill=checkingIn?'bg-primary':'bg-white';
   const text=checkingIn?'text-white':'text-ink';
   return <div className="mt-2 flex flex-col items-center">

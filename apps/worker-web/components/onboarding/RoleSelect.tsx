@@ -17,7 +17,7 @@ const ROLES: Array<{
     icon: (
       <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
         <circle cx="14" cy="14" r="14" fill="#EBF3FF"/>
-        <path d="M14 8v12M8 14h12" stroke="#3182F6" strokeWidth="2.5" strokeLinecap="round"/>
+        <path d="M14 8v12M8 14h12" stroke="#1B64DA" strokeWidth="2.5" strokeLinecap="round"/>
       </svg>
     ),
   },

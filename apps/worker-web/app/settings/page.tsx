@@ -174,7 +174,7 @@ export default function SettingsPage() {
               {profileDone ? (
                 <span className="text-[11px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">완성</span>
               ) : (
-                <span className="text-[11px] font-bold text-warn bg-warn/10 px-2 py-0.5 rounded-full">
+                <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                   {profileFilled}/{PROFILE_TOTAL} 완료
                 </span>
               )}

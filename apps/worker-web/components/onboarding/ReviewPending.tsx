@@ -17,8 +17,8 @@ export function ReviewPending({ onHome }: { onHome: () => void }) {
       <div className="flex flex-col items-center mb-8 mt-4">
         <div className="w-20 h-20 rounded-full bg-[#EBF3FF] flex items-center justify-center mb-6">
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-            <path d="M20 8v6M20 26v6M8 20h6M26 20h6" stroke="#3182F6" strokeWidth="2.5" strokeLinecap="round" />
-            <circle cx="20" cy="20" r="8" stroke="#3182F6" strokeWidth="2" />
+            <path d="M20 8v6M20 26v6M8 20h6M26 20h6" stroke="#1B64DA" strokeWidth="2.5" strokeLinecap="round" />
+            <circle cx="20" cy="20" r="8" stroke="#1B64DA" strokeWidth="2" />
           </svg>
         </div>
         <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">심사 중이에요</h1>

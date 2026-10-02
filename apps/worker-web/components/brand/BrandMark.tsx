@@ -5,7 +5,7 @@ type Tone = 'light' | 'dark' | 'onPrimary';
 const TONES: Record<Tone, { a: string; b: string; touch: string }> = {
   light: { a: '#3182F6', b: '#191F28', touch: '#FFFFFF' },
   dark: { a: '#4D8DFF', b: '#FFFFFF', touch: '#0F1420' },
-  onPrimary: { a: 'rgba(255,255,255,0.45)', b: '#FFFFFF', touch: '#3182F6' },
+  onPrimary: { a: 'rgba(255,255,255,0.45)', b: '#FFFFFF', touch: '#1B64DA' },
 };
 
 export function BrandMark({ size = 24, tone = 'light', className }: { size?: number; tone?: Tone; className?: string }) {

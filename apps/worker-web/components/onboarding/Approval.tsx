@@ -13,7 +13,7 @@ export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onS
       <div className="flex flex-col items-center mb-8 mt-4">
         <div className="w-24 h-24 rounded-full bg-success-light flex items-center justify-center mb-6">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-            <path d="M10 24L20 34L38 14" stroke="#00C896" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 24L20 34L38 14" stroke="#007A47" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </div>
         <h1 className="text-[28px] font-bold text-ink letter-tight mb-2 text-center">가입이 완료됐어요!</h1>

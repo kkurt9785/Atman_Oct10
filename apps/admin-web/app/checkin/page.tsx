@@ -173,7 +173,7 @@ export default function CheckinPage() {
         <div className="bg-white rounded-3xl p-8 w-full max-w-sm flex flex-col items-center">
           <div className="w-16 h-16 rounded-full bg-[#E5FAF4] flex items-center justify-center mb-4">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M7 16L13 22L25 10" stroke="#00C896" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 16L13 22L25 10" stroke="#007A47" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <h2 className="text-[1.375rem] font-extrabold text-ink mb-1">

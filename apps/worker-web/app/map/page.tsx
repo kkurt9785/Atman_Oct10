@@ -72,7 +72,7 @@ export default function ShiftMapPage(){
         const map=new window.kakao.maps.Map(mapEl.current,{center:new window.kakao.maps.LatLng(center.lat,center.lng),level:6});
         mapRef.current=map;
         if(position){
-          const content='<div style="width:18px;height:18px;border:4px solid white;border-radius:50%;background:#3182F6;box-shadow:0 1px 5px #555"></div>';
+          const content='<div style="width:18px;height:18px;border:4px solid white;border-radius:50%;background:#1B64DA;box-shadow:0 1px 5px #555"></div>';
           new window.kakao.maps.CustomOverlay({map,position:new window.kakao.maps.LatLng(position.lat,position.lng),content,yAnchor:.5,xAnchor:.5});
         }
         const groups=new Map<string,PointGroup>();

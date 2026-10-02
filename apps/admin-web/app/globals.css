@@ -1,3 +1,6 @@
+/* Pretendard — 이전엔 로딩 없이 이름만 적혀 있어 윈도우 PC에서 브라우저 기본 폰트로 떨어졌다 */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,6 +11,6 @@ html.big-text { font-size: 20px; }   /* 토스식 큰글씨 모드 (×1.25) */
 
 html, body { background: #F2F4F6; color: #191F28; }
 body {
-  font-family: 'Apple SD Gothic Neo', 'Pretendard', -apple-system, sans-serif;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
