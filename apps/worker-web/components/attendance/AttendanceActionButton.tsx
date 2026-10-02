@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { isLocationAllowed } from '@/lib/consents';
 import { BrandMark } from '@/components/brand/BrandMark';
 
 export type AttendanceResult={ok:boolean;message?:string;reason?:string;method?:string;distanceM?:number;accuracyM?:number;action?:string;checkInAt?:string;checkOutAt?:string;status?:'approved'|'pending';lateMinutes?:number;earlyLeaveMinutes?:number};
@@ -36,7 +37,11 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
     if(loading)return;
     setLoading(true);setResult(null);setLocationIssue(null);
     let coords:{latitude:number;longitude:number;accuracy:number}|null=null;
-    const needsGps=mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr';
+    const wantsGps=mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr';
+    // 위치정보 이용 동의를 철회했으면 위치를 측정하지 않는다 — QR·와이파이 인증만 쓴다
+    const locationOk=wantsGps?await isLocationAllowed():true;
+    const needsGps=wantsGps&&locationOk;
+    if(wantsGps&&!locationOk)setLocationIssue('위치정보 이용 동의를 철회해 위치 인증을 쓰지 않아요. 사업장 동적 QR로 인증하거나 내 정보에서 다시 동의해 주세요.');
     // QR을 방금 찍고 들어온 경우(실내라 GPS가 안 잡히는 상황)는 위치를 오래 기다리지 않는다 — gps_qr(둘 다 필수)만 예외
     const gpsTimeout=qrToken&&mode!=='gps_qr'?4_000:12_000;
     if(needsGps){try{coords=(await position(gpsTimeout)).coords;}catch(error){

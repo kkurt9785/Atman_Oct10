@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { isLocationAllowed } from '@/lib/consents';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { supabase } from '@/lib/supabase';
 import type { Shift } from '@/app/shifts/page';
@@ -37,14 +38,15 @@ export default function ShiftMapPage(){
   const [applyTarget,setApplyTarget]=useState<Shift|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState('');
+  const [locationOk,setLocationOk]=useState(true);
 
   useEffect(()=>{void (async()=>{
     const {data:{user}}=await supabase.auth.getUser();
     if(!user){window.localStorage.setItem('atman_auth_next','/map');window.location.href='/';return;}
-    const pos=await getPosition();
-    setPosition(pos);
+    // 위치는 '내 위치'를 누를 때만 가져온다(위치정보 이용약관) — 처음엔 등록한 활동 지역 기준 공고
+    void isLocationAllowed().then(setLocationOk);
     const {data:rows,error:shiftError}=await supabase.rpc('get_nearby_open_shifts_secure',{
-      p_lat:pos?.lat??null,p_lng:pos?.lng??null,p_pref_labels:null,
+      p_lat:null,p_lng:null,p_pref_labels:null,
     });
     if(shiftError){setError('지도에 표시할 공고를 불러오지 못했어요.');setLoading(false);return;}
     const mapped=((rows??[]) as Record<string,unknown>[]).map(row=>({
@@ -103,8 +105,12 @@ export default function ShiftMapPage(){
     document.head.appendChild(script);
   },[loading,points,position,shifts]);
 
-  function moveToMe(){
-    if(position&&mapRef.current)mapRef.current.panTo(new window.kakao.maps.LatLng(position.lat,position.lng));
+  async function moveToMe(){
+    const here=position??await getPosition();
+    if(!here){setError('위치를 가져올 수 없어요. 휴대폰 설정에서 위치 권한을 허용해 주세요.');return;}
+    setError('');
+    if(!position)setPosition(here);
+    if(mapRef.current)mapRef.current.panTo(new window.kakao.maps.LatLng(here.lat,here.lng));
   }
 
   return <main className="min-h-screen bg-bg pb-24">
@@ -112,7 +118,7 @@ export default function ShiftMapPage(){
     <div className="relative">
       <div ref={mapEl} className="h-[calc(100vh-190px)] min-h-[480px] bg-[#eef2f5]"/>
       {loading&&<div className="absolute inset-0 bg-white/80 flex items-center justify-center text-sub">지도를 준비하고 있어요...</div>}
-      {position&&<button onClick={moveToMe} className="absolute right-4 top-4 w-11 h-11 rounded-full bg-white shadow-card text-xl" aria-label="현재 위치">◎</button>}
+      {locationOk&&<button onClick={moveToMe} className="absolute right-4 top-4 w-11 h-11 rounded-full bg-white shadow-card text-xl" aria-label="현재 위치">◎</button>}
       <div className="absolute left-4 top-4 rounded-full bg-white/95 shadow px-3 py-2 text-[12px] font-bold">공고 {shifts.length}건</div>
     </div>
     {error&&<p role="alert" className="mx-4 mt-3 rounded-xl bg-red-50 text-red-600 p-3 text-[13px] font-bold">{error}</p>}

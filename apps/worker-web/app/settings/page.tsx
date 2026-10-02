@@ -10,6 +10,7 @@ import {
   getExistingSubscription,
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
+import { PrivacySection } from '@/components/settings/PrivacySection';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 import { getLinkKinds, hasGigworkerLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
@@ -249,6 +250,8 @@ export default function SettingsPage() {
       </button>
 
       {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
+
+      <div className="mt-4"><PrivacySection /></div>
 
       {/* 로그아웃 */}
       <button

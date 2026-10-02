@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
+import { PrivacySection } from '@/components/settings/PrivacySection';
 import { getLinkKinds, hasMedicalContext, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
 // 핵심 3탭 밖의 보조 설정. 계좌·지급은 /gig/settlement 에서만 관리한다.
@@ -135,6 +136,8 @@ export default function GigSettingsPage() {
       </section>}
 
       {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
+
+      <PrivacySection />
 
       <button onClick={handleLogout} className="mt-2 w-full rounded-2xl border border-red-200 bg-white py-4 text-center text-[15px] font-semibold text-red-500 active:opacity-70">
         로그아웃

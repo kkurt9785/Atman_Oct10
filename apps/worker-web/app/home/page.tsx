@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { isLocationAllowed } from '@/lib/consents';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
@@ -105,6 +106,7 @@ export default function HomePage() {
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
   const [basis, setBasis] = useState<'gps' | string>('gps');
   const [locNotice, setLocNotice] = useState('');
+  const [locationOk, setLocationOk] = useState(true);
 
   const week = useMemo(() => currentWeek(), []);
   const [cell, setCell] = useState<{ date: string; slot: RosterSlot } | null>(null);
@@ -226,11 +228,11 @@ export default function HomePage() {
         else if(waiting)setNextAction({label:'확인',title:waiting.status==='invited'?'새 근무 요청이 도착했어요':'사업장에서 지원을 확인하고 있어요',href:'/applications',tone:'primary'});
       }
 
-      const p = await getPosition();
-      setPos(p);
-      const initialBasis: 'gps' | string = p ? 'gps' : areaLabels[0] ?? 'gps';
+      // 위치는 '현재 위치'를 누를 때만 가져온다(위치정보 이용약관) — 처음엔 등록한 활동 지역 기준
+      void isLocationAllowed().then(setLocationOk);
+      const initialBasis: 'gps' | string = areaLabels[0] ?? 'gps';
       setBasis(initialBasis);
-      await fetchShifts(p, initialBasis);
+      await fetchShifts(null, initialBasis);
       setLoading(false);
     }
     load();
@@ -319,9 +321,9 @@ export default function HomePage() {
           {weekCount > 0 && <span className="ml-2 text-[14px] font-bold text-primary">갈 수 있는 근무 {weekCount}건</span>}
         </h1>
 
-        {(pos || areas.length > 0) && (
+        {(locationOk || areas.length > 0) && (
           <div className="mt-3 flex flex-wrap gap-1.5">
-            {pos && (
+            {locationOk && (
               <button onClick={() => selectBasis('gps')} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${basis === 'gps' ? 'bg-primary text-white' : 'bg-bg text-sub'}`}>현재 위치</button>
             )}
             {areas.map((a) => (
