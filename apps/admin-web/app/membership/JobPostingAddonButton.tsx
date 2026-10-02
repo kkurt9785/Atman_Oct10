@@ -13,17 +13,17 @@ export function JobPostingAddonButton() {
     try {
       const invoiceResponse = await fetch('/api/addons/job-posting', { method: 'POST' });
       const invoice = await invoiceResponse.json();
-      if (!invoiceResponse.ok) throw new Error(invoice.error ?? '추가 공고 청구서 생성 실패');
+      if (!invoiceResponse.ok) throw new Error(invoice.error ?? '추가 공고 청구서를 만들지 못했어요.');
       const orderResponse = await fetch('/api/payments/orders', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ invoiceId: invoice.invoiceId }),
       });
       const order = await orderResponse.json();
-      if (!orderResponse.ok) throw new Error(order.error ?? '결제 주문 생성 실패');
+      if (!orderResponse.ok) throw new Error(order.error ?? '결제를 준비하지 못했어요.');
       if (!window.TossPayments) await new Promise<void>((resolve, reject) => {
         const script = document.createElement('script');
         script.src = 'https://js.tosspayments.com/v1/payment';
-        script.onload = () => resolve(); script.onerror = () => reject(new Error('결제창 로드 실패'));
+        script.onload = () => resolve(); script.onerror = () => reject(new Error('결제창을 열지 못했어요.'));
         document.head.appendChild(script);
       });
       await window.TossPayments!(key).requestPayment('카드', {

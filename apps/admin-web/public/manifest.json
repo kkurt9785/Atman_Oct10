@@ -1,7 +1,7 @@
 {
   "name": "잇닿 관리자 — 사업장 운영",
   "short_name": "잇닿 관리자",
-  "description": "직원·근태·급여를 한 번에",
+  "description": "결원·출퇴근·급여를 버튼 몇 번으로",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

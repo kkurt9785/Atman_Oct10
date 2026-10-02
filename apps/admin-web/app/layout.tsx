@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: '잇닿 관리자 — 사업장 운영',
-  description: '병원·약국 모집과 긱워커 근태를 한 번에 관리하세요.',
+  description: '결원 대응부터 출퇴근·급여까지, 전화·엑셀 없이 버튼 몇 번으로 끝내요.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',

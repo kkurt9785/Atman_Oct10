@@ -81,7 +81,7 @@ export default function EarningsPage() {
       <button onClick={() => router.back()} className="text-[14px] text-sub mb-4">← 돌아가기</button>
       <p className="text-[12px] font-bold text-primary mb-1">사업장 직접 지급</p>
       <h1 className="text-[26px] font-extrabold text-ink">급여 지급 현황</h1>
-      <p className="text-[13px] text-sub mt-2 leading-5">잇닿은 근무시간과 지급 정보를 관리하고, 임금은 채용 사업장이 워커가 등록한 본인 명의 계좌로 직접 지급합니다.</p>
+      <p className="text-[13px] text-sub mt-2 leading-5">잇닿은 근무시간과 지급 정보를 관리하고, 임금은 채용 사업장이 워커가 등록한 본인 명의 계좌로 직접 지급해요.</p>
     </header>
 
     <section className="grid grid-cols-2 gap-3 px-5 -mt-1 py-5">
@@ -90,8 +90,8 @@ export default function EarningsPage() {
     </section>
 
     <section className="mx-5 mb-5 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3" aria-label="지급 문의 안내">
-      <p className="text-[13px] font-extrabold text-ink">지급 일정·금액 문의는 근무한 사업장에 해주세요</p>
-      <p className="mt-1 text-[12px] leading-5 text-sub">잇닿은 근무시간과 지급 상태를 보여드리며, 임금은 채용 사업장이 직접 지급합니다. 금액이나 입금에 문제가 있으면 아래에서 확인 요청을 남길 수 있어요.</p>
+      <p className="text-[13px] font-extrabold text-ink">지급 일정·금액 문의는 근무한 사업장에 해 주세요</p>
+      <p className="mt-1 text-[12px] leading-5 text-sub">잇닿은 근무시간과 지급 상태를 보여드리며, 임금은 채용 사업장이 직접 지급해요. 금액이나 입금에 문제가 있으면 아래에서 확인 요청을 남길 수 있어요.</p>
     </section>
 
     {actionError && <p role="alert" className="mx-5 mb-3 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-bold text-red-600">{actionError}</p>}
@@ -106,14 +106,14 @@ export default function EarningsPage() {
           <div className="flex items-start justify-between gap-3"><div><p className="text-[15px] font-extrabold text-ink">{shift?.facilities?.name ?? '채용 사업장'}</p><p className="text-[12px] text-sub mt-1">{shift?.shift_date ?? new Date(row.created_at).toLocaleDateString('ko-KR')} · {shift?.start_time?.slice(0,5)}–{shift?.end_time?.slice(0,5)}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ${state.style}`}>{state.label}</span></div>
           <div className="mt-4 rounded-xl bg-bg p-3 space-y-2 text-[12px]"><div className="flex justify-between"><span className="text-sub">예상 세전액</span><b>{won(row.gross_amount)}</b></div><div className="flex justify-between"><span className="text-sub">공제</span><b>{row.deduction_status === 'unconfirmed' ? '사업장 확인 예정' : '사업장 확인'}</b></div><div className="flex justify-between border-t border-line pt-2"><span className="font-bold">지급 예정액</span><b className="text-primary">{won(row.net_amount)}</b></div>{row.due_date && <div className="flex justify-between"><span className="text-sub">지급 예정일</span><b>{row.due_date}</b></div>}</div>
           {row.status === 'paid' && <button disabled={busyId===row.id} onClick={() => void act(row.id,'confirm')} className="mt-3 w-full h-11 rounded-xl bg-primary text-white text-[13px] font-extrabold disabled:opacity-50">내 계좌 입금 확인</button>}
-          {row.status==='worker_confirmed'&&confirmedId===row.id&&<p role="status" className="mt-3 rounded-xl bg-green-50 px-3 py-3 text-center text-[13px] font-extrabold text-green-700">입금 확인이 완료되었습니다.</p>}
+          {row.status==='worker_confirmed'&&confirmedId===row.id&&<p role="status" className="mt-3 rounded-xl bg-green-50 px-3 py-3 text-center text-[13px] font-extrabold text-green-700">입금 확인을 마쳤어요.</p>}
           {['approved','exported','paid'].includes(row.status) && <button disabled={busyId===row.id} onClick={() => { setDisputeTarget(row.id); setDisputeReason(''); }} className="mt-2 w-full py-2 text-[12px] font-bold text-sub disabled:opacity-50">금액·입금 문제 확인 요청</button>}
           {applicationId && <button type="button" onClick={() => router.push(`/chat/${applicationId}`)} className="mt-2 w-full py-2 text-[12px] font-bold text-primary">근무 사업장에 문의</button>}
           {row.dispute_reason && <p className="mt-2 rounded-lg bg-red-50 p-2 text-[11px] text-red-600">요청 내용: {row.dispute_reason}</p>}
         </article>;
       })}</div>}
     </section>
-    <p className="px-5 mt-5 text-[11px] leading-5 text-tertiary">표시 금액은 사업장의 최종 공제 판단 전 예상액일 수 있습니다. 잇닿은 임금을 수취하거나 재지급하지 않습니다.</p>
+    <p className="px-5 mt-5 text-[11px] leading-5 text-tertiary">표시 금액은 사업장의 최종 공제 판단 전 예상액일 수 있어요. 잇닿은 임금을 받거나 대신 지급하지 않아요.</p>
   
     {/* 이의제기 바텀시트 — window.prompt 대체 */}
     {disputeTarget && (

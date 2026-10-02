@@ -69,13 +69,13 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
   }
 
   const summary:[Filter,string,number,string][]=[
-    ['invite','잇기 대기',board.summary.invite,'text-violet-700'],['working','닿기·근무',board.summary.working,'text-emerald-700'],
+    ['invite','잇기 대기',board.summary.invite,'text-violet-700'],['working','출근·근무',board.summary.working,'text-emerald-700'],
     ['issue','확인 필요',board.summary.issue,'text-red-600'],['pay','지급 준비',board.summary.pay,'text-primary'],
   ];
 
   return <>
     <div className="mt-4 px-1 sm:flex sm:items-end sm:justify-between">
-      <div><p className="text-[0.8125rem] font-bold text-sub">{facilityName}</p><h1 className="mt-1 text-[1.6875rem] font-extrabold tracking-[-0.7px] text-ink">오늘 긱 운영</h1><p className="mt-1 text-[0.8125rem] text-sub">잇기(초대·연결)부터 닿기(출퇴근)·지급까지, 필요한 사람부터 처리하세요.</p></div>
+      <div><p className="text-[0.8125rem] font-bold text-sub">{facilityName}</p><h1 className="mt-1 text-[1.6875rem] font-extrabold tracking-[-0.7px] text-ink">오늘 긱 운영</h1><p className="mt-1 text-[0.8125rem] text-sub">잇기(초대·연결)부터 출퇴근·지급까지, 필요한 사람부터 처리하세요.</p></div>
       <Link href="/gig-work/new" className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-xl bg-ink px-4 text-[0.8125rem] font-extrabold text-white sm:mt-0 sm:w-auto">＋ 근무 만들기</Link>
     </div>
 

@@ -32,7 +32,7 @@ export default async function WorkforcePage() {
       <div className="mt-3 mb-5 px-1">
         <p className="text-label font-bold text-primary">우리 {facilityWord} 근무 이력</p>
         <h1 className="text-display font-extrabold text-ink mt-1">함께한 근무자</h1>
-        <p className="text-label text-sub mt-2 leading-5">근무를 완료한 워커만 자동으로 등록됩니다. 공개 공고 없이 검증된 근무자에게 반복근무를 요청할 수 있어요.</p>
+        <p className="text-label text-sub mt-2 leading-5">근무를 마친 근무자가 자동으로 쌓여요. 공개 공고 없이 검증된 근무자에게 반복근무를 요청할 수 있어요.</p>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-5">

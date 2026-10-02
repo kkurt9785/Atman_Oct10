@@ -41,7 +41,7 @@ export function BankAccount({ onNext, onSkip, submitting, submitError, compact =
       <input id="account-number" type="tel" inputMode="numeric" autoComplete="off" aria-describedby="account-help" placeholder="숫자만 입력" value={account} onChange={(e) => setAccount(e.target.value.replace(/\D/g, '').slice(0, 20))} className="w-full h-[52px] px-4 bg-white rounded-card border border-line text-[16px] text-ink placeholder:text-tertiary focus:border-primary outline-none mb-2" />
       <div className={`bg-primary/5 border border-primary/15 rounded-xl p-3 ${compact ? "mb-4" : "mb-10"}`}>
         <p id="account-help" className="text-[13px] text-sub leading-5">{shareOnInviteAccept
-          ? '계좌번호는 서버에서 암호화해요. 다음 화면에서 초대를 수락하면 해당 근무지의 지급 담당자에게만 전달됩니다.'
+          ? '계좌번호는 서버에서 암호화해요. 다음 화면에서 초대를 수락하면 해당 근무지의 지급 담당자에게만 전달돼요.'
           : '계좌번호는 서버에서 암호화해요. 등록만으로 관리자에게 공개되지 않으며, 내가 전달한 근무지에서만 확인할 수 있어요.'}</p>
       </div>
       <div className="mt-auto">

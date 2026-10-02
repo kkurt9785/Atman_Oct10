@@ -22,7 +22,7 @@ export function BasicInfo({ birthDate, attendanceInvite = false, submitting = fa
   return (
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
       <p className="text-[13px] font-medium text-tertiary mb-2">{attendanceInvite ? '근무자 간편 등록' : '가입 정보 1/2'}</p>
-      <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">{attendanceInvite ? '내 인적사항을 등록해요' : '본인 정보를 입력해주세요'}</h1>
+      <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">{attendanceInvite ? '내 인적사항을 등록해요' : '본인 정보를 입력해 주세요'}</h1>
       <p className="text-[15px] text-sub mb-8">{attendanceInvite ? '이름으로 사업장 프로필을 만들어요. 전화번호는 선택이며 관리자에게 공개하지 않아요.' : '지원자 확인과 급여 지급에 사용돼요.'}</p>
 
       <label className="text-[13px] font-semibold text-sub mb-1.5">이름 (실명)</label>

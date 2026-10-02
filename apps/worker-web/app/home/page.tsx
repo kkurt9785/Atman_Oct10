@@ -50,7 +50,7 @@ function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () =>
           {shift.shift_date}　{timeLabel(shift)}
         </p>
         <p className="text-[12px] text-sub truncate mt-0.5">
-          {[mobilityLabel(shift), shift.department].filter(Boolean).join(' · ')}{shift.is_overnight ? ' · 야간 +50%' : ''}
+          {[mobilityLabel(shift), shift.department].filter(Boolean).join(' · ')}{shift.is_overnight ? ' · 야간' : ''}
         </p>
       </div>
       <div className="text-right flex-shrink-0">
@@ -153,7 +153,7 @@ export default function HomePage() {
       if (fresh) setPos(fresh);
       const next = fresh ?? pos;
       if (!next) {
-        setLocNotice('위치를 가져올 수 없어요. 브라우저 설정에서 위치 권한을 허용한 뒤 다시 눌러주세요.');
+        setLocNotice('위치를 가져올 수 없어요. 브라우저 설정에서 위치 권한을 허용한 뒤 다시 눌러 주세요.');
         setBasis(prev === 'gps' ? areas[0] ?? 'gps' : prev);
         return;
       }
@@ -221,7 +221,7 @@ export default function HomePage() {
           const minutes=minutesUntilKstTime(shift?.start_time??'00:00');
           setNextAction(minutes>30
             ?{label:'근무 준비',title:`오늘 ${shift?.start_time?.slice(0,5)??''} 근무가 있어요`,href:'/applications',tone:'primary'}
-            :{label:'닿기로 출근',title:minutes>0?`${minutes}분 뒤 근무 시작`:'근무 시작 시간이에요',href:'/workplace',tone:'primary'});
+            :{label:'출근하기',title:minutes>0?`${minutes}분 뒤 근무 시작`:'근무 시작 시간이에요',href:'/workplace',tone:'primary'});
         }
         else if(waiting)setNextAction({label:'확인',title:waiting.status==='invited'?'새 근무 요청이 도착했어요':'사업장에서 지원을 확인하고 있어요',href:'/applications',tone:'primary'});
       }

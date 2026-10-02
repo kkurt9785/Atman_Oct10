@@ -79,9 +79,9 @@ export default async function PlatformFacilitiesPage() {
       </section>
 
       <section className="mt-8">
-        <p className="mb-2 px-1 text-label font-bold text-sub">워커 자격 심사 대기 {pendingWorkers.length}건</p>
+        <p className="mb-2 px-1 text-label font-bold text-sub">근무자 자격 심사 대기 {pendingWorkers.length}건</p>
         {pendingWorkers.length === 0
-          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">심사할 워커가 없어요. 간호사·간호조무사·약사는 사업장이 채용 전 직접 확인하고, 약국 전산·사무직만 여기서 이력서를 확인해요.</p>
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">심사할 근무자가 없어요. 간호사·간호조무사·약사는 사업장이 채용 전 직접 확인하고, 약국 전산·사무직만 여기서 이력서를 확인해요.</p>
           : <div className="space-y-3">{pendingWorkers.map((w) => <WorkerApprovalCard key={w.id} worker={w} />)}</div>}
       </section>
 

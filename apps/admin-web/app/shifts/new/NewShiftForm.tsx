@@ -109,9 +109,9 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
     setError(null);
 
     // 클라이언트 검증
-    if (!shiftDate) { setError('날짜를 선택해주세요.'); return; }
-    if (!startTime || !endTime) { setError('시작·종료 시간을 입력해주세요.'); return; }
-    if (!description.trim()) { setError('업무 설명을 입력해주세요.'); return; }
+    if (!shiftDate) { setError('날짜를 선택해 주세요.'); return; }
+    if (!startTime || !endTime) { setError('시작·종료 시간을 입력해 주세요.'); return; }
+    if (!description.trim()) { setError('업무 설명을 입력해 주세요.'); return; }
     if (!hourlyWage || hourlyWage < MIN_HOURLY_WAGE_2026) { setError('시급은 2026년 최저시급(10,320원) 이상이어야 해요.'); return; }
 
     const formData = new FormData(e.currentTarget);
@@ -125,7 +125,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : '';
         if (!msg.includes('NEXT_REDIRECT') && !msg.includes('digest')) {
-          setError(msg || '등록 중 오류가 발생했어요. 다시 시도해주세요.');
+          setError(msg || '등록 중 오류가 발생했어요. 다시 시도해 주세요.');
         }
       }
     });
@@ -143,7 +143,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
         >
           ←
         </button>
-        <h1 className="text-title font-extrabold text-ink">새 시프트 등록</h1>
+        <h1 className="text-title font-extrabold text-ink">새 공고</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -152,7 +152,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
           <section className="bg-primary/10 border border-primary/20 rounded-2xl p-5">
             <p className="text-label font-bold text-primary">자체 인력풀 반복근무 요청</p>
             <p className="text-title font-extrabold text-ink mt-1">{invitedWorker.name} 님에게만 전송</p>
-            <p className="text-label text-sub mt-2 leading-5">공개 공고에 노출되지 않으며, 워커가 요청을 확인하고 지원하면 사업장이 최종 확정합니다.</p>
+            <p className="text-label text-sub mt-2 leading-5">공개 공고에 노출되지 않으며, 근무자가 요청을 확인하고 지원하면 사업장이 최종 확정해요.</p>
           </section>
         )}
         {/* 필요 자격 */}
@@ -266,7 +266,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
                 <p className="text-money font-extrabold text-primary">{won(estimatedPay)}</p>
               </div>
 
-              <p className="text-label text-sub mt-2">이 금액은 사업장이 워커에게 직접 지급합니다. 잇닿 SaaS 이용료와 연동되지 않아요.</p>
+              <p className="text-label text-sub mt-2">이 금액은 사업장이 근무자에게 직접 지급해요. 잇닿 이용료와는 관계없어요.</p>
             </div>
           )}
         </section>
@@ -326,7 +326,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
           disabled={isPending || estimatedPay === 0}
           className="flex items-center justify-center min-h-tap rounded-xl bg-primary text-white text-body font-bold w-full disabled:opacity-50 active:opacity-90 transition-opacity"
         >
-          {isPending ? '등록 중...' : invitedWorker ? '반복근무 요청 보내기' : '시프트 등록하기'}
+          {isPending ? '등록 중...' : invitedWorker ? '반복근무 요청 보내기' : '공고 올리기'}
         </button>
         {!isPending && estimatedPay === 0 && (
           <p className="text-label text-sub text-center -mt-2">근무 날짜·시간·시급을 입력하면 등록할 수 있어요</p>

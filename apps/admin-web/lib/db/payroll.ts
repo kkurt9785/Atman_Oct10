@@ -101,7 +101,7 @@ export async function getWagePayments(requestedMonth?:string): Promise<WagePayme
     .order('created_at', { ascending: false }).limit(100);
   if (error) return { rows: [], error: '급여 지급 요청을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.' };
   return { rows: ((data ?? []) as any[]).map((row) => ({
-    id: row.id, workerName: row.workers?.name ?? '워커', shiftDate: row.shifts?.shift_date ?? '-',
+    id: row.id, workerName: row.workers?.name ?? '근무자', shiftDate: row.shifts?.shift_date ?? '-',
     grossAmount: row.gross_amount, netAmount: row.net_amount, deductionStatus: row.deduction_status,
     dueDate: row.due_date, status: row.status, approvedAt: row.approved_at, paidAt: row.paid_at,
     workerConfirmedAt: row.worker_confirmed_at, disputeReason: row.dispute_reason,

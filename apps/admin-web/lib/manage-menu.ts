@@ -25,7 +25,7 @@ export const MANAGE_SECTIONS: ManageSection[] = [
     icon: 'operations',
     items: [
       { label: '필요 인원·운영 알림', description: '직군·시간대별 기준 인원과 미충원·노쇼 대응', href: '/operations' },
-      { label: '함께한 근무자 재요청', description: '검증된 근무 이력이 있는 워커에게 다시 요청', href: '/workforce' },
+      { label: '함께한 근무자 재요청', description: '검증된 근무 이력이 있는 근무자에게 다시 요청', href: '/workforce' },
       { label: '출퇴근 인증 설정', description: '위치·동적 QR 인증 방식과 현장 QR', href: '/attendance-qr' },
       { label: '휴가 관리', description: '직원 신청 승인과 사용 내역', href: '/leave' },
       { label: '월 근태 내역', description: '직원별 근무시간과 예외 기록', href: '/attendance-history' },

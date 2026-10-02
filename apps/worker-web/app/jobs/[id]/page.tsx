@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!shift) return { title: '공고를 찾을 수 없어요 | 잇닿' };
 
   const title = `${shift.region ? `${shift.region} ` : ''}${roleLabel(shift.required_role)} 대타 — ${formatDate(shift.shift_date)} | 잇닿`;
-  const description = `${shift.facility_name}(${facilityLabel(shift.facility_type)}) ${formatDate(shift.shift_date)} ${hhmm(shift.start_time)}~${hhmm(shift.end_time)} 근무, 시급 ${shift.hourly_wage.toLocaleString('ko-KR')}원. 임금은 사업장 직접 지급, 중개 수수료 없음.`;
+  const description = `${shift.facility_name}(${facilityLabel(shift.facility_type)}) ${formatDate(shift.shift_date)} ${hhmm(shift.start_time)}~${hhmm(shift.end_time)} 근무, 시급 ${shift.hourly_wage.toLocaleString('ko-KR')}원. 임금은 사업장 직접 지급, 채용 수수료 없음.`;
   return {
     title,
     description,

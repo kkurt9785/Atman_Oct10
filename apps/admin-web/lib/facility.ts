@@ -19,7 +19,7 @@ export const getCurrentFacilityId=cache(async (): Promise<string | null> => {
 export async function setFacilityCookie(facilityId: string): Promise<void> {
   const session = await requireAdminSession();
   const accessRole = await getFacilityAccessRole(session.user.id, facilityId);
-  if (!accessRole) throw new Error('이 사업장에 대한 권한이 없습니다.');
+  if (!accessRole) throw new Error('이 사업장에 대한 권한이 없어요.');
   await setFacilityContextCookie(facilityId, session.user.id);
 }
 

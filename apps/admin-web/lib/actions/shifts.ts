@@ -32,11 +32,11 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   const invitedWorkerId = String(formData.get('invited_worker_id') ?? '').trim() || null;
 
   if (!shiftDate || !startTime || !endTime || !requiredRole || !description) return { ok: false, message: '필수 항목을 모두 입력해 주세요.' };
-  if (![...ALL_ROLES,'any'].includes(requiredRole)) return { ok: false, message: '필요 자격이 올바르지 않습니다.' };
+  if (![...ALL_ROLES,'any'].includes(requiredRole)) return { ok: false, message: '필요 직군이 올바르지 않아요.' };
   if (requiredRole === 'pharmacy_staff' && PHARMACY_STAFF_LICENSED_TASK.test([description, department, notes].filter(Boolean).join(' '))) {
     return { ok: false, message: '약국 전산·사무직 공고에는 조제·복약지도·의약품 판매 등 약사 면허 업무를 포함할 수 없어요.' };
   }
-  if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026) return { ok: false, message: '시급은 2026년 최저시급 이상이어야 합니다.' };
+  if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026) return { ok: false, message: '시급은 2026년 최저시급 이상이어야 해요.' };
   const estimatedTotalPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage);
   if (estimatedTotalPay == null) return { ok: false, message: '근무 시간을 확인해 주세요.' };
 
@@ -70,8 +70,8 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
       .select('worker_id,status,completed_shift_count,workers(id,auth_user_id,name,role,verification_status,deleted_at)')
       .eq('facility_id', context.facilityId).eq('worker_id', invitedWorkerId).eq('status', 'active').maybeSingle();
     const worker = (poolMember as any)?.workers;
-    if (!worker || Number((poolMember as any)?.completed_shift_count ?? 0) < 1 || worker.deleted_at || worker.verification_status !== 'approved') return { ok: false, message: '반복 초대는 이 사업장에서 근무를 완료한 인력에게만 가능해요. 처음 만나는 워커는 공개 공고로 모집해 주세요.' };
-    if (requiredRole !== 'any' && worker.role !== requiredRole) return { ok: false, message: '워커 자격과 시프트 자격이 일치하지 않아요.' };
+    if (!worker || Number((poolMember as any)?.completed_shift_count ?? 0) < 1 || worker.deleted_at || worker.verification_status !== 'approved') return { ok: false, message: '반복 초대는 이 사업장에서 근무를 완료한 인력에게만 가능해요. 처음 만나는 근무자는 공개 공고로 모집해 주세요.' };
+    if (requiredRole !== 'any' && worker.role !== requiredRole) return { ok: false, message: '근무자 직군과 공고 직군이 일치하지 않아요.' };
     invitedWorker = worker;
   }
   const shiftId = await createShift({
@@ -136,7 +136,7 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
         workers = data ?? [];
       }
 
-      const title = invitedWorker ? `${invitedWorker.name} 님, 반복근무 요청이 왔어요` : `새 시프트 공고 — ${ROLE_LABEL[requiredRole]}`;
+      const title = invitedWorker ? `${invitedWorker.name} 님, 반복근무 요청이 왔어요` : `새 근무 공고 — ${ROLE_LABEL[requiredRole]}`;
       const body = `${shiftDate} ${startTime.slice(0,5)}~${endTime.slice(0,5)} · ${estimatedTotalPay.toLocaleString('ko-KR')}원`;
       const rows = (workers ?? [])
         .filter((worker: { auth_user_id: string | null }) => Boolean(worker.auth_user_id))
@@ -176,7 +176,7 @@ export async function cancelShiftAction(shiftId: string) {
     .in('status', ['open','matched'])
     .select('id')
     .maybeSingle();
-  if (error || !data) throw new Error('취소할 수 없는 시프트예요.');
+  if (error || !data) throw new Error('취소할 수 없는 공고예요.');
   const matchedAuthId = (before as unknown as { status?: string; workers?: { auth_user_id?: string | null } | null } | null)
     ?.status === 'matched'
     ? (before as unknown as { workers?: { auth_user_id?: string | null } | null }).workers?.auth_user_id

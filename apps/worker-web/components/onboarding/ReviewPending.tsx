@@ -46,7 +46,7 @@ export function ReviewPending({ onHome }: { onHome: () => void }) {
 
       <div className="bg-white rounded-card shadow-card px-5 py-4 mb-8">
         <p className="text-[15px] font-bold text-ink">알림은 설정 화면에서 관리해요</p>
-        <p className="text-[13px] text-sub mt-1 break-keep">브라우저 알림 권한과 앱 푸시 구독 상태를 확인할 수 있어요. 카카오톡 알림은 현재 제공하지 않습니다.</p>
+        <p className="text-[13px] text-sub mt-1 break-keep">브라우저 알림 권한과 앱 푸시 구독 상태를 확인할 수 있어요. 카카오톡 알림은 아직 제공하지 않아요.</p>
       </div>
 
       <div className="mt-auto"><Button variant="outline" onClick={onHome}>홈으로</Button></div>

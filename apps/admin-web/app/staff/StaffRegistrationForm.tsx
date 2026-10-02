@@ -109,7 +109,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
 
       {inviteUrl&&<section className="mt-5 rounded-2xl border border-success/30 bg-success/5 p-4">
         <p className="text-[0.875rem] font-extrabold text-ink">등록 완료 · 근무자의 직접 수락이 필요해요</p>
-        <p className="mt-1 text-[0.75rem] leading-5 text-sub">전화번호 입력 여부와 관계없이 링크나 QR을 연 워커가 카카오 로그인 후 수락해야 사업장·워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div>
+        <p className="mt-1 text-[0.75rem] leading-5 text-sub">전화번호 입력 여부와 관계없이 링크나 QR을 연 근무자가 카카오 로그인 후 수락해야 사업장·워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div>
       </section>}
       <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 일회용 초대 만들기</button>
       {isGigworker&&<p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>}
@@ -137,7 +137,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
           <option value="daily">단기 근무</option>
         </select>
       </label>
-      {engagementType==='regular'&&<p className="mt-3 rounded-xl bg-white px-3 py-3 text-[0.75rem] leading-5 text-sub">상시 직원은 계약 종료일을 입력하지 않아도 됩니다.</p>}
+      {engagementType==='regular'&&<p className="mt-3 rounded-xl bg-white px-3 py-3 text-[0.75rem] leading-5 text-sub">상시 직원은 계약 종료일을 입력하지 않아도 돼요.</p>}
       {needsContract&&<ContractRangePicker/>}
     </section>
 
@@ -149,13 +149,13 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
     </section>
     <section className="mt-8 border-t border-line pt-6">
       <h3 className="text-[0.8125rem] font-extrabold text-ink">급여 기준</h3>
-      <p className="mt-1 text-[0.75rem] leading-5 text-sub">근태 기록과 연결해 급여 지급관리에서 세전 예상액을 계산합니다.</p>
+      <p className="mt-1 text-[0.75rem] leading-5 text-sub">근태 기록과 연결해 급여 지급관리에서 세전 예상액을 계산해요.</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" value={payBasis} onChange={event=>setPayBasis(event.target.value)} className={inputClass}><option value="monthly">월급</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
         <label className="text-label font-medium text-sub">{payBasis==='monthly'?'세전 월급':payBasis==='hourly'?'시급':'일급'}<input name="pay_rate" type="number" min="1" step={payBasis==='monthly'?'10000':'100'} required className={inputClass} placeholder={payBasis==='monthly'?'예: 3000000':payBasis==='hourly'?'예: 15000':'예: 150000'}/></label>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-label font-medium text-sub">지급 은행<input name="bank_name" maxLength={40} className={inputClass} placeholder="예: 국민은행"/></label><label className="text-label font-medium text-sub">계좌 끝 4자리<input name="account_last4" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} className={inputClass} placeholder="1234"/></label></div>
-      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-5 text-amber-700">세금·4대보험·수당은 자동 공제하지 않습니다. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
+      <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-5 text-amber-700">세금·4대보험·수당은 자동으로 공제하지 않아요. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
     <input type="hidden" name="default_break_minutes" value="60"/>
     {/* 병원·약국의 '외부 단기근로자 초대'(entry=gigworker)는 직원이 아니라 긱 근무자로 저장한다 — 지급·계좌·비공개 대화가 열린다 */}

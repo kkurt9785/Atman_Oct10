@@ -25,7 +25,7 @@ export default function AdminChatPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
-  const quickReplies=['채용이 확정됐습니다.','예정 시간에 와주세요.','도착하면 채팅 남겨주세요.'];
+  const quickReplies=['채용이 확정됐어요.','예정 시간에 와주세요.','도착하면 채팅 남겨주세요.'];
 
   const load = useCallback(async () => {
     const [{ data: rows }, { data: isOpen }] = await Promise.all([
@@ -90,7 +90,7 @@ export default function AdminChatPage() {
       <div className="bg-white px-5 pt-4 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
         <button onClick={() => router.back()} aria-label="뒤로 가기" className="text-ink text-[1.25rem] leading-none -ml-2 flex h-11 w-11 items-center justify-center">←</button>
         <div className="flex-1">
-          <h1 className="text-[1rem] font-extrabold text-ink">워커 채팅</h1>
+          <h1 className="text-[1rem] font-extrabold text-ink">근무자 채팅</h1>
           <p className="text-[0.6875rem] text-tertiary">개인 연락처 공유 대신 채팅을 이용해 주세요 · 기록 보관</p>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function AdminChatPage() {
                 {m.body}
               </div>
               <p className={`text-[0.625rem] text-tertiary mt-0.5 ${m.sender_type === 'facility' ? 'text-right' : ''}`}>
-                {m.sender_type === 'worker' ? '워커 · ' : ''}{timeLabel(m.created_at)}
+                {m.sender_type === 'worker' ? '근무자 · ' : ''}{timeLabel(m.created_at)}
               </p>
             </div>
           )

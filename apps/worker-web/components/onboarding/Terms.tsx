@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 
-export const CONSENT_VERSION = '2026-07-draft-1';
+export const CONSENT_VERSION = '2026-10-02';
 
 export type TermsValue = {
   birthDate: string;
@@ -67,9 +67,8 @@ export function Terms({ onNext }: { onNext: (value: TermsValue) => void }) {
       <div className="bg-white rounded-t-[24px] flex flex-col max-h-[92vh]">
         <div className="px-6 pt-6 pb-2 flex-shrink-0">
           <div className="w-10 h-1 bg-line rounded mx-auto mb-6" />
-          <h2 className="text-[22px] font-bold text-ink mb-1">이용 전 확인해주세요</h2>
+          <h2 className="text-[22px] font-bold text-ink mb-1">이용 전 확인해 주세요</h2>
           <p className="text-[15px] text-sub">잇닿 서비스 이용을 위해 동의가 필요해요.</p>
-          <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-3">현재 약관은 QA용 초안입니다. 공개 출시 전 법률 검토와 최종 버전 확정이 필요합니다.</p>
         </div>
         <div className="overflow-y-auto flex-1 px-6 pt-4">
           <button type="button" onClick={toggleAll} className="flex items-center gap-3 w-full py-3 mb-2">

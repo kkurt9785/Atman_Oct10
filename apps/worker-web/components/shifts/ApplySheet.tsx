@@ -53,7 +53,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
         {/* confirm 상태 */}
         {state === 'confirm' && (
           <>
-            <h2 className="text-[20px] font-extrabold text-ink mb-1">이 시프트에 지원할까요?</h2>
+            <h2 className="text-[20px] font-extrabold text-ink mb-1">이 근무에 지원할까요?</h2>
             <p className="text-[14px] text-sub mb-6">내가 선택한 공고에 지원하면 사업장이 직접 검토해요</p>
 
             {/* 시프트 요약 */}
@@ -150,7 +150,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
             <span className="text-5xl">🔐</span>
             <h2 className="text-[20px] font-extrabold text-ink">로그인이 필요해요</h2>
             <p className="text-[14px] text-sub text-center">
-              시프트는 먼저 둘러볼 수 있고,<br />가입하면 바로 지원할 수 있어요
+              근무는 먼저 둘러볼 수 있고,<br />가입하면 바로 지원할 수 있어요
             </p>
             <button
               onClick={() => { window.localStorage.setItem('atman_auth_next', `/shifts?highlight=${shift.id}`); window.location.href = '/onboarding?step=splash'; }}

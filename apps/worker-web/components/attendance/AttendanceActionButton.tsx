@@ -69,8 +69,8 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,da
       {!result.ok&&<div className="mt-2 flex flex-wrap gap-2"><button onClick={onRetry} className="h-9 rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">다시 확인</button>{!qrToken&&<button onClick={()=>setQrHelp(true)} className="h-9 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">동적 QR로 인증</button>}</div>}
     </div>}
     {locationIssue&&<p role="alert" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-700">{locationIssue}</p>}
-    {qrHelp&&<div className="mt-2 rounded-xl border border-primary/20 bg-white p-3 text-[12px] leading-5 text-sub"><b className="text-ink">사업장 QR로 인증하는 방법</b><ol className="mt-1 list-decimal pl-4"><li>사업장 접수대·관리자 화면의 동적 출퇴근 QR을 확인합니다.</li><li>아이폰은 기본 카메라, 갤럭시는 카메라의 QR 스캔으로 비춥니다.</li><li>권한 창이 나오면 카메라 허용을 누르고 열린 잇닿 화면에서 출퇴근 버튼을 누릅니다.</li></ol><button onClick={()=>setQrHelp(false)} className="mt-2 font-bold text-primary">확인</button></div>}
-    <p className={`mt-2 text-center text-[11px] ${dark?'text-white/55':'text-sub'}`}>{mode==='gps_or_qr'?'누르면 사용 가능한 방법을 자동으로 확인해요.':`현재 인증: ${MODE_LABEL[mode]}`}{(mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr')?' 위치는 누른 순간에만 확인합니다.':''}</p>
+    {qrHelp&&<div className="mt-2 rounded-xl border border-primary/20 bg-white p-3 text-[12px] leading-5 text-sub"><b className="text-ink">사업장 QR로 인증하는 방법</b><ol className="mt-1 list-decimal pl-4"><li>사업장 접수대·관리자 화면의 동적 출퇴근 QR을 확인해요.</li><li>아이폰은 기본 카메라, 갤럭시는 카메라의 QR 스캔으로 비춥니다.</li><li>권한 창이 나오면 카메라 허용을 누르고 열린 잇닿 화면에서 출퇴근 버튼을 누릅니다.</li></ol><button onClick={()=>setQrHelp(false)} className="mt-2 font-bold text-primary">확인</button></div>}
+    <p className={`mt-2 text-center text-[11px] ${dark?'text-white/55':'text-sub'}`}>{mode==='gps_or_qr'?'누르면 사용 가능한 방법을 자동으로 확인해요.':`현재 인증: ${MODE_LABEL[mode]}`}{(mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr')?' 위치는 누른 순간에만 확인해요.':''}</p>
   </>;
 }
 
@@ -138,8 +138,8 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
     >
       <span className={`flex h-full w-full flex-col items-center justify-center gap-1 rounded-full ${fill} ${text}`}>
         <BrandMark size={36} tone={checkingIn?'onPrimary':'light'}/>
-        <span className="text-[19px] font-extrabold tracking-[-0.3px]">{loading?'확인 중':checkingIn?'닿기':'퇴근'}</span>
-        <span className={`text-[11px] ${checkingIn?'text-white/85':'text-sub'}`}>{loading?MODE_LABEL[mode]:checkingIn?'길게 눌러 출근':'길게 눌러 퇴근'}</span>
+        <span className="text-[19px] font-extrabold tracking-[-0.3px]">{loading?'확인 중':checkingIn?'출근하기':'퇴근하기'}</span>
+        <span className={`text-[11px] ${checkingIn?'text-white/85':'text-sub'}`}>{loading?MODE_LABEL[mode]:'길게 눌러 주세요'}</span>
       </span>
     </button>
     <div className="w-full">

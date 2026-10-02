@@ -164,7 +164,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     rememberWorkerShell(variant);
     window.dispatchEvent(new Event('atman:workplace-linked'));
     setStatus('success');
-    setMessage(`${preview?.facilityName ?? '근무지'}와 이어졌어요. 출퇴근은 근무지에서 '닿기'로 기록해요.`);
+    setMessage(`${preview?.facilityName ?? '근무지'}와 이어졌어요. 출퇴근은 근무지에서 '출근하기'·'퇴근하기' 버튼으로 기록해요.`);
   }
 
   const payText = preview?.payBasis && preview.payRate
@@ -200,7 +200,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
         <button type="button" onClick={() => void claimInvite()} className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
           {!signedIn ? '카카오로 가입하고 잇기' : !hasWorker ? '인적사항 등록하고 잇기' : '잇기 · 초대 수락하고 연결'}
         </button>
-        <p className="mt-3 text-center text-[11px] leading-5 text-sub">앱 설치 없이 현재 화면에서 수락할 수 있어요. 일회용 초대와 내 카카오 로그인 계정이 연결 기준이며, 전화번호는 인증에 사용하지 않습니다.</p>
+        <p className="mt-3 text-center text-[11px] leading-5 text-sub">앱 설치 없이 현재 화면에서 수락할 수 있어요. 일회용 초대와 내 카카오 로그인 계정이 연결 기준이며, 전화번호는 인증에 쓰지 않아요.</p>
         {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
         {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 긱워커 데모 먼저 보기 →</Link>}
       </>}
@@ -208,12 +208,12 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'success' && <>
         {isGig && bankShared === 'shared' && <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] font-bold text-emerald-700">지급 계좌{bankLabel ? ` ${bankLabel}` : ''}를 전달했어요. 근무 시작부터 지급 준비가 돼 있어요.</p>}
         {isGig && bankShared === 'missing' && <Link href="/gig/settlement" className="mt-4 block rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-700">지급 계좌가 아직 없어요 — 근태·지급 탭에서 등록하고 전달하기 →</Link>}
-        <Link href={routes.home} className="mt-5 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">{isGig ? '오늘 근무 보기 · 닿기는 여기서' : '내 근무지 보기'}</Link>
+        <Link href={routes.home} className="mt-5 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">{isGig ? '오늘 근무 보기 · 출근은 여기서' : '내 근무지 보기'}</Link>
         <Link href={isGig ? '/gig/workroom' : '/workroom'} className="mt-2 flex h-11 items-center justify-center rounded-xl border border-line bg-white text-[13px] font-bold text-ink">사업장 워크룸 열기</Link>
         {!standalone && <div className="mt-4 rounded-2xl bg-ink p-4 text-white">
           <p className="text-[11px] font-extrabold tracking-[0.12em] text-white/60">선택 · 10초</p>
-          <p className="mt-1 text-[15px] font-extrabold">홈 화면에 추가하면 닿기·대화·지급을 바로 열어요</p>
-          <p className="mt-1 text-[11px] leading-5 text-white/65">앱스토어 없이 추가돼요. 지금 하지 않아도 수락한 근무와 기록은 그대로 남습니다.</p>
+          <p className="mt-1 text-[15px] font-extrabold">홈 화면에 추가하면 출근·대화·지급을 바로 열어요</p>
+          <p className="mt-1 text-[11px] leading-5 text-white/65">앱스토어 없이 추가돼요. 지금 하지 않아도 수락한 근무와 기록은 그대로 남아요.</p>
           <div className="mt-3"><InstallAppButton label="홈 화면에 잇닿 워커 추가" dark /></div>
         </div>}
       </>}

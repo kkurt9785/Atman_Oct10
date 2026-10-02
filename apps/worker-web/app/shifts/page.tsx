@@ -134,7 +134,7 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
         {area&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">📍 {area}</span>}
         <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>
         {shift.department&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{shift.department}</span>}
-        {shift.is_overnight&&<span className="rounded-full bg-kakao px-2.5 py-1 text-[11px] font-bold text-ink">야간 +50%</span>}
+        {shift.is_overnight&&<span className="rounded-full bg-kakao px-2.5 py-1 text-[11px] font-bold text-ink">야간</span>}
       </div>
 
       {/* 시급 / 예상 지급액 + 지원 버튼 */}
@@ -294,7 +294,7 @@ export default function ShiftsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <p className="text-[15px] text-sub">시프트 불러오는 중...</p>
+        <p className="text-[15px] text-sub">근무 불러오는 중...</p>
       </div>
     );
   }
@@ -304,9 +304,9 @@ export default function ShiftsPage() {
       {/* 헤더 */}
       <div className="pt-14 pb-6 flex items-end justify-between gap-3">
         <div>
-        <p className="text-[14px] text-sub mb-1">내 조건에 맞는 시프트</p>
+        <p className="text-[14px] text-sub mb-1">내 조건에 맞는 근무</p>
         <h1 className="text-[28px] font-extrabold text-ink leading-tight">
-          시프트 {filtered.length}건
+          근무 {filtered.length}건
         </h1>
         {isGuest && (
           <>
@@ -330,7 +330,7 @@ export default function ShiftsPage() {
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <span className="text-5xl">🔍</span>
-          <p className="text-[17px] font-bold text-ink">{reviewPending ? '프로필을 완성하면 공고가 열려요' : '조건에 맞는 시프트가 없어요'}</p>
+          <p className="text-[17px] font-bold text-ink">{reviewPending ? '프로필을 완성하면 공고가 열려요' : '조건에 맞는 근무가 없어요'}</p>
           {reviewPending && (
             <>
               <p className="text-[13px] text-sub text-center leading-5">이력서와 경력 정보를 등록하면<br />바로 지원 가능한 공고가 이 화면에 표시돼요.</p>
@@ -348,7 +348,7 @@ export default function ShiftsPage() {
             }}
             className="text-[14px] font-bold text-primary"
           >
-            전체 시프트 보기
+            전체 근무 보기
           </button>
         </div>
       ) : (

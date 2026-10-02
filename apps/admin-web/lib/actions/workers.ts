@@ -35,7 +35,7 @@ async function reviewWorker(workerId: string, action: 'approve' | 'reject') {
     .select('id, verification_status')
     .maybeSingle();
 
-  if (error || !data) throw new Error('심사 가능한 워커를 찾지 못했어요.');
+  if (error || !data) throw new Error('심사 가능한 근무자를 찾지 못했어요.');
 
   const { error: auditError } = await sb.from('audit_logs').insert({
     actor_type: 'admin',

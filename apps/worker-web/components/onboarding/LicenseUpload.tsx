@@ -43,9 +43,9 @@ export function LicenseUpload({ role, onNext, onSkip }: { role?: WorkerRole | nu
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">{isResume ? '이력서를 등록할게요' : '면허·자격을 등록할게요'}</h1>
       <p className="text-[15px] text-sub mb-6">
         {isResume
-          ? '약국 담당자가 지원자를 확인할 때 참고하는 자료예요. PDF 또는 사진으로 올려주세요. 비공개로 보관됩니다.'
+          ? '약국 담당자가 지원자를 확인할 때 참고하는 자료예요. PDF 또는 사진으로 올려 주세요. 비공개로 보관돼요.'
           : required
-            ? '약사 공고 지원에는 면허 확인이 필요해요. 사진 또는 면허 번호로 등록해 주세요. 비공개로 보관됩니다.'
+            ? '약사 공고 지원에는 면허 확인이 필요해요. 사진 또는 면허 번호로 등록해 주세요. 비공개로 보관돼요.'
             : '사진 또는 면허 번호 중 편한 방법으로 등록하세요. 정보는 비공개로 보관되고 지원한 사업장 담당자에게만 제한적으로 표시돼요.'}
       </p>
 
@@ -73,7 +73,7 @@ export function LicenseUpload({ role, onNext, onSkip }: { role?: WorkerRole | nu
         <>
           <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={(e) => choose(e.target.files?.[0])} />
           <button type="button" onClick={() => inputRef.current?.click()} className="w-full rounded-[20px] border-2 border-dashed border-primary bg-primary-light flex flex-col items-center justify-center gap-3 mb-3 transition-opacity active:opacity-70" style={{ height: 200 }}>
-            {file ? <p className="text-[15px] font-medium text-primary px-4 text-center break-all">{file.name}</p> : <><span className="text-4xl">📋</span><span className="text-[16px] font-semibold text-primary">{isResume ? '이력서 파일을 올려주세요' : '사진을 올려주세요'}</span></>}
+            {file ? <p className="text-[15px] font-medium text-primary px-4 text-center break-all">{file.name}</p> : <><span className="text-4xl">📋</span><span className="text-[16px] font-semibold text-primary">{isResume ? '이력서 파일을 올려 주세요' : '사진을 올려 주세요'}</span></>}
           </button>
           <p className="text-[13px] text-tertiary text-center mb-2">{isResume ? 'PDF · JPG · PNG, 10MB 이내' : 'JPG · PNG · WEBP · HEIC · PDF, 10MB 이내'}</p>
         </>

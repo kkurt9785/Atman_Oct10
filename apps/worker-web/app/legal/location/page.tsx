@@ -1,11 +1,69 @@
-export default function LegalPage() {
+import { LegalDoc, COMPANY } from '@/components/legal/LegalDoc';
+
+export const metadata = { title: '위치정보 이용약관 | 잇닿' };
+
+export default function LocationPage() {
   return (
-    <main className="min-h-screen bg-white px-6 py-12">
-      <p className="text-[12px] font-bold text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-5">QA용 초안 · 공개 출시 전 법률 검토 및 최종 버전 확정 필요</p>
-      <h1 className="text-[24px] font-extrabold text-ink">위치정보 이용 안내</h1>
-      <p className="text-[13px] text-sub mt-2">버전: 2026-07-draft-1</p>
-      <ul className="mt-6 list-disc pl-5 space-y-3 text-[14px] text-ink"><li>근처 시프트 검색과 출퇴근 거리 검증에 사용</li><li>GPS 거부 시 등록 활동지역을 사용할 수 있음</li><li>출퇴근 검증에 사용된 거리 결과와 감사기록 보관 기준은 출시 전 확정</li><li>공개 출시 전 위치기반서비스 관련 신고·약관 검토 필요</li></ul>
-      <p className="mt-8 text-[12px] text-tertiary">이 문서는 테스트용 요약이며 법률 자문을 대체하지 않습니다.</p>
-    </main>
+    <LegalDoc
+      title="위치정보 이용약관"
+      intro={<p>이 약관은 {COMPANY.name}(이하 &quot;회사&quot;)가 {COMPANY.service} 서비스에서 회원의 위치정보를 이용하는 조건과 절차를 정합니다.</p>}
+      sections={[
+        {
+          title: '목적',
+          body: <p>이 약관은 회사가 제공하는 위치기반서비스의 이용과 관련해 회사와 회원의 권리·의무를 정하는 것을 목적으로 합니다.</p>,
+        },
+        {
+          title: '서비스 내용',
+          body: (
+            <ol>
+              <li>가까운 근무 찾기: 현재 위치나 회원이 등록한 활동 지역을 기준으로 가까운 공고를 보여 주고 새 공고를 알립니다.</li>
+              <li>출퇴근 확인: 출근하기·퇴근하기를 누른 순간의 위치로 사업장이 정한 반경 안에 있는지 확인합니다.</li>
+            </ol>
+          ),
+        },
+        {
+          title: '위치정보의 수집 방법',
+          body: (
+            <ol>
+              <li>위치는 회원이 화면에서 위치 확인이나 출근하기·퇴근하기를 누를 때만 기기에서 가져옵니다. 앱을 쓰지 않는 동안 위치를 계속 수집하지 않습니다.</li>
+              <li>회원은 기기 설정에서 위치 권한을 끌 수 있습니다. 이 경우 등록한 활동 지역으로 공고를 보고, 사업장이 허용하면 동적 QR로 출퇴근할 수 있습니다.</li>
+            </ol>
+          ),
+        },
+        {
+          title: '보유 기간',
+          body: (
+            <ol>
+              <li>출퇴근 순간의 위치 좌표는 근무일로부터 90일 뒤 삭제합니다. 사업장까지의 거리와 인증 결과는 근무 기록과 함께 3년 동안 보관합니다.</li>
+              <li>「위치정보의 보호 및 이용 등에 관한 법률」에 따라 위치정보 이용·제공 사실 확인자료는 3년 동안 보관합니다.</li>
+            </ol>
+          ),
+        },
+        {
+          title: '제3자 제공',
+          body: <p>회사는 출퇴근 확인 결과(시각, 인증 방식, 사업장까지의 거리)를 해당 근무의 사업장에 제공합니다. 그 밖에는 회원의 동의 없이 위치정보를 제3자에게 제공하지 않습니다. 제공한 경우 회원이 요청하면 받는 곳·일시·목적을 알려 드립니다.</p>,
+        },
+        {
+          title: '회원의 권리',
+          body: <p>회원은 위치정보 이용 동의의 전부 또는 일부를 철회하거나 일시 중지를 요구할 수 있고, 위치정보 이용·제공 사실 확인자료의 열람과 오류 정정을 요구할 수 있습니다. 요청은 고객센터({COMPANY.phone})로 하면 지체 없이 처리합니다.</p>,
+        },
+        {
+          title: '이용 연령',
+          body: <p>서비스는 만 18세 이상만 가입할 수 있으며, 만 14세 미만 아동의 위치정보는 수집하지 않습니다.</p>,
+        },
+        {
+          title: '위치정보관리책임자',
+          body: <p>위치정보관리책임자: {COMPANY.ceo}(대표) · 연락처 {COMPANY.phone}</p>,
+        },
+        {
+          title: '분쟁 조정',
+          body: <p>위치정보와 관련한 분쟁은 「위치정보의 보호 및 이용 등에 관한 법률」에 따라 방송통신위원회에 재정을 신청하거나, 개인정보분쟁조정위원회(1833-6972)에 조정을 신청할 수 있습니다.</p>,
+        },
+        {
+          title: '약관의 변경',
+          body: <p>이 약관을 바꾸면 시행 7일 전부터 서비스 화면에 안내합니다.</p>,
+        },
+      ]}
+    />
   );
 }

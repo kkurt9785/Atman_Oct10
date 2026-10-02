@@ -104,7 +104,7 @@ export default function ClaimFacilityPage() {
     startTransition(async () => {
       const result = await claimFacility(selected.id, inviteCode);
       if (result.ok) router.replace('/');
-      else setError(result.error ?? '연결 실패');
+      else setError(result.error ?? '사업장을 연결하지 못했어요. 잠시 후 다시 시도해 주세요.');
     });
   }
 
@@ -349,14 +349,14 @@ export default function ClaimFacilityPage() {
             ):(
               <>
                 <h2 id="request-title" className="text-[1.1875rem] font-extrabold">신규 사업장 등록 요청</h2>
-                <p className="mt-1 text-[0.75rem] text-sub">사업자등록증 제출은 담당자 확인 단계에서 별도로 안내합니다.</p>
+                <p className="mt-1 text-[0.75rem] text-sub">사업자등록증 제출은 담당자 확인 단계에서 따로 안내해 드려요.</p>
                 <p className="mt-4 text-[0.75rem] font-bold text-sub">사업장 유형</p>
                 <div className="mt-1 grid grid-cols-3 gap-2">
                   <button type="button" onClick={()=>setRequestType('pharmacy')} aria-pressed={requestType==='pharmacy'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='pharmacy'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">약국</span><span className="mt-1 block text-[0.625rem] font-medium text-sub">5명 59,000원부터</span></button>
                   <button type="button" onClick={()=>setRequestType('medical')} aria-pressed={requestType==='medical'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='medical'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">병원·의원</span><span className="mt-1 block text-[0.625rem] font-medium text-sub">10명 69,000원</span></button>
                   <button type="button" onClick={()=>setRequestType('care')} aria-pressed={requestType==='care'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='care'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">요양병원</span><span className="mt-1 block text-[0.625rem] font-medium text-sub">20명 119,000원</span></button>
                 </div>
-                <p className="mt-2 text-[0.6875rem] leading-4 text-sub">30일 무료 체험 후 선택한 업종과 관리 인원에 맞는 요금제만 표시됩니다.</p>
+                <p className="mt-2 text-[0.6875rem] leading-4 text-sub">30일 무료 체험 후 선택한 업종과 관리 인원에 맞는 요금제만 보여 드려요.</p>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="col-span-2 text-[0.75rem] font-bold text-sub">사업장명<input value={requestForm.name} onChange={e=>updateRequest('name',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="사업장명"/></label>
                   <label className="col-span-2 text-[0.75rem] font-bold text-sub">주소<input value={requestForm.address} onChange={e=>updateRequest('address',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="도로명 주소"/></label>

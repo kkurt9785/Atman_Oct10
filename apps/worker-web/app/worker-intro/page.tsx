@@ -4,7 +4,7 @@ import { InstallAppButton } from '@/components/InstallAppButton';
 
 export const metadata: Metadata = {
   title: '간호사·약사 단기근무 시작하기 | 잇닿',
-  description: '내 지역의 병원·약국·요양병원 단기근무 공고를 확인하고 지원하세요. 근무 확정부터 출퇴근, 지급 확인까지 잇닿에서 이어집니다.',
+  description: '내 지역의 병원·약국·요양병원 단기근무 공고를 확인하고 지원하세요. 근무 확정부터 출퇴근, 지급 확인까지 잇닿에서 이어져요.',
   alternates: { canonical: 'https://itdot.co.kr/worker-intro' },
   openGraph: {
     title: '내가 가능한 시간, 가까운 근무부터 | 잇닿',
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
 
 const STEPS = [
   { number: '01', title: '내 직군과 지역만 등록', body: '가능한 직군과 일할 지역을 한 번만 설정하세요. 내 조건에 맞는 병원·약국·요양병원 공고를 알려드려요.' },
-  { number: '02', title: '조건을 보고 직접 지원', body: '근무시간·시급·업무·사업장 정보를 먼저 확인하고, 원하는 공고에만 지원합니다. 확정 전에는 언제든 지원 현황을 볼 수 있어요.' },
-  { number: '03', title: '근무·출퇴근·지급 확인까지', body: '수락되면 채팅으로 안내를 받고, 근무 당일에는 앱에서 출퇴근합니다. 지급 완료 후에는 내역을 직접 확인할 수 있어요.' },
+  { number: '02', title: '조건을 보고 직접 지원', body: '근무시간·시급·업무·사업장 정보를 먼저 확인하고, 원하는 공고에만 지원해요. 확정 전에는 언제든 지원 현황을 볼 수 있어요.' },
+  { number: '03', title: '근무·출퇴근·지급 확인까지', body: '수락되면 채팅으로 안내를 받고, 근무 당일에는 출근하기 버튼 한 번이면 돼요. 못 나가게 되면 대타를 요청할 수 있고, 지급 내역도 직접 확인해요.' },
 ];
 
 const ROLES = ['간호사', '간호조무사', '약사', '약국 전산·사무직'];
@@ -70,15 +70,15 @@ export default function WorkerIntroPage() {
     <section className="border-y border-line bg-white px-6 py-8">
       <p className="text-[13px] font-bold text-primary">근무 당일에도</p>
       <h2 className="mt-1 text-[21px] font-extrabold text-ink">버튼 한 번으로 출퇴근</h2>
-      <div className="mt-4 rounded-card bg-primary/5 p-5"><p className="text-[15px] font-extrabold text-ink">위치 인증을 먼저 확인해요</p><p className="mt-2 text-[13px] leading-5 text-sub">사업장에 도착해 출근하기를 누르면 현재 위치를 확인합니다. 실내에서 GPS가 불안정하면 사업장 동적 QR로 보완할 수 있어요.</p><div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-bold"><span className="rounded-xl bg-white px-2 py-3 text-primary">출근하기</span><span className="rounded-xl bg-white px-2 py-3 text-primary">근무 중</span><span className="rounded-xl bg-white px-2 py-3 text-primary">퇴근하기</span></div></div>
+      <div className="mt-4 rounded-card bg-primary/5 p-5"><p className="text-[15px] font-extrabold text-ink">위치 인증을 먼저 확인해요</p><p className="mt-2 text-[13px] leading-5 text-sub">사업장에 도착해 출근하기를 누르면 현재 위치를 확인해요. 실내에서 GPS가 불안정하면 사업장 동적 QR로 보완할 수 있어요.</p><div className="mt-4 grid grid-cols-3 gap-2 text-center text-[11px] font-bold"><span className="rounded-xl bg-white px-2 py-3 text-primary">출근하기</span><span className="rounded-xl bg-white px-2 py-3 text-primary">근무 중</span><span className="rounded-xl bg-white px-2 py-3 text-primary">퇴근하기</span></div></div>
     </section>
 
     <section className="px-6 py-9">
       <h2 className="text-[21px] font-extrabold text-ink">꼭 알아둘 점</h2>
       <ul className="mt-4 space-y-3 rounded-card border border-line p-5 text-[13px] leading-5 text-sub">
         <li><b className="text-ink">지원과 채용 확정은 다릅니다.</b> 사업장이 수락하면 근무가 확정되고 채팅으로 안내를 받을 수 있어요.</li>
-        <li><b className="text-ink">자격은 채용 과정에서 사업장이 확인합니다.</b> 잇닿은 자격 심사기관이 아니며, 면허·원본·공식 조회 등은 사업장 내부 절차로 확인합니다.</li>
-        <li><b className="text-ink">임금은 사업장이 직접 지급합니다.</b> 근무 완료 후 지급 상태를 앱에서 확인하고, 입금이 확인되면 완료로 표시할 수 있어요.</li>
+        <li><b className="text-ink">자격은 채용 과정에서 사업장이 확인해요.</b> 잇닿은 자격 심사기관이 아니며, 면허·원본·공식 조회 등은 사업장 내부 절차로 확인해요.</li>
+        <li><b className="text-ink">임금은 사업장이 직접 지급해요.</b> 근무 완료 후 지급 상태를 앱에서 확인하고, 입금이 확인되면 완료로 표시할 수 있어요.</li>
       </ul>
     </section>
 

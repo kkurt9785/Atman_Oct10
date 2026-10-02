@@ -46,7 +46,7 @@ export async function getActiveCoverRequests(): Promise<CoverRequestRow[]> {
         id: row.id, status: row.status, shiftId: shift.id, shiftDate: shift.shift_date,
         startTime: shift.start_time, endTime: shift.end_time, isOvernight: Boolean(shift.is_overnight),
         department: shift.department ?? null, requiredRole: shift.required_role ?? null,
-        requesterName: requester?.name ?? '워커', claimerName: claimer?.name ?? null, claimerRole: claimer?.role ?? null,
+        requesterName: requester?.name ?? '근무자', claimerName: claimer?.name ?? null, claimerRole: claimer?.role ?? null,
         reason: row.reason ?? null, createdAt: row.created_at,
       } as CoverRequestRow : null;
     })

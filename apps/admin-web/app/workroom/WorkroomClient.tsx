@@ -131,7 +131,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
 
     <section className="min-h-[360px] flex-1 overflow-y-auto rounded-2xl bg-white px-4 py-4 shadow-sm">
       {loading && <p className="py-16 text-center text-[0.8125rem] text-sub">워크룸 기록을 불러오고 있어요...</p>}
-      {!loading && messages.length === 0 && <div className="py-16 text-center"><p className="text-[0.9375rem] font-bold text-ink">{selectedMember?`${selectedMember.name}님과 첫 대화를 시작하세요`:'첫 공지를 남겨보세요'}</p><p className="mt-1 text-[0.75rem] text-sub">{selectedMember?'이 대화는 해당 근무자와 관리자만 볼 수 있어요.':'가입한 모든 워커의 앱과 알림으로 전달돼요.'}</p></div>}
+      {!loading && messages.length === 0 && <div className="py-16 text-center"><p className="text-[0.9375rem] font-bold text-ink">{selectedMember?`${selectedMember.name}님과 첫 대화를 시작하세요`:'첫 공지를 남겨보세요'}</p><p className="mt-1 text-[0.75rem] text-sub">{selectedMember?'이 대화는 해당 근무자와 관리자만 볼 수 있어요.':'가입한 모든 근무자의 앱과 알림으로 전달돼요.'}</p></div>}
       <div className="flex flex-col gap-3">
         {messages.map((message) => {
           if (message.sender_type === 'system') return <div key={message.id} className={`rounded-2xl px-4 py-3 text-[0.75rem] leading-5 ${message.message_type === 'attendance' ? 'border border-primary/15 bg-primary/5 text-ink' : 'bg-bg text-sub'}`}><p className="font-bold text-primary">{message.sender_name}</p><p>{message.body}</p><time className="mt-1 block text-[0.625rem] text-tertiary">{timeLabel(message.created_at)}</time></div>;

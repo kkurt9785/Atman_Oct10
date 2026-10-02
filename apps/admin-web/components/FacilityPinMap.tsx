@@ -67,7 +67,7 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
       <div ref={mapEl} className="h-56 w-full rounded-xl bg-[#E8EDF2]" aria-label="사업장 위치 지도" />
       <CurrentLocationButton className="mt-2" radiusMeters={radiusMeters} onChange={onChange} />
       {error ? <p role="alert" className="mt-2 text-[0.75rem] text-warn">{error}</p>
-        : <p className="mt-2 text-[0.75rem] text-sub">사업장 안에서 위 버튼을 누르면 가장 정확해요. 핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰도 됩니다. 원은 출퇴근 인증 반경 미리보기예요.</p>}
+        : <p className="mt-2 text-[0.75rem] text-sub">사업장 안에서 위 버튼을 누르면 가장 정확해요. 핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰도 돼요. 원은 출퇴근 인증 반경 미리보기예요.</p>}
     </div>
   );
 }

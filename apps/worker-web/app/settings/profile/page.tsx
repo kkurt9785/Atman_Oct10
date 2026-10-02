@@ -87,11 +87,11 @@ export default function ProfileEditPage() {
     setError(null);
     // 자격 확인은 사업장이 채용 확정 전에 수행한다 — 프로필 저장은 어떤 직군도 면허를 강제하지 않는다
   const requiresLicense = false;
-    if (requiresLicense && licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해주세요.'); return; }
-    if (requiresLicense && licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해주세요.'); return; }
-    if (!experience) { setError('경력을 선택해주세요.'); return; }
-    if (!lastWorkplace.trim()) { setError('최근 근무지를 입력해주세요.'); return; }
-    if (deptTags.length === 0) { setError('부서 태그를 최소 1개 선택해주세요.'); return; }
+    if (requiresLicense && licenseMode === 'text' && !licenseNumber.trim()) { setError('면허 번호를 입력해 주세요.'); return; }
+    if (requiresLicense && licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해 주세요.'); return; }
+    if (!experience) { setError('경력을 선택해 주세요.'); return; }
+    if (!lastWorkplace.trim()) { setError('최근 근무지를 입력해 주세요.'); return; }
+    if (deptTags.length === 0) { setError('부서 태그를 최소 1개 선택해 주세요.'); return; }
 
     setSaving(true);
     let uploadedPath: string | null = null;
@@ -158,7 +158,7 @@ export default function ProfileEditPage() {
         {/* 면허증 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
           <p className="text-[13px] font-bold text-sub mb-1">{role === 'pharmacy_staff' ? '이력서' : role === 'rn' || role === 'na' ? '면허·자격 (선택)' : '면허증 *'}</p>
-          {(role === 'rn' || role === 'na') && <p className="mb-3 text-[12px] text-sub">미리 등록하면 사업장 확인이 빨라져요. 등록하지 않아도 지원할 수 있습니다.</p>}
+          {(role === 'rn' || role === 'na') && <p className="mb-3 text-[12px] text-sub">미리 등록하면 사업장 확인이 빨라져요. 등록하지 않아도 지원할 수 있어요.</p>}
 
           {/* 탭 토글 — 이력서(전산·사무직)는 파일 업로드만 */}
           {role !== 'pharmacy_staff' && <div className="flex bg-bg rounded-xl p-1 mb-4">
@@ -266,7 +266,7 @@ export default function ProfileEditPage() {
         {/* 주요 부서 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
           <p className="text-[13px] font-bold text-sub mb-1">주요 부서 <span className="font-normal">(복수 선택)</span> *</p>
-          <p className="text-[11px] text-tertiary mb-3">경험 있는 부서를 모두 선택해주세요</p>
+          <p className="text-[11px] text-tertiary mb-3">경험 있는 부서를 모두 선택해 주세요</p>
           <div className="flex flex-wrap gap-2">
             {(role === 'pharmacist' ? PHARMACIST_TAGS : role === 'pharmacy_staff' ? PHARMACY_STAFF_TAGS : DEPT_TAGS).map((tag) => (
               <button

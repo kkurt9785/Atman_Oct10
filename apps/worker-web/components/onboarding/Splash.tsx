@@ -60,7 +60,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok || !payload.accessToken || !payload.refreshToken || (gigworker && !payload.gigInviteToken)) {
-      setDemoError(payload.error ?? '데모 워커 로그인에 실패했습니다.');
+      setDemoError(payload.error ?? '시연 계정에 들어가지 못했어요. 잠시 후 다시 눌러 주세요.');
       setDemoLoadingEmail(null);
       return;
     }
@@ -69,7 +69,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
       refresh_token: payload.refreshToken,
     });
     if (error) {
-      setDemoError('데모 세션을 만들지 못했습니다.');
+      setDemoError('시연 화면을 열지 못했어요. 잠시 후 다시 눌러 주세요.');
       setDemoLoadingEmail(null);
       return;
     }
@@ -111,7 +111,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
           href="/shifts"
           className="w-full h-14 flex items-center justify-center rounded-btn bg-primary text-white text-[17px] font-bold shadow-btn active:opacity-80"
         >
-          시프트 먼저 둘러보기
+          근무 먼저 둘러보기
         </Link>}
         <Button variant="kakao" onClick={handleKakaoLogin} disabled={loading}>
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

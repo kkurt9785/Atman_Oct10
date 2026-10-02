@@ -43,7 +43,7 @@ export function LiveDemoLocationButton() {
       setMessage('');
       const code = (cause as GeolocationPositionError).code;
       setError(code === 1
-        ? '위치 권한을 허용해 주세요. 아이폰은 Safari 설정 또는 홈 화면 앱의 위치 권한을 확인하면 됩니다.'
+        ? '위치 권한을 허용해 주세요. 아이폰은 Safari 설정 또는 홈 화면 앱의 위치 권한을 확인해 주세요.'
         : code === 3 ? '위치 확인 시간이 초과됐어요. 창가나 실외에서 다시 시도해 주세요.'
           : cause instanceof Error ? cause.message : '현재 위치를 확인하지 못했어요.');
     });

@@ -26,7 +26,7 @@ export function CopyInviteButton({url,primary=false}:{url:string;primary?:boolea
       <section className="w-full max-w-[340px] rounded-3xl bg-white p-5 text-center shadow-xl" onClick={event=>event.stopPropagation()}>
         <div className="flex items-start justify-between gap-4 text-left"><div><p className="text-[0.75rem] font-bold text-primary">전화번호 없이 직접 수락</p><h2 className="mt-1 text-[1.25rem] font-extrabold text-ink">이 일회용 QR을 스캔해 주세요</h2></div><button type="button" onClick={()=>setQrOpen(false)} aria-label="닫기" className="flex h-10 w-10 items-center justify-center rounded-full bg-bg text-[1.25rem] text-sub">×</button></div>
         <div className="mt-5 rounded-2xl bg-bg p-4"><QrCanvas value={url} size={244} label="잇닿 근무자 가입 QR"/></div>
-        <p className="mt-4 text-[0.75rem] leading-5 text-sub">앱 설치 없이 브라우저에서 조건을 확인할 수 있어요. 카카오 로그인 후 근무자가 직접 수락해야 사업장과 워크룸에 연결됩니다.</p>
+        <p className="mt-4 text-[0.75rem] leading-5 text-sub">앱 설치 없이 브라우저에서 조건을 확인할 수 있어요. 카카오 로그인 후 근무자가 직접 수락해야 사업장과 워크룸에 연결돼요.</p>
         <button type="button" onClick={share} className="mt-4 h-11 w-full rounded-xl bg-ink text-[0.8125rem] font-extrabold text-white">QR 대신 링크 보내기</button>
       </section>
     </div>}

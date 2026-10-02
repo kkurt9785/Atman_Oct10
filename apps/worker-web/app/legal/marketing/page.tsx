@@ -1,11 +1,36 @@
-export default function LegalPage() {
+import { LegalDoc, COMPANY } from '@/components/legal/LegalDoc';
+
+export const metadata = { title: '마케팅 정보 수신 동의 | 잇닿' };
+
+export default function MarketingPage() {
   return (
-    <main className="min-h-screen bg-white px-6 py-12">
-      <p className="text-[12px] font-bold text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-5">QA용 초안 · 공개 출시 전 법률 검토 및 최종 버전 확정 필요</p>
-      <h1 className="text-[24px] font-extrabold text-ink">마케팅 정보 수신 안내</h1>
-      <p className="text-[13px] text-sub mt-2">버전: 2026-07-draft-1</p>
-      <ul className="mt-6 list-disc pl-5 space-y-3 text-[14px] text-ink"><li>선택 동의이며 거부해도 핵심 서비스 이용 가능</li><li>혜택·신규 시프트 관련 마케팅 알림에 사용</li><li>설정에서 언제든 철회 가능</li><li>지원·보안·임금 지급정보 알림은 마케팅 동의와 별도</li></ul>
-      <p className="mt-8 text-[12px] text-tertiary">이 문서는 테스트용 요약이며 법률 자문을 대체하지 않습니다.</p>
-    </main>
+    <LegalDoc
+      title="마케팅 정보 수신 동의 (선택)"
+      intro={<p>동의하지 않아도 공고 확인·지원, 출퇴근, 지급 확인 등 서비스는 그대로 이용할 수 있습니다.</p>}
+      sections={[
+        {
+          title: '목적',
+          body: <p>회원 혜택, 이벤트, 새 기능 안내를 보내기 위해 아래 정보를 이용합니다.</p>,
+        },
+        {
+          title: '이용 항목과 방법',
+          body: (
+            <ul>
+              <li>이용 항목: 이름, 휴대전화번호, 직군, 활동 지역, 앱 알림 수신 기기 정보</li>
+              <li>보내는 방법: 앱 알림</li>
+              <li>밤 9시부터 다음 날 오전 8시까지는 광고성 알림을 보내지 않습니다.</li>
+            </ul>
+          ),
+        },
+        {
+          title: '보유 기간과 철회',
+          body: <p>동의를 철회할 때까지 이용합니다. 철회는 고객센터({COMPANY.phone})로 요청하면 지체 없이 처리하며, 철회 후에는 광고성 알림을 보내지 않습니다.</p>,
+        },
+        {
+          title: '광고가 아닌 알림',
+          body: <p>지원 결과, 근무 확정, 출근 안내, 대타 요청, 지급 상태 등 서비스 이용에 꼭 필요한 알림은 마케팅 동의와 관계없이 보냅니다.</p>,
+        },
+      ]}
+    />
   );
 }

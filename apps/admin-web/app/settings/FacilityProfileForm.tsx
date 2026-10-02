@@ -43,7 +43,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         setAllowedIps(allowed_ips);
         setNetMessage(`현재 네트워크(${ip})를 등록했어요 ✓`);
       } catch (err) {
-        setNetMessage(err instanceof Error ? err.message : '등록 실패');
+        setNetMessage(err instanceof Error ? err.message : '등록하지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
     });
   }
@@ -56,7 +56,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         setAllowedIps([]);
         setNetMessage('등록된 네트워크를 모두 해제했어요');
       } catch (err) {
-        setNetMessage(err instanceof Error ? err.message : '해제 실패');
+        setNetMessage(err instanceof Error ? err.message : '해제하지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
     });
   }
@@ -73,7 +73,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
         await saveFacilityProfile(formData);
         setSaved(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : '저장 실패');
+        setError(err instanceof Error ? err.message : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
     });
   }
@@ -159,7 +159,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
       {/* 사업장 소개 */}
       <section className="bg-white rounded-2xl p-5 mb-6">
         <p className="text-[0.8125rem] font-bold text-sub mb-2">{facilityWord} 소개</p>
-        <p className="text-[0.75rem] text-tertiary mb-3">워커에게 보여질 한 두 줄 소개입니다</p>
+        <p className="text-[0.75rem] text-tertiary mb-3">근무자에게 보이는 한두 줄 소개예요</p>
         <textarea
           name="intro"
           defaultValue={profile?.intro ?? ''}
@@ -182,7 +182,7 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
             <option value="admin">관리자 승인만</option>
           </select>
         </label>
-        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[0.75rem] leading-5 text-sub"><b className="text-primary">추천 · 버튼 한 번으로 출퇴근</b><br/>직원은 앱에서 출퇴근 버튼만 누르면 됩니다. 시스템이 위치 또는 등록된 {facilityWord} Wi-Fi를 자동으로 확인하고, 둘 다 어려울 때만 60초 동적 QR을 안내해요.</div>
+        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[0.75rem] leading-5 text-sub"><b className="text-primary">추천 · 버튼 한 번으로 출퇴근</b><br/>직원은 앱에서 출퇴근 버튼만 누르면 돼요. 시스템이 위치 또는 등록된 {facilityWord} Wi-Fi를 자동으로 확인하고, 둘 다 어려울 때만 60초 동적 QR을 안내해요.</div>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-[0.75rem] text-sub">GPS 반경
             <select name="gps_radius_meters" defaultValue={profile?.gps_radius_meters??30} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">
@@ -199,8 +199,8 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
           <label className="text-[0.75rem] text-sub">지각 유예(분)<input name="late_grace_minutes" type="number" min="0" max="120" defaultValue={profile?.late_grace_minutes??20} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
           <label className="text-[0.75rem] text-sub">조퇴 유예(분)<input name="early_leave_grace_minutes" type="number" min="0" max="120" defaultValue={profile?.early_leave_grace_minutes??10} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
         </div>
-        <p className="mt-2 text-[0.75rem] leading-5 text-tertiary">예정 출근시각에서 <b className="text-ink">지각 유예</b>까지는 지각으로 기록하지 않아요. 기본 20분이고, 0분으로 두면 1분만 늦어도 지각으로 남습니다.</p>
-        <p className="mt-1 text-[0.75rem] leading-5 text-tertiary">예정 퇴근시각에서 <b className="text-ink">조퇴 유예</b> 안에 퇴근을 누르면 승인 없이 바로 퇴근이 확정돼요. 일이 예정보다 조금 일찍 끝나는 경우를 위한 값이라 기본 10분입니다. 유예를 넘겨 퇴근하면 지금처럼 관리자 승인 대기로 남고, <b className="text-ink">승인하지 않으면 그날 근무는 급여에 0분으로 잡힙니다.</b> 0분으로 두면 1분만 일찍 눌러도 승인이 필요해요.</p>
+        <p className="mt-2 text-[0.75rem] leading-5 text-tertiary">예정 출근시각에서 <b className="text-ink">지각 유예</b>까지는 지각으로 기록하지 않아요. 기본 20분이고, 0분으로 두면 1분만 늦어도 지각으로 남아요.</p>
+        <p className="mt-1 text-[0.75rem] leading-5 text-tertiary">예정 퇴근시각에서 <b className="text-ink">조퇴 유예</b> 안에 퇴근을 누르면 승인 없이 바로 퇴근이 확정돼요. 일이 예정보다 조금 일찍 끝나는 경우를 위한 값이라 기본 10분이에요. 유예를 넘겨 퇴근하면 지금처럼 관리자 승인 대기로 남고, <b className="text-ink">승인하지 않으면 그날 근무는 급여에 0분으로 잡혀요.</b> 0분으로 두면 1분만 일찍 눌러도 승인이 필요해요.</p>
         {(attendanceMode==='gps'||attendanceMode==='gps_or_qr')
           ?<label className="mt-4 flex items-center gap-2 text-[0.8125rem] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>위치 인증 실패 시 동적 QR 보완 허용</label>
           :(profile?.qr_fallback_enabled??true)&&<input type="hidden" name="qr_fallback_enabled" value="on"/>}

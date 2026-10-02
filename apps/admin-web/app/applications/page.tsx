@@ -25,7 +25,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams?
       <div className="px-1 mt-2 mb-4">
         <h1 className="text-display font-extrabold text-ink">지원 현황</h1>
         <p className="text-body text-sub mt-1">
-          {total > 0 ? `대기 중 ${total}건` : '대기 중인 지원이 없습니다'}
+          {total > 0 ? `대기 중 ${total}건` : '대기 중인 지원이 없어요'}
         </p>
       </div>
       <OperationsFlow active="applications"/>
@@ -52,7 +52,7 @@ export default async function ApplicationsPage({ searchParams }: { searchParams?
       {total > 0 && (
         <div className="mb-4 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
           <p className="text-[0.8125rem] font-extrabold text-ink">수락하면 운영 흐름에 바로 연결돼요</p>
-          <p className="mt-1 text-[0.75rem] leading-5 text-sub">확정 인력은 직원 관리와 해당 시프트 근태에 반영되고, 근무 완료 후 공고 시급 기준으로 급여 검토까지 이어집니다.</p>
+          <p className="mt-1 text-[0.75rem] leading-5 text-sub">확정 인력은 직원 관리와 해당 근무 근태에 반영되고, 근무 완료 후 공고 시급 기준으로 급여 검토까지 이어져요.</p>
           <div className="mt-2 flex items-center gap-1 text-[0.6875rem] font-bold text-primary" aria-label="수락 이후 처리 흐름">
             <span>지원 수락</span><span aria-hidden>→</span><span>근태</span><span aria-hidden>→</span><span>급여 검토</span>
           </div>

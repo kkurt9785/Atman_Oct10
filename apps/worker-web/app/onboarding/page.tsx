@@ -86,7 +86,7 @@ function OnboardingInner() {
         const { error: uploadError } = await supabase.storage.from('license-photos').upload(uploadedPath, licenseFile, {
           cacheControl: '3600', upsert: false, contentType: licenseFile.type,
         });
-        if (uploadError) throw new Error(`서류 파일 업로드 실패: ${uploadError.message}`);
+        if (uploadError) throw new Error('서류 파일을 올리지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
 
       const { error: rpcError } = await supabase.rpc('complete_worker_onboarding', {

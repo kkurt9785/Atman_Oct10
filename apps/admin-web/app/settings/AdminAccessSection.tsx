@@ -19,7 +19,7 @@ export function AdminAccessSection({ admins, facilityWord }: { admins: FacilityA
         await setAdminPayrollVisibility(userId, allow);
         setRows((prev) => prev.map((r) => (r.userId === userId ? { ...r, canViewPayroll: allow } : r)));
       } catch (err) {
-        setMessage(err instanceof Error ? err.message : '변경 실패');
+        setMessage(err instanceof Error ? err.message : '변경하지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
     });
   }
@@ -53,7 +53,7 @@ export function AdminAccessSection({ admins, facilityWord }: { admins: FacilityA
           </div>
         ))}
       </div>
-      <p className="mt-1 text-[0.75rem] text-tertiary">스위치를 켜면 급여 열람 허용 · 끄면 급여 메뉴와 금액이 숨겨져요. 변경은 감사 기록에 남습니다.</p>
+      <p className="mt-1 text-[0.75rem] text-tertiary">스위치를 켜면 급여 열람 허용 · 끄면 급여 메뉴와 금액이 숨겨져요. 변경은 감사 기록에 남아요.</p>
       {message && <p role="alert" className="mt-2 text-[0.75rem] text-warn">{message}</p>}
     </section>
   );

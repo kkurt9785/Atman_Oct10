@@ -59,13 +59,13 @@ export default async function ShiftsPage() {
   return (
     <main className="px-4 pb-24">
       <div className="flex items-center justify-between px-1 mt-2 mb-2">
-        <h1 className="text-display font-extrabold text-ink">시프트</h1>
+        <h1 className="text-display font-extrabold text-ink">공고</h1>
         <Link
           href="/shifts/new"
           className="flex items-center gap-1.5 bg-primary text-white text-body font-bold px-4 py-2.5 rounded-xl active:opacity-90"
         >
           <span className="text-xl leading-none">+</span>
-          <span>새 시프트</span>
+          <span>새 공고</span>
         </Link>
       </div>
       <div className="flex justify-end mb-4 px-1">
@@ -78,13 +78,13 @@ export default async function ShiftsPage() {
       {shifts.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <span className="text-5xl">📋</span>
-          <p className="text-title font-bold text-ink">등록된 시프트가 없어요</p>
-          <p className="text-body text-sub text-center">새 시프트를 등록하면<br />자동으로 워커에게 알림이 가요</p>
+          <p className="text-title font-bold text-ink">올린 공고가 없어요</p>
+          <p className="text-body text-sub text-center">새 공고를 올리면<br />자동으로 근무자에게 알림이 가요</p>
           <Link
             href="/shifts/new"
             className="mt-3 flex items-center justify-center min-h-tap rounded-xl bg-primary text-white text-body font-bold px-8 active:opacity-90"
           >
-            첫 시프트 등록하기
+            첫 공고 올리기
           </Link>
         </div>
       ) : (

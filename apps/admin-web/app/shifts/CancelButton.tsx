@@ -20,7 +20,7 @@ export function CancelButton({ shiftId }: { shiftId: string }) {
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="text-[0.75rem] text-warn font-bold">워커에게 알림이 가요</span>
+      <span className="text-[0.75rem] text-warn font-bold">근무자에게 알림이 가요</span>
       <button
         onClick={() => startTransition(() => cancelShiftAction(shiftId))}
         disabled={isPending}

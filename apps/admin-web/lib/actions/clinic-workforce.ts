@@ -345,7 +345,7 @@ export async function decideEarlyCheckoutAction(form: FormData) {
       // 요청 시각을 쓰면 같은 요청·같은 결정은 한 번만 나가고, 반려 후 재요청은 새 알림이 된다.
       dedupe_key: `attendance.checkout_decided:${attendance.id}:${decision}:${attendance.checkout_requested_at}`,
       title: decision === 'approved' ? '조기 퇴근이 승인됐어요' : '조기 퇴근 요청이 반려됐어요',
-      body: decision === 'approved' ? '요청한 시각으로 퇴근이 확정됐어요. 근무시간이 반영됩니다.' : '관리자가 반려했어요. 근무를 이어가고 예정 시간에 다시 퇴근을 눌러 주세요.',
+      body: decision === 'approved' ? '요청한 시각으로 퇴근이 확정됐어요. 근무시간이 반영돼요.' : '관리자가 반려했어요. 근무를 이어가고 예정 시간에 다시 퇴근을 눌러 주세요.',
       // staff_id 가 있어야 워커 앱이 이 알림을 긱 근무지/병원 중 어느 셸에 보여 줄지 가를 수 있다
       data: { url: '/workplace', kind: 'attendance.checkout_decided', decision, staff_id: staffId },
     });
@@ -497,7 +497,7 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
     .in('status', ['accepted', 'completed'])
     .limit(1)
     .maybeSingle();
-  if (!match) throw new Error('우리 사업장과 매칭된 이력이 있는 워커만 직원으로 전환할 수 있어요.');
+  if (!match) throw new Error('우리 사업장에서 근무한 이력이 있는 근무자만 직원으로 전환할 수 있어요.');
   const { data: worker } = await sb.from('workers').select('id,name,phone,role')
     .eq('id', workerId).is('deleted_at', null).maybeSingle();
   if (!worker) throw new Error('전환할 지원자 정보를 찾지 못했어요.');

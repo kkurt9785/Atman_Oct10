@@ -68,7 +68,7 @@ export default function WorkerDemoPage() {
           <ol className="mt-1.5 space-y-1 text-[12px] leading-5 text-sub">
             <li><b className="text-primary">①</b> 근무 찾기 → <b className="text-ink">지원하기</b></li>
             <li><b className="text-primary">②</b> 내 근무 → 확정 근무 → <b className="text-ink">사업장 채팅</b></li>
-            <li><b className="text-primary">③</b> 홈 → <b className="text-ink">닿기로 출근</b></li>
+            <li><b className="text-primary">③</b> 홈 → <b className="text-ink">출근하기</b></li>
           </ol>
           <Link href="/worker-intro#demo" className="mt-2 inline-block text-[12px] font-bold text-primary">먼저 1분 영상으로 보기 →</Link>
         </div>
@@ -84,7 +84,7 @@ export default function WorkerDemoPage() {
         </div>
 
         <Link href="/gig/demo" className="mt-6 flex items-center justify-between rounded-2xl border border-ink px-4 py-4 text-ink active:bg-bg">
-          <span className="flex flex-col gap-0.5"><b className="text-[14px]">긱워커는 간편모드에서</b><span className="text-[12px] text-sub">초대 → 닿기 출퇴근 데모</span></span>
+          <span className="flex flex-col gap-0.5"><b className="text-[14px]">긱워커는 간편모드에서</b><span className="text-[12px] text-sub">초대 → 출퇴근 데모</span></span>
           <span className="shrink-0 text-[13px] font-extrabold">별도 보기 →</span>
         </Link>
 

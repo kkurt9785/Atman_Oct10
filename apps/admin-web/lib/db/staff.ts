@@ -68,7 +68,7 @@ export async function getStaff(): Promise<StaffRow[]> {
     .eq('shift_date', today)
     .not('matched_worker_id', 'is', null);
 
-  if(error)throw new Error(`오늘 확정 시프트를 불러오지 못했어요: ${error.message}`);
+  if(error)throw new Error(`오늘 확정 근무를 불러오지 못했어요: ${error.message}`);
   if (!todayShifts || todayShifts.length === 0) return [];
 
   const shiftIds  = (todayShifts as any[]).map((s) => s.id);

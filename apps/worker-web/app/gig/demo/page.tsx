@@ -62,7 +62,7 @@ export default function GigDemoPage() {
 
         <ol className="mt-8 space-y-2 rounded-2xl bg-white/8 p-4 text-[13px] leading-5 text-white/80">
           <li><b className="text-white">1.</b> 아래 버튼 → 초대 확인 화면에서 <b className="text-white">초대 수락</b></li>
-          <li><b className="text-white">2.</b> 오늘 근무 화면에서 <b className="text-white">닿기</b>를 길게 눌러 출근</li>
+          <li><b className="text-white">2.</b> 오늘 근무 화면에서 <b className="text-white">출근하기</b>를 길게 눌러 출근</li>
           <li><b className="text-white">3.</b> 관리자 앱(긱워커 근태 시연)에서 출근·워크룸이 바로 반영되는지 확인</li>
           <li className="text-white/55">다시 누르면 언제든 처음 상태(초대 대기)로 돌아와요.</li>
         </ol>

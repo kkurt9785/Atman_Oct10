@@ -122,7 +122,7 @@ export async function prepareLiveDemoAction() {
   if (outbox.length) {
     const { error: outboxError } = await sb.from('notification_outbox')
       .upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
-    if (outboxError) throw new Error('시연 공고는 만들었지만 워커 알림을 저장하지 못했어요.');
+    if (outboxError) throw new Error('시연 공고는 만들었지만 근무자 알림을 저장하지 못했어요.');
     await nudgeNotificationDispatch();
   }
 
@@ -155,7 +155,7 @@ export async function acceptLiveDemoApplicationAction(formData: FormData) {
   const { context, sb } = await requireLiveDemoContext(['owner', 'operator', 'super']);
   const applicationId = String(formData.get('application_id') ?? '').trim();
   const application = await requireLiveDemoApplication(sb, context.facilityId, applicationId);
-  if (application.status !== 'applied') throw new Error('워커가 지원한 뒤에 수락할 수 있어요.');
+  if (application.status !== 'applied') throw new Error('근무자가 지원한 뒤에 수락할 수 있어요.');
 
   const userSb = userClient(context.accessToken);
   if (!userSb) throw new Error('서버 설정을 확인해 주세요.');
@@ -179,7 +179,7 @@ export async function recordLiveDemoAttendanceAction(formData: FormData) {
 
 export async function markLiveDemoPaymentPaidAction(formData: FormData) {
   const { context, sb } = await requireLiveDemoContext(['owner', 'super']);
-  if (!context.canViewPayroll) throw new Error('급여 처리 권한이 없습니다.');
+  if (!context.canViewPayroll) throw new Error('급여 처리 권한이 없어요.');
   const instructionId = String(formData.get('instruction_id') ?? '').trim();
   if (!instructionId) throw new Error('지급 요청을 찾지 못했어요.');
   const { data: payment, error: paymentError } = await sb.from('wage_payment_instructions')
@@ -222,7 +222,7 @@ export async function markLiveDemoPaymentPaidAction(formData: FormData) {
       event_type: 'payment.paid',
       dedupe_key: `payment.paid:${instructionId}`,
       title: '지급 완료로 표시됐어요',
-      body: `${worker.name ?? '워커'}님 근무 건의 지급 완료를 확인해 주세요.`,
+      body: `${worker.name ?? '근무자'}님 근무 건의 지급 완료를 확인해 주세요.`,
       data: { url: '/store/credits', paymentInstructionId: instructionId, shiftId: payment.shift_id },
     }, { onConflict: 'dedupe_key', ignoreDuplicates: true });
     if (outboxError) throw new Error('지급 완료 알림을 저장하지 못했어요.');

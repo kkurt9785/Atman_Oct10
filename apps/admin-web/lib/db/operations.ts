@@ -146,15 +146,15 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
     ids.length ? sb.from('shift_applications').select('shift_id,status,workers(name)').in('shift_id', ids).in('status', ['applied','accepted']) : Promise.resolve({ data: [] }),
     ids.length ? sb.from('shift_attendances').select('shift_id,check_in_at').in('shift_id', ids).not('check_in_at', 'is', null) : Promise.resolve({ data: [] }),
   ]);
-  if('error' in applicationResult&&applicationResult.error)throw new Error(`시프트 지원 현황을 불러오지 못했어요: ${applicationResult.error.message}`);
-  if('error' in attendanceResult&&attendanceResult.error)throw new Error(`시프트 출근 현황을 불러오지 못했어요: ${attendanceResult.error.message}`);
+  if('error' in applicationResult&&applicationResult.error)throw new Error(`공고 지원 현황을 불러오지 못했어요: ${applicationResult.error.message}`);
+  if('error' in attendanceResult&&attendanceResult.error)throw new Error(`근무 출근 현황을 불러오지 못했어요: ${attendanceResult.error.message}`);
   const apps=applicationResult.data;
   const attendances=attendanceResult.data;
   const appByShift = new Set((apps ?? []).map((row: any) => row.shift_id));
   const checkedIn = new Set((attendances ?? []).map((row: any) => row.shift_id));
   const acceptedWorkerName = new Map((apps ?? []).filter((row: any) => row.status === 'accepted').map((row: any) => {
     const worker = Array.isArray(row.workers) ? row.workers[0] : row.workers;
-    return [row.shift_id, worker?.name ?? '확정 워커'];
+    return [row.shift_id, worker?.name ?? '확정 근무자'];
   }));
   // 출근했거나 관리자가 결근·휴가로 처리한 직원은 '미출근' 알림 대상이 아니다 (이중 카운트 방지)
   const staffCheckedIn = new Set((staffAttendances ?? []).filter((row: any) => row.check_in_at || ['absent','leave'].includes(row.status)).map((row: any) => row.staff_id));
@@ -172,7 +172,7 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
       continue;
     }
     if (shift.status === 'matched' && !checkedIn.has(shift.id) && nowMs >= startMs + 5 * 60_000) {
-      alerts.push({ shiftId: shift.id, staffId: null, personName: acceptedWorkerName.get(shift.id) ?? '확정 워커', employment: 'shift', kind: 'no_show', replacementEligible: nowMs >= startMs + 30 * 60_000, shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
+      alerts.push({ shiftId: shift.id, staffId: null, personName: acceptedWorkerName.get(shift.id) ?? '확정 근무자', employment: 'shift', kind: 'no_show', replacementEligible: nowMs >= startMs + 30 * 60_000, shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
     }
   }
   for (const person of (staff ?? []) as any[]) {

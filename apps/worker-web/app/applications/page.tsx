@@ -52,7 +52,7 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: str
   },
   rejected: {
     label: '미선정',
-    description: '이번 시프트는 다른 지원자가 선정됐어요.',
+    description: '이번 근무는 다른 지원자가 선정됐어요.',
     className: 'bg-[#F2F4F6] text-tertiary',
   },
   cancelled: {
@@ -62,7 +62,7 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: str
   },
   expired: {
     label: '만료',
-    description: '시프트 시간이 지나 지원이 만료됐어요.',
+    description: '근무 시간이 지나 지원이 만료됐어요.',
     className: 'bg-[#F2F4F6] text-tertiary',
   },
   completed: {
@@ -475,8 +475,8 @@ export default function ApplicationsPage() {
       {apps.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <span className="text-5xl">📋</span>
-            <p className="text-[17px] font-bold text-ink">아직 지원한 시프트가 없어요</p>
-            <p className="text-[14px] text-sub text-center">마음에 드는 시프트에 지원해 보세요</p>
+            <p className="text-[17px] font-bold text-ink">아직 지원한 공고가 없어요</p>
+            <p className="text-[14px] text-sub text-center">마음에 드는 공고에 지원해 보세요</p>
           </div>
         ) : visibleApps.length===0?<div className="rounded-2xl bg-white py-12 text-center"><p className="text-[15px] font-bold text-ink">이 상태의 근무가 없어요</p><button type="button" onClick={()=>setActivityFilter('all')} className="mt-2 text-[13px] font-bold text-primary">전체 내역 보기</button></div> : (
           visibleApps.map((a) => (

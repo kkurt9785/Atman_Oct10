@@ -28,7 +28,7 @@ function recentlyDismissed() {
   }
 }
 
-export function InstallBanner({ hint = '홈 화면에서 바로 시프트를 확인하세요' }: { hint?: string } = {}) {
+export function InstallBanner({ hint = '홈 화면에서 바로 새 근무를 확인해요' }: { hint?: string } = {}) {
   const [mode, setMode] = useState<'hidden' | 'ios' | 'android'>('hidden');
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [showIosGuide, setShowIosGuide] = useState(false);

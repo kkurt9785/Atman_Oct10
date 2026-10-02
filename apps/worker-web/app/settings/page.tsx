@@ -207,7 +207,7 @@ export default function SettingsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-[13px] text-tertiary">지역을 설정해주세요</p>
+              <p className="text-[13px] text-tertiary">지역을 설정해 주세요</p>
             )}
           </div>
           <span className="text-tertiary ml-3">›</span>
@@ -232,14 +232,14 @@ export default function SettingsPage() {
         onClick={handlePushToggle}
         role="switch"
         aria-checked={pushEnabled}
-        aria-label="이 기기의 시프트 알림"
+        aria-label="이 기기의 새 근무 알림"
         disabled={pushLoading}
         className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
       >
         <div className="text-left">
-          <p className="text-[15px] font-bold text-ink">이 기기 시프트 알림</p>
+          <p className="text-[15px] font-bold text-ink">이 기기 새 근무 알림</p>
           <p className="text-[13px] text-tertiary mt-0.5">
-            {pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 시프트를 바로 받아요'}
+            {pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 근무를 바로 받아요'}
           </p>
           <p className="mt-1 text-[11px] leading-4 text-sub">새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요</p>
         </div>

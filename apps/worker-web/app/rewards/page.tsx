@@ -49,7 +49,7 @@ function RewardsContent(){
   async function share(){
     if(!data?.code)return;
     const url=`${window.location.origin}/rewards?ref=${data.code}`;
-    const text='잇닿에서 병원·약국 의료인력 시프트를 확인해 보세요. 프로필 확인과 첫 근무 완료 혜택이 있어요.';
+    const text='잇닿에서 병원·약국 의료인력 근무 공고를 확인해 보세요. 프로필 확인과 첫 근무 완료 혜택이 있어요.';
     if(navigator.share){
       try{await navigator.share({title:'잇닿 워커 초대',text,url});return;}catch{/* copy fallback */}
     }
@@ -62,7 +62,7 @@ function RewardsContent(){
 
   const steps=[
     {label:'프로필 확인',description:role==='pharmacy_staff'?'활동지역·경력·이력서 확인을 완료해요':'활동지역·경력·최근 근무지 입력을 완료해요',done:data.milestones.profileVerified,reward:'커피 5천원'},
-    {label:'첫 시프트 지원',description:'원하는 공고를 직접 선택해 지원해요',done:data.milestones.firstApplied,reward:null},
+    {label:'첫 공고 지원',description:'원하는 공고를 직접 선택해 지원해요',done:data.milestones.firstApplied,reward:null},
     {label:'첫 근무 완료',description:'출퇴근과 사업장 근태 확정까지 완료해요',done:data.milestones.firstShiftCompleted,reward:'2만원'},
   ];
   const qualified=data.rewards.reduce((sum,row)=>row.status!=='cancelled'?sum+row.amount:sum,0);
@@ -90,7 +90,7 @@ function RewardsContent(){
         <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold ${step.done?'bg-success text-white':'bg-bg text-tertiary'}`}>{step.done?'✓':index+1}</div>
         <div className="min-w-0 flex-1"><div className="flex justify-between gap-2"><p className="text-[14px] font-bold">{step.label}</p>{step.reward&&<span className="shrink-0 text-[12px] font-bold text-primary">{step.reward}</span>}</div><p className="mt-0.5 text-[12px] text-sub">{step.description}</p></div>
       </div>)}</div>
-      {!data.milestones.profileVerified?<Link href="/settings/profile" className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-[13px] font-extrabold text-white">프로필 완성하기</Link>:!data.milestones.firstApplied?<Link href="/shifts" className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-[13px] font-extrabold text-white">시프트 직접 찾아보기</Link>:null}
+      {!data.milestones.profileVerified?<Link href="/settings/profile" className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-[13px] font-extrabold text-white">프로필 완성하기</Link>:!data.milestones.firstApplied?<Link href="/shifts" className="mt-5 flex h-11 items-center justify-center rounded-xl bg-primary text-[13px] font-extrabold text-white">근무 직접 찾아보기</Link>:null}
     </section>
 
     <section className="mx-5 mt-5 rounded-2xl bg-white p-5 shadow-sm">

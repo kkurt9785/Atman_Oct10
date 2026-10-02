@@ -5,7 +5,7 @@ import { getShop } from '@/lib/db/shop';
 import { getAdminContext } from '@/lib/admin-auth';
 import { facilityTypeLabel } from '@/lib/facility-label';
 
-const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기',shift:'공고 시프트'};
+const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기',shift:'공고 근무'};
 function moveMonth(month:string,delta:number){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+delta);return d.toISOString().slice(0,7);}
 function hm(minutes:number){return `${Math.floor(minutes/60)}시간 ${minutes%60}분`;}
 function isIssue(status:string,lateMinutes:number,earlyLeaveMinutes:number){return ['late','absent','checkout_pending'].includes(status)||lateMinutes>0||earlyLeaveMinutes>0;}

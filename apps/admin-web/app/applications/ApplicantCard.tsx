@@ -235,12 +235,12 @@ export function ApplicantCard({
             <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
             <p className="text-[1.25rem] font-extrabold text-ink">채용을 확정할까요?</p>
             <p className="text-[0.875rem] text-sub mt-1">
-              확정 후 워커에게 수락 알림이 전송됩니다.
+              확정 후 근무자에게 수락 알림이 전송됩니다.
             </p>
 
             <div className="bg-bg rounded-2xl p-4 mt-5 space-y-2">
               <div className="flex justify-between text-[0.8125rem]">
-                <span className="text-sub">선택 워커</span>
+                <span className="text-sub">선택 근무자</span>
                 <span className="font-bold text-ink">{applicant.name}</span>
               </div>
               <div className="flex justify-between text-[0.8125rem]">
@@ -257,7 +257,7 @@ export function ApplicantCard({
                 <span className="font-bold text-ink">{ROLE_LABEL[requiredRole] ?? requiredRole}</span>
               </div>
             </div>
-            <p className="text-[0.75rem] text-sub mt-3">잇닿 이용료는 이 임금과 별도로 월 SaaS 청구서에 반영됩니다.</p>
+            <p className="text-[0.75rem] text-sub mt-3">잇닿 이용료는 이 임금과 별도로 월 이용료 청구서에 반영돼요.</p>
 
             {alreadyConfirmed && (
               <details className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
@@ -271,7 +271,7 @@ export function ApplicantCard({
             {needsFacilityCredentialCheck && (
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <input type="checkbox" checked={credentialConfirmed} onChange={(event) => setCredentialConfirmed(event.target.checked)} className="mt-0.5 h-5 w-5 accent-primary" />
-                <span className="min-w-0 flex-1"><b className="block text-[0.875rem] text-ink">면접·채용 과정에서 자격을 확인했습니다</b><span className="mt-1 block text-[0.75rem] leading-5 text-sub">확인 방법과 관리자·시간이 감사 기록에 남습니다.</span>
+                <span className="min-w-0 flex-1"><b className="block text-[0.875rem] text-ink">면접·채용 과정에서 자격을 확인했어요</b><span className="mt-1 block text-[0.75rem] leading-5 text-sub">확인 방법과 관리자·시간이 감사 기록에 남아요.</span>
                   <select value={credentialVerificationMethod} onChange={(event) => setCredentialVerificationMethod(event.target.value)} className="mt-3 h-10 w-full rounded-xl border border-amber-200 bg-white px-3 text-[0.8125rem] font-semibold text-ink">
                     <option value="original_document">원본 확인</option>
                     <option value="official_lookup">공식 조회</option>

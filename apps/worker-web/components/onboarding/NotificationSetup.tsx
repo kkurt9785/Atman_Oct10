@@ -42,7 +42,7 @@ export function NotificationSetup({ onNext }: { onNext: () => void }) {
   return (
     <div className="flex min-h-screen flex-col px-6 pb-10 pt-16">
       <p className="text-[13px] font-bold text-primary">마지막 단계</p>
-      <h1 className="mt-2 text-[28px] font-extrabold leading-tight text-ink">내 조건에 맞는<br />시프트를 바로 받아요</h1>
+      <h1 className="mt-2 text-[28px] font-extrabold leading-tight text-ink">내 조건에 맞는<br />근무를 바로 받아요</h1>
       <p className="mt-3 text-[15px] leading-6 text-sub">등록한 직군과 활동 지역·반경에 맞는 새 근무, 채용 확정, 사업장 채팅을 앱 푸시로 알려드려요.</p>
 
       <section className="mt-8 rounded-2xl bg-white p-5 shadow-card">
@@ -60,7 +60,7 @@ export function NotificationSetup({ onNext }: { onNext: () => void }) {
 
       {notice && <p role="alert" className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-700">{notice}</p>}
       <div className="mt-auto space-y-2">
-        <Button onClick={enable} disabled={loading}>{loading ? '알림 설정 중...' : '시프트 알림 받기'}</Button>
+        <Button onClick={enable} disabled={loading}>{loading ? '알림 설정 중...' : '새 근무 알림 받기'}</Button>
         <button type="button" onClick={onNext} className="h-12 w-full text-[14px] font-semibold text-sub">나중에 설정할게요</button>
       </div>
     </div>

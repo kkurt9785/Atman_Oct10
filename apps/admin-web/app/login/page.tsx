@@ -85,7 +85,7 @@ function LoginInner() {
       });
       const loginData = await loginRes.json().catch(() => ({}));
       if (!loginRes.ok || !loginData.accessToken || !loginData.refreshToken) {
-        throw new Error(loginData.error ?? '데모 계정 로그인 실패');
+        throw new Error(loginData.error ?? '시연 계정에 들어가지 못했어요. 잠시 후 다시 눌러 주세요.');
       }
       const { data, error: sessionError } = await supabase.auth.setSession({
         access_token: loginData.accessToken,
@@ -108,7 +108,7 @@ function LoginInner() {
         method: 'POST',
         headers: { Authorization: `Bearer ${data.session.access_token}` },
       });
-      if (!sessionRes.ok) throw new Error('관리자 세션 수립 실패');
+      if (!sessionRes.ok) throw new Error('시연 화면을 열지 못했어요. 잠시 후 다시 눌러 주세요.');
 
       const facilityRes = await fetch('/api/set-facility', {
         method: 'POST',
@@ -121,7 +121,7 @@ function LoginInner() {
       const facilityData = await facilityRes.json().catch(() => ({}));
       router.replace(facilityData?.facilityId ? '/' : '/setup/claim-facility');
     } catch (err) {
-      setDemoError(err instanceof Error ? err.message : '데모 로그인에 실패했어요.');
+      setDemoError(err instanceof Error ? err.message : '시연 계정에 들어가지 못했어요. 잠시 후 다시 눌러 주세요.');
       setDemoLoadingKey(null);
     }
   }
@@ -134,9 +134,9 @@ function LoginInner() {
           <Wordmark size={34} suffix={null} />
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[0.625rem] font-extrabold text-primary">관리자</span>
         </div>
-        <h1 className="mt-7 text-[1.5rem] font-extrabold tracking-[-0.7px] text-ink">공고부터 급여까지 한곳에서</h1>
-        <p className="mt-2 text-[0.875rem] leading-6 text-sub">채용부터 근태·급여까지, 하나로 잇다.</p>
-        <span className="mt-3 rounded-full bg-primary/10 px-3 py-1.5 text-[0.6875rem] font-extrabold text-primary">직접 채용 · 소개 수수료 0원</span>
+        <h1 className="mt-7 text-[1.5rem] font-extrabold tracking-[-0.7px] text-ink">인력 관리, 전화·엑셀 없이</h1>
+        <p className="mt-2 text-[0.875rem] leading-6 text-sub">결원·출퇴근·급여를 버튼 몇 번으로 끝내요.</p>
+        <span className="mt-3 rounded-full bg-primary/10 px-3 py-1.5 text-[0.6875rem] font-extrabold text-primary">직접 채용 · 채용 수수료 0원</span>
       </div>
 
       {error === 'unauthorized' && (

@@ -58,7 +58,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         {[{href:'/timesheet',label:'근태 기록',detail:'출퇴근·조퇴 확인'},{href:'/gig-pay',label:'지급 관리',detail:'금액·계좌·지급일'},{href:'/attendance-qr',label:'현장 인증',detail:'GPS·동적 QR'}].map((item)=><Link key={item.href} href={item.href} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><b className="text-[0.875rem] text-ink">{item.label}</b><span className="mt-1 block text-[0.6875rem] text-sub">{item.detail}</span><span className="mt-3 block text-right text-[0.875rem] font-bold text-primary">→</span></Link>)}
       </section>
       <Link href="/membership" className="mt-5 flex items-center justify-between rounded-xl bg-bg px-4 py-3 text-[0.75rem] text-sub"><span>긱워커 근태 무료 베타 · 최대 3명</span><b className="text-primary">이용 안내 →</b></Link>
-      {shop.isDemo && (()=>{const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL??(process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');const demoUrl=`${workerOrigin}/gig/demo`;return <section className="mt-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-card"><div className="flex items-center gap-4"><QrCanvas value={demoUrl} size={112} label="워커 시연 QR"/><div className="min-w-0"><p className="text-[0.6875rem] font-extrabold tracking-[0.12em] text-primary">워커 기기</p><p className="mt-1 text-[0.9375rem] font-extrabold text-ink">이 QR을 찍으면 긱워커 시연 계정으로 바로 시작돼요</p><p className="mt-1 break-all text-[0.75rem] text-sub">{demoUrl}</p><p className="mt-1 text-[0.6875rem] text-sub">초대 수락 → 닿기 출근 → 이 화면에 반영. 다시 찍으면 처음부터.</p></div></div></section>;})()}
+      {shop.isDemo && (()=>{const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL??(process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');const demoUrl=`${workerOrigin}/gig/demo`;return <section className="mt-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-card"><div className="flex items-center gap-4"><QrCanvas value={demoUrl} size={112} label="워커 시연 QR"/><div className="min-w-0"><p className="text-[0.6875rem] font-extrabold tracking-[0.12em] text-primary">워커 기기</p><p className="mt-1 text-[0.9375rem] font-extrabold text-ink">이 QR을 찍으면 긱워커 시연 계정으로 바로 시작돼요</p><p className="mt-1 break-all text-[0.75rem] text-sub">{demoUrl}</p><p className="mt-1 text-[0.6875rem] text-sub">초대 수락 → 출근하기 → 이 화면에 반영. 다시 찍으면 처음부터.</p></div></div></section>;})()}
     </main>;
   }
 
@@ -151,7 +151,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         className="mt-6 mb-2 flex items-center justify-between px-4 py-3 rounded-xl bg-bg active:opacity-80"
       >
         <span className="text-label text-sub">
-          중개 수수료 <b className="text-ink">0원</b> — 잇닿은 월 이용료만 받아요
+          채용 수수료 <b className="text-ink">0원</b> — 잇닿은 월 이용료만 받아요
         </span>
         <span className="text-label font-bold text-primary flex-shrink-0 ml-2">요금·청구 →</span>
       </Link>

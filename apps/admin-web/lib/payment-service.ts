@@ -103,7 +103,7 @@ export async function createPaymentOrder(invoiceId: string) {
 
   const orderId = `atman_${Date.now()}_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   const idempotencyKey = `confirm:${randomUUID()}`;
-  const orderName = `잇닿 SaaS 이용료 ${invoice.invoice_number}`;
+  const orderName = `잇닿 이용료 ${invoice.invoice_number}`;
 
   const { data, error } = await sb
     .from('payment_orders')

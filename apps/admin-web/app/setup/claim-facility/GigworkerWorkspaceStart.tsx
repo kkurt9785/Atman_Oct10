@@ -122,7 +122,7 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
 
           {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-3 py-3 text-[0.75rem] font-bold text-red-600">{error}</p>}
           <button type="button" onClick={submit} disabled={isPending} className="mt-6 h-12 w-full rounded-xl bg-ink text-[0.9375rem] font-extrabold text-white disabled:opacity-50">{isPending ? '근태 공간을 만드는 중…' : '긱워커 근태 시작하기'}</button>
-          <p className="mt-3 text-center text-[0.6875rem] leading-4 text-sub">무료 베타에서는 최대 3명의 단기근로자를 연결할 수 있어요. 근무지와 출퇴근 기록은 계속 보관됩니다.</p>
+          <p className="mt-3 text-center text-[0.6875rem] leading-4 text-sub">무료 베타에서는 최대 3명의 단기근로자를 연결할 수 있어요. 근무지와 출퇴근 기록은 계속 보관돼요.</p>
         </div>
       </div>
     </main>

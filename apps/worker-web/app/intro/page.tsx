@@ -5,11 +5,11 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: '잇닿 — 병원·약국 인력, 앱에서 바로 구하세요',
   description:
-    '병원·약국·요양병원의 빈 근무를 앱에서 바로 채우세요. 중개 수수료 0원, 사업장 직접 지급, 지원·출퇴근·근태·급여 검토까지 한 번에.',
+    '병원·약국·요양병원의 빈 근무를 앱에서 바로 채우세요. 채용 수수료 0원, 사업장 직접 지급. 결원 대응부터 출퇴근·급여 검토까지 버튼 몇 번으로.',
   alternates: { canonical: 'https://itdot.co.kr/intro' },
   openGraph: {
     title: '잇닿 — 병원·약국 인력, 앱에서 바로 구하세요',
-    description: '중개 수수료 0원. 공고 등록부터 실시간 알림·출퇴근 인증·월 근태·급여 검토까지 한 번에.',
+    description: '채용 수수료 0원. 공고 등록부터 실시간 알림·출퇴근 인증·월 근태·급여 검토까지 한 번에.',
     url: 'https://itdot.co.kr/intro',
     type: 'website',
   },
@@ -20,17 +20,22 @@ const POINTS = [
   {
     icon: '📋',
     title: '공고부터 지원 수락까지 빠르게',
-    body: '날짜와 시간만 정하면 공고가 열리고, 지원자 확인과 근무 확정은 같은 흐름에서 처리합니다.',
+    body: '날짜와 시간만 정하면 공고가 열리고, 지원자를 보고 수락 한 번이면 근무가 확정돼요. 지원자에게 일일이 연락할 필요가 없어요.',
+  },
+  {
+    icon: '🔁',
+    title: '결원은 전화 대신 대타 승인 1번',
+    body: '확정 근무자가 못 오게 되면 함께 일해 본 워커가 대신 맡겠다고 하고, 사업장은 승인 한 번이면 근무자가 바뀌어요.',
   },
   {
     icon: '📍',
     title: '출퇴근과 월 근태를 함께',
-    body: '위치 우선 인증과 동적 QR 보완으로 출퇴근을 남기고, 지각·조퇴·휴가까지 한 달 단위로 확인합니다.',
+    body: '직원이 출근하기를 누르면 위치·동적 QR로 자동 기록돼요. 장부·엑셀 없이 지각·조퇴·휴가까지 한 달 단위로 확인해요.',
   },
   {
     icon: '₩',
     title: '지급 확인까지 하나의 기록으로',
-    body: '근무 기록을 바탕으로 지급을 검토하고, 사업장 직접 지급 후 워커의 입금 확인까지 이어집니다.',
+    body: '확정 근태로 예상 금액이 계산돼 있어 계산기를 두드릴 필요가 없어요. 사업장이 직접 지급하고 상태만 기록하면 워커도 바로 확인해요.',
   },
 ];
 
@@ -42,7 +47,7 @@ export default function IntroPage() {
         <h1 className="mt-2 text-[28px] font-extrabold leading-[1.3] text-ink letter-tight">
           갑자기 빈 자리,
           <br />
-          앱에서 바로 구합니다
+          앱에서 바로 구해요
         </h1>
         <p className="mt-3 text-[15px] leading-6 text-sub">
           간호사·간호조무사·약사 대타 인력을 등록된 워커에게 즉시 알리고,
@@ -66,14 +71,14 @@ export default function IntroPage() {
         <div className="mt-3 rounded-xl bg-white px-4 py-3 shadow-card" aria-label="시연에서 눌러볼 것">
           <p className="text-[12px] font-extrabold text-ink">시연에서 이것만 눌러보세요</p>
           <ol className="mt-1.5 space-y-1 text-[12px] leading-5 text-sub">
-            <li><b className="text-primary">①</b> 모집 탭 → <b className="text-ink">새 시프트 등록</b></li>
+            <li><b className="text-primary">①</b> 모집 탭 → <b className="text-ink">새 공고</b></li>
             <li><b className="text-primary">②</b> 지원 현황 → <b className="text-ink">수락</b></li>
             <li><b className="text-primary">③</b> 근태 탭 → <b className="text-ink">출퇴근 인증</b></li>
           </ol>
         </div>
         <div className="mt-5 flex flex-wrap gap-2">
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            중개 수수료 0원
+            채용 수수료 0원
           </span>
           <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
             임금은 사업장 직접 지급
@@ -119,7 +124,7 @@ export default function IntroPage() {
 
       <section className="px-6 py-10">
         <p className="text-[13px] font-bold text-primary">하나의 운영 흐름</p>
-        <h2 className="mt-1 text-[20px] font-extrabold text-ink">사람을 구한 뒤의 일까지 연결합니다</h2>
+        <h2 className="mt-1 text-[20px] font-extrabold text-ink">사람을 구한 뒤의 일까지 버튼 몇 번으로</h2>
         <div className="mt-5 space-y-3">
           {POINTS.map((p) => (
             <div key={p.title} className="flex gap-3 rounded-card bg-bg p-4">
@@ -134,13 +139,13 @@ export default function IntroPage() {
       </section>
 
       <section className="px-6 pb-10">
-        <h2 className="text-[20px] font-extrabold text-ink">지금은 함께 만드는 단계입니다</h2>
+        <h2 className="text-[20px] font-extrabold text-ink">지금은 함께 만드는 단계예요</h2>
         <div className="mt-4 rounded-card border border-line p-5">
           <ul className="space-y-2.5 text-[13px] leading-5 text-sub">
-            <li>· 가입하면 <b className="text-ink">30일 무료 체험</b>이 시작되며, 자동으로 유료 전환되지 않습니다</li>
-            <li>· 직접 도입을 함께하는 <b className="text-ink">선정 파일럿 사업장</b>은 초기 세팅과 3개월 이용을 지원합니다</li>
-            <li>· 채용이 성사돼도 <b className="text-ink">중개 수수료는 0원</b>입니다</li>
-            <li>· 임금은 사업장이 근무자에게 직접 지급합니다 (잇닿은 임금을 보관하지 않습니다)</li>
+            <li>· 가입하면 <b className="text-ink">30일 무료 체험</b>이 시작되며, 자동으로 유료 전환되지 않아요</li>
+            <li>· 도입을 함께하는 <b className="text-ink">시범 사업장</b>은 초기 세팅과 3개월 이용을 지원해요</li>
+            <li>· 채용이 성사돼도 <b className="text-ink">채용 수수료는 0원</b>입니다</li>
+            <li>· 임금은 사업장이 근무자에게 직접 지급해요 (잇닿은 임금을 보관하지 않아요)</li>
           </ul>
         </div>
       </section>

@@ -95,10 +95,10 @@ export function ActivityArea({
     <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
       {showHeader && <p className="text-[13px] font-medium text-tertiary mb-2">활동 지역 / 정보 입력</p>}
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-1">
-        시프트 알림 받을<br />지역을 설정해요
+        근무 알림 받을<br />지역을 설정해요
       </h1>
       <p className="text-[15px] text-sub mb-6">
-        해당 지역에 시프트가 열리면 바로 알려드려요
+        해당 지역에 새 근무가 열리면 바로 알려드려요
       </p>
 
       {/* 지도 placeholder */}
@@ -197,7 +197,7 @@ export function ActivityArea({
 
       {/* 안내 */}
       <p className="text-[13px] text-tertiary text-center mt-2 mb-6">
-        💡 두 지역 모두 시프트가 열리면 즉시 알림이 가요
+        💡 두 지역 모두 새 근무가 열리면 즉시 알림이 가요
       </p>
 
       <div className="mt-auto">

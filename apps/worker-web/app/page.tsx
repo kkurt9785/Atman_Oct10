@@ -50,7 +50,7 @@ function RootInner() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md flex-col">
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
-        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">내 근무를 하나로 잇다</h1>
+        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">단톡방 안 뒤져도,<br />내 조건 근무가 먼저 와요</h1>
         <p className="mt-2 text-[14px] leading-6 text-sub">일을 찾거나, 초대받은 근무를 시작하세요.</p>
       </div>
 

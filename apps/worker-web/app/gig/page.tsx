@@ -45,11 +45,11 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
       </div>
 
       <h1 className="mt-14 text-[32px] font-extrabold leading-[1.2] tracking-[-1px]">근무부터 지급 확인까지<br />한 번에.</h1>
-      <p className="mt-4 text-[15px] leading-6 text-white/70">초대받은 근무를 확인하고, 관리자와 대화하고,<br /><b className="text-white">닿기</b>로 출퇴근을 기록해요.</p>
+      <p className="mt-4 text-[15px] leading-6 text-white/70">초대받은 근무를 확인하고, 관리자와 대화하고,<br /><b className="text-white">출근하기</b> 버튼으로 출퇴근을 기록해요.</p>
 
       <ol className="mt-8 grid grid-cols-3 gap-2 text-center text-[12px] leading-4 text-white/80">
         <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">1</b>잇기<br /><span className="text-white/55">초대 수락·계좌 전달</span></li>
-        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">2</b>닿기<br /><span className="text-white/55">출퇴근 기록·대화</span></li>
+        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">2</b>출근하기<br /><span className="text-white/55">출퇴근 기록·대화</span></li>
         <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">3</b>지급 현황<br />확인</li>
       </ol>
 

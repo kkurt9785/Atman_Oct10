@@ -81,6 +81,6 @@ export async function createShift(payload: ShiftCreateInput): Promise<string> {
     facility_id: facilityId,
   }).select('id').single();
 
-  if (error || !data) throw new Error(error?.message ?? '시프트 등록에 실패했어요.');
+  if (error || !data) throw new Error(error?.message ?? '공고를 올리지 못했어요.');
   return data.id as string;
 }

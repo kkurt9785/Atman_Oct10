@@ -28,7 +28,7 @@ export function FacilityLocationSection({ initial, facilityWord, gpsRadiusMeters
     <form onSubmit={submit} className="px-4 pt-5">
       <section className="rounded-2xl bg-white p-5">
         <p className="mb-1 text-[0.8125rem] font-bold text-sub">{facilityWord} 정보·위치</p>
-        <p className="mb-4 text-[0.75rem] leading-5 text-tertiary">주소와 핀은 워커에게 보이는 위치이자 출퇴근 인증(반경 {gpsRadiusMeters}m)의 기준이에요.</p>
+        <p className="mb-4 text-[0.75rem] leading-5 text-tertiary">주소와 핀은 근무자에게 보이는 위치이자 출퇴근 인증(반경 {gpsRadiusMeters}m)의 기준이에요.</p>
         <div className="grid grid-cols-2 gap-3">
           <label className="col-span-2 text-[0.8125rem] text-sub">{facilityWord}명<input value={form.name} disabled={!canEdit} onChange={e => setForm(c => ({ ...c, name: e.target.value }))} className="mt-1.5 h-12 w-full rounded-xl border border-line px-4 text-[0.9375rem] outline-none focus:border-primary disabled:bg-surface" /></label>
           <label className="col-span-2 text-[0.8125rem] text-sub">주소<input value={form.addressText} disabled={!canEdit} onChange={e => setForm(c => ({ ...c, addressText: e.target.value }))} placeholder="도로명 주소" className="mt-1.5 h-12 w-full rounded-xl border border-line px-4 text-[0.9375rem] outline-none focus:border-primary disabled:bg-surface" /></label>

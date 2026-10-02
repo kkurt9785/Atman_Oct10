@@ -44,7 +44,7 @@ export async function resetFacilityLiveDemoAction() {
   }
   if (outbox.length) {
     const { error: outboxError } = await sb.from('notification_outbox').upsert(outbox, { onConflict: 'dedupe_key', ignoreDuplicates: true });
-    if (outboxError) throw new Error('시연 공고는 만들었지만 워커 알림을 저장하지 못했어요.');
+    if (outboxError) throw new Error('시연 공고는 만들었지만 근무자 알림을 저장하지 못했어요.');
     await nudgeNotificationDispatch();
   }
   revalidatePath('/');
@@ -69,10 +69,10 @@ export async function createShiftTemplateAction(formData: FormData) {
   const department = formText(formData, 'department') || null;
   const requiredHeadcount = Math.min(20, Math.max(1, Number.parseInt(formText(formData, 'required_headcount'), 10) || 1));
   const weekdays = formData.getAll('weekdays').map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7);
-  if (!name || !VALID_ROLES.includes(requiredRole) || !startTime || !endTime || !description || weekdays.length === 0) throw new Error('템플릿 필수 항목을 확인해 주세요.');
+  if (!name || !VALID_ROLES.includes(requiredRole) || !startTime || !endTime || !description || weekdays.length === 0) throw new Error('반복 일정의 필수 항목을 확인해 주세요.');
   const { data: facility } = await sb.from('facilities').select('facility_type').eq('id', context.facilityId).single();
   if (facility?.facility_type === 'pharmacy' && !['pharmacist', 'pharmacy_staff'].includes(requiredRole)) {
-    throw new Error('약국 템플릿은 약사 또는 약국 전산·사무직만 선택할 수 있어요.');
+    throw new Error('약국 반복 일정은 약사 또는 약국 전산·사무직만 선택할 수 있어요.');
   }
   if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026 || calcEstimatedShiftPay(startTime, endTime, hourlyWage) == null) throw new Error('근무시간과 시급을 확인해 주세요.');
   const { error } = await sb.from('shift_templates').insert({
@@ -80,7 +80,7 @@ export async function createShiftTemplateAction(formData: FormData) {
     weekdays: [...new Set(weekdays)].sort(), start_time: startTime, end_time: endTime,
     hourly_wage: hourlyWage, description, department, required_headcount: requiredHeadcount, created_by: context.user.id,
   });
-  if (error) throw new Error('반복 일정 템플릿을 저장하지 못했어요.');
+  if (error) throw new Error('반복 일정을 저장하지 못했어요.');
   revalidatePath('/operations');
   redirect('/operations?notice=template_saved');
 }
@@ -138,9 +138,9 @@ export async function generateRecurringShiftsAction(formData: FormData) {
 
   const { data: template } = await sb.from('shift_templates').select('*')
     .eq('id', templateId).eq('facility_id', context.facilityId).eq('is_active', true).maybeSingle();
-  if (!template) throw new Error('사용 가능한 템플릿이 아니에요.');
+  if (!template) throw new Error('사용할 수 있는 반복 일정이 아니에요.');
   const estimatedPay = calcEstimatedShiftPay(template.start_time, template.end_time, template.hourly_wage);
-  if (estimatedPay == null) throw new Error('템플릿 근무조건을 확인해 주세요.');
+  if (estimatedPay == null) throw new Error('반복 일정의 근무조건을 확인해 주세요.');
 
   const start = new Date(`${startDate}T00:00:00Z`);
   const dates: string[] = [];
@@ -164,9 +164,9 @@ export async function generateRecurringShiftsAction(formData: FormData) {
       description: template.description, department: template.department, notes: template.notes,
       posted_by: context.user.id,
     })));
-  if (!rows.length) throw new Error('이미 같은 날짜의 반복 시프트가 생성되어 있어요.');
+  if (!rows.length) throw new Error('이미 같은 날짜의 반복 근무가 생성되어 있어요.');
   const { error } = await sb.from('shifts').insert(rows);
-  if (error) throw new Error('반복 시프트를 생성하지 못했어요.');
+  if (error) throw new Error('반복 근무를 생성하지 못했어요.');
 
   const usageKey = `job_posting_batch:${context.facilityId}:${batchId}`;
   try {
@@ -186,7 +186,7 @@ export async function generateRecurringShiftsAction(formData: FormData) {
   const outbox = [...recipientIds].map((authUserId) => ({
     worker_auth_user_id: authUserId,
     event_type: 'shift.batch_created', dedupe_key: `shift.batch_created:${batchId}:${authUserId}`,
-    title: `새 반복 시프트 ${rows.length}건`, body: `${template.name} · ${startDate}부터 확인해 보세요`,
+    title: `새 반복 근무 ${rows.length}건`, body: `${template.name} · ${startDate}부터 확인해 보세요`,
     data: { type: 'new_shift_batch', batchId, url: '/shifts' },
   }));
   if (outbox.length) {
@@ -210,7 +210,7 @@ export async function fillSevenDayScheduleGapsAction() {
     sb.from('shifts').select('template_id,shift_date,template_slot').eq('facility_id', context.facilityId)
       .gte('shift_date', startDate).lte('shift_date', endDate).neq('status', 'cancelled'),
   ]);
-  if (!templates?.length) throw new Error('먼저 반복 근무 템플릿을 하나 만들어 주세요.');
+  if (!templates?.length) throw new Error('먼저 반복 일정을 하나 만들어 주세요.');
   const existingSlots = new Set((existing ?? []).map((row: any) => `${row.template_id}:${row.shift_date}:${row.template_slot ?? 1}`));
   const batchId = randomUUID();
   const rows: any[] = [];
@@ -267,7 +267,7 @@ export async function fillSevenDayScheduleGapsAction() {
     if (outboxError) {
       await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
       await releasePlanUsage(sb, usageKey);
-      throw new Error('워커 알림을 저장하지 못해 공고 생성을 취소했어요. 다시 시도해 주세요.');
+      throw new Error('근무자 알림을 저장하지 못해 공고 생성을 취소했어요. 다시 시도해 주세요.');
     }
     await nudgeNotificationDispatch();
   }
@@ -330,7 +330,7 @@ export async function approveWorkforceRecommendationAction(formData: FormData) {
     if (outboxError) {
       await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
       await releasePlanUsage(sb, usageKey);
-      throw new Error('워커 알림 저장에 실패해 추천 반영을 취소했어요.');
+      throw new Error('근무자 알림 저장에 실패해 추천 반영을 취소했어요.');
     }
     await nudgeNotificationDispatch();
   }
@@ -349,7 +349,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
   const kind = formText(formData, 'kind');
   if (!['unfilled', 'no_show'].includes(kind)) throw new Error('긴급 요청 유형이 올바르지 않아요.');
   const { data: original } = await sb.from('shifts').select('*').eq('id', shiftId).eq('facility_id', context.facilityId).in('status', ['open','matched']).maybeSingle();
-  if (!original) throw new Error('긴급 요청 가능한 시프트를 찾지 못했어요.');
+  if (!original) throw new Error('긴급 요청 가능한 근무를 찾지 못했어요.');
   let target = original;
   const startMs = Date.parse(`${original.shift_date}T${original.start_time}+09:00`);
   if (!Number.isFinite(startMs)) throw new Error('근무 시작 시간을 확인할 수 없어요.');
@@ -383,7 +383,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
         notes: '기존 확정 인력 미출근으로 인한 긴급 대체 요청', audience: 'public',
         replacement_for_shift_id: original.id, is_replacement: true, posted_by: context.user.id,
       }).select('*').single();
-      if (error || !created) throw new Error('긴급 대체 시프트를 만들지 못했어요.');
+      if (error || !created) throw new Error('긴급 대체 공고를 만들지 못했어요.');
       target = created;
       const usageKey = `job_posting:${context.facilityId}:${created.id}`;
       try {
@@ -400,7 +400,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
   const outbox = (workers ?? []).filter((worker: any) => worker.auth_user_id).map((worker: any) => ({
     worker_auth_user_id: worker.auth_user_id, event_type: 'shift.urgent',
     dedupe_key: `shift.urgent:${target.id}:${hourKey}:${worker.auth_user_id}`,
-    title: kind === 'no_show' ? '긴급 대체 근무 요청' : '48시간 내 긴급 시프트',
+    title: kind === 'no_show' ? '긴급 대체 근무 요청' : '48시간 내 긴급 근무',
     body: `${target.shift_date} ${target.start_time.slice(0,5)} · ${target.department ?? '병동 근무'}`,
     data: { type: 'urgent_shift', shiftId: target.id },
   }));
@@ -420,7 +420,7 @@ export async function deactivateShiftTemplateAction(formData: FormData) {
   const id = formText(formData, 'template_id');
   const { error } = await sb.from('shift_templates').update({ is_active: false, updated_at: new Date().toISOString() })
     .eq('id', id).eq('facility_id', context.facilityId);
-  if (error) throw new Error('템플릿을 중지하지 못했어요.');
+  if (error) throw new Error('반복 일정을 중지하지 못했어요.');
   revalidatePath('/operations');
   redirect('/operations?notice=template_off');
 }

@@ -36,7 +36,7 @@ export function classifyNotice(notice: Notice, context: ScopeContext): NoticeSco
   if (staffId) return context.gigStaffIds.includes(staffId) ? 'gig' : 'medical';
   const facilityId = stringField(data, 'facilityId', 'facility_id');
   if (facilityId) return context.gigFacilityIds.includes(facilityId) ? 'gig' : 'medical';
-  // 단기 시프트(shift_applications) 근태는 의료 워커 셸 전용
+  // 단기 근무(shift_applications) 근태는 의료 워커 셸 전용
   if (stringField(data, 'application_id', 'applicationId')) return 'medical';
 
   // 근무지를 특정할 수 없는 근태 알림: 한쪽만 쓰면 그쪽, 둘 다 쓰면 양쪽에서 보여 준다 (알림을 잃는 것보다 낫다)

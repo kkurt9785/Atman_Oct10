@@ -10,7 +10,7 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   title: '간호사·간호조무사·약사 대타 공고 | 잇닿',
   description:
-    '병원·요양병원·약국의 단기 근무와 대타 공고를 확인하고 앱에서 바로 지원하세요. 임금은 사업장이 직접 지급하며 중개 수수료가 없습니다.',
+    '병원·요양병원·약국의 단기 근무와 대타 공고를 확인하고 앱에서 바로 지원하세요. 임금은 사업장이 직접 지급하고 채용 수수료가 없어요.',
   alternates: { canonical: 'https://itdot.co.kr/jobs' },
   openGraph: {
     title: '간호사·간호조무사·약사 대타 공고 | 잇닿',
@@ -32,7 +32,7 @@ export default async function PublicJobsPage() {
       </h1>
       <p className="mt-2 text-[14px] leading-6 text-sub">
         간호사·간호조무사·약사·약국 사무직 공고입니다. 임금은 사업장이 직접 지급하고,
-        잇닿은 중개 수수료를 받지 않습니다.
+        잇닿은 채용 수수료를 받지 않습니다.
       </p>
       {regions.length > 0 && (
         <p className="mt-3 text-[12px] text-tertiary">모집 지역 · {regions.join(' · ')}</p>

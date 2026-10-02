@@ -27,7 +27,7 @@ export default async function TimesheetPage(){
 
   return <main className="px-4 pb-28">
     <div className="mt-3 px-1">
-      <p className="text-label font-bold text-primary">{isGigworker?'오늘 닿기(출퇴근)를 한눈에':`${facilityWord} 인력을 한 흐름으로`}</p>
+      <p className="text-label font-bold text-primary">{isGigworker?'오늘 출퇴근을 한눈에':`${facilityWord} 인력을 한 흐름으로`}</p>
       <h1 className="text-display font-extrabold">오늘 근태</h1>
       <p className="mt-1 text-label text-sub">{today} · {isGigworker?'오늘 일정이 있는 근무자만 보여드려요.':'기존 직원과 오늘 확정된 단기 인력을 함께 관리해요.'}</p>
     </div>

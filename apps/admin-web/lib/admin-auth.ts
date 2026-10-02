@@ -222,7 +222,7 @@ export const getAdminContext=cache(async (): Promise<AdminContext | null> => {
 
 export async function requireAdminSession(): Promise<AdminSession> {
   const session = await getAdminSession();
-  if (!session) throw new Error('관리자 로그인이 필요합니다.');
+  if (!session) throw new Error('관리자 로그인이 필요해요.');
   return session;
 }
 
@@ -231,7 +231,7 @@ export async function requireAdminContext(
 ): Promise<AdminContext> {
   const context = await getAdminContext();
   if (!context || !allowedRoles.includes(context.accessRole)) {
-    throw new Error('이 사업장에 대한 권한이 없습니다.');
+    throw new Error('이 사업장에 대한 권한이 없어요.');
   }
   return context;
 }
