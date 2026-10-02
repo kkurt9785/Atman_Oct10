@@ -24,7 +24,7 @@ type ShiftWithFacility = Shift & {
   facilities: { name: string; address_text?: string | null; facility_type?: string | null } | null;
 };
 type NextAction={label:string;title:string;href:string;tone:'primary'|'success'};
-type Activity = { shift_id: string; status: string; checked_in_at: string | null; checked_out_at: string | null; shifts: { shift_date: string; start_time: string } | Array<{ shift_date: string; start_time: string }> | null };
+type Activity = { shift_id: string; status: string; checked_in_at: string | null; checked_out_at: string | null; shifts: { shift_date: string; start_time: string; facility_id?: string } | Array<{ shift_date: string; start_time: string; facility_id?: string }> | null };
 const shiftOfActivity = (row: Activity) => (Array.isArray(row.shifts) ? row.shifts[0] : row.shifts) ?? null;
 
 function matchesCell(shift: Shift, cell: { date: string; slot: RosterSlot } | null) {
@@ -39,13 +39,13 @@ function minutesUntilKstTime(time: string) {
   return hour * 60 + minute - nowMinutes;
 }
 
-function ListCard({ shift, onApply }: { shift: ShiftWithFacility; onApply: () => void }) {
+function ListCard({ shift, worked, onApply }: { shift: ShiftWithFacility; worked: boolean; onApply: () => void }) {
   const pay   = shift.estimated_total_pay.toLocaleString('ko-KR');
   return (
     <div className="bg-white rounded-card shadow-card p-4 mb-3">
       <div className="flex items-center gap-4">
       <div className="flex-1 min-w-0">
-        <p className="text-[12px] text-tertiary truncate">{facilityName(shift)}</p>
+        <p className="flex items-center gap-1.5 text-[12px] text-tertiary"><span className="truncate">{facilityName(shift)}</span>{worked && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-extrabold text-primary">함께 일한 곳</span>}</p>
         <p className="text-[15px] font-bold text-ink mt-0.5">
           {shift.shift_date}　{timeLabel(shift)}
         </p>
@@ -200,7 +200,7 @@ export default function HomePage() {
       if (workerRow?.id) {
         const { data: appData } = await supabase
           .from('shift_applications')
-          .select('shift_id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time)')
+          .select('shift_id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time,facility_id)')
           .eq('worker_id', workerRow.id)
           .in('status', ['invited','applied', 'accepted','completed']);
         const rows=[...((appData??[]) as unknown as Activity[])].sort((left,right)=>{
@@ -259,7 +259,14 @@ export default function HomePage() {
     setCell(defaultSelection(week, cells));
   }, [loading, cellTouched, week, cells]);
 
-  const filtered = openShifts.filter((s) => matchesCell(s, cell));
+  // 근무를 마친 사업장의 공고를 먼저 — 이미 아는 곳이라 지원 판단이 빠르다
+  const workedFacilities = useMemo(() => new Set(activity
+    .filter((a) => a.status === 'completed' || (a.status === 'accepted' && a.checked_out_at))
+    .map((a) => shiftOfActivity(a)?.facility_id)
+    .filter((id): id is string => Boolean(id))), [activity]);
+  const isWorked = (s: ShiftWithFacility) => workedFacilities.has((s as { facility_id?: string }).facility_id ?? '');
+  const filtered = openShifts.filter((s) => matchesCell(s, cell))
+    .sort((a, b) => Number(isWorked(b)) - Number(isWorked(a)));
   const weekCount = openShifts.filter((s) => s.shift_date >= week[0].date && s.shift_date <= week[6].date).length;
   const selectedDay = week.find((day) => day.date === cell?.date);
   const selectedCount = cell ? cells[cellKey(cell.date, cell.slot)]?.count ?? 0 : 0;
@@ -344,7 +351,7 @@ export default function HomePage() {
           </div>
         ) : (
           filtered.map((s) => (
-            <ListCard key={s.id} shift={s} onApply={() => setSelected(s)} />
+            <ListCard key={s.id} shift={s} worked={isWorked(s)} onApply={() => setSelected(s)} />
           ))
         )}
       </section>

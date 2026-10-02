@@ -60,7 +60,7 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,da
   const [qrHelp,setQrHelp]=useState(false);
   return <>
     {result&&<div role="status" className={`mt-3 rounded-xl p-3 text-[12px] font-bold ${result.ok?(result.status==='pending'?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'):'bg-red-50 text-red-600'}`}>
-      <p>{result.ok?(action==='check_out'&&result.status==='pending'?'조기 퇴근 승인을 요청했어요.':`${action==='check_in'?'출근':'퇴근'}이 완료됐어요.`):result.message}</p>
+      <p>{result.ok?(action==='check_out'&&result.status==='pending'?'조기 퇴근 승인을 요청했어요.':action==='check_in'?'출근했어요.':'퇴근했어요. 오늘도 수고 많으셨어요.'):result.message}</p>
       {result.ok&&(result.lateMinutes??0)>0&&<p className="mt-1 font-medium">지각 {result.lateMinutes}분으로 기록됐어요.</p>}
       {result.ok&&result.status!=='pending'&&(result.earlyLeaveMinutes??0)>0&&<p className="mt-1 font-medium">예정보다 {result.earlyLeaveMinutes}분 일찍 퇴근한 것으로 기록됐어요.</p>}
       {!result.ok&&result.reason==='QR_EXPIRED'&&<p className="mt-1 font-medium">관리자 화면의 새 QR을 다시 찍어 주세요. QR은 화면에서 60초마다 바뀌어요.</p>}

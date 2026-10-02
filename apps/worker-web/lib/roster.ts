@@ -6,7 +6,7 @@ import { dateKST } from '@/lib/date';
 export type RosterSlot = 'D' | 'E' | 'N';
 export const ROSTER_SLOTS: RosterSlot[] = ['D', 'E', 'N'];
 export const SLOT_LABEL: Record<RosterSlot, string> = { D: '07–15', E: '15–23', N: '23–07' };
-export const SLOT_NAME: Record<RosterSlot, string> = { D: '주간', E: '오후', N: '야간' };
+export const SLOT_NAME: Record<RosterSlot, string> = { D: '데이', E: '이브닝', N: '나이트' };
 
 export function slotOf(startTime: string): RosterSlot {
   const hour = Number(startTime.slice(0, 2));

@@ -235,7 +235,7 @@ export function ApplicantCard({
             <div className="w-10 h-1 bg-line rounded-full mx-auto mb-5" />
             <p className="text-[1.25rem] font-extrabold text-ink">채용을 확정할까요?</p>
             <p className="text-[0.875rem] text-sub mt-1">
-              확정 후 근무자에게 수락 알림이 전송됩니다.
+              확정하면 근무자에게 바로 알림이 가요.
             </p>
 
             <div className="bg-bg rounded-2xl p-4 mt-5 space-y-2">
