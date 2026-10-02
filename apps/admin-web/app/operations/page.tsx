@@ -9,6 +9,7 @@ import { getShop } from '@/lib/db/shop';
 import { hasPlanFeature } from '@/lib/billing-gates';
 import { adminClient } from '@/lib/supabase';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { getActiveCoverRequests } from '@/lib/db/cover';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
@@ -38,11 +39,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   // 운영 자동화는 Pro·Pharmacy Plus 기능 — 미충족 플랜에는 실행 시점 에러 대신 먼저 안내한다.
   // 플랜 조회도 같은 Promise.all 에 넣어 순차 왕복을 없앤다.
   const gateSb = adminClient();
-  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations] = await Promise.all([
+  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations, covers] = await Promise.all([
     getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(),
     getWorkforceCoverage(), getWorkforceRecommendations(), getShop(),
     gateSb ? hasPlanFeature(gateSb, context.facilityId, 'operations') : Promise.resolve(false),
+    getActiveCoverRequests(),
   ]);
+  // 대타 승인은 요금제와 무관한 기본 흐름이다 — 노쇼 직전의 출구라 막지 않는다
+  const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
   const isPharmacy = shop?.facilityType === 'pharmacy';
   const roleOptions: [string, string][] = isPharmacy
     ? [['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직']]
@@ -54,7 +58,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   // 지금 벌어지고 있는 미출근을 먼저, 그다음 곧 시작하는데 지원자가 없는 근무
   const todoAlerts = [...noShowAlerts, ...unfilledAlerts];
   const hiddenAlerts = todoAlerts.slice(ALERT_LIMIT);
-  const todoCount = todoAlerts.length + summary.expiringCredentialCount + summary.pendingWageCount;
+  const todoCount = todoAlerts.length + coverToApprove + summary.expiringCredentialCount + summary.pendingWageCount;
   const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
   const recruitingCount = coverage.reduce((sum, day) => sum + day.recruiting, 0);
   return (
@@ -131,8 +135,9 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
               )}
             </div>
           )}
-          {(summary.expiringCredentialCount > 0 || summary.pendingWageCount > 0) && (
+          {(coverToApprove > 0 || summary.expiringCredentialCount > 0 || summary.pendingWageCount > 0) && (
             <Card className={`${todoAlerts.length > 0 ? 'mt-2' : ''} divide-y divide-line py-1`}>
+              {coverToApprove > 0 && <Link href="/applications#cover" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">대타 승인 대기</span><b className="text-primary">{coverToApprove}건 →</b></Link>}
               {summary.expiringCredentialCount > 0 && <Link href="/workforce" className="flex items-center justify-between py-3 text-label"><span className="text-ink">30일 안에 만료되는 자격</span><b className="text-warn">{summary.expiringCredentialCount}건 →</b></Link>}
               {summary.pendingWageCount > 0 && <Link href="/payroll" className="flex items-center justify-between py-3 text-label"><span className="text-ink">급여 승인·지급 대기</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
             </Card>

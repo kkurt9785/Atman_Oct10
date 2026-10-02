@@ -14,6 +14,7 @@ import { Wordmark } from '@/components/brand/BrandMark';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
 import { loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
+import { listClaimableCovers } from '@/lib/cover';
 
 // 의료 워커 홈 = 근무표 한 장 + 그 칸의 근무. 그 외는 없다.
 //   ● 확정 근무, ○ 지원 중, +N 그 시간대에 갈 수 있는 근무. 칸을 누르면 아래 목록이 그 칸으로 좁혀진다.
@@ -97,6 +98,8 @@ export default function HomePage() {
   const [reviewPending, setReviewPending] = useState(false);
   const [nextAction,setNextAction]=useState<NextAction|null>(null);
   const [hasGigLink, setHasGigLink] = useState(false);
+  // 함께 일한 사업장의 대타 요청 중 내가 아직 안 맡은 것 — 있을 때만 배너로 알린다
+  const [openCoverCount, setOpenCoverCount] = useState(0);
 
   // 공고 탐색 기준 — 현재 위치 또는 등록 지역 중 하나
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -177,6 +180,7 @@ export default function HomePage() {
         loadWorkerShellContext(user).catch(() => null),
       ]);
       setHasGigLink(Boolean(shellContext?.hasGig));
+      void listClaimableCovers().then((list) => setOpenCoverCount(list.filter((cover) => !cover.claimed_by_me).length));
 
       // 카카오 로그인만 하고 가입(온보딩)을 끝내지 않은 사람에게는 근무표를 보여주지 않는다 — 가입부터
       if (!workerRow) {
@@ -288,6 +292,13 @@ export default function HomePage() {
           <span><b className="block text-[13px]">긱워커 간편모드</b><span className="mt-0.5 block text-[11px] text-white/60">초대받은 일정·출퇴근·워크룸</span></span>
           <span className="text-[12px] font-extrabold text-primary">내 긱 근무 →</span>
         </Link>}
+
+        {openCoverCount > 0 && (
+          <Link href="/cover" className="mt-4 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 active:opacity-80">
+            <span><b className="block text-[13px] text-ink">함께 일한 곳에서 대타를 구해요</b><span className="mt-0.5 block text-[11px] text-sub">사업장 승인 후 확정돼요</span></span>
+            <span className="shrink-0 text-[12px] font-extrabold text-amber-800">{openCoverCount}건 보기 →</span>
+          </Link>
+        )}
 
         {nextAction && (
           <Link href={nextAction.href} className={`mt-4 flex items-center justify-between rounded-2xl px-4 py-3.5 text-white shadow-btn ${nextAction.tone==='success'?'bg-success':'bg-primary'}`}>

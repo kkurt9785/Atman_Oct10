@@ -1,5 +1,7 @@
 import { getPendingApplications } from '@/lib/db/applications';
 import { ApplicantCard } from './ApplicantCard';
+import { CoverRequestCard } from './CoverRequestCard';
+import { getActiveCoverRequests } from '@/lib/db/cover';
 
 import { formatDate, formatTime } from '@/lib/format';
 import { OperationsFlow } from '@/components/OperationsFlow';
@@ -7,7 +9,8 @@ import { OperationsFlow } from '@/components/OperationsFlow';
 const ROLE_LABEL: Record<string, string> = { rn: 'RN 간호사', na: 'NA 간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '무관' };
 
 export default async function ApplicationsPage({ searchParams }: { searchParams?: Promise<{ filter?: string }> }) {
-  const groups = await getPendingApplications();
+  const [groups, covers] = await Promise.all([getPendingApplications(), getActiveCoverRequests()]);
+  const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
   const filter = (await searchParams)?.filter ?? 'all';
   const filteredGroups = groups.map((group) => ({
     ...group,
@@ -26,6 +29,19 @@ export default async function ApplicationsPage({ searchParams }: { searchParams?
         </p>
       </div>
       <OperationsFlow active="applications"/>
+
+      {/* 대타 요청 — 확정된 워커가 못 나오게 됐을 때. 승인할 게 있으면 지원자보다 먼저 본다(근무가 이미 잡혀 있던 자리라 더 급하다) */}
+      {covers.length > 0 && (
+        <section id="cover" aria-labelledby="cover-heading" className="mb-6 scroll-mt-20">
+          <div className="mb-3 flex items-end justify-between px-1">
+            <h2 id="cover-heading" className="text-title font-extrabold text-ink">대타 요청</h2>
+            <span className="text-label font-bold text-sub">{coverToApprove > 0 ? `승인 필요 ${coverToApprove}건` : `진행 중 ${covers.length}건`}</span>
+          </div>
+          <div className="flex flex-col gap-3">
+            {covers.map((cover) => <CoverRequestCard key={cover.id} row={cover} />)}
+          </div>
+        </section>
+      )}
 
       <nav aria-label="지원자 필터" className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {[['all', '전체'], ['needs_check', '확인 필요'], ['confirmed', '확인 완료']].map(([value, label]) => (

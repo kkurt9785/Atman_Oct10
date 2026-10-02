@@ -15,7 +15,7 @@ function classify(message: string): ApplyFailureReason {
 }
 
 // 지원 트리거가 관리자 알림을 인큐하므로, 즉시 발송되도록 디스패처를 깨운다 (fire-and-forget)
-async function nudgeAdminDispatch(): Promise<void> {
+export async function nudgeAdminDispatch(): Promise<void> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) return;
   const adminBase = process.env.NEXT_PUBLIC_ADMIN_WEB_URL

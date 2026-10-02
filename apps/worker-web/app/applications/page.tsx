@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { dateKST } from '@/lib/date';
 import { cancelApplication, respondToInvitation } from '@/lib/shifts';
+import { cancelCover, listMyCovers, requestCover, type MyCover } from '@/lib/cover';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 import { AttendanceActionButton, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 
@@ -111,19 +112,114 @@ function StatusSteps({ app }: { app: Application }) {
   );
 }
 
+// ── 대타 요청 ──────────────────────────────────────────────────
+// 확정된 근무에 못 나오게 됐을 때의 유일한 출구. 예전엔 확정 후 취소 수단이 없어 전화 아니면 노쇼였다.
+// 요청만 해두고 이미 빠진 줄 알면 오히려 노쇼가 생기므로, 승인 전까지는 내 근무라는 걸 매번 보여준다.
+function CoverPanel({
+  app,
+  cover,
+  onRequest,
+  onCancel,
+}: {
+  app: Application;
+  cover?: MyCover;
+  onRequest: (applicationId: string, reason: string) => Promise<boolean>;
+  onCancel: (coverId: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  if (cover && (cover.status === 'open' || cover.status === 'claimed')) {
+    const claimed = cover.status === 'claimed';
+    return (
+      <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
+        <p className="text-[13px] font-extrabold text-ink">
+          {claimed ? `${cover.claimer_name ?? '동료'}님이 맡겠다고 했어요 · 사업장 승인 대기` : '대타 구하는 중'}
+        </p>
+        <p className="mt-1 text-[12px] leading-5 text-sub">
+          {claimed ? '사업장이 승인하면 확정 알림이 와요.' : '함께 일한 동료·인력풀에 알렸어요.'}{' '}
+          <b className="text-ink">승인되기 전까지는 내 근무예요.</b>
+        </p>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => { setBusy(true); await onCancel(cover.id); setBusy(false); }}
+          className="mt-2 text-[12px] font-bold text-sub underline disabled:opacity-50"
+        >
+          대타 요청 취소하고 직접 나갈게요
+        </button>
+      </div>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-2 w-full h-11 rounded-btn border border-line text-[14px] font-semibold text-sub active:bg-bg"
+      >
+        못 가게 됐어요 · 대타 구하기
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-line bg-bg p-3">
+      <p className="text-[13px] font-extrabold text-ink">이 근무의 대타를 구할게요</p>
+      <ul className="mt-1.5 space-y-0.5 text-[12px] leading-5 text-sub">
+        <li>· 이 사업장에서 함께 일한 같은 직군에게 알림이 가요</li>
+        <li>· 누군가 맡으면 사업장이 승인해야 확정돼요</li>
+        <li>· <b className="text-ink">승인되기 전까지는 내 근무예요</b></li>
+      </ul>
+      <textarea
+        value={reason}
+        onChange={(event) => setReason(event.target.value.slice(0, 200))}
+        rows={2}
+        placeholder="사유 (선택) — 사업장에만 전달되고 동료에게는 보이지 않아요"
+        className="mt-2 w-full resize-none rounded-xl bg-white px-3 py-2 text-[13px] text-ink placeholder:text-tertiary"
+      />
+      <div className="mt-2 grid grid-cols-[1fr_2fr] gap-2">
+        <button type="button" onClick={() => { setOpen(false); setReason(''); }} className="h-11 rounded-btn border border-line bg-white text-[13px] font-bold text-sub">닫기</button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={async () => { setBusy(true); const ok = await onRequest(app.id, reason.trim()); setBusy(false); if (ok) { setOpen(false); setReason(''); } }}
+          className="h-11 rounded-btn bg-ink text-[13px] font-extrabold text-white disabled:opacity-50"
+        >
+          {busy ? '보내는 중…' : '대타 구하기'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── 지원 카드 ──────────────────────────────────────────────────
 function ApplicationCard({
   app,
+  cover,
   onCancel,
   onInvitation,
   onAttendanceSuccess,
+  onRequestCover,
+  onCancelCover,
 }: {
   app: Application;
+  cover?: MyCover;
   onCancel: (id: string) => void;
   onInvitation: (id: string, accept: boolean) => void;
   onAttendanceSuccess: (id: string, action: 'check_in' | 'check_out', response?: AttendanceResult) => void;
+  onRequestCover: (applicationId: string, reason: string) => Promise<boolean>;
+  onCancelCover: (coverId: string) => Promise<void>;
 }) {
-  const { label, description, className } = STATUS_CONFIG[app.status];
+  // 대타가 승인돼 빠진 근무는 '취소됨'이 아니다 — 본인이 취소한 것처럼 보이면 책임 있게 대타를 구한 행동이 묻힌다
+  const coveredByOther = app.status === 'cancelled' && cover?.status === 'approved';
+  const { label, description, className } = coveredByOther
+    ? { label: '대타 확정', description: `${cover?.claimer_name ?? '동료'}님이 이 근무를 맡았어요. 빠지셔도 돼요.`, className: 'bg-[#E5FAF4] text-success' }
+    : STATUS_CONFIG[app.status];
+  const startsAt = Date.parse(`${app.shift.shift_date}T${app.shift.start_time.slice(0, 5)}:00+09:00`);
+  const canSeekCover = app.status === 'accepted' && !app.checked_in_at && !app.checked_out_at && startsAt > Date.now();
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
   const appliedDate = new Date(app.applied_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 
@@ -198,6 +294,7 @@ function ApplicationCard({
               </p>
             </div>
           )}
+          {canSeekCover && <CoverPanel app={app} cover={cover} onRequest={onRequestCover} onCancel={onCancelCover} />}
           <Link
             href={`/chat/${app.id}`}
             className="mt-2 w-full h-11 border border-primary/30 rounded-btn text-[14px] font-semibold text-primary flex items-center justify-center gap-1.5 active:bg-primary/5"
@@ -236,6 +333,7 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true);
   const [actionNotice, setActionNotice] = useState('');
   const [activityFilter,setActivityFilter]=useState<ActivityFilter>('active');
+  const [covers, setCovers] = useState<MyCover[]>([]);
 
   // 워커 ID + 지원 현황 초기 로드
   useEffect(() => {
@@ -258,6 +356,7 @@ export default function ApplicationsPage() {
 
       setWorkerId(worker.id);
 
+      void listMyCovers().then(setCovers);
       const { data } = await supabase
         .from('shift_applications')
         .select(`
@@ -295,6 +394,28 @@ export default function ApplicationsPage() {
     setApps((prev) => prev.map((app) => app.id === applicationId
       ? { ...app, status: accept ? 'applied' as const : 'cancelled' as const }
       : app));
+  }
+
+  async function handleRequestCover(applicationId: string, reason: string): Promise<boolean> {
+    const result = await requestCover(applicationId, reason);
+    if (!result.ok) { setActionNotice(result.message); return false; }
+    setActionNotice('');
+    setCovers(await listMyCovers());
+    return true;
+  }
+
+  async function handleCancelCover(coverId: string): Promise<void> {
+    const result = await cancelCover(coverId);
+    if (!result.ok) { setActionNotice(result.message); return; }
+    setCovers(await listMyCovers());
+  }
+
+  // 한 근무에 대타 기록이 여러 개일 수 있다(취소 후 재요청). 진행 중 > 승인 > 그 외 순으로 하나만 보여준다.
+  const COVER_RANK: Record<string, number> = { open: 3, claimed: 3, approved: 2 };
+  const coverByApp = new Map<string, MyCover>();
+  for (const cover of covers) {
+    const current = coverByApp.get(cover.application_id);
+    if (!current || (COVER_RANK[cover.status] ?? 0) > (COVER_RANK[current.status] ?? 0)) coverByApp.set(cover.application_id, cover);
   }
 
   function handleAttendanceSuccess(applicationId: string, action: 'check_in' | 'check_out', response?: {status?:'approved'|'pending';checkInAt?:string;checkOutAt?:string}) {
@@ -359,7 +480,7 @@ export default function ApplicationsPage() {
           </div>
         ) : visibleApps.length===0?<div className="rounded-2xl bg-white py-12 text-center"><p className="text-[15px] font-bold text-ink">이 상태의 근무가 없어요</p><button type="button" onClick={()=>setActivityFilter('all')} className="mt-2 text-[13px] font-bold text-primary">전체 내역 보기</button></div> : (
           visibleApps.map((a) => (
-            <ApplicationCard key={a.id} app={a} onCancel={handleCancel} onInvitation={handleInvitation} onAttendanceSuccess={handleAttendanceSuccess} />
+            <ApplicationCard key={a.id} app={a} cover={coverByApp.get(a.id)} onCancel={handleCancel} onInvitation={handleInvitation} onAttendanceSuccess={handleAttendanceSuccess} onRequestCover={handleRequestCover} onCancelCover={handleCancelCover} />
           ))
         )}
 
