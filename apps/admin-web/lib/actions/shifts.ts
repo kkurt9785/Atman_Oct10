@@ -177,6 +177,24 @@ export async function cancelShiftAction(shiftId: string) {
     .select('id')
     .maybeSingle();
   if (error || !data) throw new Error('취소할 수 없는 공고예요.');
+  // 아직 답하지 않은 요청·확정 전 지원은 마감한다 — 그대로 두면 근무자 앱에 수락 버튼이 남는다
+  const { data: pending } = await sb.from('shift_applications')
+    .update({ status: 'expired', responded_at: new Date().toISOString() })
+    .eq('shift_id', shiftId).in('status', ['invited', 'applied'])
+    .select('id, workers ( auth_user_id )');
+  const pendingRows = ((pending ?? []) as Array<{ id: string; workers: { auth_user_id: string | null } | Array<{ auth_user_id: string | null }> | null }>)
+    .map((row) => ({ id: row.id, authId: (Array.isArray(row.workers) ? row.workers[0] : row.workers)?.auth_user_id ?? null }))
+    .filter((row): row is { id: string; authId: string } => Boolean(row.authId));
+  if (pendingRows.length) {
+    await sb.from('notification_outbox').upsert(pendingRows.map((row) => ({
+      worker_auth_user_id: row.authId,
+      event_type: 'shift.cancelled',
+      dedupe_key: `shift.cancelled:${shiftId}:${row.authId}`,
+      title: '요청·지원한 근무가 취소됐어요',
+      body: `${(before as { shift_date?: string } | null)?.shift_date ?? ''} 근무가 사업장 사정으로 취소됐어요.`,
+      data: { url: '/applications', shiftId },
+    })), { onConflict: 'dedupe_key', ignoreDuplicates: true });
+  }
   const matchedAuthId = (before as unknown as { status?: string; workers?: { auth_user_id?: string | null } | null } | null)
     ?.status === 'matched'
     ? (before as unknown as { workers?: { auth_user_id?: string | null } | null }).workers?.auth_user_id
@@ -190,7 +208,7 @@ export async function cancelShiftAction(shiftId: string) {
       body: `${(before as { shift_date?: string }).shift_date ?? ''} 근무가 사업장 사정으로 취소됐습니다. 다른 근무를 확인해 보세요.`,
       data: { url: '/applications', shiftId },
     }], { onConflict: 'dedupe_key', ignoreDuplicates: true });
-    await nudgeNotificationDispatch();
   }
+  await nudgeNotificationDispatch();
   redirect('/shifts');
 }

@@ -15,12 +15,12 @@ export type ShiftRow = {
   department: string | null;
   notes: string | null;
   status: 'open' | 'matched' | 'in_progress' | 'completed' | 'cancelled';
+  audience?: 'public' | 'invited' | 'targeted';
   created_at: string;
 };
 
 export type NewShift = Omit<ShiftRow, 'id' | 'is_overnight' | 'status' | 'created_at'>;
 export type ShiftCreateInput = NewShift & {
-  audience?: 'public' | 'invited';
   invited_worker_id?: string | null;
   template_id?: string | null;
   generation_batch_id?: string | null;
@@ -29,7 +29,7 @@ export type ShiftCreateInput = NewShift & {
   is_replacement?: boolean;
 };
 
-const SELECT_COLS = 'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, status, created_at';
+const SELECT_COLS = 'id, shift_date, start_time, end_time, is_overnight, required_role, hourly_wage, estimated_total_pay, description, department, notes, status, audience, created_at';
 
 export async function getShifts(): Promise<ShiftRow[]> {
   const facilityId = await getCurrentFacilityId();

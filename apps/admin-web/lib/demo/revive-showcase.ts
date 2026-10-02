@@ -187,6 +187,16 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     await req('DELETE', `/rest/v1/shifts?id=in.(${idlist})`);
   }
 
+  // 시연 중 '결원 채우기'로 만든 근무도 매일 비운다 — 쌓이면 데모 워커가 같은 시간 확정 근무로 묶여 다음 시연에서 후보가 사라진다
+  const vacancy = await req<Array<{ id: string }>>('GET', `/rest/v1/shifts?facility_id=in.(${entryFacilityIds.join(',')})&notes=like.${encodeURIComponent('결원 ·*')}&select=id`);
+  const vacancyIds = (vacancy.data ?? []).map((s) => s.id);
+  if (vacancyIds.length) {
+    const idlist = vacancyIds.map((i) => `"${i}"`).join(',');
+    await req('DELETE', `/rest/v1/shift_attendances?shift_id=in.(${idlist})`);
+    await req('DELETE', `/rest/v1/shift_applications?shift_id=in.(${idlist})`);
+    await req('DELETE', `/rest/v1/shifts?id=in.(${idlist})`);
+  }
+
   // ── 5. 데모 워커 로드 (kakao_id 순 — seed의 rn 정렬 재현) ────────────────────
   const wk = await req<Worker[]>(
     'GET',

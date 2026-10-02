@@ -112,7 +112,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
                 <Card key={`${alert.kind}:${alert.shiftId ?? alert.staffId}`} className={alert.kind === 'no_show' ? 'border border-red-200' : 'border border-amber-200'}>
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 시간 지남 · 출근 확인 필요') : '곧 시작 · 지원자 없음'}</p>
+                      <p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 시간 지남 · 출근 확인 필요') : '곧 시작 · 아직 미충원'}</p>
                       <p className="text-body font-bold mt-1">{alert.personName} · {dayLabel(alert.shiftDate)} {alert.startTime.slice(0,5)}</p>
                       <p className="mt-0.5 text-[0.75rem] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 근무'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p>
                     </div>

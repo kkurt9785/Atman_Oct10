@@ -143,14 +143,17 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
   const leaves=leaveResult.data;
   const ids = (shifts ?? []).map((row: any) => row.id);
   const [applicationResult,attendanceResult] = await Promise.all([
-    ids.length ? sb.from('shift_applications').select('shift_id,status,workers(name)').in('shift_id', ids).in('status', ['applied','accepted']) : Promise.resolve({ data: [] }),
+    ids.length ? sb.from('shift_applications').select('shift_id,status,workers(name)').in('shift_id', ids).in('status', ['invited','applied','accepted']) : Promise.resolve({ data: [] }),
     ids.length ? sb.from('shift_attendances').select('shift_id,check_in_at').in('shift_id', ids).not('check_in_at', 'is', null) : Promise.resolve({ data: [] }),
   ]);
   if('error' in applicationResult&&applicationResult.error)throw new Error(`공고 지원 현황을 불러오지 못했어요: ${applicationResult.error.message}`);
   if('error' in attendanceResult&&attendanceResult.error)throw new Error(`근무 출근 현황을 불러오지 못했어요: ${attendanceResult.error.message}`);
   const apps=applicationResult.data;
   const attendances=attendanceResult.data;
-  const appByShift = new Set((apps ?? []).map((row: any) => row.shift_id));
+  const appByShift = new Set((apps ?? []).filter((row: any) => row.status !== 'invited').map((row: any) => row.shift_id));
+  // 결원 요청을 보내 놓고 답을 기다리는 근무는 '지원자 없음'이 아니라 '응답 대기'로 보여 준다
+  const invitedByShift = new Map<string, number>();
+  for (const row of (apps ?? []) as any[]) if (row.status === 'invited') invitedByShift.set(row.shift_id, (invitedByShift.get(row.shift_id) ?? 0) + 1);
   const checkedIn = new Set((attendances ?? []).map((row: any) => row.shift_id));
   const acceptedWorkerName = new Map((apps ?? []).filter((row: any) => row.status === 'accepted').map((row: any) => {
     const worker = Array.isArray(row.workers) ? row.workers[0] : row.workers;
@@ -168,7 +171,7 @@ export async function getOperationsAlerts(): Promise<OperationsAlert[]> {
     if (shift.shift_date < today && !shift.is_overnight) continue;
     const startMs = Date.parse(`${shift.shift_date}T${shift.start_time}+09:00`);
     if (shift.status === 'open' && startMs >= nowMs && !appByShift.has(shift.id)) {
-      alerts.push({ shiftId: shift.id, staffId: null, personName: '지원자 없음', employment: 'shift', kind: 'unfilled', replacementEligible: false, shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
+      alerts.push({ shiftId: shift.id, staffId: null, personName: invitedByShift.get(shift.id) ? `요청 ${invitedByShift.get(shift.id)}명 응답 대기` : '지원자 없음', employment: 'shift', kind: 'unfilled', replacementEligible: false, shiftDate: shift.shift_date, startTime: shift.start_time, department: shift.department ?? null });
       continue;
     }
     if (shift.status === 'matched' && !checkedIn.has(shift.id) && nowMs >= startMs + 5 * 60_000) {

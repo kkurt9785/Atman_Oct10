@@ -8,7 +8,7 @@ import { WorkerShellGuard } from './WorkerShellGuard';
 import { isMedicalShellPath } from '@/lib/worker-mode';
 
 // 의료 워커 셸의 하단 탭이 붙는 경로. /gig 아래는 app/gig/layout.tsx 가 긱워커 셸(GigNav)을 따로 단다.
-const NAV_PREFIXES = ['/home', '/shifts', '/map', '/applications', '/workplace', '/workroom', '/earnings', '/rewards', '/settings', '/notifications'];
+const NAV_PREFIXES = ['/home', '/shifts', '/map', '/applications', '/cover', '/workplace', '/workroom', '/earnings', '/store', '/rewards', '/settings', '/notifications'];
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();

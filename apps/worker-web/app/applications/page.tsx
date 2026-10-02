@@ -28,6 +28,7 @@ type Application = {
     end_time: string;
     is_overnight: boolean;
     estimated_total_pay: number;
+    status?: string;
     department: string | null;
     description: string;
     facilities?: { name: string; address_text: string } | Array<{ name: string; address_text: string }> | null;
@@ -223,9 +224,13 @@ function ApplicationCard({
   const coveredByOther = app.status === 'cancelled' && cover?.status === 'approved';
   // 결원 요청(먼저 수락한 분으로 바로 확정)은 반복근무 요청과 안내가 다르다
   const vacancyCopy = app.confirm_on_accept ? VACANCY_STATUS[app.status] : undefined;
+  // 사업장이 근무를 취소했으면 요청·지원 상태와 상관없이 그렇게 보여 준다(수락 버튼도 숨김)
+  const shiftCancelled = app.shift.status === 'cancelled' && !['completed', 'accepted'].includes(app.status);
   const { label, description, className } = coveredByOther
     ? { label: '대타 확정', description: `${cover?.claimer_name ?? '동료'}님이 이 근무를 맡았어요. 빠지셔도 돼요.`, className: 'bg-[#E5FAF4] text-success' }
-    : vacancyCopy ?? STATUS_CONFIG[app.status];
+    : shiftCancelled
+      ? { label: '근무 취소', description: '사업장 사정으로 근무가 취소됐어요.', className: 'bg-[#F2F4F6] text-tertiary' }
+      : vacancyCopy ?? STATUS_CONFIG[app.status];
   const startsAt = Date.parse(`${app.shift.shift_date}T${app.shift.start_time.slice(0, 5)}:00+09:00`);
   const canSeekCover = app.status === 'accepted' && !app.checked_in_at && !app.checked_out_at && startsAt > Date.now();
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
@@ -260,7 +265,7 @@ function ApplicationCard({
       <p className="text-[13px] text-sub bg-bg rounded-xl px-3 py-2 mb-3">{description}</p>
       <StatusSteps app={app} />
 
-      {app.status === 'invited' && (
+      {app.status === 'invited' && !shiftCancelled && (
         <div className="grid grid-cols-2 gap-2 mt-3">
           <button onClick={() => onInvitation(app.id, false)} className="h-12 rounded-xl border border-line text-[14px] font-bold text-sub">이번에는 어려워요</button>
           <button onClick={() => onInvitation(app.id, true)} className="h-12 rounded-xl bg-primary text-white text-[14px] font-extrabold">{app.confirm_on_accept ? '맡을게요 · 바로 확정' : '근무 요청 수락'}</button>
@@ -321,7 +326,7 @@ function ApplicationCard({
         </Link>
       )}
 
-      {app.status === 'applied' && (
+      {app.status === 'applied' && !shiftCancelled && (
         <button
           onClick={() => onCancel(app.id)}
           className="mt-3 w-full h-11 border border-line rounded-btn text-[14px] font-semibold text-sub active:bg-bg"
@@ -370,7 +375,7 @@ export default function ApplicationsPage() {
         .select(`
           id, status, confirm_on_accept, applied_at, checked_in_at, checked_out_at,
           shift:shifts (
-            id, shift_date, start_time, end_time, is_overnight,
+            id, shift_date, start_time, end_time, is_overnight, status,
             estimated_total_pay, department, description,
             facilities ( name, address_text )
           )

@@ -28,7 +28,9 @@ export function WorkerNav() {
       {TABS.map((t) => {
         const active = path.startsWith(t.href)
           || (t.href === '/shifts' && path.startsWith('/map'))
-          || (t.href === '/applications' && path.startsWith('/earnings'));
+          // 대타·근무지·워크룸·급여는 '내 근무'에서, 리워드는 '내 정보'에서 들어간다 — 그 화면에서도 탭이 켜져 있어야 길을 잃지 않는다
+          || (t.href === '/applications' && ['/earnings', '/cover', '/workplace', '/workroom', '/store'].some((p) => path.startsWith(p)))
+          || (t.href === '/settings' && path.startsWith('/rewards'));
         return (
           <Link
             key={t.href}
