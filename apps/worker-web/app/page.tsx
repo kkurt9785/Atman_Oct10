@@ -65,7 +65,7 @@ function RootInner() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md flex-col">
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
-        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">일은 알림으로 오고,<br />입금은 바로 보여요</h1>
+        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">찾지 않아도 일이 닿고,<br />묻지 않아도 입금이 보여요</h1>
         <p className="mt-2 text-[14px] leading-6 text-sub">출근·퇴근만 누르면 일한 시간은 알아서 기록돼요.</p>
       </div>
 
