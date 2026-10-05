@@ -33,7 +33,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const guardMedical = isMedicalShellPath(path);
   const demo = useDemoSession();
   const gigNav = path.startsWith('/gig') && !path.startsWith('/gig/join') && !path.startsWith('/gig/demo');
-  const showDemoBar = demo === true && !DEMO_BAR_HIDDEN.some((prefix) => path.startsWith(prefix)) && !DEMO_BAR_HIDDEN_EXACT.includes(path);
+  const showDemoBar = Boolean(demo) && !DEMO_BAR_HIDDEN.some((prefix) => path.startsWith(prefix)) && !DEMO_BAR_HIDDEN_EXACT.includes(path);
   return (
     <>
       {guardMedical && <WorkerShellGuard shell="medical" />}
@@ -42,7 +42,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         {showDemoBar && <div aria-hidden="true" className="h-20" />}
       </div>
       {showNav && demo === false && <InstallBanner />}
-      {showDemoBar && <DemoBar aboveNav={showNav || gigNav} />}
+      {showDemoBar && demo && <DemoBar kind={demo} aboveNav={showNav || gigNav} />}
       {showNav && <WorkerNav />}
     </>
   );

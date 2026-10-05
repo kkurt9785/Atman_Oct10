@@ -143,7 +143,7 @@ export default function GigSettingsPage() {
       {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
 
       {/* 시연 계정이면 개인정보·로그아웃 대신 가입으로 잇는다 */}
-      {demo === true && <DemoSignupCard />}
+      {demo && <DemoSignupCard kind={demo} />}
       {demo === false && <>
         <PrivacySection />
         <button onClick={handleLogout} className="mt-2 w-full rounded-2xl border border-red-200 bg-white py-4 text-center text-[15px] font-semibold text-red-500 active:opacity-70">

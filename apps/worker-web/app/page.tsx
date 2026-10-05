@@ -22,6 +22,13 @@ function RootInner() {
     async function route() {
       const user = await getSignedInUser();
       if (!user) {
+        // 카카오톡 안에서 시연을 끝내고 바깥 브라우저로 넘어오면 ?start=1 — 시작 화면을 한 번 더 누르지 않게 바로 로그인
+        if (new URLSearchParams(window.location.search).get('start') === '1') {
+          window.history.replaceState(null, '', '/');
+          rememberWorkerShell('medical');
+          startKakaoLogin();
+          return;
+        }
         setSignedOut(true);
         return;
       }

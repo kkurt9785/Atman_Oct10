@@ -8,7 +8,7 @@ import { rememberWorkerShell } from '@/lib/worker-mode';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { BackButton } from '@/components/BackButton';
-import { isDemoEmail } from '@/lib/demo-session';
+import { demoKindOf, leaveDemo, type DemoKind } from '@/lib/demo-session';
 import { DemoEndSheet } from '@/components/DemoSignup';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { startKakaoLogin } from '@/lib/kakao-login';
@@ -78,7 +78,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   const routes = ROUTES[variant];
   const isGig = variant === 'gig';
   const [status, setStatus] = useState<'loading' | 'preview' | 'claiming' | 'success' | 'error'>('loading');
-  const [demoEndOpen, setDemoEndOpen] = useState(false);
+  const [demoEnd, setDemoEnd] = useState<DemoKind | null>(null);
+  const [demoBlocked, setDemoBlocked] = useState(false);
   const [message, setMessage] = useState('근무 초대를 확인하고 있어요...');
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -158,6 +159,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     if (error) {
       setStatus('error');
       setMessage(friendlyInviteError(error.message));
+      // 시연 계정으로 실제 초대를 열었으면 시연을 끝내고 같은 초대를 내 계정으로 받게 한다
+      setDemoBlocked(error.message.includes('시연 계정으로는 실제 초대'));
       return;
     }
     if (isGig && typeof staffId === 'string') {
@@ -174,7 +177,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   // 초대 화면에서 나가기 — 시연 계정이면 로그아웃 대신 '시연을 끝낼까요?'(가입으로 잇기), 아니면 처음 화면(로그인돼 있으면 내 홈)으로
   async function leaveInvite() {
     const { data: { session } } = await supabase.auth.getSession();
-    if (isDemoEmail(session?.user.email)) { setDemoEndOpen(true); return; }
+    const kind = demoKindOf(session?.user.email);
+    if (kind) { setDemoEnd(kind); return; }
     window.location.replace('/');
   }
 
@@ -228,8 +232,9 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
           <div className="mt-3"><InstallAppButton label="홈 화면에 잇닿 워커 추가" dark /></div>
         </div>}
       </>}
-      {status === 'error' && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
+      {status === 'error' && demoBlocked && <button type="button" onClick={async () => { await leaveDemo(); window.location.replace(window.location.href); }} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연 끝내고 이 초대 받기</button>}
+      {status === 'error' && !demoBlocked && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
     </section>
-    {demoEndOpen && <DemoEndSheet onClose={() => setDemoEndOpen(false)} />}
+    {demoEnd && <DemoEndSheet kind={demoEnd} onClose={() => setDemoEnd(null)} />}
   </main>;
 }

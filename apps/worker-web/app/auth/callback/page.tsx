@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { KAKAO_OAUTH_STATE_KEY } from '@/lib/kakao-login';
+import { loadWorkerShellContext, WORKER_SHELL_HOME } from '@/lib/worker-mode';
 
 function CallbackInner() {
   const router = useRouter();
@@ -40,7 +41,7 @@ function CallbackInner() {
           return;
         }
 
-        const { error: signInError } = await supabase.auth.signInWithIdToken({
+        const { data: signIn, error: signInError } = await supabase.auth.signInWithIdToken({
           provider: 'kakao',
           token: data.id_token,
         });
@@ -62,7 +63,9 @@ function CallbackInner() {
             window.localStorage.removeItem('atman_auth_next');
             router.replace(next);
           }else{
-            router.replace('/home');
+            // 이미 가입한 사람은 마지막에 쓰던 쪽(근무 찾기 / 초대 근무)으로 — 초대 근무만 쓰는 사람이 근무 찾기 홈을 거쳐 튕기지 않게
+            const context = await loadWorkerShellContext(signIn.user).catch(() => null);
+            router.replace(WORKER_SHELL_HOME[context?.shell ?? 'medical']);
           }
         } else {
           router.replace('/onboarding?step=terms');

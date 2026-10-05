@@ -17,14 +17,22 @@ export const MEDICAL_DEMOS = [
 
 export const isDemoEmail = (email: string | null | undefined) => (email ?? '').toLowerCase().endsWith('@demo.atman.co.kr');
 
-// 지금 로그인한 계정이 시연 계정인지 — 로그인·로그아웃에 맞춰 바뀐다(네트워크 없이 저장된 세션만 본다).
+// 시연 종류 — 초대 근무 시연은 계정 하나(긱 데모), 나머지는 근무 찾기 시연. 시연이 아니면 false
+const GIG_DEMO_EMAIL = 'worker-gig-demo@demo.atman.co.kr';
+export type DemoKind = 'gig' | 'medical';
+export function demoKindOf(email: string | null | undefined): DemoKind | false {
+  if (!isDemoEmail(email)) return false;
+  return (email ?? '').toLowerCase() === GIG_DEMO_EMAIL ? 'gig' : 'medical';
+}
+
+// 지금 로그인한 계정이 어떤 시연 계정인지 — 로그인·로그아웃에 맞춰 바뀐다(네트워크 없이 저장된 세션만 본다).
 // 확인 전에는 null: 일반 계정 화면(로그아웃·탈퇴)이 시연 화면에 잠깐 비치지 않게 한다.
 export function useDemoSession() {
-  const [demo, setDemo] = useState<boolean | null>(null);
+  const [demo, setDemo] = useState<DemoKind | false | null>(null);
   useEffect(() => {
     let active = true;
-    void supabase.auth.getSession().then(({ data }) => { if (active) setDemo(isDemoEmail(data.session?.user.email)); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setDemo(isDemoEmail(session?.user.email)));
+    void supabase.auth.getSession().then(({ data }) => { if (active) setDemo(demoKindOf(data.session?.user.email)); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setDemo(demoKindOf(session?.user.email)));
     return () => { active = false; sub.subscription.unsubscribe(); };
   }, []);
   return demo;
@@ -54,20 +62,28 @@ export async function openDemoSession(target: { email: string } | 'gig'): Promis
   return gig ? `/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}` : '/home';
 }
 
-// 다른 시연을 보러 시작 화면으로 — 가입으로 가지 않을 때만 쓴다
-export async function leaveDemoToStart() {
+// 시연 계정에서 내리기(이동 없음) — 실제 초대 링크를 열기 전처럼, 다음 화면을 내 계정으로 보게 할 때
+export async function leaveDemo() {
   await supabase.auth.signOut().catch(() => undefined);
   setGigworkerModePreference(false);
+  try { window.localStorage.removeItem('atman_demo_panel'); } catch { /* 저장소 없어도 진행 */ }
+}
+
+// 다른 시연을 보러 시작 화면으로 — 가입으로 가지 않을 때만 쓴다
+export async function leaveDemoToStart() {
+  await leaveDemo();
   window.location.replace('/');
 }
 
 // 시연을 끝내면 바로 카카오 로그인 — 써 보고 마음에 들면 한 번에 내 계정으로 시작한다.
-// 시연 표시(atman_demo_panel)도 지운다: 남아 있으면 가입 첫 화면에 시연 계정 버튼이 계속 보인다.
+// 카카오톡 안 브라우저는 카카오 로그인을 바깥 브라우저에서 해야 한다 — 시작 화면(?start=1)을 바깥에서 열면 거기서 바로 로그인이 이어진다.
 export async function endDemoSession() {
-  await supabase.auth.signOut().catch(() => undefined);
-  setGigworkerModePreference(false);
-  try { window.localStorage.removeItem('atman_demo_panel'); } catch { /* 저장소 없어도 진행 */ }
+  await leaveDemo();
   // 로그인 뒤 어느 화면으로 갈지는 시작 화면과 같이 데이터가 정한다
   rememberWorkerShell('medical');
+  if (navigator.userAgent.includes('KAKAO')) {
+    window.location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(`${window.location.origin}/?start=1`);
+    return;
+  }
   startKakaoLogin();
 }

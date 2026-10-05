@@ -255,7 +255,7 @@ export default function SettingsPage() {
       {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
 
       {/* 시연 계정이면 개인정보·로그아웃 대신 가입으로 잇는다 */}
-      {demo === true && <DemoSignupCard />}
+      {demo && <DemoSignupCard kind={demo} />}
       {demo === false && <>
         <div className="mt-4"><PrivacySection /></div>
         <button
