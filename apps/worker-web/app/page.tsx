@@ -7,7 +7,6 @@ import { getSignedInUser } from '@/lib/auth-user';
 import { loadWorkerShellContext, rememberWorkerShell, WORKER_SHELL_HOME } from '@/lib/worker-mode';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
-import { InstallAppButton } from '@/components/InstallAppButton';
 import { DEMO_LOGIN_ENABLED, MEDICAL_DEMOS, openDemoSession } from '@/lib/demo-session';
 import { InviteLinkPaste } from '@/components/invite/InviteLinkPaste';
 
@@ -46,7 +45,6 @@ function RootInner() {
     route();
   }, [router]);
 
-  const [rolesOpen, setRolesOpen] = useState(false);
   const [demoLoading, setDemoLoading] = useState<string | null>(null);
   const [demoError, setDemoError] = useState('');
 
@@ -69,26 +67,25 @@ function RootInner() {
 
   if (!signedOut) return <WorkerEntrySkeleton />;
 
-  return <main className="min-h-screen bg-white px-5 pb-8 pt-[max(32px,env(safe-area-inset-top))]">
+  return <main className="min-h-screen bg-white px-5 pb-8 pt-[max(32px,env(safe-area-inset-top))] [@media(max-height:700px)]:pb-4 [@media(max-height:700px)]:pt-[max(16px,env(safe-area-inset-top))]">
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md flex-col">
-      <div className="flex flex-col items-center pt-3 text-center">
+      <div className="flex flex-col items-center pt-3 text-center [@media(max-height:700px)]:pt-0">
         <Wordmark size={34} />
-        <h1 className="mt-7 text-[26px] font-extrabold leading-[1.3] tracking-[-0.8px] text-ink">내가 일 찾는 시대는 끝.<br />한 번 등록으로<br />원하는 일은 바로</h1>
+        <h1 className="mt-7 [@media(max-height:700px)]:mt-4 [@media(max-height:700px)]:text-[24px] text-[26px] font-extrabold leading-[1.3] tracking-[-0.8px] text-ink">내가 일 찾는 시대는 끝.<br />한 번 등록으로<br />원하는 일은 바로</h1>
         <p className="mt-3 text-[14px] leading-6 text-sub"><b className="text-[15px] text-ink">시급 계산, 어렵지 않아요.</b><br />출근·퇴근만 누르면 일한 시간과 금액이 바로 나와요.</p>
       </div>
 
       {/* 두 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고, 눌러서 써 보게 한다 */}
-      <ul className="mt-8 space-y-2" aria-label="잇닿 워커로 할 수 있는 일">
+      <ul className="mt-8 [@media(max-height:700px)]:mt-5 space-y-2" aria-label="잇닿 워커로 할 수 있는 일">
         <li className="rounded-2xl bg-bg">
-          <FeatureCard icon={SEARCH_ICON} title="근무 찾기" tag="병원·약국 직군" desc="한 번 등록, 가까운 병원·약국 근무 알림"
-            action={DEMO_LOGIN_ENABLED ? { label: rolesOpen ? '접기' : '써보기', expanded: rolesOpen, onClick: () => setRolesOpen((open) => !open) } : undefined} />
-          {DEMO_LOGIN_ENABLED && rolesOpen && <div className="px-4 pb-4">
-            <p className="text-[12px] font-bold text-sub">직군을 고르면 그 화면으로 바로 열려요</p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
+          <FeatureCard icon={SEARCH_ICON} title="근무 찾기" tag="병원·약국 직군" desc="한 번 등록, 가까운 병원·약국 근무 알림" />
+          {/* 직군을 누르면 바로 그 시연 — 펼치기 없이 한 번에 */}
+          {DEMO_LOGIN_ENABLED && <div className="-mt-1 px-4 pb-4">
+            <div className="grid grid-cols-4 gap-1.5">
               {MEDICAL_DEMOS.map((demo) => (
                 <button key={demo.email} type="button" disabled={Boolean(demoLoading)} onClick={() => void tryDemo({ email: demo.email })}
-                  className="h-11 rounded-xl border border-line bg-white text-[13px] font-extrabold text-ink active:bg-bg disabled:opacity-60">
-                  {demoLoading === demo.email ? '여는 중...' : demo.role}
+                  className="h-9 rounded-lg border border-line bg-white text-[12px] font-extrabold text-ink active:bg-bg disabled:opacity-60">
+                  {demoLoading === demo.email ? '여는 중' : demo.short}
                 </button>
               ))}
             </div>
@@ -99,10 +96,10 @@ function RootInner() {
             action={DEMO_LOGIN_ENABLED ? { label: demoLoading === 'gig' ? '여는 중...' : '써보기', onClick: () => { if (!demoLoading) void tryDemo('gig'); } } : undefined} />
         </li>
       </ul>
-      {DEMO_LOGIN_ENABLED && <p className="mt-2 text-center text-[11px] text-tertiary">써보기는 로그인 없이 열려요 · 둘러본 뒤 바로 가입할 수 있어요</p>}
+      {DEMO_LOGIN_ENABLED && <p className="mt-2 text-center text-[11px] text-tertiary">직군이나 써보기를 누르면 로그인 없이 바로 열려요</p>}
       {demoError && <p role="alert" className="mt-2 text-center text-[12px] font-bold text-red-600">{demoError}</p>}
 
-      <div className="min-h-7 flex-grow" />
+      <div className="min-h-7 [@media(max-height:700px)]:min-h-3 flex-grow" />
 
       <button type="button" onClick={startLogin} className="flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink shadow-btn active:opacity-80">
         <KakaoGlyph />카카오로 시작하기
@@ -111,8 +108,7 @@ function RootInner() {
       <div className="mt-2 text-center">
         <InviteLinkPaste triggerClassName="h-11 w-full text-[13px] font-bold text-sub" trigger={<>초대 링크를 복사해 두셨나요? <span className="text-primary">붙여넣고 열기 →</span></>} />
       </div>
-      <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
-      <p className="mt-4 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>
+      <p className="mt-4 [@media(max-height:700px)]:mt-2 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>
     </div>
   </main>;
 }

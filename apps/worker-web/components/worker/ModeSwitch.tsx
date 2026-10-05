@@ -1,21 +1,24 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { isDemoEmail } from '@/lib/demo-session';
+import { isDemoEmail, MEDICAL_DEMOS, openDemoSession } from '@/lib/demo-session';
 import { InviteLinkPaste } from '@/components/invite/InviteLinkPaste';
-import { loadWorkerShellContext, rememberWorkerShell, setGigworkerModePreference, WORKER_SHELL_HOME, type WorkerShell } from '@/lib/worker-mode';
+import { loadWorkerShellContext, rememberWorkerShell, WORKER_SHELL_HOME, type WorkerShell } from '@/lib/worker-mode';
 
 // 병원·약국 ↔ 긱 근무 전환은 이 스위치 하나. 두 홈의 같은 자리(맨 위)에 같은 모양으로 둔다.
 //   · 두 모드를 다 쓰면: 누르면 바로 전환
 //   · 반대쪽 모드가 아직 없으면: 무엇을 하면 열리는지 안내(직군 등록 / 초대 링크)
-//   · 시연 계정이면: 반대쪽 시연으로 바로 이동 (내 계정으로 시작은 화면 아래 시연 띠 DemoBar)
+//   · 시연 계정이면: 반대쪽 시연을 앱 안에서 바로 연다 — 초대 근무는 바로, 근무 찾기는 직군만 고르고
+//     (진행자용 /demo·/gig/demo 안내 페이지로 보내지 않는다. 가입·처음 화면은 화면 아래 시연 띠 DemoBar)
 const LABEL: Record<WorkerShell, string> = { medical: '근무 찾기', gig: '초대 근무' };
 
 export function ModeSwitch({ current }: { current: WorkerShell }) {
   const router = useRouter();
   const [ctx, setCtx] = useState<{ hasGig: boolean; hasMedical: boolean; demo: boolean } | null>(null);
   const [sheet, setSheet] = useState<WorkerShell | null>(null);
+  const [demoRoles, setDemoRoles] = useState(false);
+  const [switching, setSwitching] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -29,9 +32,8 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
   async function choose(target: WorkerShell) {
     if (target === current) return;
     if (ctx?.demo) {
-      await supabase.auth.signOut().catch(() => undefined);
-      setGigworkerModePreference(false);
-      window.location.href = target === 'gig' ? '/gig/demo' : '/demo';
+      if (target === 'gig') { await switchDemo('gig'); return; }
+      setDemoRoles(true);
       return;
     }
     const available = target === 'gig' ? ctx?.hasGig : ctx?.hasMedical;
@@ -41,6 +43,19 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
       return;
     }
     setSheet(target);
+  }
+
+  // 시연 계정끼리 갈아타기 — 세션이 바뀌므로 새로 연다
+  async function switchDemo(target: { email: string } | 'gig') {
+    if (switching) return;
+    setSwitching(target === 'gig' ? 'gig' : target.email);
+    setError('');
+    try {
+      window.location.replace(await openDemoSession(target));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '시연을 열지 못했어요.');
+      setSwitching(null);
+    }
   }
 
   function startMedicalRegistration() {
@@ -61,6 +76,26 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
           );
         })}
       </div>
+
+      {demoRoles && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setDemoRoles(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="demo-roles-title" className="w-full max-w-md rounded-t-3xl bg-white px-6 pb-[calc(24px+env(safe-area-inset-bottom))] pt-6" onClick={(event) => event.stopPropagation()}>
+            <p className="text-[12px] font-extrabold text-primary">근무 찾기 시연</p>
+            <h2 id="demo-roles-title" className="mt-1 text-[20px] font-extrabold text-ink">어떤 직군으로 볼까요?</h2>
+            <p className="mt-2 text-[14px] leading-6 text-sub">고른 직군의 근무표와 근처 공고로 바로 열려요.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              {MEDICAL_DEMOS.map((demo) => (
+                <button key={demo.email} type="button" disabled={Boolean(switching)} onClick={() => void switchDemo({ email: demo.email })}
+                  className="h-12 rounded-xl border border-line bg-white text-[14px] font-extrabold text-ink active:bg-bg disabled:opacity-60">
+                  {switching === demo.email ? '여는 중...' : demo.role}
+                </button>
+              ))}
+            </div>
+            {error && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{error}</p>}
+            <button type="button" onClick={() => setDemoRoles(false)} className="mt-2 h-11 w-full text-[14px] font-bold text-sub">닫기</button>
+          </div>
+        </div>
+      )}
 
       {sheet && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setSheet(null)}>

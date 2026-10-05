@@ -9,10 +9,10 @@ import { startKakaoLogin } from '@/lib/kakao-login';
 export const DEMO_LOGIN_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
 export const MEDICAL_DEMOS = [
-  { email: 'worker-demo-1@demo.atman.co.kr', role: '간호사', detail: '10명 내외 병원 · 요양병원 근무 찾기' },
-  { email: 'worker-demo-5@demo.atman.co.kr', role: '간호조무사', detail: '요양병원 근무 찾기' },
-  { email: 'worker-demo-6@demo.atman.co.kr', role: '약사', detail: '대체약사 · 주말 약국' },
-  { email: 'worker-demo-2@demo.atman.co.kr', role: '약국 전산·사무직', detail: '약국 접수·전산' },
+  { email: 'worker-demo-1@demo.atman.co.kr', role: '간호사', short: '간호사', detail: '10명 내외 병원 · 요양병원 근무 찾기' },
+  { email: 'worker-demo-5@demo.atman.co.kr', role: '간호조무사', short: '조무사', detail: '요양병원 근무 찾기' },
+  { email: 'worker-demo-6@demo.atman.co.kr', role: '약사', short: '약사', detail: '대체약사 · 주말 약국' },
+  { email: 'worker-demo-2@demo.atman.co.kr', role: '약국 전산·사무직', short: '약국 사무', detail: '약국 접수·전산' },
 ];
 
 export const isDemoEmail = (email: string | null | undefined) => (email ?? '').toLowerCase().endsWith('@demo.atman.co.kr');

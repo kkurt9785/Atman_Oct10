@@ -5,6 +5,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getSignedInUser } from '@/lib/auth-user';
+import { LinkedNotice } from '@/components/invite/LinkedNotice';
 import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { getLinkKinds, hasMedicalContext, isGigLink, loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
@@ -191,6 +192,7 @@ function GigTodayContent() {
       <div><h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.5px] text-ink">오늘 근무</h1><p className="mt-1 text-[13px] text-sub">출퇴근 기록에만 집중하면 돼요.</p></div>
       {staff && <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{staff.name}님</span>}
     </section>
+    <LinkedNotice />
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-sub">근무를 확인하고 있어요...</div>
       : !staff && hasMedicalLink ? <section className="mt-3 rounded-2xl bg-white p-8 text-center shadow-sm" aria-busy="true">
