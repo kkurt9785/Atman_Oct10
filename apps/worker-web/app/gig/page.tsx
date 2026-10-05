@@ -38,37 +38,37 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
     router.push(`/gig/join?token=${encodeURIComponent(token)}`);
   }
 
-  return <main className="min-h-screen bg-ink px-6 pb-10 pt-16 text-white">
+  return <main className="min-h-screen bg-white px-6 pb-10 pt-16 text-ink">
     <div className="mx-auto flex min-h-[calc(100vh-104px)] max-w-md flex-col">
       <div className="flex items-center justify-between gap-3">
-        <Wordmark size={20} tone="dark" />
-        <WorkerModeBadge shell="gig" dark />
+        <Wordmark size={20} />
+        <WorkerModeBadge shell="gig" />
       </div>
 
       <h1 className="mt-14 text-[32px] font-extrabold leading-[1.2] tracking-[-1px]">근무부터 지급 확인까지<br />한 번에.</h1>
-      <p className="mt-4 text-[15px] leading-6 text-white/70">초대받은 근무를 확인하고, 관리자와 대화하고,<br /><b className="text-white">출근하기</b> 버튼으로 출퇴근을 기록해요.</p>
+      <p className="mt-4 text-[15px] leading-6 text-sub">초대받은 근무를 확인하고, 관리자와 대화하고,<br /><b className="text-ink">출근하기</b> 버튼으로 출퇴근을 기록해요.</p>
 
-      <ol className="mt-8 grid grid-cols-3 gap-2 text-center text-[12px] leading-4 text-white/80">
-        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">1</b>잇기<br /><span className="text-white/55">초대 수락·계좌 전달</span></li>
-        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">2</b>출근하기<br /><span className="text-white/55">출퇴근 기록·대화</span></li>
-        <li className="rounded-2xl bg-white/8 px-2 py-4"><b className="mb-2 block text-[18px] text-white">3</b>지급 현황<br />확인</li>
+      <ol className="mt-8 grid grid-cols-3 gap-2 text-center text-[12px] leading-4 text-sub">
+        <li className="rounded-2xl bg-bg px-2 py-4"><b className="mb-2 block text-[18px] text-primary">1</b>잇기<br /><span className="text-tertiary">초대 수락·계좌 전달</span></li>
+        <li className="rounded-2xl bg-bg px-2 py-4"><b className="mb-2 block text-[18px] text-primary">2</b>출근하기<br /><span className="text-tertiary">출퇴근 기록·대화</span></li>
+        <li className="rounded-2xl bg-bg px-2 py-4"><b className="mb-2 block text-[18px] text-primary">3</b>지급 현황<br />확인</li>
       </ol>
 
       <div className="flex-grow" />
 
-      <label className="block text-[12px] font-bold text-white/60">초대 링크가 있다면</label>
+      <label className="block text-[12px] font-bold text-sub">초대 링크가 있다면</label>
       <div className="mt-2 flex gap-2">
-        <input value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && openInvite()} placeholder="초대 링크 붙여넣기" aria-label="초대 링크" className="h-12 min-w-0 flex-1 rounded-xl bg-white/10 px-3 text-[14px] text-white outline-none placeholder:text-white/40" />
+        <input value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && openInvite()} placeholder="초대 링크 붙여넣기" aria-label="초대 링크" className="h-12 min-w-0 flex-1 rounded-xl border border-line px-3 text-[14px] text-ink outline-none focus:border-primary" />
         <button type="button" onClick={openInvite} className="h-12 shrink-0 rounded-xl bg-primary px-4 text-[14px] font-extrabold text-white">확인</button>
       </div>
-      {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-300">{inviteError}</p>}
+      {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{inviteError}</p>}
 
       <button type="button" onClick={login} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink active:opacity-80">
         <KakaoGlyph />{attendanceToken ? '카카오로 로그인하고 출근 기록' : '이미 등록했어요 · 카카오로 로그인'}
       </button>
-      {DEMO_ENABLED && <Link href="/gig/demo" className="mt-2 flex h-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-[14px] font-extrabold text-white">긱워커 데모로 먼저 보기 →</Link>}
-      <div className="mt-2"><InstallAppButton label="잇닿 워커 앱으로 홈 화면에 추가" dark /></div>
-      <p className="mt-4 text-center text-[11px] text-white/45"><Link href="/" className="font-bold text-white/70">병원·약국 워커로 시작</Link><span className="px-2">·</span>근무지 관리자이신가요? <a href="https://admin.itdot.co.kr" className="font-bold text-white/70">관리자 앱 →</a></p>
+      {DEMO_ENABLED && <Link href="/gig/demo" className="mt-2 flex h-11 items-center justify-center text-[13px] font-bold text-sub">로그인 없이 시연 먼저 보기 →</Link>}
+      <div className="mt-2"><InstallAppButton label="잇닿 워커 앱으로 홈 화면에 추가" /></div>
+      <p className="mt-4 text-center text-[11px] text-tertiary"><Link href="/" className="font-bold text-sub">근무 찾기로 시작</Link><span className="px-2">·</span>근무지 관리자이신가요? <a href="https://admin.itdot.co.kr" className="font-bold text-sub">관리자 앱 →</a></p>
     </div>
   </main>;
 }
@@ -186,18 +186,15 @@ function GigTodayContent() {
       </div>
     </header>
 
-    <section className="mt-5 rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <p className="text-[11px] font-extrabold text-primary-light">긱 근무 · 초대받은 근무</p>
-      <div className="mt-2 flex items-start justify-between gap-3">
-        <div><h1 className="text-[24px] font-extrabold">오늘 근무</h1><p className="mt-1 text-[13px] text-white/65">출퇴근 기록에만 집중하면 돼요.</p></div>
-        {staff && <span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/80">{staff.name}님</span>}
-      </div>
+    <section className="mt-5 flex items-end justify-between gap-3 px-1">
+      <div><h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.5px] text-ink">오늘 근무</h1><p className="mt-1 text-[13px] text-sub">출퇴근 기록에만 집중하면 돼요.</p></div>
+      {staff && <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{staff.name}님</span>}
     </section>
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-sub">근무를 확인하고 있어요...</div>
       : !staff && hasMedicalLink ? <section className="mt-3 rounded-2xl bg-white p-8 text-center shadow-sm" aria-busy="true">
-          <b className="text-[16px] text-ink">병원·약국 모드로 이동 중이에요</b>
-          <p className="mt-2 text-[13px] leading-5 text-sub">긱 근무 초대를 받으면 이 화면에서 바로 연결돼요.</p>
+          <b className="text-[16px] text-ink">근무 찾기로 이동 중이에요</b>
+          <p className="mt-2 text-[13px] leading-5 text-sub">초대를 받으면 이 화면에서 바로 연결돼요.</p>
         </section>
       : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center shadow-sm">
           <b className="text-[16px] text-ink">아직 연결된 근무가 없어요</b>

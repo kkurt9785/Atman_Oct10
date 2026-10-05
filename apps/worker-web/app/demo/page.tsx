@@ -59,7 +59,7 @@ export default function WorkerDemoPage() {
 
         <div className="mt-10 flex flex-col items-center text-center">
           <BrandMark size={64} />
-          <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">병원·약국 워커 시연</h1>
+          <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">잇닿 워커 시연</h1>
           <p className="mt-2 text-[14px] leading-6 text-sub">직군 하나를 고르면 그 시연 계정으로 바로 로그인돼요.<br />근무표 홈 → 근무 찾기·지원 → 출퇴근 흐름을 볼 수 있어요.</p>
         </div>
 
@@ -73,7 +73,7 @@ export default function WorkerDemoPage() {
           <Link href="/worker-intro#demo" className="mt-2 inline-block text-[12px] font-bold text-primary">먼저 1분 영상으로 보기 →</Link>
         </div>
 
-        <p className="mt-6 text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국 근무 찾기</p>
+        <p className="mt-6 text-[12px] font-extrabold tracking-[0.08em] text-primary">근무 찾기 · 직군을 골라 시작</p>
         <div className="mt-2 flex flex-col gap-2">
           {MEDICAL_DEMOS.map((demo) => (
             <button key={demo.email} type="button" onClick={() => void start(demo.email)} disabled={!ENABLED || Boolean(loadingEmail)} className="flex items-center justify-between rounded-2xl bg-bg px-4 py-4 text-left active:opacity-80 disabled:opacity-60">
@@ -83,14 +83,15 @@ export default function WorkerDemoPage() {
           ))}
         </div>
 
-        <Link href="/gig/demo" className="mt-6 flex items-center justify-between rounded-2xl border border-ink px-4 py-4 text-ink active:bg-bg">
-          <span className="flex flex-col gap-0.5"><b className="text-[14px]">긱워커는 간편모드에서</b><span className="text-[12px] text-sub">초대 → 출퇴근 데모</span></span>
-          <span className="shrink-0 text-[13px] font-extrabold">별도 보기 →</span>
+        <p className="mt-6 text-[12px] font-extrabold tracking-[0.08em] text-primary">초대 근무</p>
+        <Link href="/gig/demo" className="mt-2 flex items-center justify-between rounded-2xl bg-bg px-4 py-4 text-left active:opacity-80">
+          <span className="flex flex-col gap-0.5"><b className="text-[15px] text-ink">초대받은 단기 근무자</b><span className="text-[12px] text-sub">초대 수락 → 출근하기 → 지급 확인</span></span>
+          <span className="shrink-0 text-[13px] font-extrabold text-primary">시작 →</span>
         </Link>
 
         <section className="mt-3 rounded-2xl bg-primary/5 p-4">
           <p className="text-[13px] font-extrabold text-ink">시연 후에도 계속 사용하려면</p>
-          <p className="mt-1 text-[11px] leading-4 text-sub">병원·약국 워커와 긱워커가 함께 쓰는 잇닿 워커 앱 하나만 설치하면 돼요.</p>
+          <p className="mt-1 text-[11px] leading-4 text-sub">근무 찾기와 초대 근무 모두 잇닿 워커 앱 하나로 써요.</p>
           <div className="mt-3"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
         </section>
 

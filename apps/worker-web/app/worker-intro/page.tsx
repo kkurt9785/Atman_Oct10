@@ -61,7 +61,7 @@ export default function WorkerIntroPage() {
       <div className="mt-5 rounded-card bg-white p-5 shadow-card">
         <p className="text-[12px] font-extrabold text-primary">시연처럼 직접 써볼까요?</p>
         <h3 className="mt-1 text-[18px] font-extrabold text-ink">잇닿 워커 앱을 홈 화면에 추가하세요</h3>
-        <p className="mt-2 text-[12px] leading-5 text-sub">앱 하나에서 병원·약국 근무 찾기와 초대받은 긱 근무를 모두 사용할 수 있어요.</p>
+        <p className="mt-2 text-[12px] leading-5 text-sub">앱 하나에서 근무 찾기와 초대 근무를 모두 쓸 수 있어요.</p>
         <div className="mt-4"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
         <Link href="/" className="mt-2 flex h-11 items-center justify-center rounded-xl bg-bg text-[13px] font-bold text-sub">설치 전에 시작 화면 보기</Link>
       </div>

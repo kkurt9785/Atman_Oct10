@@ -84,7 +84,7 @@ export default function GigSettingsPage() {
     <main className="px-4 pb-10 pt-[env(safe-area-inset-top)]">
       {pushNotice && <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] font-bold text-amber-700">{pushNotice}</p>}
       <div className="mb-6 mt-2 px-1">
-        <span className="inline-flex rounded-full bg-ink px-2.5 py-1 text-[10px] font-extrabold tracking-[0.1em] text-white">긱워커 간편모드</span>
+        <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">초대 근무</span>
         <h1 className="mt-2 text-[24px] font-extrabold text-ink">앱 설정</h1>
         <p className="mt-1 text-[13px] text-sub">알림과 연결된 워커 모드만 관리해요. 계좌와 지급은 근태·지급 탭에 있어요.</p>
       </div>
@@ -94,7 +94,7 @@ export default function GigSettingsPage() {
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-3xl">👤</div>
           <div>
             <p className="text-[18px] font-bold text-ink">{name || '...'}</p>
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[13px] font-semibold text-primary">긱워커 간편모드</span>
+            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[13px] font-semibold text-primary">초대 근무</span>
           </div>
         </div>
       </div>
@@ -118,18 +118,18 @@ export default function GigSettingsPage() {
       </button>
 
       {canSwitch && <section className="mb-4 rounded-2xl border border-primary/20 bg-white p-5 shadow-sm">
-        <p className="text-[11px] font-extrabold text-primary">병원·약국 워커</p>
+        <p className="text-[11px] font-extrabold text-primary">근무 찾기</p>
         <p className="mt-1 text-[16px] font-extrabold text-ink">근무 찾기 화면으로 전환</p>
         <p className="mt-1 text-[12px] leading-5 text-sub">같은 계정의 프로필과 지원 내역을 그대로 이어서 봐요.</p>
         <button type="button" onClick={switchToMedical} className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-extrabold text-white">
-          병원·약국 모드 열기
+          근무 찾기 열기
         </button>
       </section>}
 
       {!canSwitch && <section className="mb-4 rounded-2xl border border-line bg-white p-5 shadow-sm">
-        <p className="text-[11px] font-extrabold text-primary">병원·약국 워커</p>
-        <p className="mt-1 text-[16px] font-extrabold text-ink">병원·약국 근무 찾기도 시작할래요</p>
-        <p className="mt-1 text-[12px] leading-5 text-sub">간호사·간호조무사·약사·약국 사무 직군을 등록하면 같은 계정으로 근무를 찾고 지원할 수 있어요. 지금의 긱 근무는 그대로 유지돼요.</p>
+        <p className="text-[11px] font-extrabold text-primary">근무 찾기</p>
+        <p className="mt-1 text-[16px] font-extrabold text-ink">근무 찾기도 시작할래요</p>
+        <p className="mt-1 text-[12px] leading-5 text-sub">간호사·간호조무사·약사·약국 사무 직군을 등록하면 같은 계정으로 근처 병원·약국 공고를 보고 지원할 수 있어요. 지금의 초대 근무는 그대로 유지돼요.</p>
         <button type="button" onClick={startMedicalRegistration} className="mt-3 h-11 w-full rounded-xl border border-primary bg-white text-[13px] font-extrabold text-primary">
           직군 등록하고 근무 찾기 열기
         </button>

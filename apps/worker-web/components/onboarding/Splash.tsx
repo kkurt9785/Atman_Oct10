@@ -10,7 +10,7 @@ import { Wordmark } from '@/components/brand/BrandMark';
 
 const DEMO_WORKERS = [
   { email: 'worker-demo-1@demo.atman.co.kr', label: '간호사 · 10명 내외 병원·요양병원' },
-  { email: 'worker-gig-demo@demo.atman.co.kr', label: '긱워커 · 초대 근태', gigworker: true },
+  { email: 'worker-gig-demo@demo.atman.co.kr', label: '초대 근무 · 출퇴근', gigworker: true },
   { email: 'worker-demo-5@demo.atman.co.kr', label: '간호조무사 · 요양병원' },
   { email: 'worker-demo-2@demo.atman.co.kr', label: '전산·사무직 · 약국' },
   { email: 'worker-demo-6@demo.atman.co.kr', label: '약사 · 약국' },
@@ -100,7 +100,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
   return (
     <div className={`flex flex-col min-h-screen px-6 ${attendanceInvite?'bg-gradient-to-b from-primary/10 via-white to-white':''}`}>
       <div className="flex-1 flex flex-col items-center justify-center gap-3">
-        {gigInvite&&<span className="rounded-full bg-ink px-3 py-1.5 text-[10px] font-extrabold tracking-[0.1em] text-white">긱워커 간편모드</span>}
+        {gigInvite&&<span className="rounded-full bg-primary/10 px-3 py-1.5 text-[10px] font-extrabold text-primary">초대 근무</span>}
         {inviteVariant==='medical'&&<span className="rounded-full bg-primary/10 px-3 py-1.5 text-[10px] font-extrabold tracking-[0.16em] text-primary">직원 계정 연결</span>}
         <Wordmark size={32} />
         <span className="text-center text-[15px] leading-6 text-tertiary">{gigInvite?'근무부터 지급 확인까지 한 번에.':inviteVariant==='medical'?'초대 근무부터 근태 확인까지 한 번에.':'지원부터 급여 확인까지 한 번에.'}</span>
@@ -117,12 +117,12 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path fillRule="evenodd" clipRule="evenodd" d="M10 2C5.582 2 2 4.895 2 8.455c0 2.27 1.512 4.263 3.786 5.39l-.964 3.5a.25.25 0 00.38.273L9.58 15.1A9.18 9.18 0 0010 15.11c4.418 0 8-2.895 8-6.455S14.418 2 10 2z" fill="#191F28"/>
           </svg>
-          {loading ? '등록 중...' : gigInvite?'카카오로 긱워커 등록하기':inviteVariant==='medical'?'카카오로 직원 계정 연결하기':'카카오로 의료 워커 등록하기'}
+          {loading ? '등록 중...' : gigInvite?'카카오로 초대 근무 시작하기':inviteVariant==='medical'?'카카오로 직원 계정 연결하기':'카카오로 의료 워커 등록하기'}
         </Button>
         {!attendanceInvite&&<p className="-mt-1 text-center text-[11px] leading-4 text-sub">근무 초대를 받았다면 가입 후 초대 링크를 다시 열어 주세요.</p>}
         {showDemoLogin && (
           <div className="rounded-2xl border border-line bg-white p-4">
-            <p className="mb-1 text-[13px] font-bold text-ink">{gigInvite ? '긱워커 데모 계정' : '시연용 워커 로그인'}</p>
+            <p className="mb-1 text-[13px] font-bold text-ink">{gigInvite ? '초대 근무 시연 계정' : '시연용 워커 로그인'}</p>
             {gigInvite && <p className="mb-3 text-[11px] leading-4 text-sub">내 초대를 연결하기 전, 별도 데모 워커로 화면을 먼저 볼 수 있어요.</p>}
             <div className="grid grid-cols-1 gap-2">
               {visibleDemoWorkers.map((worker) => (

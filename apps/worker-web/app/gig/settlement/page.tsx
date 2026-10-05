@@ -100,7 +100,7 @@ export default function GigSettlementPage() {
     </header>
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-[13px] text-sub">근태와 정산을 불러오고 있어요...</div>
-      : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center"><b className="text-ink">연결된 긱 근무가 없어요</b><p className="mt-2 text-[13px] text-sub">관리자의 초대를 먼저 수락해 주세요.</p></section>
+      : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center"><b className="text-ink">연결된 초대 근무가 없어요</b><p className="mt-2 text-[13px] text-sub">관리자의 초대를 먼저 수락해 주세요.</p></section>
       : <>
         {staffList.length > 1 && <label className="mt-3 block rounded-2xl bg-white p-4 text-[12px] font-bold text-sub shadow-sm">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-line bg-white px-3 text-ink">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
 
@@ -122,7 +122,7 @@ export default function GigSettlementPage() {
         <section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-[18px] font-extrabold text-ink">내 근태</h2>
           <p className="mt-1 text-[12px] text-sub">{facility?.name}에서 기록된 출퇴근만 보여요.</p>
-          <div className="mt-3"><MyAttendanceCalendar staffId={staff.id} includeShiftAttendance={false} staffSourceLabel="긱 근무" /></div>
+          <div className="mt-3"><MyAttendanceCalendar staffId={staff.id} includeShiftAttendance={false} staffSourceLabel="초대 근무" /></div>
           <p className="mt-3 text-[11px] leading-5 text-sub">수정이 필요한 기록은 대화 탭에서 관리자에게 요청하세요.</p>
         </section>
 

@@ -47,30 +47,30 @@ export default function GigDemoPage() {
   }
 
   return (
-    <main className="min-h-screen bg-ink px-6 pb-10 pt-16 text-white">
+    <main className="min-h-screen bg-white px-6 pb-10 pt-16 text-ink">
       <div className="mx-auto flex min-h-[calc(100vh-104px)] max-w-md flex-col">
         <div className="flex items-center justify-between">
-          <Wordmark size={20} tone="dark" />
-          <span className="rounded-full bg-white/15 px-3 py-1 text-[10px] font-extrabold tracking-[0.14em]">DEMO</span>
+          <Wordmark size={20} />
+          <span className="rounded-full bg-ink px-3 py-1 text-[10px] font-extrabold tracking-[0.14em] text-white">DEMO</span>
         </div>
 
         <div className="mt-14 flex flex-col items-center text-center">
-          <BrandMark size={72} tone="dark" />
-          <h1 className="mt-6 text-[28px] font-extrabold leading-tight tracking-[-0.8px]">긱워커 간편모드 시연</h1>
-          <p className="mt-3 text-[14px] leading-6 text-white/70">잇닿 워커 안의 간편모드예요.<br />전용 데모 워커로 팝업스토어 초대부터 시작해요.</p>
+          <BrandMark size={64} />
+          <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">초대 근무 시연</h1>
+          <p className="mt-2 text-[14px] leading-6 text-sub">사장님이 보낸 초대 링크로 시작하는 근무예요.<br />시연용 근무자로 팝업스토어 초대부터 시작해요.</p>
         </div>
 
-        <ol className="mt-8 space-y-2 rounded-2xl bg-white/8 p-4 text-[13px] leading-5 text-white/80">
-          <li><b className="text-white">1.</b> 아래 버튼 → 초대 확인 화면에서 <b className="text-white">초대 수락</b></li>
-          <li><b className="text-white">2.</b> 오늘 근무 화면에서 <b className="text-white">출근하기</b>를 길게 눌러 출근</li>
-          <li><b className="text-white">3.</b> 관리자 앱(긱워커 근태 시연)에서 출근·워크룸이 바로 반영되는지 확인</li>
-          <li className="text-white/55">다시 누르면 언제든 처음 상태(초대 대기)로 돌아와요.</li>
+        <ol className="mt-6 space-y-2 rounded-2xl bg-bg p-4 text-[13px] leading-5 text-sub">
+          <li><b className="text-primary">1.</b> 아래 버튼 → 초대 확인 화면에서 <b className="text-ink">초대 수락</b></li>
+          <li><b className="text-primary">2.</b> 오늘 근무 화면에서 <b className="text-ink">출근하기</b>를 길게 눌러 출근</li>
+          <li><b className="text-primary">3.</b> 관리자 앱(긱워커 근태 시연)에서 출근·대화가 바로 반영되는지 확인</li>
+          <li className="text-tertiary">다시 누르면 언제든 처음 상태(초대 대기)로 돌아와요.</li>
         </ol>
 
         <section className="mt-5" aria-labelledby="gig-demo-video-title">
-          <p id="gig-demo-video-title" className="text-[12px] font-extrabold text-white/70">먼저 영상으로 보기 · 약 1분</p>
-          <div className="mt-2 overflow-hidden rounded-2xl border border-white/10 bg-black">
-            <video className="block aspect-[9/16] w-full bg-black" controls playsInline preload="metadata" poster="/demo/itdot-gig-demo-poster.jpg" aria-label="잇닿 긱워커 간편모드 시연 영상">
+          <p id="gig-demo-video-title" className="text-[12px] font-extrabold text-sub">먼저 영상으로 보기 · 약 1분</p>
+          <div className="mt-2 overflow-hidden rounded-2xl border border-line bg-black">
+            <video className="block aspect-[9/16] w-full bg-black" controls playsInline preload="metadata" poster="/demo/itdot-gig-demo-poster.jpg" aria-label="잇닿 초대 근무 시연 영상">
               <source src="/demo/itdot-gig-demo.mp4" type="video/mp4" />
               브라우저가 동영상 재생을 지원하지 않습니다.
             </video>
@@ -84,12 +84,12 @@ export default function GigDemoPage() {
             {loading ? '시연 계정 준비 중...' : '시연 계정으로 시작'}
           </button>
         ) : (
-          <p className="rounded-2xl bg-white/10 p-4 text-center text-[13px] text-white/70">이 배포에서는 시연 로그인이 꺼져 있어요.</p>
+          <p className="rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>
         )}
-        {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-300">{error}</p>}
-        <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" dark /></div>
-        <p className="mt-2 text-center text-[11px] leading-4 text-white/45">긱워커도 별도 앱 없이 잇닿 워커 하나로 사용해요.</p>
-        <Link href="/" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-white/60">워커 유형 선택으로 돌아가기</Link>
+        {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-600">{error}</p>}
+        <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
+        <p className="mt-2 text-center text-[11px] leading-4 text-tertiary">근무 찾기와 초대 근무 모두 잇닿 워커 앱 하나로 써요.</p>
+        <Link href="/demo" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-sub">다른 시연 보기</Link>
       </div>
     </main>
   );

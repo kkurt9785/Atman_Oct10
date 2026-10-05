@@ -39,9 +39,24 @@ function RootInner() {
     route();
   }, [router]);
 
-  function startMedical() {
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteLink, setInviteLink] = useState('');
+  const [inviteError, setInviteError] = useState('');
+
+  // 로그인 뒤 어느 화면으로 갈지는 데이터가 정한다(초대 근무만 있으면 초대 근무, 아니면 근무 찾기)
+  function startLogin() {
     rememberWorkerShell('medical');
     startKakaoLogin();
+  }
+
+  function openInvite() {
+    setInviteError('');
+    const value = inviteLink.trim();
+    let token: string | null = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
+    if (!token) { try { token = new URL(value).searchParams.get('token'); } catch { token = null; } }
+    if (!token) { setInviteError('사장님이 보낸 초대 링크 전체를 붙여 넣어 주세요.'); return; }
+    rememberWorkerShell('gig');
+    router.push(`/gig/join?token=${encodeURIComponent(token)}`);
   }
 
   if (!signedOut) return <WorkerEntrySkeleton />;
@@ -51,37 +66,36 @@ function RootInner() {
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
         <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">단톡방 안 뒤져도,<br />내 조건 근무가 먼저 와요</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">일을 찾거나, 초대받은 근무를 시작하세요.</p>
+        <p className="mt-2 text-[14px] leading-6 text-sub">근무를 찾는 것도, 초대받은 근무도 한 앱에서.</p>
       </div>
+
+      {/* 두 가지 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고 보여만 준다 */}
+      <ul className="mt-8 space-y-2" aria-label="잇닿 워커로 할 수 있는 일">
+        <li className="flex items-start gap-3 rounded-2xl bg-bg p-4">
+          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></span>
+          <span><b className="block text-[15px] text-ink">근무 찾기</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">간호사·간호조무사·약사 · 근처 병원·약국 공고를 보고 지원해요</span></span>
+        </li>
+        <li className="flex items-start gap-3 rounded-2xl bg-bg p-4">
+          <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg></span>
+          <span><b className="block text-[15px] text-ink">초대 근무</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">사장님이 보낸 링크로 연결해 출근하기·대화·지급 확인</span></span>
+        </li>
+      </ul>
 
       <div className="min-h-7 flex-grow" />
 
-      <section aria-label="병원·약국 워커" className="rounded-3xl bg-bg p-5">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국</p>
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">간호사 · 간호조무사 · 약사</span>
-        </div>
-        <p className="mt-2 text-[18px] font-extrabold text-ink">근무를 찾고 지원할게요</p>
-        <p className="mt-1 text-[13px] leading-5 text-sub">근처 병원·약국 공고를 보고 지원해요. 출퇴근·지급 확인까지 한 번에.</p>
-        <button type="button" onClick={startMedical} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink shadow-btn active:opacity-80">
-          <KakaoGlyph />병원·약국 워커로 시작
-        </button>
-        {DEMO_ENABLED && <Link href="/demo" className="mt-2 flex h-9 items-center justify-center text-[12px] font-bold text-sub">로그인 없이 둘러보기 →</Link>}
-      </section>
-
-      <section aria-label="긱워커 간편모드" className="mt-3 rounded-3xl bg-ink p-5 text-white">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">긱 근무</p>
-          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-extrabold text-white/75">초대 링크를 받았어요</span>
-        </div>
-        <p className="mt-2 text-[18px] font-extrabold">초대받은 근무를 시작할게요</p>
-        <p className="mt-1 text-[13px] leading-5 text-white/65">사장님이 보낸 링크로 연결해요. 출근하기·대화·지급 확인만 있어요.</p>
-        <Link href="/gig" onClick={() => rememberWorkerShell('gig')} className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-white text-[15px] font-extrabold text-ink active:opacity-80">
-          긱 근무 시작 →
-        </Link>
-        {DEMO_ENABLED && <Link href="/gig/demo" className="mt-2 flex h-9 items-center justify-center text-[12px] font-bold text-white/60">로그인 없이 둘러보기 →</Link>}
-      </section>
-
+      <button type="button" onClick={startLogin} className="flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink shadow-btn active:opacity-80">
+        <KakaoGlyph />카카오로 시작하기
+      </button>
+      {!showInvite
+        ? <button type="button" onClick={() => setShowInvite(true)} className="mt-2 h-11 text-[13px] font-bold text-sub">초대 링크를 받으셨나요? <span className="text-primary">링크 열기 →</span></button>
+        : <div className="mt-3">
+            <div className="flex gap-2">
+              <input autoFocus value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && openInvite()} placeholder="초대 링크 붙여넣기" aria-label="초대 링크" className="h-12 min-w-0 flex-1 rounded-xl border border-line px-3 text-[14px] outline-none focus:border-primary" />
+              <button type="button" onClick={openInvite} className="h-12 shrink-0 rounded-xl bg-primary px-4 text-[14px] font-extrabold text-white">열기</button>
+            </div>
+            {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{inviteError}</p>}
+          </div>}
+      {DEMO_ENABLED && <Link href="/demo" className="flex h-9 items-center justify-center text-[12px] font-bold text-tertiary">로그인 없이 둘러보기 →</Link>}
 
       <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
       <p className="mt-4 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>

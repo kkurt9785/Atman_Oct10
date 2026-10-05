@@ -175,7 +175,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     <div className="mx-auto mb-5 flex max-w-md items-center justify-between gap-3 px-1"><Wordmark size={20} /><WorkerModeBadge shell={variant} /></div>
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-card">
       <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
-      <p className="mt-5 text-[13px] font-bold text-primary">{isGig ? '긱워커 전용 근태 초대' : '직원 계정 연결'}</p>
+      <p className="mt-5 text-[13px] font-bold text-primary">{isGig ? '초대 근무' : '직원 계정 연결'}</p>
       <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이어졌어요 · 이제 함께 일해요' : '초대받은 근무를 확인해 주세요'}</h1>
       <p role="status" className="mt-3 text-[14px] leading-6 text-sub">{message}</p>
 
@@ -202,7 +202,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
         </button>
         <p className="mt-3 text-center text-[11px] leading-5 text-sub">앱 설치 없이 현재 화면에서 수락할 수 있어요. 일회용 초대와 내 카카오 로그인 계정이 연결 기준이며, 전화번호는 인증에 쓰지 않아요.</p>
         {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
-        {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 긱워커 데모 먼저 보기 →</Link>}
+        {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 시연 먼저 보기 →</Link>}
       </>}
       {status === 'claiming' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-60">연결 중...</button>}
       {status === 'success' && <>
