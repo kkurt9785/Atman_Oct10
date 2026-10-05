@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BankNudge } from '@/components/settings/BankAccountRow';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -477,6 +478,8 @@ export default function ApplicationsPage() {
           급여 지급현황 →
         </button>
       </div>
+
+      <BankNudge show={apps.some((app) => app.status === 'accepted' || app.status === 'completed')} />
 
       {apps.length>0&&<div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl bg-white p-1.5 shadow-sm">
         {([['active','진행 중',activityCounts.active],['accepted','확정 근무',activityCounts.accepted],['completed','완료',activityCounts.completed],['all','전체',apps.length]] as const).map(([key,label,count])=><button key={key} type="button" onClick={()=>setActivityFilter(key)} className={`h-10 shrink-0 rounded-xl px-3 text-[12px] font-extrabold ${activityFilter===key?'bg-ink text-white':'text-sub'}`}>{label} {count}</button>)}

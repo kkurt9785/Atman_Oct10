@@ -13,7 +13,7 @@ import { BankAccount, type BankAccountValue } from '@/components/onboarding/Bank
 import { ReviewPending } from '@/components/onboarding/ReviewPending';
 import { Approval } from '@/components/onboarding/Approval';
 import { NotificationSetup } from '@/components/onboarding/NotificationSetup';
-import { LICENSED_ROLES, type WorkerRole } from '@/lib/roles';
+import { type WorkerRole } from '@/lib/roles';
 import { invalidateWorkerShellContext, rememberWorkerShell, type WorkerShell } from '@/lib/worker-mode';
 
 type Step = 'splash' | 'terms' | 'role' | 'license' | 'info' | 'area' | 'bank' | 'notification' | 'review' | 'approval';
@@ -65,7 +65,7 @@ function OnboardingInner() {
 
   // bank 가 null 이면 계좌를 건너뛴 것이다. 병원·약국 직원 초대는 계좌 없이
   // 시작할 수 있지만, 긱 초대는 첫 가입에서 지급 계좌까지 미리 저장한다.
-  async function handleSubmit(bank: BankAccountValue | null, infoOverride: BasicInfoValue | null = basicInfo, roleOverride: WorkerRole | null = role) {
+  async function handleSubmit(bank: BankAccountValue | null, infoOverride: BasicInfoValue | null = basicInfo, roleOverride: WorkerRole | null = role, areasOverride: AreaPref[] = areas) {
     if (submitting) return;
     if (!terms || !roleOverride || !infoOverride) {
       setSubmitError('가입 정보가 일부 누락됐어요. 처음부터 다시 확인해 주세요.');
@@ -94,7 +94,7 @@ function OnboardingInner() {
         p_name: infoOverride.name,
         p_phone: infoOverride.phone || null,
         p_birth_date: terms.birthDate,
-        p_areas: areas,
+        p_areas: areasOverride,
         p_license_path: uploadedPath,
         p_bank_code: bank?.bankCode ?? null,
         p_bank_name: bank?.bankName ?? null,
@@ -183,7 +183,7 @@ function OnboardingInner() {
   }, [terminalDeepLink]);
 
   const PREV: Partial<Record<Step, Step>> = { terms: 'splash', role: 'terms', license: 'role', area: 'info', bank: attendanceInvite ? 'info' : 'area' };
-  const prevStep = step === 'info' ? (attendanceInvite ? 'terms' : role && LICENSED_ROLES.includes(role) ? 'license' : 'role') : PREV[step];
+  const prevStep = step === 'info' ? (attendanceInvite ? 'terms' : 'role') : PREV[step];
 
   return (
     <main className="min-h-screen bg-white">
@@ -202,11 +202,12 @@ function OnboardingInner() {
       )}
       {step === 'splash' && <Splash inviteVariant={inviteVariant} />}
       {step === 'terms' && <Terms onNext={(value) => { setTerms(value); if (attendanceInvite) { setRole('other'); go('info'); } else { go('role'); } }} />}
-      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); go(LICENSED_ROLES.includes(value) ? 'license' : 'info'); }} />}
-      {/* 가입 때는 간호직 서류를 묻지 않는다. 약사·약국 사무직만 직군 필수 서류를 받는다. */}
+      {/* 가입은 짧게 — 면허·서류는 가입 뒤 내 정보 > 프로필에서(자격은 사업장이 근무 확정 전에 확인), 계좌는 내 정보 > 지급 계좌에서 받는다 */}
+      {step === 'role' && <RoleSelect onNext={(value) => { setRole(value); go('info'); }} />}
       {step === 'license' && <LicenseUpload role={role} onNext={({ file, number }) => { setLicenseFile(file); setLicenseNumber(number); go('info'); }} onSkip={() => { setLicenseFile(null); setLicenseNumber(''); go('info'); }} />}
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} attendanceInvite={attendanceInvite} submitting={submitting} submitError={submitError} onNext={(value) => { setBasicInfo(value); if (inviteVariant === 'gig') { go('bank'); } else if (attendanceInvite) { void handleSubmit(null, value, 'other'); } else { go('area'); } }} />}
-      {step === 'area' && <ActivityArea onNext={(value) => { setAreas(value); go('bank'); }} onSkip={() => { setAreas([]); go('bank'); }} />}
+      {step === 'area' && submitError && <p role="alert" className="mx-6 mt-16 rounded-xl bg-red-50 px-4 py-3 text-[13px] font-bold text-red-600">{submitError}</p>}
+      {step === 'area' && <ActivityArea buttonLabel={submitting ? '가입하는 중...' : '가입 완료'} onNext={(value) => { setAreas(value); void handleSubmit(null, basicInfo, role, value); }} onSkip={() => { setAreas([]); void handleSubmit(null, basicInfo, role, []); }} />}
       {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={inviteVariant === 'gig' ? undefined : () => handleSubmit(null)} submitting={submitting} submitError={submitError} shareOnInviteAccept={inviteVariant === 'gig'} />}
       {step === 'notification' && <NotificationSetup onNext={() => go(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}

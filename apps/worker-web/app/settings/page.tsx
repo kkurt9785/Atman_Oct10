@@ -12,6 +12,7 @@ import {
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { PrivacySection } from '@/components/settings/PrivacySection';
 import { DemoSignupCard } from '@/components/DemoSignup';
+import { BankAccountRow } from '@/components/settings/BankAccountRow';
 import { useDemoSession } from '@/lib/demo-session';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 import { getLinkKinds, hasGigworkerLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
@@ -217,6 +218,8 @@ export default function SettingsPage() {
           <span className="text-tertiary ml-3">›</span>
         </div>
       </Link>
+
+      <BankAccountRow />
 
       <Link href="/rewards">
         <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
