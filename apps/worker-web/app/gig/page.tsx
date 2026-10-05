@@ -11,6 +11,7 @@ import { classifyNotice, noticeBelongsTo, type Notice } from '@/lib/notification
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
+import { ModeSwitch } from '@/components/worker/ModeSwitch';
 
 const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
@@ -175,9 +176,8 @@ function GigTodayContent() {
 
   return <main className="min-h-screen bg-bg px-4 pb-8 pt-5">
     <header className="flex items-start justify-between gap-3">
-      <div><Wordmark size={20} /><div className="mt-2"><WorkerModeBadge shell="gig" /></div></div>
+      <div><Wordmark size={20} /><div className="mt-3"><ModeSwitch current="gig" /></div></div>
       <div className="flex items-center gap-2">
-        {hasMedicalLink && <Link href="/home" onClick={() => rememberWorkerShell('medical')} className="rounded-full border border-line bg-white px-3 py-2 text-[11px] font-extrabold text-sub">병원·약국 모드</Link>}
         <Link href="/gig/notifications" aria-label={unreadCount ? `근무 알림 ${unreadCount}건 안 읽음` : '근무 알림'} className="relative flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-sub">
           <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
           {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>}
@@ -187,7 +187,7 @@ function GigTodayContent() {
     </header>
 
     <section className="mt-5 rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <p className="text-[11px] font-extrabold text-primary-light">긱워커 · 초대받은 근무</p>
+      <p className="text-[11px] font-extrabold text-primary-light">긱 근무 · 초대받은 근무</p>
       <div className="mt-2 flex items-start justify-between gap-3">
         <div><h1 className="text-[24px] font-extrabold">오늘 근무</h1><p className="mt-1 text-[13px] text-white/65">출퇴근 기록에만 집중하면 돼요.</p></div>
         {staff && <span className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white/80">{staff.name}님</span>}

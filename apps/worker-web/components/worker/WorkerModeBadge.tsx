@@ -1,8 +1,8 @@
 import type { WorkerShell } from '@/lib/worker-mode';
 
 const COPY: Record<WorkerShell, { label: string; detail: string }> = {
-  medical: { label: '병원·약국 워커', detail: '근무 찾기 · 지원 · 출퇴근' },
-  gig: { label: '긱워커 간편모드', detail: '초대 근무 · 출퇴근' },
+  medical: { label: '병원·약국', detail: '근무 찾기 · 지원 · 출퇴근' },
+  gig: { label: '긱 근무', detail: '초대받은 근무 · 출퇴근' },
 };
 
 // 두 셸이 같은 근무표·근태 컴포넌트를 쓰더라도 현재 모드는 언제나 눈에 보여야 한다.

@@ -58,37 +58,30 @@ function RootInner() {
 
       <section aria-label="병원·약국 워커" className="rounded-3xl bg-bg p-5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국 워커</p>
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">구직 + 근무관리</span>
+          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">병원 · 약국</p>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">간호사 · 간호조무사 · 약사</span>
         </div>
         <p className="mt-2 text-[18px] font-extrabold text-ink">근무를 찾고 지원할게요</p>
-        <p className="mt-1 text-[13px] leading-5 text-sub">지원부터 급여 확인까지 한 번에.</p>
+        <p className="mt-1 text-[13px] leading-5 text-sub">근처 병원·약국 공고를 보고 지원해요. 출퇴근·지급 확인까지 한 번에.</p>
         <button type="button" onClick={startMedical} className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink shadow-btn active:opacity-80">
           <KakaoGlyph />병원·약국 워커로 시작
         </button>
+        {DEMO_ENABLED && <Link href="/demo" className="mt-2 flex h-9 items-center justify-center text-[12px] font-bold text-sub">로그인 없이 둘러보기 →</Link>}
       </section>
 
       <section aria-label="긱워커 간편모드" className="mt-3 rounded-3xl bg-ink p-5 text-white">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">긱워커 · 간편모드</p>
-          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-extrabold text-white/75">초대 근무만</span>
+          <p className="text-[12px] font-extrabold tracking-[0.08em] text-primary">긱 근무</p>
+          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-extrabold text-white/75">초대 링크를 받았어요</span>
         </div>
         <p className="mt-2 text-[18px] font-extrabold">초대받은 근무를 시작할게요</p>
-        <p className="mt-1 text-[13px] leading-5 text-white/65">근무부터 지급 확인까지 한 번에.</p>
+        <p className="mt-1 text-[13px] leading-5 text-white/65">사장님이 보낸 링크로 연결해요. 출근하기·대화·지급 확인만 있어요.</p>
         <Link href="/gig" onClick={() => rememberWorkerShell('gig')} className="mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-white text-[15px] font-extrabold text-ink active:opacity-80">
-          긱워커로 시작 →
+          긱 근무 시작 →
         </Link>
+        {DEMO_ENABLED && <Link href="/gig/demo" className="mt-2 flex h-9 items-center justify-center text-[12px] font-bold text-white/60">로그인 없이 둘러보기 →</Link>}
       </section>
 
-      {DEMO_ENABLED && <details className="group mt-3 rounded-2xl border border-line bg-white">
-        <summary className="flex h-11 cursor-pointer list-none items-center justify-center gap-2 text-[12px] font-extrabold text-sub">
-          로그인 없이 체험하기 <span aria-hidden className="transition group-open:rotate-90">›</span>
-        </summary>
-        <div aria-label="데모 워커 선택" className="grid grid-cols-2 gap-2 border-t border-line p-3">
-          <Link href="/demo" className="flex h-11 items-center justify-center rounded-xl bg-bg text-[12px] font-extrabold text-sub">병원·약국 데모</Link>
-          <Link href="/gig/demo" className="flex h-11 items-center justify-center rounded-xl bg-ink text-[12px] font-extrabold text-white">긱워커 데모</Link>
-        </div>
-      </details>}
 
       <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
       <p className="mt-4 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>

@@ -12,9 +12,9 @@ import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 import { WeekRoster } from '@/components/roster/WeekRoster';
 import { Wordmark } from '@/components/brand/BrandMark';
-import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
+import { ModeSwitch } from '@/components/worker/ModeSwitch';
 import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
-import { loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
+import { loadWorkerShellContext } from '@/lib/worker-mode';
 import { listClaimableCovers } from '@/lib/cover';
 
 // 의료 워커 홈 = 근무표 한 장 + 그 칸의 근무. 그 외는 없다.
@@ -98,7 +98,6 @@ export default function HomePage() {
   // 플랫폼 심사를 거치는 직군(약사 등)이 미승인이면 공고가 0건인 이유를 안내해야 한다
   const [reviewPending, setReviewPending] = useState(false);
   const [nextAction,setNextAction]=useState<NextAction|null>(null);
-  const [hasGigLink, setHasGigLink] = useState(false);
   // 함께 일한 사업장의 대타 요청 중 내가 아직 안 맡은 것 — 있을 때만 배너로 알린다
   const [openCoverCount, setOpenCoverCount] = useState(0);
 
@@ -181,7 +180,6 @@ export default function HomePage() {
         supabase.from('workers').select('id, role, verification_status').eq('auth_user_id', user.id).maybeSingle(),
         loadWorkerShellContext(user).catch(() => null),
       ]);
-      setHasGigLink(Boolean(shellContext?.hasGig));
       void listClaimableCovers().then((list) => setOpenCoverCount(list.filter((cover) => !cover.claimed_by_me).length));
 
       // 카카오 로그인만 하고 가입(온보딩)을 끝내지 않은 사람에게는 근무표를 보여주지 않는다 — 가입부터
@@ -292,15 +290,10 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
           <div>
             <Wordmark size={20} />
-            <div className="mt-2"><WorkerModeBadge shell="medical" /></div>
+            <div className="mt-3"><ModeSwitch current="medical" /></div>
           </div>
           <span className="rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{name} {roleLabel}</span>
         </div>
-
-        {hasGigLink && <Link href="/gig" onClick={() => rememberWorkerShell('gig')} className="mt-4 flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-white shadow-sm active:opacity-80">
-          <span><b className="block text-[13px]">긱워커 간편모드</b><span className="mt-0.5 block text-[11px] text-white/60">초대받은 일정·출퇴근·워크룸</span></span>
-          <span className="text-[12px] font-extrabold text-primary">내 긱 근무 →</span>
-        </Link>}
 
         {openCoverCount > 0 && (
           <Link href="/cover" className="mt-4 flex items-center justify-between rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 active:opacity-80">
