@@ -2,21 +2,20 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { endDemoSession, isDemoEmail } from '@/lib/demo-session';
+import { isDemoEmail } from '@/lib/demo-session';
+import { InviteLinkPaste } from '@/components/invite/InviteLinkPaste';
 import { loadWorkerShellContext, rememberWorkerShell, setGigworkerModePreference, WORKER_SHELL_HOME, type WorkerShell } from '@/lib/worker-mode';
 
 // 병원·약국 ↔ 긱 근무 전환은 이 스위치 하나. 두 홈의 같은 자리(맨 위)에 같은 모양으로 둔다.
 //   · 두 모드를 다 쓰면: 누르면 바로 전환
 //   · 반대쪽 모드가 아직 없으면: 무엇을 하면 열리는지 안내(직군 등록 / 초대 링크)
-//   · 시연 계정이면: 반대쪽 시연으로 바로 이동, 옆 '시연 끝내고 로그인'으로 바로 카카오 로그인
+//   · 시연 계정이면: 반대쪽 시연으로 바로 이동 (내 계정으로 시작은 화면 아래 시연 띠 DemoBar)
 const LABEL: Record<WorkerShell, string> = { medical: '근무 찾기', gig: '초대 근무' };
 
 export function ModeSwitch({ current }: { current: WorkerShell }) {
   const router = useRouter();
   const [ctx, setCtx] = useState<{ hasGig: boolean; hasMedical: boolean; demo: boolean } | null>(null);
   const [sheet, setSheet] = useState<WorkerShell | null>(null);
-  const [link, setLink] = useState('');
-  const [error, setError] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -41,17 +40,7 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
       router.push(WORKER_SHELL_HOME[target]);
       return;
     }
-    setError('');
     setSheet(target);
-  }
-
-  function openInvite() {
-    const value = link.trim();
-    let token: string | null = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
-    if (!token) { try { token = new URL(value).searchParams.get('token'); } catch { token = null; } }
-    if (!token) { setError('사장님이 보낸 초대 링크 전체를 붙여 넣어 주세요.'); return; }
-    rememberWorkerShell('gig');
-    router.push(`/gig/join?token=${encodeURIComponent(token)}`);
   }
 
   function startMedicalRegistration() {
@@ -72,7 +61,6 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
           );
         })}
       </div>
-      {ctx?.demo && <button type="button" onClick={() => void endDemoSession()} className="ml-2 h-7 rounded-full bg-ink/5 px-2.5 align-middle text-[11px] font-bold text-sub active:bg-ink/10">시연 끝내고 로그인</button>}
 
       {sheet && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setSheet(null)}>
@@ -88,13 +76,10 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
               <>
                 <p className="text-[12px] font-extrabold text-primary">초대 근무</p>
                 <h2 className="mt-1 text-[20px] font-extrabold text-ink">초대 근무는 링크로 시작해요</h2>
-                <p className="mt-2 text-[14px] leading-6 text-sub">사장님께 받은 초대 링크를 열면 출퇴근·대화·지급이 한 번에 연결돼요.</p>
-                <div className="mt-4 flex gap-2">
-                  <input value={link} onChange={(event) => setLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && openInvite()}
-                    placeholder="초대 링크 붙여넣기" className="h-12 min-w-0 flex-1 rounded-xl border border-line px-3 text-[14px] outline-none focus:border-primary" />
-                  <button type="button" onClick={openInvite} className="h-12 shrink-0 rounded-xl bg-primary px-4 text-[14px] font-extrabold text-white">열기</button>
+                <p className="mt-2 text-[14px] leading-6 text-sub">사장님께 받은 초대 링크를 복사한 뒤 아래 버튼을 누르면 출퇴근·대화·지급이 한 번에 연결돼요.</p>
+                <div className="mt-4">
+                  <InviteLinkPaste triggerClassName="h-12 w-full rounded-btn bg-primary text-[15px] font-extrabold text-white" trigger="복사한 초대 링크 붙여넣기" />
                 </div>
-                {error && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{error}</p>}
               </>
             )}
             <button type="button" onClick={() => setSheet(null)} className="mt-2 h-11 w-full text-[14px] font-bold text-sub">닫기</button>

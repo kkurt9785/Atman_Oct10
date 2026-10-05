@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { BackButton } from '@/components/BackButton';
 
 // 약관·개인정보 문서 공통 틀. 조항 번호와 시행일을 한 곳에서 맞춘다.
 export const LEGAL_EFFECTIVE_DATE = '2026년 10월 2일';
@@ -16,8 +17,10 @@ export type LegalSection = { title: string; body: ReactNode };
 
 export function LegalDoc({ title, intro, sections }: { title: string; intro?: ReactNode; sections: LegalSection[] }) {
   return (
-    <main className="min-h-screen bg-white px-6 py-12">
-      <h1 className="text-[24px] font-extrabold text-ink">{title}</h1>
+    <main className="min-h-screen bg-white px-6 pb-12 pt-4">
+      {/* 설정·가입·시작 화면 어디서 왔든 그 화면으로, 새 탭으로 열렸으면 탭을 닫는다 */}
+      <BackButton href="/" anyPrevious />
+      <h1 className="mt-4 text-[24px] font-extrabold text-ink">{title}</h1>
       <p className="mt-2 text-[13px] text-sub">시행일 {LEGAL_EFFECTIVE_DATE}</p>
       {intro && <div className="mt-5 text-[14px] leading-6 text-ink">{intro}</div>}
       <div className="mt-8 space-y-7">

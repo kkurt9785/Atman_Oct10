@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { BackButton } from '@/components/BackButton';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
@@ -84,7 +85,8 @@ export default function GigSettingsPage() {
     <main className="px-4 pb-10 pt-[env(safe-area-inset-top)]">
       {pushNotice && <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] font-bold text-amber-700">{pushNotice}</p>}
       <div className="mb-6 mt-2 px-1">
-        <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">초대 근무</span>
+        <BackButton href="/gig" label="오늘" />
+        <span className="mt-2 flex w-fit rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">초대 근무</span>
         <h1 className="mt-2 text-[24px] font-extrabold text-ink">앱 설정</h1>
         <p className="mt-1 text-[13px] text-sub">알림과 연결된 워커 모드만 관리해요. 계좌와 지급은 근태·지급 탭에 있어요.</p>
       </div>

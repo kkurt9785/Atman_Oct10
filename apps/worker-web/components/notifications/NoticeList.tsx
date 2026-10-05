@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { BackButton } from '@/components/BackButton';
 import { classifyNotice, noticeBelongsTo, noticeHref, type Notice } from '@/lib/notification-scope';
 import { loadWorkerShellContext, type WorkerShell } from '@/lib/worker-mode';
 
@@ -12,7 +13,7 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
 
-export function NoticeList({ shell, eyebrow, title, emptyHint }: { shell: WorkerShell; eyebrow: string; title: string; emptyHint: string }) {
+export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: WorkerShell; eyebrow: string; title: string; emptyHint: string; back?: { href: string; label: string } }) {
   const [rows, setRows] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -47,7 +48,8 @@ export function NoticeList({ shell, eyebrow, title, emptyHint }: { shell: Worker
 
   return (
     <main className="px-5 pb-8 pt-4">
-      <div className="mb-5 flex items-end justify-between">
+      {back && <BackButton href={back.href} label={back.label} />}
+      <div className="mb-5 mt-1 flex items-end justify-between">
         <div>
           <p className="text-[12px] font-bold text-primary">{eyebrow}</p>
           <h1 className="mt-1 text-[26px] font-extrabold text-ink">{title}</h1>

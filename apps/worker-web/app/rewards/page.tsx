@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import { BackButton } from '@/components/BackButton';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -68,7 +69,8 @@ function RewardsContent(){
   const qualified=data.rewards.reduce((sum,row)=>row.status!=='cancelled'?sum+row.amount:sum,0);
 
   return <main className="min-h-screen bg-bg pb-28">
-    <header className="bg-white px-5 pb-6 pt-12">
+    <header className="bg-white px-5 pb-6 pt-4">
+      <BackButton href="/settings" label="내 정보" />
       <p className="text-[12px] font-bold text-primary">가입보다 실제 활동을 응원해요</p>
       <h1 className="mt-1 text-[26px] font-extrabold text-ink">잇닿 리워드</h1>
       <p className="mt-2 text-[13px] leading-5 text-sub">임금과 별개인 런칭 혜택이에요. 첫 근무 관련 리워드는 근태 확정 후 7일 동안 확인해요.</p>

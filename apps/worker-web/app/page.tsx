@@ -3,11 +3,13 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getSignedInUser } from '@/lib/auth-user';
 import { loadWorkerShellContext, rememberWorkerShell, WORKER_SHELL_HOME } from '@/lib/worker-mode';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { DEMO_LOGIN_ENABLED, MEDICAL_DEMOS, openDemoSession } from '@/lib/demo-session';
+import { InviteLinkPaste } from '@/components/invite/InviteLinkPaste';
 
 // 첫 화면은 가입 버튼 하나. 두 쓰임새(근무 찾기 = 병원·약국 직군, 초대 근무 = 단기 알바) 카드는 누르면 그 시연이 바로 열린다.
 // 시연 로그인이 꺼진 배포에서는 카드가 설명만 남는다.
@@ -18,7 +20,7 @@ function RootInner() {
 
   useEffect(() => {
     async function route() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getSignedInUser();
       if (!user) {
         setSignedOut(true);
         return;
@@ -37,9 +39,6 @@ function RootInner() {
     route();
   }, [router]);
 
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
-  const [inviteError, setInviteError] = useState('');
   const [rolesOpen, setRolesOpen] = useState(false);
   const [demoLoading, setDemoLoading] = useState<string | null>(null);
   const [demoError, setDemoError] = useState('');
@@ -59,16 +58,6 @@ function RootInner() {
   function startLogin() {
     rememberWorkerShell('medical');
     startKakaoLogin();
-  }
-
-  function openInvite() {
-    setInviteError('');
-    const value = inviteLink.trim();
-    let token: string | null = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
-    if (!token) { try { token = new URL(value).searchParams.get('token'); } catch { token = null; } }
-    if (!token) { setInviteError('사장님이 보낸 초대 링크 전체를 붙여 넣어 주세요.'); return; }
-    rememberWorkerShell('gig');
-    router.push(`/gig/join?token=${encodeURIComponent(token)}`);
   }
 
   if (!signedOut) return <WorkerEntrySkeleton />;
@@ -103,7 +92,7 @@ function RootInner() {
             action={DEMO_LOGIN_ENABLED ? { label: demoLoading === 'gig' ? '여는 중...' : '써보기', onClick: () => { if (!demoLoading) void tryDemo('gig'); } } : undefined} />
         </li>
       </ul>
-      {DEMO_LOGIN_ENABLED && <p className="mt-2 text-center text-[11px] text-tertiary">써보기는 로그인 없이 예시 계정으로 열려요</p>}
+      {DEMO_LOGIN_ENABLED && <p className="mt-2 text-center text-[11px] text-tertiary">써보기는 로그인 없이 열려요 · 둘러본 뒤 바로 내 계정으로 시작</p>}
       {demoError && <p role="alert" className="mt-2 text-center text-[12px] font-bold text-red-600">{demoError}</p>}
 
       <div className="min-h-7 flex-grow" />
@@ -111,16 +100,10 @@ function RootInner() {
       <button type="button" onClick={startLogin} className="flex h-14 w-full items-center justify-center gap-2 rounded-btn bg-kakao text-[16px] font-extrabold text-ink shadow-btn active:opacity-80">
         <KakaoGlyph />카카오로 시작하기
       </button>
-      {!showInvite
-        ? <button type="button" onClick={() => setShowInvite(true)} className="mt-2 h-11 text-[13px] font-bold text-sub">초대 링크를 받으셨나요? <span className="text-primary">링크 열기 →</span></button>
-        : <div className="mt-3">
-            <div className="flex gap-2">
-              <input autoFocus value={inviteLink} onChange={(event) => setInviteLink(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && openInvite()} placeholder="초대 링크 붙여넣기" aria-label="초대 링크" className="h-12 min-w-0 flex-1 rounded-xl border border-line px-3 text-[14px] outline-none focus:border-primary" />
-              <button type="button" onClick={openInvite} className="h-12 shrink-0 rounded-xl bg-primary px-4 text-[14px] font-extrabold text-white">열기</button>
-            </div>
-            {inviteError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{inviteError}</p>}
-          </div>}
-
+      {/* 누르면 복사해 둔 링크로 바로 열린다 — 키보드가 올라와 화면이 밀리지 않게 */}
+      <div className="mt-2 text-center">
+        <InviteLinkPaste triggerClassName="h-11 w-full text-[13px] font-bold text-sub" trigger={<>초대 링크를 복사해 두셨나요? <span className="text-primary">붙여넣고 열기 →</span></>} />
+      </div>
       <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
       <p className="mt-4 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>
     </div>

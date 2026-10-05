@@ -72,6 +72,7 @@ export default function GigDemoPage() {
         <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
         <p className="mt-2 text-center text-[11px] leading-4 text-tertiary">근무 찾기와 초대 근무 모두 잇닿 워커 앱 하나로 써요.</p>
         <Link href="/demo" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-sub">다른 시연 보기</Link>
+        <Link href="/" className="flex h-10 items-center justify-center text-[13px] font-bold text-tertiary">처음으로</Link>
       </div>
     </main>
   );

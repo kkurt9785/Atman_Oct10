@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { Wordmark } from '@/components/brand/BrandMark';
+import { BackButton } from '@/components/BackButton';
+import { isDemoEmail } from '@/lib/demo-session';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { startKakaoLogin } from '@/lib/kakao-login';
 
@@ -167,12 +169,19 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     setMessage(`${preview?.facilityName ?? '근무지'}와 이어졌어요. 출퇴근은 근무지에서 '출근하기'·'퇴근하기' 버튼으로 기록해요.`);
   }
 
+  // 초대 화면에서 나가기 — 시연 계정이면 시연을 끝내고 시작 화면으로, 아니면 처음 화면(로그인돼 있으면 내 홈)으로
+  async function leaveInvite() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (isDemoEmail(user?.email)) await supabase.auth.signOut().catch(() => undefined);
+    window.location.replace('/');
+  }
+
   const payText = preview?.payBasis && preview.payRate
     ? `${PAY_BASIS[preview.payBasis] ?? preview.payBasis} ${won(preview.payRate)}`
     : null;
 
   return <main className={`min-h-screen px-5 pb-16 pt-8 ${isGig ? 'bg-gradient-to-b from-primary/15 via-bg to-bg' : 'bg-bg'}`}>
-    <div className="mx-auto mb-5 flex max-w-md items-center justify-between gap-3 px-1"><Wordmark size={20} /><WorkerModeBadge shell={variant} /></div>
+    <div className="mx-auto mb-5 flex max-w-md items-center justify-between gap-3 px-1"><span className="flex items-center gap-1"><BackButton href="/" onClick={leaveInvite} /><Wordmark size={20} /></span><WorkerModeBadge shell={variant} /></div>
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-card">
       <div className={`flex h-12 w-12 items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
       <p className="mt-5 text-[13px] font-bold text-primary">{isGig ? '초대 근무' : '직원 계정 연결'}</p>

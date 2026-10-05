@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ActivityArea, type AreaPref } from '@/components/onboarding/ActivityArea';
+import { BackButton } from '@/components/BackButton';
 
 export default function LocationSettingsPage() {
   const [initialLocations, setInitialLocations] = useState<AreaPref[] | undefined>();
@@ -48,6 +49,7 @@ export default function LocationSettingsPage() {
 
   return (
     <>
+      <div className="px-5 pt-4"><BackButton href="/settings" label="내 정보" /></div>
       {error && <p className="mx-6 mt-6 rounded-xl bg-red-50 px-4 py-3 text-[13px] font-bold text-red-600">{error}</p>}
       <ActivityArea
         onNext={handleSave}

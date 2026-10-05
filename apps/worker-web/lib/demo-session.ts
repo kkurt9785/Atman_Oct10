@@ -1,4 +1,5 @@
 'use client';
+import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 import { startKakaoLogin } from '@/lib/kakao-login';
@@ -15,6 +16,18 @@ export const MEDICAL_DEMOS = [
 ];
 
 export const isDemoEmail = (email: string | null | undefined) => (email ?? '').toLowerCase().endsWith('@demo.atman.co.kr');
+
+// 지금 로그인한 계정이 시연 계정인지 — 로그인·로그아웃에 맞춰 바뀐다(네트워크 없이 저장된 세션만 본다)
+export function useDemoSession() {
+  const [demo, setDemo] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void supabase.auth.getSession().then(({ data }) => { if (active) setDemo(isDemoEmail(data.session?.user.email)); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => setDemo(isDemoEmail(session?.user.email)));
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
+  return demo;
+}
 
 // 근무 찾기 시연은 고른 직군 계정으로, 초대 근무 시연은 초대 수락부터 시작한다. 이동할 주소를 돌려준다.
 export async function openDemoSession(target: { email: string } | 'gig'): Promise<string> {

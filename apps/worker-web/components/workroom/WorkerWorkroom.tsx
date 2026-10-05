@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { BackButton } from '@/components/BackButton';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { isGigKind } from '@/lib/worker-mode';
@@ -151,6 +152,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
 
   const selected = rooms.find((room) => room.facility_id === selectedId) ?? null;
   return <main className="flex min-h-[calc(100dvh-5rem)] flex-col bg-bg px-4 pb-4 pt-4">
+    {!isGig && <div className="mb-2"><BackButton href="/workplace" label="내 직장" anyPrevious /></div>}
     <header className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
       <div className="flex items-center justify-between"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">{isGig ? 'GIG CHAT' : 'WORKROOM'}</span>{selected&&<span className="text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
       <h1 className="mt-4 text-[25px] font-extrabold">{isGig ? '관리자와 근무 대화' : '사업장 워크룸'}</h1>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { isLocationAllowed } from '@/lib/consents';
 import { supabase } from '@/lib/supabase';
+import { getSignedInUser } from '@/lib/auth-user';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
 import { dateKST } from '@/lib/date';
@@ -168,7 +169,7 @@ export default function HomePage() {
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = await getSignedInUser();
       if (!user) {
         router.replace('/shifts');
         return;

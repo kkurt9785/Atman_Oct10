@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getSignedInUser } from '@/lib/auth-user';
 import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { getLinkKinds, hasMedicalContext, isGigLink, loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
@@ -126,7 +127,7 @@ function GigTodayContent() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => { void (async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getSignedInUser();
     if (!user) { setSignedOut(true); setLoading(false); return; }
     // 긱 셸 알림함은 탭에 없다 — 헤더 종 아이콘이 유일한 입구라 안 읽은 긱 알림 수를 같이 보여 준다
     void Promise.all([supabase.rpc('get_my_notifications', { p_limit: 30 }), loadWorkerShellContext(user).catch(() => null)])
