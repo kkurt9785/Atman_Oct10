@@ -7,11 +7,14 @@ import { supabase } from '@/lib/supabase';
 import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { PrivacySection } from '@/components/settings/PrivacySection';
+import { DemoSignupCard } from '@/components/DemoSignup';
+import { useDemoSession } from '@/lib/demo-session';
 import { getLinkKinds, hasMedicalContext, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
 // 핵심 3탭 밖의 보조 설정. 계좌·지급은 /gig/settlement 에서만 관리한다.
 export default function GigSettingsPage() {
   const router = useRouter();
+  const demo = useDemoSession();
   const [name, setName] = useState('');
   // 의료 직군으로 등록했거나 병원·약국 직원으로 연결된 계정에만 모드 전환을 보여 준다.
   const [canSwitch, setCanSwitch] = useState(false);
@@ -128,7 +131,7 @@ export default function GigSettingsPage() {
         </button>
       </section>}
 
-      {!canSwitch && <section className="mb-4 rounded-2xl border border-line bg-white p-5 shadow-sm">
+      {!canSwitch && demo === false && <section className="mb-4 rounded-2xl border border-line bg-white p-5 shadow-sm">
         <p className="text-[11px] font-extrabold text-primary">근무 찾기</p>
         <p className="mt-1 text-[16px] font-extrabold text-ink">근무 찾기도 시작할래요</p>
         <p className="mt-1 text-[12px] leading-5 text-sub">간호사·간호조무사·약사·약국 사무 직군을 등록하면 같은 계정으로 근처 병원·약국 공고를 보고 지원할 수 있어요. 지금의 초대 근무는 그대로 유지돼요.</p>
@@ -139,11 +142,14 @@ export default function GigSettingsPage() {
 
       {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
 
-      <PrivacySection />
-
-      <button onClick={handleLogout} className="mt-2 w-full rounded-2xl border border-red-200 bg-white py-4 text-center text-[15px] font-semibold text-red-500 active:opacity-70">
-        로그아웃
-      </button>
+      {/* 시연 계정이면 개인정보·로그아웃 대신 가입으로 잇는다 */}
+      {demo === true && <DemoSignupCard />}
+      {demo === false && <>
+        <PrivacySection />
+        <button onClick={handleLogout} className="mt-2 w-full rounded-2xl border border-red-200 bg-white py-4 text-center text-[15px] font-semibold text-red-500 active:opacity-70">
+          로그아웃
+        </button>
+      </>}
     </main>
   );
 }

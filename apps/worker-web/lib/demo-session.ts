@@ -17,9 +17,10 @@ export const MEDICAL_DEMOS = [
 
 export const isDemoEmail = (email: string | null | undefined) => (email ?? '').toLowerCase().endsWith('@demo.atman.co.kr');
 
-// 지금 로그인한 계정이 시연 계정인지 — 로그인·로그아웃에 맞춰 바뀐다(네트워크 없이 저장된 세션만 본다)
+// 지금 로그인한 계정이 시연 계정인지 — 로그인·로그아웃에 맞춰 바뀐다(네트워크 없이 저장된 세션만 본다).
+// 확인 전에는 null: 일반 계정 화면(로그아웃·탈퇴)이 시연 화면에 잠깐 비치지 않게 한다.
 export function useDemoSession() {
-  const [demo, setDemo] = useState(false);
+  const [demo, setDemo] = useState<boolean | null>(null);
   useEffect(() => {
     let active = true;
     void supabase.auth.getSession().then(({ data }) => { if (active) setDemo(isDemoEmail(data.session?.user.email)); });
@@ -51,6 +52,13 @@ export async function openDemoSession(target: { email: string } | 'gig'): Promis
   } catch { /* 저장소 없어도 진행 */ }
   rememberWorkerShell(gig ? 'gig' : 'medical');
   return gig ? `/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}` : '/home';
+}
+
+// 다른 시연을 보러 시작 화면으로 — 가입으로 가지 않을 때만 쓴다
+export async function leaveDemoToStart() {
+  await supabase.auth.signOut().catch(() => undefined);
+  setGigworkerModePreference(false);
+  window.location.replace('/');
 }
 
 // 시연을 끝내면 바로 카카오 로그인 — 써 보고 마음에 들면 한 번에 내 계정으로 시작한다.

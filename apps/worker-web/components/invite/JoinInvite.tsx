@@ -9,6 +9,7 @@ import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { BackButton } from '@/components/BackButton';
 import { isDemoEmail } from '@/lib/demo-session';
+import { DemoEndSheet } from '@/components/DemoSignup';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { startKakaoLogin } from '@/lib/kakao-login';
 
@@ -77,6 +78,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   const routes = ROUTES[variant];
   const isGig = variant === 'gig';
   const [status, setStatus] = useState<'loading' | 'preview' | 'claiming' | 'success' | 'error'>('loading');
+  const [demoEndOpen, setDemoEndOpen] = useState(false);
   const [message, setMessage] = useState('근무 초대를 확인하고 있어요...');
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -169,10 +171,10 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     setMessage(`${preview?.facilityName ?? '근무지'}와 이어졌어요. 출퇴근은 근무지에서 '출근하기'·'퇴근하기' 버튼으로 기록해요.`);
   }
 
-  // 초대 화면에서 나가기 — 시연 계정이면 시연을 끝내고 시작 화면으로, 아니면 처음 화면(로그인돼 있으면 내 홈)으로
+  // 초대 화면에서 나가기 — 시연 계정이면 로그아웃 대신 '시연을 끝낼까요?'(가입으로 잇기), 아니면 처음 화면(로그인돼 있으면 내 홈)으로
   async function leaveInvite() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (isDemoEmail(user?.email)) await supabase.auth.signOut().catch(() => undefined);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (isDemoEmail(session?.user.email)) { setDemoEndOpen(true); return; }
     window.location.replace('/');
   }
 
@@ -228,5 +230,6 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       </>}
       {status === 'error' && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
     </section>
+    {demoEndOpen && <DemoEndSheet onClose={() => setDemoEndOpen(false)} />}
   </main>;
 }

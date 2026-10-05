@@ -15,7 +15,7 @@ export function DemoBar({ aboveNav }: { aboveNav: boolean }) {
       </span>
       <button type="button" disabled={leaving} onClick={() => { setLeaving(true); void endDemoSession(); }}
         className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl bg-kakao px-3 text-[13px] font-extrabold text-ink active:opacity-80 disabled:opacity-60">
-        <KakaoGlyph />{leaving ? '여는 중...' : '내 계정으로 시작'}
+        <KakaoGlyph />{leaving ? '여는 중...' : '가입하고 시작'}
       </button>
     </div>
   );

@@ -92,7 +92,7 @@ function RootInner() {
             action={DEMO_LOGIN_ENABLED ? { label: demoLoading === 'gig' ? '여는 중...' : '써보기', onClick: () => { if (!demoLoading) void tryDemo('gig'); } } : undefined} />
         </li>
       </ul>
-      {DEMO_LOGIN_ENABLED && <p className="mt-2 text-center text-[11px] text-tertiary">써보기는 로그인 없이 열려요 · 둘러본 뒤 바로 내 계정으로 시작</p>}
+      {DEMO_LOGIN_ENABLED && <p className="mt-2 text-center text-[11px] text-tertiary">써보기는 로그인 없이 열려요 · 둘러본 뒤 바로 가입할 수 있어요</p>}
       {demoError && <p role="alert" className="mt-2 text-center text-[12px] font-bold text-red-600">{demoError}</p>}
 
       <div className="min-h-7 flex-grow" />

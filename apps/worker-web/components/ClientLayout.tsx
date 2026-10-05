@@ -12,6 +12,8 @@ import { DemoBar } from './DemoBar';
 
 // 시연 띠를 숨기는 경로 — 시연 입구 자체이거나, 화면 아래에 고정 버튼·카드가 있어 띠가 가리는 곳
 const DEMO_BAR_HIDDEN = ['/demo', '/gig/demo', '/map', '/store', '/earnings', '/jobs', '/chat', '/onboarding', '/auth'];
+// 내 정보 화면은 맨 아래에 같은 가입 카드(DemoSignupCard)가 있어 띠를 겹쳐 띄우지 않는다
+const DEMO_BAR_HIDDEN_EXACT = ['/settings', '/gig/settings'];
 
 // 의료 워커 셸의 하단 탭이 붙는 경로. /gig 아래는 app/gig/layout.tsx 가 긱워커 셸(GigNav)을 따로 단다.
 const NAV_PREFIXES = ['/home', '/shifts', '/map', '/applications', '/cover', '/workplace', '/workroom', '/earnings', '/store', '/rewards', '/settings', '/notifications'];
@@ -31,7 +33,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   const guardMedical = isMedicalShellPath(path);
   const demo = useDemoSession();
   const gigNav = path.startsWith('/gig') && !path.startsWith('/gig/join') && !path.startsWith('/gig/demo');
-  const showDemoBar = demo && !DEMO_BAR_HIDDEN.some((prefix) => path.startsWith(prefix));
+  const showDemoBar = demo === true && !DEMO_BAR_HIDDEN.some((prefix) => path.startsWith(prefix)) && !DEMO_BAR_HIDDEN_EXACT.includes(path);
   return (
     <>
       {guardMedical && <WorkerShellGuard shell="medical" />}
@@ -39,7 +41,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         {children}
         {showDemoBar && <div aria-hidden="true" className="h-20" />}
       </div>
-      {showNav && !demo && <InstallBanner />}
+      {showNav && demo === false && <InstallBanner />}
       {showDemoBar && <DemoBar aboveNav={showNav || gigNav} />}
       {showNav && <WorkerNav />}
     </>

@@ -11,6 +11,8 @@ import {
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { PrivacySection } from '@/components/settings/PrivacySection';
+import { DemoSignupCard } from '@/components/DemoSignup';
+import { useDemoSession } from '@/lib/demo-session';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 import { getLinkKinds, hasGigworkerLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 
@@ -19,6 +21,7 @@ const PROFILE_TOTAL = 4;
 // 의료 워커 "내 정보". 긱워커 전용 설정은 /gig/settings — 여기서는 긱 근무가 연결돼 있으면 그 화면으로 가는 카드만 보여 준다.
 export default function SettingsPage() {
   const router = useRouter();
+  const demo = useDemoSession();
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [locations, setLocations] = useState<AreaPref[]>([]);
@@ -251,15 +254,17 @@ export default function SettingsPage() {
 
       {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
 
-      <div className="mt-4"><PrivacySection /></div>
-
-      {/* 로그아웃 */}
-      <button
-        onClick={handleLogout}
-        className="w-full py-4 text-center text-[15px] font-semibold text-red-500 border border-red-200 rounded-2xl bg-white active:opacity-70 mt-2"
-      >
-        로그아웃
-      </button>
+      {/* 시연 계정이면 개인정보·로그아웃 대신 가입으로 잇는다 */}
+      {demo === true && <DemoSignupCard />}
+      {demo === false && <>
+        <div className="mt-4"><PrivacySection /></div>
+        <button
+          onClick={handleLogout}
+          className="w-full py-4 text-center text-[15px] font-semibold text-red-500 border border-red-200 rounded-2xl bg-white active:opacity-70 mt-2"
+        >
+          로그아웃
+        </button>
+      </>}
     </main>
   );
 }
