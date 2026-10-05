@@ -66,7 +66,7 @@ function RootInner() {
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
         <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">한 번 등록으로 계속 일하고,<br />입금은 바로 확인해요</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">새 근무는 알림으로 받고,<br />출근하기 한 번이면 일한 시간이 바로 남아요.</p>
+        <p className="mt-2 text-[14px] leading-6 text-sub">출근·퇴근만 누르면 일한 시간은 알아서 기록돼요.<br />따로 적어 둘 필요 없어요.</p>
       </div>
 
       {/* 두 가지 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고 보여만 준다 */}
