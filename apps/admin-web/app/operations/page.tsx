@@ -10,10 +10,33 @@ import { hasPlanFeature } from '@/lib/billing-gates';
 import { adminClient } from '@/lib/supabase';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { getActiveCoverRequests } from '@/lib/db/cover';
+import { OpenOnHash } from '@/components/OpenOnHash';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
 const ALERT_LIMIT = 8;
+// 첫 화면엔 '지금 확인할 일'만 펼친다. 나머지는 제목·숫자만 보이게 접고, 링크(#id)나 방금 한 작업(notice)이 가리키는 구역은 펼친다.
+function Fold({ id, eyebrow, title, badge, warn = false, open, children }: { id: string; eyebrow: string; title: string; badge?: string; warn?: boolean; open: boolean; children: React.ReactNode }) {
+  return (
+    <details id={id} open={open} className="group mb-3 scroll-mt-20">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3.5 shadow-sm [&::-webkit-details-marker]:hidden">
+        <span className="min-w-0"><span className="block text-[0.6875rem] font-bold text-primary">{eyebrow}</span><span className="mt-0.5 block text-body font-extrabold text-ink">{title}</span></span>
+        <span className="flex shrink-0 items-center gap-2">
+          {badge && <span className={`rounded-full px-2.5 py-1 text-[0.6875rem] font-extrabold ${warn ? 'bg-amber-100 text-warn' : 'bg-bg text-sub'}`}>{badge}</span>}
+          <span aria-hidden className="text-sub transition group-open:rotate-90">›</span>
+        </span>
+      </summary>
+      <div className="mt-3">{children}</div>
+    </details>
+  );
+}
+const NOTICE_OPENS: Record<string, string> = {
+  recommendation_applied: 'staffing-recommendations', recommendation_changed: 'staffing-recommendations',
+  requirement_saved: 'staffing-settings', requirement_off: 'staffing-settings',
+  gaps_filled: 'coverage', no_schedule_gap: 'coverage',
+  template_saved: 'templates', template_off: 'templates', generated: 'templates',
+};
+
 const dayLabel = (date: string) => new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${date}T00:00:00+09:00`));
 
 const NOTICE: Record<string, string> = {
@@ -31,7 +54,9 @@ const NOTICE: Record<string, string> = {
 };
 
 export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
-  const notice = NOTICE[(await searchParams).notice ?? ''];
+  const noticeKey = (await searchParams).notice ?? '';
+  const notice = NOTICE[noticeKey];
+  const opened = NOTICE_OPENS[noticeKey];
   const context = await getAdminContext();
   if (!context || context.accessRole === 'sales') {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">운영 관리 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
@@ -63,6 +88,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   const recruitingCount = coverage.reduce((sum, day) => sum + day.recruiting, 0);
   return (
     <main className="px-4 pb-28">
+      <OpenOnHash />
       <ManageBackLink href="/more/operations" label="근무 운영" />
       {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[0.8125rem] font-bold text-success">{notice}</p>}
       {!hasOperations && (
@@ -79,11 +105,6 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         <p className="text-label text-sub mt-2">반복 일정과 놓치기 쉬운 업무를 한곳에서 확인하세요.</p>
       </div>
 
-      {shop?.isDemo && (
-        <Card className="mb-4 border border-violet-200 bg-violet-50">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[0.75rem] leading-5 text-sub mt-1">초기화 후 근무자가 지원하면 관리자 알림 → 수락 → 근무자 알림 → 채팅을 직접 확인할 수 있어요.</p></div><form action={resetFacilityLiveDemoAction}><button className="min-h-11 shrink-0 rounded-xl bg-violet-600 px-4 text-[0.75rem] font-extrabold text-white">시연 초기화</button></form></div>
-        </Card>
-      )}
 
       {/* 사장님이 매일 처음 보는 숫자는 '나갈 돈'이 아니라 '지금 챙길 일'이다. 인건비는 맨 아래 보조 정보로 */}
       <Card className="shadow-sm mb-4">
@@ -145,11 +166,8 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       )}
 
       {hasOperations && (<>
-      <section className="mb-5" aria-labelledby="staffing-recommendations">
-        <div className="flex items-end justify-between px-1 mb-3">
-          <div><p className="text-label font-bold text-primary">근무표·휴가·근태 자동 분석</p><h2 id="staffing-recommendations" className="text-title font-extrabold text-ink mt-1">인력 공백 알림</h2></div>
-          <span className="text-label font-bold text-sub">앞으로 7일</span>
-        </div>
+      <Fold id="staffing-recommendations" eyebrow="근무표·휴가·근태 자동 분석 · 앞으로 7일" title="인력 공백 알림" open={opened === 'staffing-recommendations'}
+        badge={requirements.length === 0 ? '기준 필요' : recommendations.length > 0 ? `${recommendations.length}건` : '없음'} warn={requirements.length === 0 || recommendations.length > 0}>
         {requirements.length === 0 ? (
           <Card className="border border-primary/20 bg-primary/5"><p className="text-body font-extrabold text-ink">먼저 병동별 필요 인원을 정해 주세요</p><p className="text-label text-sub mt-1">기준을 한 번 저장하면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.</p><a href="#staffing-settings" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">필요 인원 설정</a></Card>
         ) : recommendations.length === 0 ? (
@@ -173,10 +191,11 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
             })}
           </div>
         )}
-      </section>
+      </Fold>
 
-      <section id="staffing-settings" className="scroll-mt-20 mb-6">
-        <div className="px-1 mb-3"><p className="text-label font-bold text-primary">최초 한 번 설정</p><h2 className="text-title font-extrabold text-ink mt-1">병동·시간별 필요 인원</h2><p className="text-label text-sub mt-1">공고 수가 아니라 실제 운영에 꼭 필요한 최소 인원이에요.</p></div>
+      <Fold id="staffing-settings" eyebrow="최초 한 번 설정" title={isPharmacy ? '시간별 필요 인원' : '병동·시간별 필요 인원'} open={opened === 'staffing-settings'}
+        badge={requirements.length > 0 ? `${requirements.length}개` : '설정 전'} warn={requirements.length === 0}>
+        <p className="mb-3 px-1 text-label text-sub">공고 수가 아니라 실제 운영에 꼭 필요한 최소 인원이에요.</p>
         {requirements.length > 0 && <div className="space-y-2 mb-3">{requirements.map((item) => <Card key={item.id} className="py-3.5">
           <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-body font-extrabold text-ink">{item.name} · {item.requiredHeadcount}명</p><p className="text-[0.75rem] text-sub mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} · {ROLE_LABEL[item.requiredRole]} · {item.weekdays.map((day) => DAY_LABEL[day]).join('·')} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p></div><form action={deactivateStaffingRequirementAction}><input type="hidden" name="requirement_id" value={item.id}/><button className="text-[0.6875rem] text-sub underline whitespace-nowrap">사용 중지</button></form></div>
         </Card>)}</div>}
@@ -192,14 +211,12 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
             <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">필요 인원 기준 저장</button>
           </form>
         </details>
-      </section>
+      </Fold>
       </>)}
 
-      <section id="coverage" className="scroll-mt-20 mb-5">
-        <div className="flex items-end justify-between px-1 mb-3">
-          <div><p className="text-label font-bold text-primary">근무 공백부터 확인</p><h2 className="text-title font-extrabold text-ink mt-1">앞으로 7일 충원 현황</h2></div>
-          <Link href="/shifts" className="text-label font-bold text-primary">전체 공고 →</Link>
-        </div>
+      <Fold id="coverage" eyebrow="근무 공백부터 확인" title="앞으로 7일 충원 현황" open={opened === 'coverage'}
+        badge={scheduleGapCount > 0 ? `공백 ${scheduleGapCount}명` : recruitingCount > 0 ? `모집 중 ${recruitingCount}명` : '충원 완료'} warn={scheduleGapCount > 0}>
+        <div className="mb-2 flex justify-end px-1"><Link href="/shifts" className="text-label font-bold text-primary">전체 공고 →</Link></div>
         {(scheduleGapCount > 0 || recruitingCount > 0) && (
           <Card className="mb-3 border border-primary/20 bg-primary/5">
             <div className="flex items-center justify-between gap-3">
@@ -226,13 +243,10 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
             </div>;
           })}
         </Card>
-      </section>
+      </Fold>
 
       {hasOperations && (<>
-      <div id="templates" className="scroll-mt-20 flex items-center justify-between px-1 mt-7 mb-3">
-        <h2 className="text-title font-bold text-ink">반복 근무 일정</h2>
-        <span className="text-label text-sub">최대 8주 생성</span>
-      </div>
+      <Fold id="templates" eyebrow="최대 8주 한 번에 생성" title="반복 근무 일정" open={opened === 'templates'} badge={templates.length > 0 ? `${templates.length}개` : '없음'}>
       {templates.length === 0 ? (
         <Card className="py-8 text-center mb-4"><p className="text-body font-bold">저장된 반복 일정이 없어요</p><p className="text-label text-sub mt-1">매주 반복되는 일정을 먼저 저장하세요. 요일·시간·직군을 정해두면 몇 주치 공고를 한 번에 만들 수 있어요.</p></Card>
       ) : (
@@ -264,7 +278,14 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
           <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">반복 일정 저장</button>
         </form>
       </details>
+      </Fold>
       </>)}
+      {/* 영업 진행자용 — 처음 보는 사장님이 '확인할 일'보다 먼저 보지 않게 맨 아래 */}
+      {shop?.isDemo && (
+        <Card className="mt-6 border border-violet-200 bg-violet-50">
+          <div className="flex items-center justify-between gap-3"><div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[0.75rem] leading-5 text-sub mt-1">초기화 후 근무자가 지원하면 관리자 알림 → 수락 → 근무자 알림 → 채팅을 직접 확인할 수 있어요.</p></div><form action={resetFacilityLiveDemoAction}><button className="min-h-11 shrink-0 whitespace-nowrap rounded-xl bg-violet-600 px-4 text-[0.75rem] font-extrabold text-white">시연 초기화</button></form></div>
+        </Card>
+      )}
     </main>
   );
 }

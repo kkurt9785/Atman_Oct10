@@ -1,6 +1,8 @@
 'use server';
 
+import { assertNotDemoFacility } from '../demo-guard';
 import { revalidatePath } from 'next/cache';
+import { unstable_rethrow } from 'next/navigation';
 import { headers } from 'next/headers';
 import { getAdminContext, requireAdminContext, requireAdminSession } from '../admin-auth';
 import { adminClient, userClient } from '../supabase';
@@ -63,6 +65,7 @@ export async function getFacilityProfile(): Promise<FacilityProfile | null> {
 
 export async function saveFacilityProfile(formData: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
 
@@ -165,6 +168,7 @@ async function requestPublicIp(): Promise<string | null> {
 // 워커의 출퇴근 RPC(Supabase)도 같은 회선으로 나가므로 공인 IP가 일치한다.
 export async function registerWorkplaceNetwork(): Promise<{ ip: string; allowed_ips: string[] }> {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
 
@@ -196,6 +200,7 @@ export async function registerWorkplaceNetwork(): Promise<{ ip: string; allowed_
 
 export async function clearWorkplaceNetworks(): Promise<void> {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
 
@@ -255,6 +260,7 @@ export async function getFacilityAdmins(): Promise<FacilityAdminRow[] | null> {
 
 export async function setAdminPayrollVisibility(targetUserId: string, allow: boolean): Promise<void> {
   const context = await requireAdminContext(['owner', 'super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
 
@@ -295,6 +301,7 @@ export async function getFacilityLocation(): Promise<FacilityLocation | null> {
 export async function saveFacilityLocation(input: { name: string; addressText: string; phone: string; lng: number; lat: number }): Promise<{ ok: boolean; error?: string }> {
   try {
     const context = await requireAdminContext(['owner', 'operator', 'super']);
+    await assertNotDemoFacility(context.facilityId);
     const session = await requireAdminSession();
     const sb = userClient(session.accessToken);
     if (!sb) return { ok: false, error: '서버 설정을 확인해 주세요.' };
@@ -309,3 +316,19 @@ export async function saveFacilityLocation(input: { name: string; addressText: s
     return { ok: false, error: error instanceof Error ? error.message : '저장하지 못했어요.' };
   }
 }
+
+// 서버 액션이 던진 오류 문구는 운영 빌드에서 'An error occurred in the Server Components render…'로 가려진다.
+// 화면이 입력 오류·시연 안내를 그대로 보이도록 결과로 돌려준다(로그인 만료 같은 이동은 그대로 던진다).
+type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
+async function asResult<T>(run: () => Promise<T>): Promise<ActionResult<T>> {
+  try {
+    return { ok: true, data: await run() };
+  } catch (error) {
+    unstable_rethrow(error);
+    return { ok: false, error: error instanceof Error ? error.message : '처리하지 못했어요. 잠시 후 다시 시도해 주세요.' };
+  }
+}
+export async function saveFacilityProfileResult(formData: FormData) { return asResult(() => saveFacilityProfile(formData)); }
+export async function registerWorkplaceNetworkResult() { return asResult(() => registerWorkplaceNetwork()); }
+export async function clearWorkplaceNetworksResult() { return asResult(() => clearWorkplaceNetworks()); }
+export async function setAdminPayrollVisibilityResult(targetUserId: string, allow: boolean) { return asResult(() => setAdminPayrollVisibility(targetUserId, allow)); }

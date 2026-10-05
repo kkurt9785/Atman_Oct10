@@ -1,5 +1,6 @@
 'use server';
 
+import { assertNotDemoFacility } from '../demo-guard';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
@@ -86,6 +87,7 @@ export async function updateGigProjectAction(form: FormData) {
 
 export async function cancelGigProjectAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const projectId = text(form, 'project_id');
@@ -157,6 +159,7 @@ export async function inviteGigParticipantAction(form: FormData) {
 
 export async function removeGigParticipantAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const assignmentId = text(form, 'assignment_id');

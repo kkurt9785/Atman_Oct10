@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { setAdminPayrollVisibility, type FacilityAdminRow } from '@/lib/actions/facility';
+import { setAdminPayrollVisibilityResult, type FacilityAdminRow } from '@/lib/actions/facility';
 
 const ROLE_LABEL: Record<FacilityAdminRow['role'], string> = {
   owner: '소유자', super: '전체 관리', operator: '운영 관리자', sales: '영업 조회',
@@ -15,12 +15,9 @@ export function AdminAccessSection({ admins, facilityWord }: { admins: FacilityA
   function toggle(userId: string, allow: boolean) {
     setMessage('');
     startTransition(async () => {
-      try {
-        await setAdminPayrollVisibility(userId, allow);
-        setRows((prev) => prev.map((r) => (r.userId === userId ? { ...r, canViewPayroll: allow } : r)));
-      } catch (err) {
-        setMessage(err instanceof Error ? err.message : '변경하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      }
+      const result = await setAdminPayrollVisibilityResult(userId, allow).catch(() => null);
+      if (!result?.ok) { setMessage(result?.error ?? '변경하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+      setRows((prev) => prev.map((r) => (r.userId === userId ? { ...r, canViewPayroll: allow } : r)));
     });
   }
 

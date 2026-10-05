@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition, useState } from 'react';
-import { saveFacilityProfile, registerWorkplaceNetwork, clearWorkplaceNetworks, type FacilityProfile } from '@/lib/actions/facility';
+import { saveFacilityProfileResult, registerWorkplaceNetworkResult, clearWorkplaceNetworksResult, type FacilityProfile } from '@/lib/actions/facility';
 
 function Toggle({ name, label, defaultChecked }: { name: string; label: string; defaultChecked: boolean }) {
   const [on, setOn] = useState(defaultChecked);
@@ -38,26 +38,20 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
   function handleRegisterNetwork() {
     setNetMessage('');
     startNetTransition(async () => {
-      try {
-        const { ip, allowed_ips } = await registerWorkplaceNetwork();
-        setAllowedIps(allowed_ips);
-        setNetMessage(`현재 네트워크(${ip})를 등록했어요 ✓`);
-      } catch (err) {
-        setNetMessage(err instanceof Error ? err.message : '등록하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      }
+      const result = await registerWorkplaceNetworkResult().catch(() => null);
+      if (!result?.ok) { setNetMessage(result?.error ?? '등록하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+      setAllowedIps(result.data.allowed_ips);
+      setNetMessage(`현재 네트워크(${result.data.ip})를 등록했어요 ✓`);
     });
   }
 
   function handleClearNetworks() {
     setNetMessage('');
     startNetTransition(async () => {
-      try {
-        await clearWorkplaceNetworks();
-        setAllowedIps([]);
-        setNetMessage('등록된 네트워크를 모두 해제했어요');
-      } catch (err) {
-        setNetMessage(err instanceof Error ? err.message : '해제하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      }
+      const result = await clearWorkplaceNetworksResult().catch(() => null);
+      if (!result?.ok) { setNetMessage(result?.error ?? '해제하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+      setAllowedIps([]);
+      setNetMessage('등록된 네트워크를 모두 해제했어요');
     });
   }
   const isPharmacy=facilityType==='pharmacy';
@@ -69,12 +63,9 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
     setSaved(false);
     const formData = new FormData(e.currentTarget);
     startTransition(async () => {
-      try {
-        await saveFacilityProfile(formData);
-        setSaved(true);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      }
+      const result = await saveFacilityProfileResult(formData).catch(() => null);
+      if (!result?.ok) { setError(result?.error ?? '저장하지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
+      setSaved(true);
     });
   }
 

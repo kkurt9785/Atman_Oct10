@@ -1,5 +1,6 @@
 'use server';
 
+import { assertNotDemoFacility } from '../demo-guard';
 import { isGigStaff, isGigworkerFacility } from '@/lib/facility-mode';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
@@ -394,6 +395,7 @@ export async function createStaffInviteAction(form:FormData){
 // 초대 링크는 소지자 인증이라 엉뚱한 사람이 수락할 수 있다. 연결을 끊고 계좌 공유를 회수한 뒤 새 일회용 초대를 돌려준다.
 export async function unlinkStaffWorkerAction(form:FormData){
   const context=await requireAdminContext(['owner','operator','super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb=adminClient();
   if(!sb) throw new Error('서버 설정을 확인해 주세요.');
   const staffId=text(form,'staff_id');
@@ -436,6 +438,7 @@ export async function setStaffPayAction(form:FormData){
 
 export async function endGigStaffAction(form:FormData){
   const context=await requireAdminContext(['owner','operator','super']);
+  await assertNotDemoFacility(context.facilityId);
   const sb=adminClient();
   if(!sb)throw new Error('서버 설정을 확인해 주세요.');
   const staffId=text(form,'staff_id');
