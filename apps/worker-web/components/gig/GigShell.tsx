@@ -6,6 +6,7 @@ import { InstallBanner } from '@/components/InstallBanner';
 import { WorkerShellGuard } from '@/components/WorkerShellGuard';
 import { supabase } from '@/lib/supabase';
 import { GigNav } from './GigNav';
+import { DemoSwitchBanner } from '@/components/DemoSwitchBanner';
 
 // /gig 아래의 간편 내비게이션·가드. 설치 앱은 루트 셸과 같은 '잇닿 워커'를 쓴다.
 export function GigShell({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export function GigShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {!bare && <WorkerShellGuard shell="gig" />}
+      {showShell && <DemoSwitchBanner shell="gig" />}
       <div className={showShell ? 'pb-[calc(56px+env(safe-area-inset-bottom))]' : ''}>{children}</div>
       {showShell && <InstallBanner hint="잇닿 워커를 홈 화면에 두고 바로 출퇴근하세요" />}
       {showShell && <GigNav />}
