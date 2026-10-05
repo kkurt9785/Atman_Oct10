@@ -65,8 +65,8 @@ function RootInner() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md flex-col">
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
-        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">찾지 않아도 일이 닿고,<br />묻지 않아도 입금이 보여요</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">출근·퇴근만 누르면 일한 시간은 알아서 기록돼요.</p>
+        <h1 className="mt-7 text-[26px] font-extrabold leading-[1.3] tracking-[-0.8px] text-ink">내가 일 찾는 시대는 끝.<br />한 번 등록으로<br />원하는 일은 바로</h1>
+        <p className="mt-3 text-[14px] leading-6 text-sub"><b className="text-[15px] text-ink">시급 계산, 어렵지 않아요.</b><br />출근·퇴근만 누르면 일한 시간과 금액이 바로 나와요.</p>
       </div>
 
       {/* 두 가지 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고 보여만 준다 */}
