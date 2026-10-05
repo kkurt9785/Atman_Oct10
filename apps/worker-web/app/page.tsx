@@ -73,7 +73,7 @@ function RootInner() {
       <ul className="mt-8 space-y-2" aria-label="잇닿 워커로 할 수 있는 일">
         <li className="flex items-start gap-3 rounded-2xl bg-bg p-4">
           <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></span>
-          <span><b className="block text-[15px] text-ink">근무 찾기</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">간호사·간호조무사·약사 · 한 번 등록하면 근처 병원·약국 새 근무를 알림으로 받아요</span></span>
+          <span><b className="block text-[15px] text-ink">근무 찾기</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">간호사·간호조무사·약사 · 한 번 등록하면 일하고 싶은 곳 가까운 병원·약국 새 근무만 알림으로 와요</span></span>
         </li>
         <li className="flex items-start gap-3 rounded-2xl bg-bg p-4">
           <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg></span>

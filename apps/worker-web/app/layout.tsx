@@ -4,7 +4,7 @@ import { ClientLayout } from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
   title: '잇닿 워커 — 한 번 등록으로 계속 일하고, 입금은 바로 확인',
-  description: '병원·약국 근무는 한 번 등록하면 새 근무를 알림으로, 사장님이 초대한 근무는 링크 한 번으로. 출근하기 한 번이면 일한 시간이 남고 입금까지 바로 확인해요.',
+  description: '병원·약국 근무는 한 번 등록하면 일하고 싶은 곳 가까운 새 근무를 알림으로, 사장님이 초대한 근무는 링크 한 번으로. 출근하기 한 번이면 일한 시간이 남고 입금까지 바로 확인해요.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',
