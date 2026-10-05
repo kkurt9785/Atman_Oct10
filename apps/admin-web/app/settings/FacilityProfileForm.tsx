@@ -26,7 +26,8 @@ function Toggle({ name, label, defaultChecked }: { name: string; label: string; 
   );
 }
 
-export function FacilityProfileForm({ profile,facilityType }: { profile: FacilityProfile | null; facilityType:string }) {
+// part: 설정 목록에서 '사업장 소개·규모' / '출퇴근 인증 규칙' 중 하나만 보여 준다. 저장은 한 폼이라 숨긴 칸도 그대로 함께 보낸다(값이 지워지지 않게).
+export function FacilityProfileForm({ profile,facilityType,part }: { profile: FacilityProfile | null; facilityType:string; part?: 'profile'|'attendance' }) {
   const [isPending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -70,11 +71,12 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
   }
 
   return (
-    <form onSubmit={handleSubmit} className="px-4 pb-24">
-      <div className="pt-8 pb-4 px-1">
+    <form onSubmit={handleSubmit} className="px-4 pb-8">
+      {!part&&<div className="pt-8 pb-4 px-1">
         <h1 className="text-[1.5rem] font-extrabold text-ink">{facilityWord} 프로필</h1>
         <p className="text-[0.8125rem] text-sub mt-1">총원과 운영 기준을 입력하면 인력 공백을 먼저 보여드려요</p>
-      </div>
+      </div>}
+      <div className={part==='attendance'?'hidden':''}>
 
       {/* 기본 정보 */}
       <section className="bg-white rounded-2xl p-5 mb-4">
@@ -159,7 +161,9 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
           className="w-full border border-line rounded-xl px-4 py-3 text-[0.9375rem] outline-none focus:border-primary resize-none"
         />
       </section>
+      </div>
 
+      <div className={part==='profile'?'hidden':''}>
       <section id="attendance-auth" className="scroll-mt-20 bg-white rounded-2xl p-5 mb-6">
         <p className="text-[0.8125rem] font-bold text-sub mb-1">출퇴근 인증</p>
         <p className="text-[0.75rem] text-tertiary mb-4">실내 GPS 오차를 고려해 {facilityWord} 환경에 맞게 선택하세요.</p>
@@ -217,15 +221,16 @@ export function FacilityProfileForm({ profile,facilityType }: { profile: Facilit
           {netMessage && <p role="status" className="mt-2 text-[0.75rem] text-sub">{netMessage}</p>}
         </div>
       </section>
+      </div>
 
       {error && <p role="alert" className="text-center text-[0.875rem] text-warn mb-4">{error}</p>}
       {saved && <p role="status" className="text-center text-[0.875rem] text-success mb-4">저장됐어요 ✓</p>}
 
-      {/* BottomNav(z-30, ~56px+safe-area) 위에 떠야 한다 — z-40 + 하단 오프셋 */}
+      {/* 항목별로 나눠 화면이 짧아져서 버튼은 폼 끝에 둔다(하단 고정이면 시연 띠·하단 탭과 겹친다) */}
       <button
         type="submit"
         disabled={isPending}
-        className="fixed bottom-[calc(60px+env(safe-area-inset-bottom))] inset-x-0 z-40 mx-auto max-w-app m-4 h-14 bg-primary text-white text-[1.0625rem] font-bold rounded-xl shadow-lg disabled:opacity-60"
+        className="w-full h-14 bg-primary text-white text-[1.0625rem] font-bold rounded-xl shadow-lg disabled:opacity-60"
       >
         {isPending ? '저장 중...' : '저장하기'}
       </button>

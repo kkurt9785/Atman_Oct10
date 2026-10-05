@@ -9,6 +9,7 @@ import { PayrollActionForm } from './PayrollActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { facilityTypeLabel } from '@/lib/facility-label';
 import { OperationsFlow } from '@/components/OperationsFlow';
+import { SegmentTabs } from '@/components/SegmentTabs';
 
 const STATUS: Record<string,string> = { collecting:'집계 중',draft:'검토 전',approved:'지급 승인',exported:'이체 준비',paid:'지급 완료',worker_confirmed:'입금 확인',disputed:'확인 요청',cancelled:'취소' };
 const ENGAGEMENT:Record<string,string>={regular:'상시 직원',fixed_term:'기간제',temporary:'임시 계약',daily:'단기 근무'};
@@ -16,7 +17,7 @@ const PAY:Record<string,string>={monthly:'월급',hourly:'시급',daily:'일급'
 
 function moveMonth(month:string,delta:number){const date=new Date(`${month}-01T00:00:00Z`);date.setUTCMonth(date.getUTCMonth()+delta);return date.toISOString().slice(0,7);}
 
-export default async function PayrollPage({searchParams}:{searchParams:Promise<{month?:string}>}) {
+export default async function PayrollPage({searchParams}:{searchParams:Promise<{month?:string;tab?:string}>}) {
   const params=await searchParams;
   const currentMonth=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7);
   const selectedMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(params.month??'')&&params.month!<=currentMonth?params.month!:currentMonth;
@@ -31,15 +32,21 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
     <Card className="py-10 text-center"><p className="text-[1.75rem]">🔒</p><p className="mt-2 font-bold">급여 열람 권한이 없어요</p><p className="mt-2 text-label text-sub leading-5">급여 정보는 {facilityWord} 소유자와<br/>허용된 관리자만 볼 수 있어요.<br/>필요하면 설정 → 관리자 권한에서 허용을 요청해 주세요.</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-xl bg-ink px-5 text-label font-bold text-white">홈으로</Link></Card>
   </main>;
   const pending = rows.filter(r => ['draft','approved','exported','disputed'].includes(r.status)).reduce((s,r)=>s+r.netAmount,0)+staffRows.filter(r=>['draft','approved','exported'].includes(r.status)).reduce((sum,row)=>sum+row.netAmount,0);
+  const staffTodo = staffRows.filter(r=>['draft','approved','exported','config_required'].includes(r.status)).length;
+  const shiftTodo = rows.filter(r=>['draft','approved','exported','disputed'].includes(r.status)).length;
+  const tab = params.tab==='shift'||params.tab==='staff' ? params.tab : (staffRows.length===0&&rows.length>0)||(staffTodo===0&&shiftTodo>0) ? 'shift' : 'staff';
   const completed = rows.filter(r => ['paid','worker_confirmed'].includes(r.status)).reduce((s,r)=>s+r.netAmount,0)+staffRows.filter(r=>r.status==='paid').reduce((sum,row)=>sum+row.netAmount,0);
   return <main className="px-4">
     <ManageBackLink href="/more" label="관리" />
     <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{facilityWord} 직접 지급</p><h1 className="text-display font-extrabold text-ink">급여 지급관리</h1><p className="text-label text-sub mt-2">근무 기록을 승인하고 {facilityWord} 계좌에서 근무자에게 직접 지급하세요. 잇닿은 임금을 보관하지 않습니다.</p><div className="mt-3 flex gap-2"><Link href={`/attendance-summary?month=${selectedMonth}`} className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-primary/30 bg-white text-primary text-label font-bold">월 근태 요약</Link><a href={`/api/payroll/export?month=${selectedMonth}`} className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-primary/30 bg-white text-primary text-label font-bold">급여 CSV</a></div></div>
     <OperationsFlow active="payroll"/>
-    <div className="grid grid-cols-2 gap-3 mb-5"><Card><p className="text-label text-sub">지급 예정</p><p className="text-title font-extrabold mt-1">{won(pending)}</p></Card><Card><p className="text-label text-sub">지급 완료</p><p className="text-title font-extrabold text-primary mt-1">{won(completed)}</p></Card></div>
-    <Card className="bg-blue-50 border border-blue-100 mb-5"><p className="text-body font-bold text-ink">지급 흐름</p><p className="text-label text-sub mt-2 leading-5">근무 완료 → 금액 검토 → 지급 승인 → 이체 준비 → {facilityWord} 지급 완료 → 근무자 입금 확인</p><p className="text-[0.8125rem] text-sub mt-2">3.3% 공제는 자동으로 적용하지 않아요. 고용·세무 분류를 확인한 뒤 사업장이 결정하세요.</p></Card>
+    <div className="grid grid-cols-2 gap-3 mb-3"><Card><p className="text-label text-sub">지급 예정</p><p className="text-title font-extrabold mt-1">{won(pending)}</p></Card><Card><p className="text-label text-sub">지급 완료</p><p className="text-title font-extrabold text-primary mt-1">{won(completed)}</p></Card></div>
+    <details className="mb-4 rounded-2xl bg-white px-4 py-1 shadow-sm"><summary className="flex h-11 cursor-pointer list-none items-center justify-between text-label font-bold text-ink">지급 흐름·공제·CSV 안내<span aria-hidden className="text-sub">›</span></summary><div className="pb-3"><p className="text-label text-sub mt-2 leading-5">근무 완료 → 금액 검토 → 지급 승인 → 이체 준비 → {facilityWord} 지급 완료 → 근무자 입금 확인</p><p className="text-[0.8125rem] text-sub mt-2">3.3% 공제는 자동으로 적용하지 않아요. 고용·세무 분류를 확인한 뒤 사업장이 결정하세요.</p><p className="text-[0.75rem] text-sub mt-2 leading-5">CSV는 검토·회계 전달용이며 계좌번호는 끝 4자리만 담겨요. 실제 계좌 이체는 사업장이 직접 실행하고, 지급완료 표시는 실제 이체 확인 후 처리하세요. 모든 상태 변경은 감사 기록에 남아요.</p></div></details>
+    <SegmentTabs basePath="/payroll" active={tab} params={{month:params.month}} tabs={[{key:'staff',label:'직원 급여',count:staffTodo,warn:true},{key:'shift',label:'공고 지원 인력',count:shiftTodo,warn:true}]}/>
+    
     {!canManage&&<Card className="bg-amber-50 border border-amber-200 mb-4"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">지급 승인과 완료 처리는 사업장 소유자 또는 급여 승인 담당자에게 요청해 주세요.</p></Card>}
-    <div className="mb-3 mt-6 flex items-end justify-between px-1"><div><p className="text-[0.75rem] font-bold text-primary">{facilityWord} 등록 인력 + 공고 지원 인력</p><h2 className="text-title font-extrabold">{selectedMonth.replace('-','년 ')}월 급여</h2></div><div className="flex items-center gap-1 rounded-xl bg-white p-1 shadow-sm"><Link href={`/payroll?month=${moveMonth(selectedMonth,-1)}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" aria-label="이전 달">‹</Link><span className="min-w-20 text-center text-[0.75rem] font-bold">{selectedMonth.replace('-','년 ')}월</span>{selectedMonth<currentMonth?<Link href={`/payroll?month=${moveMonth(selectedMonth,1)}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" aria-label="다음 달">›</Link>:<span className="flex h-8 w-8 items-center justify-center text-line" aria-hidden>›</span>}</div></div>
+    <div className="mb-3 mt-2 flex items-end justify-between px-1"><div><p className="text-[0.75rem] font-bold text-primary">{tab==='staff'?`${facilityWord} 등록 직원`:'공고 지원 인력 · 공고 시급 자동 연동'}</p><h2 className="text-title font-extrabold">{selectedMonth.replace('-','년 ')}월 급여</h2></div><div className="flex items-center gap-1 rounded-xl bg-white p-1 shadow-sm"><Link href={`/payroll?month=${moveMonth(selectedMonth,-1)}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" aria-label="이전 달">‹</Link><span className="min-w-20 text-center text-[0.75rem] font-bold">{selectedMonth.replace('-','년 ')}월</span>{selectedMonth<currentMonth?<Link href={`/payroll?month=${moveMonth(selectedMonth,1)}`} className="flex h-8 w-8 items-center justify-center rounded-lg text-lg" aria-label="다음 달">›</Link>:<span className="flex h-8 w-8 items-center justify-center text-line" aria-hidden>›</span>}</div></div>
+    {tab==='staff'&&<>
     {selectedMonth===currentMonth&&<Card className="mb-3 border border-blue-100 bg-blue-50"><p className="text-label font-bold text-ink">이번 달은 집계 중이에요</p><p className="mt-1 text-[0.75rem] text-sub">금액은 중간 예상치이며 지급 승인은 다음 달 마감 후에 할 수 있어요.</p></Card>}
     {staffRows.length===0?<Card className="py-8 text-center"><p className="font-bold">등록된 직원이 없어요</p><a href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</a></Card>:<div className="space-y-3">{staffRows.map(row=><Card key={row.staffId}>
       <div className="flex justify-between gap-3"><div><div className="flex items-center gap-2"><p className="text-body font-extrabold">{row.workerName}</p><span className="rounded bg-primary/5 px-1.5 py-0.5 text-[0.625rem] font-bold text-primary">{ENGAGEMENT[row.engagementType]??'등록 직원'}</span></div><p className="mt-1 text-label text-sub">{row.payBasis?`${PAY[row.payBasis]} ${row.payRate?.toLocaleString('ko-KR')}원`:'급여 기준 미설정'}</p></div><span className="h-fit rounded-full bg-bg px-2.5 py-1 text-[0.75rem] font-bold">{row.status==='config_required'?'설정 필요':STATUS[row.status]??row.status}</span></div>
@@ -52,7 +59,8 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
         {canManage&&row.status==='exported'&&<PayrollActionForm kind="staff" action="mark_paid" values={{staff_id:row.staffId,period_month:row.periodMonth}} label={`${facilityWord} 지급 완료 표시`} className="h-11 w-full rounded-xl bg-success text-label font-extrabold text-white"/>}
       </>}
     </Card>)}</div>}
-    <div className="mb-3 mt-7 px-1"><p className="text-[0.75rem] font-bold text-primary">공고 시급 자동 연동</p><h2 className="text-title font-extrabold">공고 지원 인력 지급</h2></div>
+    </>}
+    {tab==='shift'&&<>
     {error ? <Card className="py-8 text-center border border-red-200"><p role="alert" className="font-bold text-red-600">급여 정보를 불러오지 못했어요</p><p className="text-label text-sub mt-2">{error}</p><a href="/payroll" className="inline-flex mt-4 px-4 h-10 items-center rounded-xl bg-ink text-white text-label font-bold">다시 불러오기</a></Card>
     : rows.length===0 ? <Card className="py-10 text-center"><p className="font-bold">지급 요청이 없어요</p><p className="text-label text-sub mt-1">퇴근 처리 후 자동으로 만들어져요.</p></Card>
     : <div className="space-y-3">{rows.map(row => <Card key={row.id} className={row.status==='disputed'?'border border-red-200':''}>
@@ -64,6 +72,7 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
       {canManage&&row.status==='approved'&&<PayrollActionForm kind="marketplace" action="mark_exported" values={{id:row.id}} label="이체 준비 완료 표시" className="w-full h-11 rounded-xl bg-ink text-white text-label font-extrabold"/>}
       {canManage&&row.status==='exported'&&<PayrollActionForm kind="marketplace" action="mark_paid" values={{id:row.id}} label={`${facilityWord} 지급 완료 표시`} className="w-full h-11 rounded-xl bg-success text-white text-label font-extrabold"/>}
     </Card>)}</div>}
-    <p className="text-[0.8125rem] text-sub px-1 mt-4 leading-5">CSV는 검토·회계 전달용이며 계좌번호는 끝 4자리만 담겨요. 실제 계좌 이체는 사업장이 직접 실행하고, 지급완료 표시는 실제 이체 확인 후 처리하세요. 모든 상태 변경은 감사 기록에 남아요.</p>
+
+    </>}
   </main>;
 }

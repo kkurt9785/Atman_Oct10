@@ -70,7 +70,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
           </p>
           {brnFailed && <p role="alert" className="mt-2 text-[0.75rem] font-bold text-red-600">방금 올린 사업자 서류 전송이 실패했어요. 설정에서 다시 올려 주세요.</p>}
           {!shop.brnSubmitted && !shop.brnDocumentPath && (
-            <Link href="/settings#brn-document" className="mt-2 inline-block rounded-lg bg-amber-600 px-3 py-1.5 text-[0.75rem] font-bold text-white">사업자등록번호·등록증 올리기 →</Link>
+            <Link href="/settings?section=brn" className="mt-2 inline-block rounded-lg bg-amber-600 px-3 py-1.5 text-[0.75rem] font-bold text-white">사업자등록번호·등록증 올리기 →</Link>
           )}
         </section>
       )}
@@ -103,7 +103,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
               <p className="text-body font-extrabold text-ink">사업장 총원을 먼저 입력해 주세요</p>
               <p className="mt-1 text-[0.75rem] leading-5 text-sub">총원이 있어야 등록 직원과 비교해 부족 인원을 계산할 수 있어요.</p>
             </div>
-            <Link href="/settings" className="shrink-0 text-label font-bold text-primary">입력 →</Link>
+            <Link href="/settings?section=profile" className="shrink-0 text-label font-bold text-primary">입력 →</Link>
           </div>
         )}
       </Card>

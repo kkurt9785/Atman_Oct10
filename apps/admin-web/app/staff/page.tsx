@@ -11,7 +11,6 @@ import { StaffRegistrationForm } from './StaffRegistrationForm';
 import { UnlinkWorkerButton } from './UnlinkWorkerButton';
 import { ConvertWorkerForm } from './ConvertWorkerForm';
 import { getShop } from '@/lib/db/shop';
-import { facilityTypeLabel } from '@/lib/facility-label';
 import { workerShellPathsForKind } from '@/lib/facility-mode';
 
 const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', pharmacist:'약사', pharmacy_staff:'약국 전산·사무직', coordinator:'코디네이터', admin:'행정', other:'기타' };
@@ -33,7 +32,6 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
   ]);
   const gigworkerMode=shop?.mode==='gig';
   // 초대 링크는 워커 앱의 해당 셸(/gig/join 또는 /workplace/join)로 열린다
-  const facilityWord=facilityTypeLabel(shop?.facilityType);
   const contractCount = clinicStaff.filter((s)=>['fixed_term','temporary','daily'].includes(s.engagementType)).length;
   const regularCount=clinicStaff.filter((s)=>s.engagementType==='regular').length;
   const visibleStaff=view==='regular'?clinicStaff.filter((s)=>s.engagementType==='regular')
@@ -48,16 +46,16 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
         <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-white text-[1.3125rem] text-ink shadow-sm active:bg-bg" aria-label="홈으로 돌아가기">←</Link>
         <div><p className="text-label font-bold text-primary">{gigworkerMode?'직접 초대한 단기근로자':'기존 직원 + 신규 채용인력'}</p><h1 className="text-display font-extrabold text-ink">{gigworkerMode?'긱워커 관리':'직원 관리'}</h1></div>
       </div>
-      <p className="text-label text-sub mt-1">{gigworkerMode?'근무 일정만 등록하고 링크나 QR로 가입시켜요. 서로 전화번호를 몰라도 돼요.':`직원 10명 이하 ${facilityWord}도 설정 없이 바로 시작할 수 있어요.`}</p>
+      {gigworkerMode&&<p className="text-label text-sub mt-1">근무 일정만 등록하고 링크나 QR로 가입시켜요. 서로 전화번호를 몰라도 돼요.</p>}
     </div>
 
-    <div className="grid grid-cols-3 gap-2">
+    {gigworkerMode&&<div className="grid grid-cols-3 gap-2">
       {(gigworkerMode?[['오늘 근무',`${clinicStaff.filter(s=>s.scheduledToday).length}명`],['초대 대기',`${clinicStaff.filter(s=>!s.workerId&&s.inviteToken).length}명`],['계정 연결',`${clinicStaff.filter(s=>s.workerId).length}명`]]:[['관리 직원',`${clinicStaff.length}명`],['계약·단기',`${contractCount}명`],['오늘 확정 인력',`${shiftStaff.length}명`]]).map(([label,value])=>
         <Card key={label} className="p-3 shadow-sm"><p className="text-[0.6875rem] text-sub">{label}</p><p className="text-title font-extrabold mt-1">{value}</p></Card>
       )}
-    </div>
+    </div>}
 
-    {!gigworkerMode&&<nav aria-label="직원 유형" className="mt-3 grid grid-cols-4 gap-1 rounded-2xl bg-white p-1.5 shadow-sm">
+    {!gigworkerMode&&<nav aria-label="직원 유형" className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1.5 shadow-sm">
       {([['all','전체',clinicStaff.length+shiftStaff.length],['regular','상시',regularCount],['contract','계약·임시',contractCount],['shift','오늘 단기',shiftStaff.length]] as const).map(([key,label,count])=><Link key={key} href={`/staff?view=${key}`} aria-current={view===key?'page':undefined} className={`flex min-h-11 flex-col items-center justify-center rounded-xl text-[0.6875rem] font-bold ${view===key?'bg-primary text-white':'text-sub'}`}><span>{label}</span><span className={`mt-0.5 text-[0.625rem] ${view===key?'text-white/70':'text-tertiary'}`}>{count}명</span></Link>)}
     </nav>}
 

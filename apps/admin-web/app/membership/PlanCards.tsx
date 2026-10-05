@@ -34,6 +34,8 @@ type PlanExtras = { included_job_posting_slots?: number; included_active_workers
 
 export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & PlanExtras)[]; currentPlanCode?: string | null }) {
   const [cycle, setCycle] = useState<Cycle>('monthly');
+  // 혜택 목록은 이용 중·인기 요금제만 펼친다 — 나머지는 '포함 내용 보기'로(요금제 탭이 휴대폰 두 화면 넘게 길었다)
+  const [opened, setOpened] = useState<string | null>(null);
   const meta = CYCLES.find((c) => c.key === cycle)!;
 
   return (
@@ -72,7 +74,7 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
           const perMonth = discountable ? Math.round(total / meta.months) : plan.monthly_fee;
           const savings = discountable ? plan.monthly_fee * meta.months - total : 0;
           return (
-            <article key={plan.code} className={`bg-white rounded-2xl p-5 ${popular ? 'ring-2 ring-primary shadow-lg' : 'shadow-card'} ${isCurrent ? 'ring-2 ring-success' : ''}`}>
+            <article key={plan.code} className={`bg-white rounded-2xl p-4 ${popular ? 'ring-2 ring-primary shadow-lg' : 'shadow-card'} ${isCurrent ? 'ring-2 ring-success' : ''}`}>
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-title font-extrabold">{plan.name}</p>
@@ -97,11 +99,15 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
                 </div>
               </div>
               {typeof plan.features?.tagline === 'string' && <p className="text-[0.8125rem] text-sub mt-1.5">{plan.features.tagline as string}</p>}
-              <ul className="mt-3 space-y-1.5">
-                {perks.map((perk, i) => (
-                  <li key={i} className="flex items-center gap-2 text-[0.8125rem] text-ink"><span className={popular ? 'text-primary' : 'text-sub'}>✓</span>{perk}</li>
-                ))}
-              </ul>
+              {isCurrent || popular || opened === plan.code ? (
+                <ul className="mt-3 space-y-1.5">
+                  {perks.map((perk, i) => (
+                    <li key={i} className="flex items-center gap-2 text-[0.8125rem] text-ink"><span className={popular ? 'text-primary' : 'text-sub'}>✓</span>{perk}</li>
+                  ))}
+                </ul>
+              ) : (
+                <button type="button" onClick={() => setOpened(plan.code)} className="mt-2 text-[0.8125rem] font-bold text-primary">포함 내용 보기 ›</button>
+              )}
             </article>
           );
         })}
