@@ -1,8 +1,8 @@
 {
-  "name": "잇닿 워커 — 병원·약국 근무와 긱 근무를 한곳에서",
+  "name": "잇닿 워커 — 근무 찾기와 초대 근무를 한 앱에서",
   "short_name": "잇닿 워커",
   "id": "/",
-  "description": "병원·약국 근무 찾기와 초대받은 긱 근무의 출퇴근을 한 앱에서 관리해요.",
+  "description": "근무는 찾기 쉽게, 기록은 확실하게. 병원·약국 공고 지원부터 초대 근무의 출퇴근·지급 확인까지.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -31,9 +31,9 @@
   ],
   "shortcuts": [
     {
-      "name": "병원·약국 워커",
-      "short_name": "병원·약국",
-      "description": "근무 찾기·지원·근무표 열기",
+      "name": "근무 찾기",
+      "short_name": "근무 찾기",
+      "description": "공고 보기·지원·근무표",
       "url": "/home",
       "icons": [
         {
@@ -44,9 +44,9 @@
       ]
     },
     {
-      "name": "긱워커 간편모드",
-      "short_name": "긱 근무",
-      "description": "초대받은 일정과 출퇴근 열기",
+      "name": "초대 근무",
+      "short_name": "초대 근무",
+      "description": "초대받은 근무·출근하기",
       "url": "/gig",
       "icons": [
         {

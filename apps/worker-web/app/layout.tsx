@@ -3,8 +3,8 @@ import './globals.css';
 import { ClientLayout } from '@/components/ClientLayout';
 
 export const metadata: Metadata = {
-  title: '잇닿 워커 — 내 조건 근무가 먼저 와요',
-  description: '단톡방 안 뒤져도 내 지역·직군 근무가 알림으로 와요. 출근하기 버튼 한 번, 지급 확인까지 한 앱에서.',
+  title: '잇닿 워커 — 근무는 찾기 쉽게, 기록은 확실하게',
+  description: '근처 병원·약국 공고를 찾아 지원하고, 초대받은 근무는 출근하기 한 번으로. 근무시간과 지급 내역까지 한 앱에 남아요.',
   manifest: '/manifest.json',
   icons: {
     icon: '/icon-192.png',

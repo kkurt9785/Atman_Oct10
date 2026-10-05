@@ -65,8 +65,8 @@ function RootInner() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md flex-col">
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
-        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">단톡방 안 뒤져도,<br />내 조건 근무가 먼저 와요</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">근무를 찾는 것도, 초대받은 근무도 한 앱에서.</p>
+        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">근무는 찾기 쉽게,<br />기록은 확실하게</h1>
+        <p className="mt-2 text-[14px] leading-6 text-sub">근처 병원·약국 공고에 바로 지원하고,<br />출근하기 한 번이면 근무시간·지급 내역이 남아요.</p>
       </div>
 
       {/* 두 가지 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고 보여만 준다 */}
