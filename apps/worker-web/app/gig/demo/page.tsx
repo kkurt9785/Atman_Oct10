@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { rememberWorkerShell } from '@/lib/worker-mode';
+import { DEMO_LOGIN_ENABLED as ENABLED, openDemoSession } from '@/lib/demo-session';
 import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
 import { InstallAppButton } from '@/components/InstallAppButton';
 
@@ -12,8 +11,6 @@ import { InstallAppButton } from '@/components/InstallAppButton';
 // 버튼 하나로 의료 이력이 없는 긱 전용 시연 계정에 로그인하고, 팝업스토어 데모 근무지의 초대를 초기화해 초대 확인 화면으로 간다.
 // 관리자 앱 '긱워커 근태 시연'과 같은 근무지·같은 초대라 두 기기 시연이 그대로 이어진다. 몇 번을 눌러도 처음 상태로 돌아온다.
 // 노출은 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 으로만 막는다 (주소를 아는 사람만 온다).
-
-const ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
 export default function GigDemoPage() {
   const router = useRouter();
@@ -24,22 +21,7 @@ export default function GigDemoPage() {
     setError('');
     setLoading(true);
     try {
-      // 다른 계정으로 로그인돼 있어도 시연 계정으로 바꿔 탄다
-      await supabase.auth.signOut().catch(() => undefined);
-      const response = await fetch('/api/demo-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: 'GIG2026' }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.accessToken || !payload.refreshToken || !payload.gigInviteToken) {
-        throw new Error(payload.error ?? '시연 계정을 열지 못했어요.');
-      }
-      const { error: sessionError } = await supabase.auth.setSession({ access_token: payload.accessToken, refresh_token: payload.refreshToken });
-      if (sessionError) throw sessionError;
-      window.localStorage.setItem('atman_demo_panel', '1');
-      rememberWorkerShell('gig');
-      router.replace(`/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}`);
+      router.replace(await openDemoSession('gig'));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '시연 계정을 열지 못했어요.');
       setLoading(false);

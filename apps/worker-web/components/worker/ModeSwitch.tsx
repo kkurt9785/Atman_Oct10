@@ -2,12 +2,13 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { endDemoSession, isDemoEmail } from '@/lib/demo-session';
 import { loadWorkerShellContext, rememberWorkerShell, setGigworkerModePreference, WORKER_SHELL_HOME, type WorkerShell } from '@/lib/worker-mode';
 
 // 병원·약국 ↔ 긱 근무 전환은 이 스위치 하나. 두 홈의 같은 자리(맨 위)에 같은 모양으로 둔다.
 //   · 두 모드를 다 쓰면: 누르면 바로 전환
 //   · 반대쪽 모드가 아직 없으면: 무엇을 하면 열리는지 안내(직군 등록 / 초대 링크)
-//   · 시연 계정이면: 반대쪽 시연으로 바로 이동
+//   · 시연 계정이면: 반대쪽 시연으로 바로 이동, 옆 '시연 끝내고 로그인'으로 바로 카카오 로그인
 const LABEL: Record<WorkerShell, string> = { medical: '근무 찾기', gig: '초대 근무' };
 
 export function ModeSwitch({ current }: { current: WorkerShell }) {
@@ -21,8 +22,7 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
     let active = true;
     void loadWorkerShellContext().then((context) => {
       if (!active || !context) return;
-      const email = context.user.email?.toLowerCase() ?? '';
-      setCtx({ hasGig: context.hasGig, hasMedical: context.hasMedical, demo: email.endsWith('@demo.atman.co.kr') });
+      setCtx({ hasGig: context.hasGig, hasMedical: context.hasMedical, demo: isDemoEmail(context.user.email) });
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
@@ -72,7 +72,7 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
           );
         })}
       </div>
-      {ctx?.demo && <span className="ml-2 align-middle text-[11px] font-bold text-tertiary">시연 중</span>}
+      {ctx?.demo && <button type="button" onClick={() => void endDemoSession()} className="ml-2 h-7 rounded-full bg-ink/5 px-2.5 align-middle text-[11px] font-bold text-sub active:bg-ink/10">시연 끝내고 로그인</button>}
 
       {sheet && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => setSheet(null)}>

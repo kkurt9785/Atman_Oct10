@@ -3,22 +3,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { rememberWorkerShell } from '@/lib/worker-mode';
+import { DEMO_LOGIN_ENABLED as ENABLED, MEDICAL_DEMOS, openDemoSession } from '@/lib/demo-session';
 import { BrandMark, Wordmark } from '@/components/brand/BrandMark';
 import { InstallAppButton } from '@/components/InstallAppButton';
 
 // 병원·약국 워커 전용 시연 입구: itdot.co.kr/demo
 // 긱워커 간편모드 시연은 /gig/demo 로 분리해, 첫 화면부터 두 모드가 섞여 보이지 않게 한다.
 // 노출은 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 으로만 막는다 (주소를 아는 사람만 온다).
-
-const ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
-const MEDICAL_DEMOS = [
-  { email: 'worker-demo-1@demo.atman.co.kr', role: '간호사', detail: '10명 내외 병원 · 요양병원 근무 찾기' },
-  { email: 'worker-demo-5@demo.atman.co.kr', role: '간호조무사', detail: '요양병원 근무 찾기' },
-  { email: 'worker-demo-6@demo.atman.co.kr', role: '약사', detail: '대체약사 · 주말 약국' },
-  { email: 'worker-demo-2@demo.atman.co.kr', role: '약국 전산·사무직', detail: '약국 접수·전산' },
-];
 
 export default function WorkerDemoPage() {
   const router = useRouter();
@@ -29,20 +20,7 @@ export default function WorkerDemoPage() {
     setError('');
     setLoadingEmail(email);
     try {
-      await supabase.auth.signOut().catch(() => undefined);
-      const response = await fetch('/api/demo-login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.accessToken || !payload.refreshToken) throw new Error(payload.error ?? '시연 계정을 열지 못했어요.');
-      const { error: sessionError } = await supabase.auth.setSession({ access_token: payload.accessToken, refresh_token: payload.refreshToken });
-      if (sessionError) throw sessionError;
-      window.localStorage.setItem('atman_demo_panel', '1');
-      window.localStorage.removeItem('atman_auth_next');
-      rememberWorkerShell('medical');
-      router.replace('/home');
+      router.replace(await openDemoSession({ email }));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '시연 계정을 열지 못했어요.');
       setLoadingEmail(null);

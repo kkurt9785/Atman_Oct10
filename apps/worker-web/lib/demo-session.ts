@@ -1,0 +1,52 @@
+'use client';
+import { supabase } from '@/lib/supabase';
+import { rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
+import { startKakaoLogin } from '@/lib/kakao-login';
+
+// 시연 계정으로 갈아타기 — 시작 화면 카드, /demo, /gig/demo 가 같이 쓴다.
+// 노출은 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 하나로 막는다(출시 때 0이면 카드는 설명만 남는다).
+export const DEMO_LOGIN_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
+
+export const MEDICAL_DEMOS = [
+  { email: 'worker-demo-1@demo.atman.co.kr', role: '간호사', detail: '10명 내외 병원 · 요양병원 근무 찾기' },
+  { email: 'worker-demo-5@demo.atman.co.kr', role: '간호조무사', detail: '요양병원 근무 찾기' },
+  { email: 'worker-demo-6@demo.atman.co.kr', role: '약사', detail: '대체약사 · 주말 약국' },
+  { email: 'worker-demo-2@demo.atman.co.kr', role: '약국 전산·사무직', detail: '약국 접수·전산' },
+];
+
+export const isDemoEmail = (email: string | null | undefined) => (email ?? '').toLowerCase().endsWith('@demo.atman.co.kr');
+
+// 근무 찾기 시연은 고른 직군 계정으로, 초대 근무 시연은 초대 수락부터 시작한다. 이동할 주소를 돌려준다.
+export async function openDemoSession(target: { email: string } | 'gig'): Promise<string> {
+  const gig = target === 'gig';
+  // 다른 계정으로 로그인돼 있어도 시연 계정으로 바꿔 탄다
+  await supabase.auth.signOut().catch(() => undefined);
+  const response = await fetch('/api/demo-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(gig ? { code: 'GIG2026' } : { email: target.email }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload.accessToken || !payload.refreshToken || (gig && !payload.gigInviteToken)) {
+    throw new Error(payload.error ?? '시연 계정을 열지 못했어요.');
+  }
+  const { error } = await supabase.auth.setSession({ access_token: payload.accessToken, refresh_token: payload.refreshToken });
+  if (error) throw error;
+  try {
+    window.localStorage.setItem('atman_demo_panel', '1');
+    if (!gig) window.localStorage.removeItem('atman_auth_next');
+  } catch { /* 저장소 없어도 진행 */ }
+  rememberWorkerShell(gig ? 'gig' : 'medical');
+  return gig ? `/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}` : '/home';
+}
+
+// 시연을 끝내면 바로 카카오 로그인 — 써 보고 마음에 들면 한 번에 내 계정으로 시작한다.
+// 시연 표시(atman_demo_panel)도 지운다: 남아 있으면 가입 첫 화면에 시연 계정 버튼이 계속 보인다.
+export async function endDemoSession() {
+  await supabase.auth.signOut().catch(() => undefined);
+  setGigworkerModePreference(false);
+  try { window.localStorage.removeItem('atman_demo_panel'); } catch { /* 저장소 없어도 진행 */ }
+  // 로그인 뒤 어느 화면으로 갈지는 시작 화면과 같이 데이터가 정한다
+  rememberWorkerShell('medical');
+  startKakaoLogin();
+}
