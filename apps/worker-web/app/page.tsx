@@ -65,19 +65,19 @@ function RootInner() {
     <div className="mx-auto flex min-h-[calc(100vh-64px)] max-w-md flex-col">
       <div className="flex flex-col items-center pt-3 text-center">
         <Wordmark size={34} />
-        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">한 번 등록으로 계속 일하고,<br />입금은 바로 확인해요</h1>
-        <p className="mt-2 text-[14px] leading-6 text-sub">출근·퇴근만 누르면 일한 시간은 알아서 기록돼요.<br />따로 적어 둘 필요 없어요.</p>
+        <h1 className="mt-7 text-[25px] font-extrabold leading-[1.28] tracking-[-0.7px] text-ink">일은 알림으로 오고,<br />입금은 바로 보여요</h1>
+        <p className="mt-2 text-[14px] leading-6 text-sub">출근·퇴근만 누르면 일한 시간은 알아서 기록돼요.</p>
       </div>
 
       {/* 두 가지 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고 보여만 준다 */}
       <ul className="mt-8 space-y-2" aria-label="잇닿 워커로 할 수 있는 일">
         <li className="flex items-start gap-3 rounded-2xl bg-bg p-4">
           <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg></span>
-          <span><b className="block text-[15px] text-ink">근무 찾기</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">간호사·간호조무사·약사 · 한 번 등록하면 일하고 싶은 곳 가까운 병원·약국 새 근무만 알림으로 와요</span></span>
+          <span><b className="block text-[15px] text-ink">근무 찾기</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">한 번 등록, 가까운 병원·약국 근무 알림</span></span>
         </li>
         <li className="flex items-start gap-3 rounded-2xl bg-bg p-4">
           <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></svg></span>
-          <span><b className="block text-[15px] text-ink">초대 근무</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">사장님 링크로 한 번 연결하면 출근하기, 일한 시간, 입금까지 바로 확인해요</span></span>
+          <span><b className="block text-[15px] text-ink">초대 근무</b><span className="mt-0.5 block text-[13px] leading-5 text-sub">사장님 링크로 연결, 입금까지 바로 확인</span></span>
         </li>
       </ul>
 
