@@ -8,6 +8,7 @@ import { BottomNav } from './BottomNav';
 import { FacilitySwitcher } from './FacilitySwitcher';
 import { FacilityModeGuard } from './FacilityModeGuard';
 import { Wordmark } from './BrandMark';
+import { AdminDemoBar } from './AdminDemoBar';
 import { supabase } from '@/lib/supabase-browser';
 import type { FacilityMode } from '@/lib/facility-mode';
 
@@ -68,6 +69,7 @@ export function Shell({ children, facilityMode }: { children: React.ReactNode; f
           </button>
         </header>
         {children}
+        <AdminDemoBar />
         <BottomNav mode={facilityMode} />
       </div>
     </AuthGuard>

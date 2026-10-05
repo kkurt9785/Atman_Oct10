@@ -10,7 +10,6 @@ import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-work
 import { getAdminContext } from '@/lib/admin-auth';
 import { OperationsFlow } from '@/components/OperationsFlow';
 import { QrCanvas } from '@/components/QrCanvas';
-import { AdminInstallButton } from '@/components/AdminInstallButton';
 import { GigOperationsBoard } from '@/components/GigOperationsBoard';
 import { getGigOperationsBoard } from '@/lib/db/gig-operations';
 import { listGigProjects } from '@/lib/db/gig-projects';
@@ -52,7 +51,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   if (isGigworker) {
     const [gigBoard,gigProjects]=await Promise.all([getGigOperationsBoard(context.user.id),listGigProjects()]);
     return <main className="px-4 pb-32">
-      {shop.isDemo && <AdminInstallButton compact />}
       <GigOperationsBoard board={gigBoard} projects={gigProjects} facilityId={context.facilityId} facilityName={shop.name}/>
       <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[{href:'/timesheet',label:'근태 기록',detail:'출퇴근·조퇴 확인'},{href:'/gig-pay',label:'지급 관리',detail:'금액·계좌·지급일'},{href:'/attendance-qr',label:'현장 인증',detail:'GPS·동적 QR'}].map((item)=><Link key={item.href} href={item.href} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><b className="text-[0.875rem] text-ink">{item.label}</b><span className="mt-1 block text-[0.6875rem] text-sub">{item.detail}</span><span className="mt-3 block text-right text-[0.875rem] font-bold text-primary">→</span></Link>)}
@@ -80,7 +78,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         <p className="text-body text-sub">{shop.name}</p>
         <h1 className="text-display font-extrabold text-ink mt-1">{isPharmacy?'약국장님':'원장님'}, 안녕하세요 👋</h1>
       </div>
-      {shop.isDemo && <AdminInstallButton compact />}
 
       {/* 첫 화면은 채용 공고보다 인력 공백과 다음 행동을 먼저 보여준다. */}
       <Card className={registeredShortage > 0 ? 'mb-4 border border-amber-200 bg-amber-50' : 'mb-4 shadow-sm'}>

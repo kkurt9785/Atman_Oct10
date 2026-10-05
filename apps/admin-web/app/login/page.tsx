@@ -19,10 +19,10 @@ function openInExternalBrowser() {
 
 // 시연용 계정. 노출 여부는 NEXT_PUBLIC_ENABLE_DEMO_LOGIN으로 빌드 시 결정된다.
 const DEMO_ACCOUNTS = [
-  { email: 'sales-demo-1@demo.atman.co.kr', label: '병원 시연 시작', detail: 'W여성병원' },
-  { email: 'sales-demo-1@demo.atman.co.kr', label: '긱워커 근태 시연', detail: '팝업스토어', demoKind: 'gigworker' },
-  { email: 'sales-demo-2@demo.atman.co.kr', label: '약국 시연', detail: '수원 온누리약국' },
-  { email: 'sales-demo-3@demo.atman.co.kr', label: '요양병원 시연', detail: '수원요양병원' },
+  { key: 'hospital', email: 'sales-demo-1@demo.atman.co.kr', label: '병원', detail: 'W여성병원' },
+  { key: 'pharmacy', email: 'sales-demo-2@demo.atman.co.kr', label: '약국', detail: '수원 온누리약국' },
+  { key: 'care', email: 'sales-demo-3@demo.atman.co.kr', label: '요양병원', detail: '수원요양병원' },
+  { key: 'gigworker', email: 'sales-demo-1@demo.atman.co.kr', label: '단기 알바 근태', detail: '팝업스토어', demoKind: 'gigworker' },
 ];
 
 function LoginInner() {
@@ -52,13 +52,19 @@ function LoginInner() {
   }, [entryMode]);
   useEffect(() => {
     if (!showDemoLogin || !demoParam) return;
-    const target = demoParam === 'gigworker' ? DEMO_ACCOUNTS[1]
-      : demoParam === 'pharmacy' ? DEMO_ACCOUNTS[2]
-      : demoParam === 'care' ? DEMO_ACCOUNTS[3]
-      : demoParam === 'hospital' ? DEMO_ACCOUNTS[0] : null;
+    const target = DEMO_ACCOUNTS.find((account) => account.key === demoParam) ?? null;
     if (target) void handleDemoLogin(target.email, target.demoKind);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demoParam, showDemoLogin]);
+
+  // 시연 띠의 '가입하고 시작'(?start=1)으로 오면 카카오 로그인을 한 번 더 누르지 않게 바로 잇는다
+  const startRequested = searchParams.get('start') === '1';
+  useEffect(() => {
+    if (!startRequested) return;
+    window.history.replaceState(null, '', '/login');
+    handleKakaoLogin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startRequested]);
 
   function handleKakaoLogin() {
     if (isKakaoInApp()) { openInExternalBrowser(); return; }
@@ -129,12 +135,12 @@ function LoginInner() {
 
   return (
     <div className="flex min-h-screen flex-col px-5 pb-[max(32px,env(safe-area-inset-bottom))] pt-[max(32px,env(safe-area-inset-top))]">
-      <div className="flex min-h-[260px] flex-1 flex-col items-center justify-center text-center">
+      <div className="flex min-h-[260px] [@media(max-height:700px)]:min-h-[196px] flex-1 flex-col items-center justify-center text-center">
         <div className="flex items-center gap-2">
           <Wordmark size={34} suffix={null} />
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[0.625rem] font-extrabold text-primary">관리자</span>
         </div>
-        <h1 className="mt-7 text-[1.5rem] font-extrabold tracking-[-0.7px] text-ink">인력 관리, 전화·엑셀 없이</h1>
+        <h1 className="mt-7 [@media(max-height:700px)]:mt-4 text-[1.5rem] font-extrabold tracking-[-0.7px] text-ink">인력 관리, 전화·엑셀 없이</h1>
         <p className="mt-2 text-[0.875rem] leading-6 text-sub">결원·출퇴근·급여를 버튼 몇 번으로 끝내요.</p>
         <span className="mt-3 rounded-full bg-primary/10 px-3 py-1.5 text-[0.6875rem] font-extrabold text-primary">직접 채용 · 채용 수수료 0원</span>
       </div>
@@ -176,33 +182,29 @@ function LoginInner() {
         <p className="-mt-1 text-center text-[0.6875rem] leading-4 text-sub">처음이면 관리자 계정이 만들어져요. 긱워커 근태는 사업자 서류 없이 바로 시작할 수 있어요.</p>
 
         {showDemoLogin && (
-          <details className="group mt-1 rounded-2xl border border-line bg-white">
-            <summary className="flex h-12 cursor-pointer list-none items-center justify-between px-4 text-[0.8125rem] font-extrabold text-ink">
-              <span><span className="text-primary">시연</span> · 로그인 없이 둘러보기</span>
-              <span aria-hidden className="text-sub transition group-open:rotate-90">›</span>
-            </summary>
-            <div className="border-t border-line bg-primary/5 p-3">
-              <p className="mb-3 text-[0.75rem] leading-5 text-sub">보여줄 사업장 유형을 고르면 대표 화면으로 바로 들어가요.</p>
-              <div className="flex flex-col gap-2">
-              {DEMO_ACCOUNTS.map((account, index) => (
-                <button
-                  key={`${account.email}:${account.demoKind ?? 'default'}`}
-                  onClick={() => handleDemoLogin(account.email, account.demoKind)}
-                  disabled={loading || !!demoLoadingKey}
-                  className={`flex h-11 w-full items-center justify-between rounded-xl px-3 text-[0.875rem] font-bold disabled:opacity-60 ${index === 0 ? 'bg-primary text-white shadow-sm' : 'border border-line bg-white text-ink'}`}
-                >
-                  <span>{demoLoadingKey === `${account.email}:${account.demoKind ?? 'default'}` ? '시연 화면 여는 중...' : account.label}</span>
-                  {demoLoadingKey !== `${account.email}:${account.demoKind ?? 'default'}` && <span className={`text-[0.6875rem] font-semibold ${index === 0 ? 'text-white/75' : 'text-sub'}`}>{account.detail}</span>}
-                </button>
-              ))}
-              </div>
-              {demoError && (
-                <p role="alert" className="mt-2 text-center text-[0.75rem] font-bold text-red-500">{demoError}</p>
-              )}
+          <section className="mt-1 rounded-2xl border border-line bg-white p-3" aria-labelledby="demo-title">
+            <p id="demo-title" className="px-1 text-[0.8125rem] font-extrabold text-ink"><span className="text-primary">로그인 없이 둘러보기</span> · 유형을 누르면 바로 열려요</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {DEMO_ACCOUNTS.map((account) => {
+                const key = `${account.email}:${account.demoKind ?? 'default'}`;
+                return (
+                  <button key={account.key} onClick={() => handleDemoLogin(account.email, account.demoKind)} disabled={loading || !!demoLoadingKey}
+                    className="flex h-14 flex-col items-start justify-center rounded-xl border border-line bg-white px-3 text-left active:bg-surface disabled:opacity-60">
+                    <span className="text-[0.875rem] font-extrabold text-ink">{demoLoadingKey === key ? '여는 중...' : account.label}</span>
+                    <span className="text-[0.6875rem] font-semibold text-sub">{account.detail}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {demoError && (
+              <p role="alert" className="mt-2 text-center text-[0.75rem] font-bold text-red-500">{demoError}</p>
+            )}
+            <details className="mt-2">
+              <summary className="flex h-9 cursor-pointer list-none items-center justify-center text-[0.75rem] font-bold text-sub">시연 링크 보내기 · 앱 설치 ›</summary>
               {!installRequested && <AdminInstallButton />}
               <DemoShareCard />
-            </div>
-          </details>
+            </details>
+          </section>
         )}
 
         <a
