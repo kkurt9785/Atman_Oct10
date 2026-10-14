@@ -1,4 +1,5 @@
 import { hasStarted } from '@/lib/shift-display';
+import { SignedInRedirect } from './SignedInRedirect';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -28,6 +29,7 @@ export default async function PublicJobsPage() {
 
   return (
     <main className="min-h-screen bg-white px-5 pb-16 pt-10">
+      <SignedInRedirect />
       <h1 className="text-[24px] font-extrabold leading-8 text-ink letter-tight">
         병원·약국 단기 근무 공고
       </h1>

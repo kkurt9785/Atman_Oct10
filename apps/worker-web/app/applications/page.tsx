@@ -87,7 +87,15 @@ function startsAtOf(app: Application) {
 function isApplyClosed(app: Application) {
   return app.status === 'applied' && app.shift.status !== 'cancelled' && startsAtOf(app) <= Date.now();
 }
-const isActive = (app: Application) => ['invited', 'applied'].includes(app.status) && !isApplyClosed(app);
+function endsAtOf(app: Application) {
+  const end = Date.parse(`${app.shift.shift_date}T${app.shift.end_time.slice(0, 5)}:00+09:00`);
+  return app.shift.is_overnight || end <= startsAtOf(app) ? end + 24 * 60 * 60 * 1000 : end;
+}
+// 확정됐는데 출근 기록 없이 근무가 끝난 경우 — '출근 예정'으로 계속 남지 않게 따로 보여 준다
+const isEndedWithoutRecord = (app: Application) => app.status === 'accepted' && !app.checked_in_at && !app.checked_out_at && endsAtOf(app) <= Date.now();
+// '진행 중' = 확인 중인 지원 + 아직 끝나지 않은 확정 근무(오늘 근무가 탭 뒤에 숨지 않게)
+const isActive = (app: Application) =>
+  (['invited', 'applied'].includes(app.status) && !isApplyClosed(app)) || (app.status === 'accepted' && endsAtOf(app) > Date.now());
 
 function stepState(app: Application, step: 'applied' | 'accepted' | 'work') {
   if (app.status === 'invited') return step === 'applied' ? 'current' : 'muted';
@@ -103,7 +111,7 @@ function StatusSteps({ app }: { app: Application }) {
   const steps = [
     { key: 'applied' as const, label: '지원함' },
     { key: 'accepted' as const, label: '채용 확정' },
-    { key: 'work' as const, label: app.checked_in_at ? '근무 중' : '출근 예정' },
+    { key: 'work' as const, label: app.checked_in_at ? '근무 중' : isEndedWithoutRecord(app) ? '기록 없음' : '출근 예정' },
   ];
 
   return (
@@ -244,7 +252,9 @@ function ApplicationCard({
       ? { label: '근무 취소', description: '사업장 사정으로 근무가 취소됐어요.', className: 'bg-[#F2F4F6] text-tertiary' }
       : applyClosed
         ? { label: '지원 마감', description: '근무 시작 시간이 지나 지원이 마감됐어요.', className: 'bg-[#F2F4F6] text-tertiary' }
-        : vacancyCopy ?? STATUS_CONFIG[app.status];
+        : isEndedWithoutRecord(app)
+          ? { label: '근무 기록 없음', description: '출근 기록 없이 근무 시간이 지났어요. 일했다면 사업장 채팅으로 알려 주세요.', className: 'bg-[#FFF4E5] text-amber-700' }
+          : vacancyCopy ?? STATUS_CONFIG[app.status];
   // '사업장 확인 중'은 배지만으로 충분하다 — 같은 말을 한 번 더 하지 않는다(카드 길이 줄이기)
   const showDescription = !(app.status === 'applied' && !applyClosed && !shiftCancelled);
   // 진행 단계 칩은 확정 이후에만 — 확인 중일 땐 배지가 같은 정보를 준다

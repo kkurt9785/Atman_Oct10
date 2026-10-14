@@ -7,6 +7,7 @@ import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { supabase } from '@/lib/supabase';
 import type { Shift } from '@/app/shifts/page';
 import { dateLabel, facilityName, timeLabel, hasStarted } from '@/lib/shift-display';
+import { cellKey, slotOf } from '@/lib/roster';
 
 declare global {
   interface Window { kakao?: any }
@@ -54,9 +55,22 @@ export default function ShiftMapPage(){
       facilities:{name:row.facility_name as string,address_text:row.address_text as string|null},
       distance_km:typeof row.distance_m==='number'?row.distance_m/1000:null,
     })) as unknown as Shift[]).filter(shift=>!hasStarted(shift));
-    setShifts(mapped);
-    if(mapped.length){
-      const {data:coords,error:pointError}=await supabase.rpc('get_shift_map_points_secure',{p_shift_ids:mapped.slice(0,100).map(s=>s.id)});
+    // 홈·근무 찾기와 같은 기준 — 이미 지원한 공고와 확정 근무가 있는 시간대는 지도에서도 뺀다(지도에서 지원하면 '이미 지원' 오류가 나던 문제)
+    const {data:worker}=await supabase.from('workers').select('id').eq('auth_user_id',user.id).maybeSingle();
+    const hidden=new Set<string>();const busy=new Set<string>();
+    if(worker){
+      type AppRow={shift_id:string;status:string;shifts:{shift_date:string;start_time:string}|{shift_date:string;start_time:string}[]|null};
+      const {data:apps}=await supabase.from('shift_applications').select('shift_id,status,shifts(shift_date,start_time)').eq('worker_id',worker.id).in('status',['applied','accepted']);
+      for(const app of (apps??[]) as unknown as AppRow[]){
+        hidden.add(app.shift_id);
+        const s=Array.isArray(app.shifts)?app.shifts[0]:app.shifts;
+        if(app.status==='accepted'&&s)busy.add(cellKey(s.shift_date,slotOf(s.start_time)));
+      }
+    }
+    const visible=mapped.filter(shift=>!hidden.has(shift.id)&&!busy.has(cellKey(shift.shift_date,slotOf(shift.start_time))));
+    setShifts(visible);
+    if(visible.length){
+      const {data:coords,error:pointError}=await supabase.rpc('get_shift_map_points_secure',{p_shift_ids:visible.slice(0,100).map(s=>s.id)});
       if(pointError)setError('사업장 위치를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
       else setPoints((coords??[]) as Point[]);
     }
