@@ -21,6 +21,8 @@ export type OperationsSummary = {
   urgentUnfilledCount: number;
   expiringCredentialCount: number;
   pendingWageCount: number;
+  /** 지급 대기가 있는 가장 이른 달(YYYY-MM) — 홈 카드가 그 달의 급여 화면으로 바로 연다 */
+  pendingWageMonth: string | null;
 };
 
 export type OperationsAlert = {
@@ -343,7 +345,7 @@ export async function getWorkforceRecommendations(days = 7): Promise<WorkforceRe
 export async function getOperationsSummary(): Promise<OperationsSummary> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return { monthEstimatedCost: 0, openShiftCount: 0, urgentUnfilledCount: 0, expiringCredentialCount: 0, pendingWageCount: 0 };
+  if (!sb || !facilityId) return { monthEstimatedCost: 0, openShiftCount: 0, urgentUnfilledCount: 0, expiringCredentialCount: 0, pendingWageCount: 0, pendingWageMonth: null };
   const today = todayKST();
   const monthStart = `${today.slice(0, 7)}-01`;
   const monthEnd = lastDayOfMonth(today);
@@ -353,16 +355,23 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
     sb.from('shifts').select('estimated_total_pay,status').eq('facility_id', facilityId).gte('shift_date', monthStart).lte('shift_date', monthEnd).neq('status', 'cancelled'),
     sb.from('shifts').select('id').eq('facility_id', facilityId).eq('status', 'open').gte('shift_date', today).lte('shift_date', urgentEnd),
     sb.from('facility_worker_pool').select('worker_id').eq('facility_id', facilityId).eq('status', 'active'),
-    sb.from('wage_payment_instructions').select('id', { count: 'exact', head: true }).eq('facility_id', facilityId).in('status', ['draft','approved','exported','disputed']),
-    sb.from('staff_wage_payments').select('id',{count:'exact',head:true}).eq('facility_id',facilityId).in('status',['draft','approved','exported']),
+    // 대기 건은 월과 무관하게 세되, 어느 달인지 같이 가져온다 — 급여 화면은 달 단위라 홈 숫자와 어긋나지 않게 그 달로 연다
+    sb.from('wage_payment_instructions').select('id,shifts!inner(shift_date)').eq('facility_id', facilityId).in('status', ['draft','approved','exported','disputed']),
+    sb.from('staff_wage_payments').select('id,period_month').eq('facility_id',facilityId).in('status',['draft','approved','exported']),
   ]);
   const summaryError = [shiftResult.error, urgentResult.error, poolResult.error, pendingWageResult.error, pendingStaffWageResult.error].find(Boolean);
   if (summaryError) throw new Error(`운영 현황을 불러오지 못했어요: ${summaryError.message}`);
   const shifts = shiftResult.data;
   const urgent = urgentResult.data;
   const pool = poolResult.data;
-  const pendingWageCount = pendingWageResult.count;
-  const pendingStaffWageCount = pendingStaffWageResult.count;
+  const pendingWageRows = (pendingWageResult.data ?? []) as any[];
+  const pendingStaffWageRows = (pendingStaffWageResult.data ?? []) as any[];
+  const pendingWageCount = pendingWageRows.length;
+  const pendingStaffWageCount = pendingStaffWageRows.length;
+  const pendingWageMonth = [
+    ...pendingWageRows.map((row: any) => String((Array.isArray(row.shifts) ? row.shifts[0] : row.shifts)?.shift_date ?? '').slice(0, 7)),
+    ...pendingStaffWageRows.map((row: any) => String(row.period_month ?? '').slice(0, 7)),
+  ].filter((month) => /^\d{4}-\d{2}$/.test(month)).sort()[0] ?? null;
 
   const urgentIds = (urgent ?? []).map((row: any) => row.id);
   let urgentUnfilledCount = urgentIds.length;
@@ -388,6 +397,7 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
     openShiftCount: (shifts ?? []).filter((row: any) => row.status === 'open').length,
     urgentUnfilledCount,
     expiringCredentialCount,
-    pendingWageCount: (pendingWageCount ?? 0)+(pendingStaffWageCount??0),
+    pendingWageCount: pendingWageCount + pendingStaffWageCount,
+    pendingWageMonth,
   };
 }

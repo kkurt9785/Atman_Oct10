@@ -241,9 +241,18 @@ export default function HomePage() {
         else if(todayReady){
           const shift=shiftOfActivity(todayReady)!;
           const {toStart,toEnd}=minutesUntilShift(shift);
+          // 앱 출근은 사업장 설정의 '시작 후 N분'(기본 60)까지만 서버가 받는다 — 창이 지났으면 출근 버튼 대신 사업장에 알리게 한다
+          let lateLimit=60;
+          if(shift.facility_id){
+            const {data:setting}=await supabase.from('facility_attendance_settings').select('check_in_after_minutes').eq('facility_id',shift.facility_id).maybeSingle();
+            if(typeof setting?.check_in_after_minutes==='number')lateLimit=setting.check_in_after_minutes;
+          }
+          const windowClosed=toEnd>0&&toStart<-lateLimit;
           setNextAction(toEnd<=0
             // 출근 기록 없이 근무가 끝났으면 출근 버튼 대신 사업장에 알리게 한다
             ?{label:'사업장에 알리기',title:'출근 기록 없이 근무 시간이 지났어요',href:`/chat/${todayReady.id}`,tone:'primary'}
+            :windowClosed
+            ?{label:'사업장에 알리기',title:`출근 가능 시간이 지났어요 · 시작 후 ${lateLimit}분까지`,href:`/chat/${todayReady.id}`,tone:'primary'}
             :toStart>30
               ?{label:'근무 준비',title:`오늘 ${shift.start_time.slice(0,5)} 근무가 있어요`,href:'/applications',tone:'primary'}
               :{label:'출근하기',title:toStart>0?`${toStart}분 뒤 근무 시작`:toStart===0?'근무 시작 시간이에요':`시작 ${-toStart}분 지났어요`,href:'/workplace',tone:'primary'});

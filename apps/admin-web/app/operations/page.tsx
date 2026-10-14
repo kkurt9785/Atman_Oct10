@@ -164,7 +164,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
               {coverToApprove > 0 && <Link href="/applications#cover" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">대타 승인 대기</span><b className="text-primary">{coverToApprove}건 →</b></Link>}
               {pendingApplicants > 0 && <Link href="/applications" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">새 지원자 확인</span><b className="text-primary">{pendingApplicants}건 →</b></Link>}
               {summary.expiringCredentialCount > 0 && <Link href="/workforce" className="flex items-center justify-between py-3 text-label"><span className="text-ink">30일 안에 만료되는 자격</span><b className="text-warn">{summary.expiringCredentialCount}건 →</b></Link>}
-              {summary.pendingWageCount > 0 && <Link href="/payroll" className="flex items-center justify-between py-3 text-label"><span className="text-ink">급여 승인·지급 대기</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
+              {summary.pendingWageCount > 0 && <Link href={summary.pendingWageMonth ? `/payroll?month=${summary.pendingWageMonth}` : '/payroll'} className="flex items-center justify-between py-3 text-label"><span className="text-ink">급여 승인·지급 대기{summary.pendingWageMonth ? ` (${Number(summary.pendingWageMonth.slice(5, 7))}월)` : ''}</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
             </Card>
           )}
         </section>

@@ -126,7 +126,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
             ...(coverToApprove>0?[{label:'대타 승인',description:'못 나오게 된 근무를 동료가 맡겠다고 했어요',count:coverToApprove,href:'/applications#cover'}]:[]),
             {label:'새 지원자',description:'지원자를 확인하고 근무를 확정해요',count:pendingCount,href:'/applications'},
             {label:'출퇴근 확인',description:'조기 퇴근·미출근·인증 실패를 확인해요',count:attendanceReviewCount,href:'/timesheet'},
-            {label:'지급 대기',description:canViewPayroll?'근무시간을 확인하고 지급을 완료해요':'급여 담당자에게 확인을 요청해요',count:canViewPayroll?ops.pendingWageCount:0,href:canViewPayroll?'/payroll':'/timesheet'},
+            {label:'지급 대기',description:canViewPayroll?(ops.pendingWageMonth?`${Number(ops.pendingWageMonth.slice(5,7))}월 급여 · 근무시간을 확인하고 지급을 완료해요`:'근무시간을 확인하고 지급을 완료해요'):'급여 담당자에게 확인을 요청해요',count:canViewPayroll?ops.pendingWageCount:0,href:canViewPayroll?(ops.pendingWageMonth?`/payroll?month=${ops.pendingWageMonth}`:'/payroll'):'/timesheet'},
           ].map((item)=><Link key={item.label} href={item.href} className="flex min-h-[72px] items-center justify-between gap-3 px-5 py-3 active:bg-bg">
             <div><p className="text-body font-extrabold text-ink">{item.label}</p><p className="mt-0.5 text-[0.75rem] text-sub">{item.description}</p></div>
             <span className={`flex min-w-[58px] items-center justify-end gap-1 text-[1.0625rem] font-extrabold ${item.count>0?'text-primary':'text-sub'}`}>{item.count}건 <span className="text-sub">›</span></span>
