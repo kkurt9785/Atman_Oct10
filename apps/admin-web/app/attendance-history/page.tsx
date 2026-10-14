@@ -4,6 +4,7 @@ import { getAttendanceHistory } from '@/lib/db/attendance-history';
 import { HistoryActionForm } from './HistoryActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { formatDate } from '@/lib/format';
+import { getShop } from '@/lib/db/shop';
 
 const STATUS:Record<string,string>={scheduled:'예정',working:'근무 중',checkout_pending:'승인 대기',completed:'완료',late:'지각',absent:'결근',leave:'휴가'};
 const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기',shift:'공고 근무'};
@@ -21,7 +22,7 @@ export default async function AttendanceHistoryPage({searchParams}:{searchParams
   const month=requested<minMonth?minMonth:requested>current?current:requested;
   const clampedOld=requested<minMonth;
   const type=['all','staff','shift'].includes(p.type??'')?p.type!:'all';const status=['all','completed','issue','working'].includes(p.status??'')?p.status!:'all';
-  const {rows,closed}=await getAttendanceHistory(month);
+  const [{rows,closed},shop]=await Promise.all([getAttendanceHistory(month),getShop()]);
   const todayKst=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
   const visible=rows.filter(r=>(type==='all'||r.kind===type)&&(status==='all'||(status==='issue'?['late','absent','checkout_pending'].includes(r.status)||r.lateMinutes>0||r.earlyLeaveMinutes>0:r.status===status)));
   const total=rows.reduce((s,r)=>s+r.workedMinutes,0),issues=rows.filter(r=>['late','absent','checkout_pending'].includes(r.status)||r.lateMinutes>0||r.earlyLeaveMinutes>0).length;
@@ -46,6 +47,6 @@ export default async function AttendanceHistoryPage({searchParams}:{searchParams
       {row.kind==='staff'&&!closed&&row.checkInAt&&<details className="mt-3" open={!row.checkOutAt&&row.workDate<todayKst}><summary className="cursor-pointer text-right text-[0.75rem] font-bold text-primary">{row.checkOutAt?'기록 수정':'퇴근시간 입력·확정'}</summary>{!row.checkOutAt&&row.workDate<todayKst&&<p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[0.6875rem] font-bold text-amber-700">퇴근 기록이 없어요. 퇴근시간을 입력해야 근무시간이 급여에 반영돼요.</p>}<HistoryActionForm kind="correct" className="mt-3 rounded-xl border border-line p-3"><input type="hidden" name="attendance_id" value={row.id}/><input type="hidden" name="month" value={month}/><div className="grid grid-cols-2 gap-2"><label className="col-span-2 text-[0.6875rem] text-sub">출근<input type="datetime-local" name="check_in" required defaultValue={localInput(row.checkInAt)} className="mt-1 h-10 w-full rounded-lg border border-line px-2"/></label><label className="col-span-2 text-[0.6875rem] text-sub">퇴근<input type="datetime-local" name="check_out" required defaultValue={localInput(row.checkOutAt)} className="mt-1 h-10 w-full rounded-lg border border-line px-2"/></label><label className="col-span-2 text-[0.6875rem] text-sub">휴게시간(분)<input type="number" name="break_minutes" min="0" max="480" required defaultValue={row.breakMinutes} className="mt-1 h-10 w-full rounded-lg border border-line px-3"/></label><label className="col-span-2 text-[0.6875rem] text-sub">수정 사유<input name="reason" required minLength={5} placeholder="예: 직원 요청으로 누락 퇴근시간 보완" className="mt-1 h-10 w-full rounded-lg border border-line px-3"/></label></div><button className="mt-3 h-10 w-full rounded-xl bg-primary text-[0.75rem] font-bold text-white">사유와 함께 수정</button></HistoryActionForm></details>}
       {row.kind==='shift'&&<p className="mt-3 text-[0.6875rem] text-sub">공고 근무 시간 수정은 급여 금액과 연결되므로 지급관리에서 함께 검토해 주세요.</p>}
     </Card>)}</div>
-    <Link href={`/payroll?month=${month}`} className="mt-5 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">이 월 급여 검토하기 →</Link>
+    <Link href={shop?.mode==='gig'?'/gig-pay':`/payroll?month=${month}`} className="mt-5 flex h-12 items-center justify-center rounded-xl bg-primary font-bold text-white">{shop?.mode==='gig'?'단기근로 지급 확인하기':'이 월 급여 검토하기'} →</Link>
   </main>;
 }

@@ -21,9 +21,8 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
   const params=await searchParams;
   const currentMonth=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7);
   const selectedMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(params.month??'')&&params.month!<=currentMonth?params.month!:currentMonth;
-  const [shop, paymentResult, staffRows, context] = await Promise.all([getShop(), getWagePayments(selectedMonth), getStaffWagePayments(selectedMonth), getAdminContext()]);
+  const [shop, context] = await Promise.all([getShop(), getAdminContext()]);
   if (!shop) redirect('/setup/claim-facility');
-  const { rows, error } = paymentResult;
   const canManage = context?.accessRole === 'owner' || context?.accessRole === 'super';
   const facilityWord=facilityTypeLabel(shop.facilityType);
   if (!context?.canViewPayroll) return <main className="px-4">
@@ -31,6 +30,17 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
     <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{facilityWord} 직접 지급</p><h1 className="text-display font-extrabold text-ink">급여 지급관리</h1></div>
     <Card className="py-10 text-center"><p className="text-[1.75rem]">🔒</p><p className="mt-2 font-bold">급여 열람 권한이 없어요</p><p className="mt-2 text-label text-sub leading-5">급여 정보는 {facilityWord} 소유자와<br/>허용된 관리자만 볼 수 있어요.<br/>필요하면 설정 → 관리자 권한에서 허용을 요청해 주세요.</p><Link href="/" className="mt-5 inline-flex h-11 items-center rounded-xl bg-ink px-5 text-label font-bold text-white">홈으로</Link></Card>
   </main>;
+  const [paymentResult, staffResult] = await Promise.all([
+    getWagePayments(selectedMonth),
+    getStaffWagePayments(selectedMonth).then(rows=>({rows,error:null as string|null})).catch(()=>({rows:[],error:'직원 급여 자료 전체를 확인하지 못했어요. 잠시 후 다시 불러와 주세요.'})),
+  ]);
+  const {rows,error}=paymentResult;
+  const staffRows=staffResult.rows;
+  if(error||staffResult.error) return <main className="px-4"><ManageBackLink href="/more" label="관리"/><Card className="mt-4 py-8 text-center">
+    <h1 className="font-bold">급여 정보를 확인하지 못했어요</h1><p role="alert" className="mt-2 text-label text-sub">{staffResult.error??error}</p>
+    <p className="mt-2 text-label text-sub">누락된 자료가 있어 합계와 처리 버튼을 표시하지 않아요.</p>
+    <a href={`/payroll?month=${selectedMonth}`} className="mt-4 inline-flex min-h-[44px] items-center rounded-xl bg-primary px-4 text-white">다시 불러오기</a>
+  </Card></main>;
   // 일할계산이 필요한데 아직 검토 전인 월급 행은 '기준 월급'이라 합계에 넣지 않는다 — 승인할 때 넣은 금액부터 합산
   const unsettledStaffIds = new Set(staffRows.filter(r=>r.needsProration&&['draft','collecting'].includes(r.status)).map(r=>r.staffId));
   const pending = rows.filter(r => ['draft','approved','exported','disputed'].includes(r.status)).reduce((s,r)=>s+r.netAmount,0)+staffRows.filter(r=>['draft','approved','exported'].includes(r.status)&&!unsettledStaffIds.has(r.staffId)).reduce((sum,row)=>sum+row.netAmount,0);

@@ -1,6 +1,8 @@
 import { adminClient, userClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { currentWeekRangeKST } from '../pay';
+import { effectiveBreakMinutes, isAttendanceCovered, type PayoutCoverage } from '../shared/gig-pay/calculation';
+export { effectiveBreakMinutes } from '../shared/gig-pay/calculation';
 
 // 긱워커 지급 보드. 근무자별로 '마지막 지급 이후 완료된 근무'를 묶어 금액을 계산한다.
 // 하루가 끝나면 그날 것만, 일주일 뒤면 일주일치가 한 건으로 잡힌다. 실제 이체는 관리자가 하고 여기엔 기록만 남는다.
@@ -11,6 +13,7 @@ export type GigPayout = {
   status: 'scheduled' | 'paid' | 'cancelled'; payAt: string | null; paidAt: string | null; note: string | null; createdAt: string;
   /** 이 지급에 포함된 마지막 퇴근 시각 — 다음 지급은 이 시각 이후 완료분부터 */
   coveredUntil: string | null;
+  attendanceIds: string[] | null;
   /** 근무자 입금 확인(received) / 못 받음(missing) */
   workerConfirmStatus: 'received' | 'missing' | null; workerConfirmedAt: string | null;
 };
@@ -33,41 +36,35 @@ export type GigPayoutStaff = {
 function todayKST() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
 
 export function amountFor(basis: string | null, rate: number | null, minutes: number, days: number) {
-  if (!basis || !rate) return 0;
+  if (!basis || !rate || !Number.isFinite(rate) || rate <= 0 || days <= 0) return 0;
   if (basis === 'hourly') return Math.round((minutes / 60) * rate);
   if (basis === 'daily') return days * rate;
-  return rate; // monthly: 기간과 무관하게 정액 (긱워커에서는 거의 쓰지 않는다)
+  return 0; // 월급은 근무 건마다 반복 지급할 수 없으므로 별도 급여 검토가 필요하다.
 }
 
-// 휴게: 행에 적힌 값이 있으면 그대로, 없으면(옛 기록) 4시간 이상일 때만 근무자 기본 휴게를 적용한다.
-// 새 기록은 DB 트리거(fill_staff_attendance_break)가 같은 규칙으로 행에 적는다.
-export function effectiveBreakMinutes(workedMinutes: number, rowBreak: number | null | undefined, staffDefault: number | null | undefined) {
-  const explicit = Number(rowBreak ?? 0);
-  if (explicit > 0) return Math.min(explicit, workedMinutes);
-  if (workedMinutes < 240) return 0;
-  return Math.min(Number(staffDefault ?? 0), workedMinutes);
-}
-
-export type WorkSummary = { minutes: number; days: number; breakMinutes: number; firstDate: string | null; lastDate: string | null; lastCheckOut: string | null };
-const EMPTY_WORK: WorkSummary = { minutes: 0, days: 0, breakMinutes: 0, firstDate: null, lastDate: null, lastCheckOut: null };
+export type WorkSummary = { attendanceIds: string[]; minutes: number; days: number; breakMinutes: number; firstDate: string | null; lastDate: string | null; lastCheckOut: string | null };
+const EMPTY_WORK: WorkSummary = { attendanceIds: [], minutes: 0, days: 0, breakMinutes: 0, firstDate: null, lastDate: null, lastCheckOut: null };
 
 // 완료된 근무 기록을 묶어 시간·일수를 센다. 서버 액션도 같은 함수로 다시 계산한다 (클라이언트 값은 믿지 않는다).
-// afterCheckOut: 마지막 지급에 포함된 마지막 퇴근 시각 — 그 이후 퇴근한 기록만 센다(같은 날 두 번째 근무가 빠지지 않게).
+// 지급에 실제로 포함한 근태 ID로 제외한다. 중간 지급 취소·늦게 등록한 근태도 다시 계산한다.
 export async function summarizeWork(
   sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string, staffId: string, since: string, until: string,
-  options: { afterCheckOut?: string | null; defaultBreakMinutes?: number | null } = {},
+  options: { payouts?: PayoutCoverage[]; defaultBreakMinutes?: number | null } = {},
 ): Promise<WorkSummary> {
-  const { data } = await sb.from('staff_attendances').select('work_date,check_in_at,check_out_at,break_minutes,status')
-    .eq('facility_id', facilityId).eq('staff_id', staffId).eq('status', 'completed').gte('work_date', since).lte('work_date', until);
-  const after = options.afterCheckOut ? Date.parse(options.afterCheckOut) : null;
-  const out: WorkSummary = { ...EMPTY_WORK }; const days = new Set<string>();
-  for (const row of (data ?? []) as Array<{ work_date: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }>) {
+  const { data, error } = await sb.from('staff_attendances').select('id,work_date,check_in_at,check_out_at,break_minutes,status')
+    .eq('facility_id', facilityId).eq('staff_id', staffId).eq('status', 'completed').gte('work_date', since).lte('work_date', until).order('id').limit(1000);
+  if (error) throw new Error('근태를 불러오지 못해 지급 계산을 중단했어요. 다시 시도해 주세요.');
+  if ((data?.length ?? 0) >= 1000) throw new Error('근태가 많아 전체 지급 범위를 확인할 수 없어요. 운영자에게 문의해 주세요.');
+  const out: WorkSummary = { ...EMPTY_WORK, attendanceIds: [] }; const days = new Set<string>();
+  for (const row of (data ?? []) as Array<{ id: string; work_date: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }>) {
     if (!row.check_in_at || !row.check_out_at) continue;
     const checkedOut = Date.parse(row.check_out_at);
-    if (after != null && checkedOut <= after) continue;
+    if (isAttendanceCovered(row, options.payouts ?? [])) continue;
+    if (!Number.isFinite(checkedOut) || !Number.isFinite(Date.parse(row.check_in_at)) || checkedOut < Date.parse(row.check_in_at)) throw new Error('출퇴근 기록을 확인한 뒤 지급해 주세요.');
     const raw = Math.max(0, Math.round((checkedOut - Date.parse(row.check_in_at)) / 60000));
     const brk = effectiveBreakMinutes(raw, row.break_minutes, options.defaultBreakMinutes);
     out.minutes += Math.max(0, raw - brk); out.breakMinutes += brk; days.add(row.work_date);
+    out.attendanceIds.push(row.id);
     if (!out.firstDate || row.work_date < out.firstDate) out.firstDate = row.work_date;
     if (!out.lastDate || row.work_date > out.lastDate) out.lastDate = row.work_date;
     if (!out.lastCheckOut || checkedOut > Date.parse(out.lastCheckOut)) out.lastCheckOut = row.check_out_at;
@@ -87,7 +84,7 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
       .eq('facility_id', facilityId).eq('worker_kind', 'gig').order('name'),
     sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled').order('created_at', { ascending: false }),
   ]);
-  if (staffError || payoutError) throw new Error('긱워커 지급 정보를 불러오지 못했어요.');
+  if (staffError || payoutError || (payouts?.length ?? 0) >= 1000 || (staff?.length ?? 0) >= 1000) throw new Error('긱워커 지급 정보를 모두 불러오지 못했어요.');
   // 전체 계좌번호는 워커가 근무 완료 후 명시적으로 전달한 경우에만,
   // 현재 관리자 JWT로 권한 검증하는 RPC를 통해 가져온다.
   const scoped = accessToken ? userClient(accessToken) : null;
@@ -104,6 +101,7 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
       status: row.status as GigPayout['status'], payAt: (row.pay_at as string | null) ?? null, paidAt: (row.paid_at as string | null) ?? null,
       note: (row.note as string | null) ?? null, createdAt: row.created_at as string,
       coveredUntil: (row.covered_until as string | null) ?? null,
+      attendanceIds: (row.attendance_ids as string[] | null) ?? null,
       workerConfirmStatus: (row.worker_confirm_status as 'received' | 'missing' | null) ?? null, workerConfirmedAt: (row.worker_confirmed_at as string | null) ?? null,
     };
     (byStaff.get(item.staffId) ?? byStaff.set(item.staffId, []).get(item.staffId)!).push(item);
@@ -131,12 +129,10 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
   for (const row of (staff ?? []) as Array<Record<string, unknown>>) {
     const staffId = row.id as string;
     const list = byStaff.get(staffId) ?? [];
-    const last = list[0] ?? null;
-    // 마지막 지급에 포함된 마지막 퇴근 시각 이후부터 센다. 옛 지급(covered_until 없음)은 종전대로 그 날짜 끝까지 포함된 것으로 본다
-    const since = last ? last.periodEnd : ((row.contract_start as string | null) ?? '2020-01-01');
-    const afterCheckOut = last ? (last.coveredUntil ?? `${last.periodEnd}T23:59:59+09:00`) : null;
+    const since = '2020-01-01';
+    const coverage = list.map((p) => ({ attendance_ids: p.attendanceIds, period_start: p.periodStart, period_end: p.periodEnd, covered_until: p.coveredUntil, status: p.status }));
     const work = since <= today
-      ? await summarizeWork(sb, facilityId, staffId, since, today, { afterCheckOut, defaultBreakMinutes: Number(row.default_break_minutes ?? 0) })
+      ? await summarizeWork(sb, facilityId, staffId, since, today, { payouts: coverage })
       : EMPTY_WORK;
     const sharedBank = bankByStaff.get(staffId);
     const basis = (row.pay_basis as GigPayoutStaff['payBasis']) ?? null;

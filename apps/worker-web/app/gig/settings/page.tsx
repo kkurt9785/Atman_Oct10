@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BackButton } from '@/components/BackButton';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { subscribeToPush, unsubscribeFromPush, getExistingSubscription } from '@/lib/push-subscribe';
+import { enableShiftPush, disableShiftPush, isShiftPushEnabled } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { PrivacySection } from '@/components/settings/PrivacySection';
 import { DemoSignupCard } from '@/components/DemoSignup';
@@ -19,9 +19,18 @@ export default function GigSettingsPage() {
   // 의료 직군으로 등록했거나 병원·약국 직원으로 연결된 계정에만 모드 전환을 보여 준다.
   const [canSwitch, setCanSwitch] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushLoading, setPushLoading] = useState(false);
+  const [pushLoading, setPushLoading] = useState(true);
+  const pushBusy = useRef(true);
   const [pushNotice, setPushNotice] = useState('');
   const [showPwaGuide, setShowPwaGuide] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void isShiftPushEnabled().then(enabled => { if (active) setPushEnabled(enabled); })
+      .catch(() => { if (active) setPushNotice('알림 등록 상태를 확인하지 못했어요. 아래 버튼으로 다시 설정해 주세요.'); })
+      .finally(() => { if (active) { pushBusy.current = false; setPushLoading(false); } });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -33,37 +42,30 @@ export default function GigSettingsPage() {
         supabase.from('facility_staff').select('worker_kind').neq('status', 'ended'),
       ]);
       setCanSwitch(hasMedicalContext(getLinkKinds(staffLinks), worker?.role));
-      setPushEnabled(Boolean(await getExistingSubscription()));
     }
     void load();
   }, [router]);
 
   async function handlePushToggle() {
+    if (pushBusy.current) return;
+    setPushNotice('');
     if (!('PushManager' in window)) { setShowPwaGuide(true); return; }
+    pushBusy.current = true;
     setPushLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('로그인이 만료됐어요.');
       if (pushEnabled) {
-        const currentSubscription = await getExistingSubscription();
-        await unsubscribeFromPush();
-        const deleteQuery = supabase.from('push_subscriptions').delete().eq('worker_id', user.id);
-        const { error } = currentSubscription ? await deleteQuery.eq('endpoint', currentSubscription.endpoint) : await deleteQuery;
-        if (error) throw error;
+        await disableShiftPush();
         setPushEnabled(false);
       } else {
-        const sub = await subscribeToPush();
-        if (!sub) { setPushNotice('브라우저 설정에서 알림 권한을 허용해 주세요.'); return; }
-        const { error } = await supabase.from('push_subscriptions').upsert(
-          { worker_id: user.id, endpoint: sub.endpoint, subscription: sub.toJSON() },
-          { onConflict: 'worker_id,endpoint' },
-        );
-        if (error) { await unsubscribeFromPush().catch(() => undefined); throw error; }
-        setPushEnabled(true);
+        const result = await enableShiftPush();
+        if (result === 'enabled') setPushEnabled(true);
+        else if (result === 'unsupported') setShowPwaGuide(true);
+        else setPushNotice('브라우저 설정에서 알림 권한을 허용해 주세요.');
       }
     } catch {
       setPushNotice('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
+      pushBusy.current = false;
       setPushLoading(false);
     }
   }
@@ -114,7 +116,7 @@ export default function GigSettingsPage() {
       >
         <div className="text-left">
           <p className="text-[15px] font-bold text-ink">이 기기 출근 알림</p>
-          <p className="mt-0.5 text-[13px] text-tertiary">{pushEnabled ? '근무 시작 전 출근 안내를 보내드려요' : '알림을 켜면 출근 시간을 놓치지 않아요'}</p>
+          <p className="mt-0.5 text-[13px] text-tertiary">{pushLoading ? '알림 설정을 확인하고 있어요...' : pushEnabled ? '근무 시작 전 출근 안내를 보내드려요' : '알림을 켜면 출근 시간을 놓치지 않아요'}</p>
           <p className="mt-1 text-[11px] leading-4 text-sub">근무 30분 전 안내와 근태 알림을 앱 푸시로 받아요</p>
         </div>
         <div className={`flex h-7 w-12 flex-shrink-0 items-center rounded-full px-1 transition-colors ${pushEnabled ? 'bg-primary' : 'bg-line'}`}>

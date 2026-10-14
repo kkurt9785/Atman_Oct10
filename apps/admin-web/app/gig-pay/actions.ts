@@ -7,6 +7,7 @@ import { amountFor, summarizeWork } from '@/lib/db/gig-payouts';
 import { isGigStaff } from '@/lib/facility-mode';
 import { withholding } from '@/lib/withholding';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
+import type { PayoutCoverage } from '../../lib/shared/gig-pay/calculation';
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
 function todayKST() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
@@ -18,22 +19,10 @@ async function requireFacility(sb: NonNullable<ReturnType<typeof adminClient>>, 
   return facility;
 }
 
-async function notifyWorker(sb: NonNullable<ReturnType<typeof adminClient>>, staffId: string, facilityName: string, kind: 'payout.paid' | 'payout.scheduled', amount: number, payAt: string | null, payoutId: string) {
-  const { data: staff } = await sb.from('facility_staff').select('worker_id,workers(auth_user_id)').eq('id', staffId).maybeSingle();
-  const authUserId = (Array.isArray(staff?.workers) ? staff?.workers[0] : staff?.workers)?.auth_user_id as string | undefined;
-  if (!authUserId) return;
-  await sb.from('notification_outbox').insert({
-    worker_auth_user_id: authUserId, event_type: kind, dedupe_key: `${kind}:${payoutId}`,
-    title: kind === 'payout.paid' ? `${facilityName} 급여 지급 완료` : `${facilityName} 급여 지급 예정`,
-    body: kind === 'payout.paid' ? `${amount.toLocaleString('ko-KR')}원이 지급 처리됐어요. 입금을 확인해 주세요.` : `${amount.toLocaleString('ko-KR')}원이 ${payAt ?? '추후'} 지급 예정으로 잡혔어요.`,
-    data: { url: '/gig/settlement', kind, staff_id: staffId, payout_id: payoutId },
-  });
-  await nudgeNotificationDispatch();
-}
-
 // 마지막 지급 이후 완료된 근무를 한 건으로 묶는다. mode=now 면 바로 지급 완료, later 면 pay_at 날짜에 지급 예정.
 export async function createGigPayoutAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  if (!context.canViewPayroll) throw new Error('급여 관리 권한이 없어요.');
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const staffId = text(form, 'staff_id');
@@ -45,13 +34,14 @@ export async function createGigPayoutAction(form: FormData) {
   const today = todayKST();
   if (mode === 'later' && (payAt ?? '') < today) throw new Error('지급 예정일은 오늘 이후로 선택해 주세요.');
 
-  const [{ data: staff }, facility, { data: last }, { data: bankShare }] = await Promise.all([
+  const [{ data: staff, error: staffError }, , { data: payouts, error: payoutError }, { data: bankShare, error: bankError }] = await Promise.all([
     sb.from('facility_staff').select('id,name,worker_id,worker_kind,pay_basis,pay_rate,contract_start,default_break_minutes').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
     requireFacility(sb, context.facilityId),
-    sb.from('gig_payouts').select('period_end,covered_until').eq('facility_id', context.facilityId).eq('staff_id', staffId)
-      .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    sb.from('gig_payouts').select('period_start,period_end,covered_until,attendance_ids,status').eq('facility_id', context.facilityId).eq('staff_id', staffId)
+      .neq('status', 'cancelled').limit(1000),
     sb.from('gig_bank_account_shares').select('bank_account_id').eq('facility_id', context.facilityId).eq('staff_id', staffId).maybeSingle(),
   ]);
+  if (staffError || payoutError || bankError || (payouts?.length ?? 0) >= 1000) throw new Error('지급 정보를 모두 확인하지 못했어요. 새로고침 후 다시 시도해 주세요.');
   if (!staff) throw new Error('근무자를 찾을 수 없어요.');
   if (!isGigStaff(staff)) throw new Error('직원 급여는 급여 관리(/payroll)에서 처리해 주세요. 지급 관리는 단기·긱 근무자 전용이에요.');
   if (!bankShare?.bank_account_id || !staff.worker_id) throw new Error('근무자가 지급 계좌를 전달한 뒤 지급할 수 있어요.');
@@ -59,35 +49,38 @@ export async function createGigPayoutAction(form: FormData) {
     .eq('worker_id', staff.worker_id).eq('is_primary', true).is('deleted_at', null).maybeSingle();
   if (!activeBank) throw new Error('근무자가 변경한 지급 계좌를 다시 전달해야 해요.');
   if (!staff.pay_basis || !staff.pay_rate) throw new Error('먼저 급여 기준(시급·일급)을 설정해 주세요.');
-  // 마지막 지급에 포함된 마지막 퇴근 시각(covered_until) 이후 완료분만 — 날짜로 끊으면 지급한 날 오후 근무가 영영 빠진다
-  const since = last?.period_end ? (last.period_end as string) : (staff.contract_start ?? '2020-01-01');
-  if (since > today) throw new Error('아직 지급할 근무가 없어요.');
-  const afterCheckOut = last ? ((last.covered_until as string | null) ?? `${last.period_end}T23:59:59+09:00`) : null;
-  const work = await summarizeWork(sb, context.facilityId, staffId, since, today, { afterCheckOut, defaultBreakMinutes: Number(staff.default_break_minutes ?? 0) });
+  if (staff.pay_basis === 'monthly') throw new Error('월급은 근무 건별로 반복 지급할 수 없어요. 월 급여를 별도로 검토해 주세요.');
+  const since = '2020-01-01';
+  const work = await summarizeWork(sb, context.facilityId, staffId, since, today, { payouts: payouts as PayoutCoverage[] });
   const amount = amountFor(staff.pay_basis, Number(staff.pay_rate), work.minutes, work.days);
   if (work.days === 0) throw new Error('마지막 지급 이후 완료된 근무가 없어요.');
   if (amount <= 0) throw new Error('인정 근무가 0분이라 지급액이 0원이에요. 휴게시간 설정을 확인해 주세요.');
+  if (text(form, 'expected_amount') !== String(amount)) throw new Error('근태 또는 급여가 바뀌었어요. 화면을 새로고침해 금액을 확인한 뒤 다시 기록해 주세요.');
   const tax = withholding(amount, withhold);
 
   const { data: created, error } = await sb.from('gig_payouts').insert({
     facility_id: context.facilityId, staff_id: staffId, period_start: work.firstDate ?? since, period_end: work.lastDate ?? today, covered_until: work.lastCheckOut,
+    attendance_ids: work.attendanceIds,
     worked_minutes: work.minutes, worked_days: work.days, pay_basis: staff.pay_basis, pay_rate: staff.pay_rate, amount,
     withholding_rate: tax.rate, withholding_amount: tax.total, net_amount: tax.net,
     status: mode === 'now' ? 'paid' : 'scheduled', pay_at: mode === 'now' ? today : payAt,
     paid_at: mode === 'now' ? new Date().toISOString() : null, note, created_by: context.user.id,
   }).select('id').single();
   if (error?.code === '23505') throw new Error('같은 기간의 지급 기록이 이미 있어요. 화면을 새로고침해 주세요.');
+  if (error?.code === 'P0001') throw new Error(error.message);
   if (error || !created) throw new Error('지급 기록을 저장하지 못했어요.');
-  await notifyWorker(sb, staffId, facility?.name ?? '근무지', mode === 'now' ? 'payout.paid' : 'payout.scheduled', tax.net, mode === 'now' ? today : payAt, created.id);
+  // The DB trigger saved the outbox atomically; failure to wake dispatch does not undo payment.
+  await nudgeNotificationDispatch();
   revalidatePath('/gig-pay'); revalidatePath('/');
 }
 
 // 예정이던 지급을 완료로 바꾼다
 export async function markGigPayoutPaidAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  if (!context.canViewPayroll) throw new Error('급여 관리 권한이 없어요.');
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
-  const facility = await requireFacility(sb, context.facilityId);
+  await requireFacility(sb, context.facilityId);
   const payoutId = text(form, 'payout_id');
   const { data: payout, error } = await sb.from('gig_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString(), pay_at: todayKST(), updated_at: new Date().toISOString() })
@@ -95,12 +88,14 @@ export async function markGigPayoutPaidAction(form: FormData) {
     .select('id,staff_id,amount,net_amount').maybeSingle();
   if (error) throw new Error('지급 완료 처리를 하지 못했어요.');
   if (!payout) throw new Error('이미 처리됐거나 지급 예정 상태가 아니에요. 화면을 새로고침해 주세요.');
-  await notifyWorker(sb, payout.staff_id, facility?.name ?? '근무지', 'payout.paid', Number(payout.net_amount ?? payout.amount), todayKST(), `${payoutId}:paid`);
+  // The DB trigger saved the outbox atomically; failure to wake dispatch does not undo payment.
+  await nudgeNotificationDispatch();
   revalidatePath('/gig-pay'); revalidatePath('/');
 }
 
 export async function cancelGigPayoutAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  if (!context.canViewPayroll) throw new Error('급여 관리 권한이 없어요.');
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   await requireFacility(sb, context.facilityId);

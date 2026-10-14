@@ -27,10 +27,10 @@ export function GigNav() {
             key={tab.href}
             href={tab.href}
             aria-current={active ? 'page' : undefined}
-            className={`flex min-h-[56px] flex-1 flex-col items-center justify-center gap-0.5 py-3 ${active ? 'text-primary' : 'text-tertiary'}`}
+            className={`flex min-h-[var(--bottom-nav-height)] min-w-0 flex-1 flex-col items-center justify-center gap-1 py-2 ${active ? 'text-primary' : 'text-tertiary'}`}
           >
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONS[tab.icon as keyof typeof ICONS]}</svg>
-            <span className="text-[11px] font-semibold">{tab.label}</span>
+            <span className={`flex h-6 w-12 items-center justify-center rounded-full ${active ? 'bg-primary/10' : ''}`}><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{ICONS[tab.icon as keyof typeof ICONS]}</svg></span>
+            <span className="text-[12px] leading-4 font-semibold whitespace-nowrap">{tab.label}</span>
           </Link>
         );
       })}

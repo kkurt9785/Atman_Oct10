@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient, userClient } from '@/lib/supabase';
-import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
+import { calcEstimatedShiftPay, shiftHourlyWageError } from '@/lib/pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '@/lib/billing-gates';
 import { isGigworkerFacility } from '@/lib/facility-mode';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
@@ -57,9 +57,10 @@ export async function fillVacancyAction(formData: FormData) {
   let usageKey: string | null = null;
 
   if (!shiftId) {
-    const wage = Number.parseInt(String(formData.get('hourly_wage') ?? ''), 10);
-    if (!Number.isFinite(wage) || wage < MIN_HOURLY_WAGE_2026) fail(source, '시급은 2026년 최저시급 이상이어야 해요.');
-    const estimatedPay = calcEstimatedShiftPay(vacancy.startTime, vacancy.endTime, wage);
+    const wage = Number(formData.get('hourly_wage'));
+    const wageError = shiftHourlyWageError(wage, vacancy.date, vacancy.startTime, vacancy.endTime);
+    if (wageError) fail(source, wageError);
+    const estimatedPay = calcEstimatedShiftPay(vacancy.startTime, vacancy.endTime, wage, vacancy.date);
     if (estimatedPay == null) fail(source, '근무 시간을 확인해 주세요.');
     const description = String(formData.get('description') ?? '').trim() || vacancy.description;
     let replacement: { required_credentials?: unknown } | null = null;

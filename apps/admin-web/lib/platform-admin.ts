@@ -20,6 +20,7 @@ export function platformAdminUserIds(): string[] {
 
 export function isPlatformAdminUser(user: { id: string; email?: string | null } | null | undefined): boolean {
   if (!user) return false;
+  if ((user.email ?? '').toLowerCase().endsWith('@demo.atman.co.kr')) return false;
   return isPlatformAdminEmail(user.email) || platformAdminUserIds().includes(user.id.toLowerCase());
 }
 

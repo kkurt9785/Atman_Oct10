@@ -144,7 +144,7 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
                 {facility ? FACILITY_TYPE_LABEL[facility.facility_type] ?? '의료 사업장' : ''}
               </p>
               <h2 className="text-[20px] font-extrabold text-ink">{facilityName}</h2>
-              {trust && (trust.approved_at || !String(trust.registration_source ?? '').startsWith('self_')) && trust.business_status !== 'closed' && <p className="mt-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700">사업자 확인된 사업장 ✓</p>}
+              {trust?.business_status === 'active' && <p className="mt-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700">사업자등록 상태 확인 ✓</p>}
             </div>
             <button onClick={onClose} className="text-[22px] text-tertiary leading-none mt-1">✕</button>
           </div>

@@ -1,7 +1,7 @@
 'use server';
 
 import { assertNotDemoFacility } from '../demo-guard';
-import { MIN_HOURLY_WAGE_2026 } from '../pay';
+import { hourlyWageError, staffPayPeriod } from '../pay';
 import { isGigStaff, isGigworkerFacility } from '@/lib/facility-mode';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
@@ -91,7 +91,11 @@ export async function addClinicStaffAction(form: FormData) {
   }
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
   if ((!isGigworker||payBasis||payRate) && (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0)) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
-  if (payBasis==='hourly' && Number.isInteger(payRate) && payRate>0 && payRate<MIN_HOURLY_WAGE_2026) throw new Error(`시급은 2026년 최저시급 ${MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원 이상으로 입력해 주세요.`);
+  if (payBasis === 'hourly') {
+    const period = staffPayPeriod(contractStart, contractEnd);
+    const wageError = hourlyWageError(payRate, period.start, period.end);
+    if (wageError) throw new Error(wageError);
+  }
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   if(!Number.isInteger(breakMinutes)||breakMinutes<0||breakMinutes>720)throw new Error('휴게시간을 확인해 주세요.');
   if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
@@ -228,80 +232,43 @@ export async function recordShiftAdminAttendanceAction(form:FormData){
 
 export async function addStaffLeaveAction(form: FormData) {
   const context = await requireAdminContext(['owner','operator','super']);
-  const sb = adminClient();
+  const sb = userClient(context.accessToken);
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const staffId = text(form, 'staff_id');
   const startDate = text(form, 'start_date');
   const endDate = text(form, 'end_date') || startDate;
   const leaveType = text(form, 'leave_type') || 'annual';
-  const hourlyMinutes = Number(text(form, 'hourly_minutes'));
-  const { data: staff } = await sb.from('facility_staff').select('id').eq('id', staffId)
-    .eq('facility_id', context.facilityId).neq('status', 'ended').maybeSingle();
-  if (!staff || !startDate || endDate < startDate) throw new Error('휴가 정보를 확인해 주세요.');
-  const {data:minutes,error:minutesError}=await sb.rpc('calculate_staff_leave_minutes',{
-    p_staff_id:staffId,p_leave_type:leaveType,p_start_date:startDate,p_end_date:endDate,
-    p_hourly_minutes:leaveType==='hourly'?hourlyMinutes:null,
+  const hourlyMinutes = leaveType === 'hourly' ? Number(text(form, 'hourly_minutes')) : null;
+  if (!staffId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(startDate) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(endDate) || endDate < startDate) {
+    throw new Error('휴가 날짜와 직원을 확인해 주세요.');
+  }
+  const { data: requestId, error } = await sb.rpc('create_approved_staff_leave', {
+    p_facility_id: context.facilityId, p_staff_id: staffId, p_leave_type: leaveType,
+    p_start_date: startDate, p_end_date: endDate, p_hourly_minutes: hourlyMinutes,
+    p_reason: text(form, 'reason') || null,
   });
-  if(minutesError||!Number.isFinite(Number(minutes))||Number(minutes)<=0) throw new Error(minutesError?.message??'휴가 정보를 확인해 주세요.');
-  const requestedMinutes=Number(minutes);
-  const {count:overlap}=await sb.from('staff_leave_requests').select('id',{count:'exact',head:true})
-    .eq('staff_id',staffId).in('status',['pending','approved']).lte('start_date',endDate).gte('end_date',startDate);
-  if((overlap??0)>0) throw new Error('같은 기간에 이미 대기 또는 승인된 휴가가 있어요.');
-  const { data: created, error } = await sb.from('staff_leave_requests').insert({
-    facility_id: context.facilityId, staff_id: staffId, leave_type: leaveType,
-    start_date: startDate, end_date: endDate, requested_minutes: requestedMinutes,
-    reason: text(form, 'reason') || null, status: 'approved',
-    decided_by: context.user.id, decided_at: new Date().toISOString(),
-  }).select('id').single();
-  if (error) throw new Error('휴가를 등록하지 못했어요.');
-  const deductsBalance = ['annual','half_day','quarter_day','hourly'].includes(leaveType);
-  const affectsHeadcount = ['annual','sick','other'].includes(leaveType);
-  if (!deductsBalance) {
-    if (affectsHeadcount) await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${created.id}`, startDate, 'leave');
-    revalidatePath('/leave'); revalidatePath('/timesheet'); revalidatePath('/operations');
-    return;
+  if (error || !requestId) throw new Error(error?.message || '휴가를 등록하지 못했어요.');
+  if (['annual','sick','other'].includes(leaveType)) {
+    await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${requestId}`, startDate, 'leave');
   }
-  const year = Number(startDate.slice(0, 4));
-  const { data: balance } = await sb.from('staff_leave_balances').select('used_minutes,granted_minutes')
-    .eq('staff_id', staffId).eq('leave_year', year).maybeSingle();
-  if (!balance || Number(balance.granted_minutes) - Number(balance.used_minutes) < requestedMinutes) {
-    await sb.from('staff_leave_requests').delete().eq('id', created.id);
-    throw new Error('잔여 휴가가 부족해 등록할 수 없어요.');
-  }
-  const { error: balanceError } = await sb.from('staff_leave_balances').upsert({
-    facility_id: context.facilityId, staff_id: staffId, leave_year: year,
-    granted_minutes: balance.granted_minutes,
-    used_minutes: balance.used_minutes + requestedMinutes, updated_at: new Date().toISOString(),
-  }, { onConflict: 'staff_id,leave_year' });
-  if (balanceError) {
-    await sb.from('staff_leave_requests').delete().eq('id', created.id);
-    throw new Error('휴가 잔여시간을 반영하지 못했어요.');
-  }
-  if (affectsHeadcount) await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${created.id}`, startDate, 'leave');
   revalidatePath('/leave'); revalidatePath('/timesheet'); revalidatePath('/operations');
 }
 
 export async function setStaffLeaveBalanceAction(form: FormData) {
   const context = await requireAdminContext(['owner','operator','super']);
-  const sb = adminClient();
+  const sb = userClient(context.accessToken);
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const staffId = text(form, 'staff_id');
-  const grantedDays = Number(text(form, 'granted_days'));
-  const year = Number(text(form, 'leave_year')) || Number(todayKST().slice(0,4));
-  if (!staffId || !Number.isFinite(grantedDays) || grantedDays < 0 || grantedDays > 365) throw new Error('휴가 부여일수를 확인해 주세요.');
-  const { data: staff } = await sb.from('facility_staff').select('id').eq('id', staffId)
-    .eq('facility_id', context.facilityId).neq('status', 'ended').maybeSingle();
-  if (!staff) throw new Error('직원을 찾지 못했어요.');
-  const { data: existing } = await sb.from('staff_leave_balances').select('used_minutes')
-    .eq('staff_id', staffId).eq('leave_year', year).maybeSingle();
-  const grantedMinutes=Math.round(grantedDays*480);
-  if(grantedMinutes < Number(existing?.used_minutes??0)) throw new Error('이미 사용한 휴가보다 총 부여시간을 작게 설정할 수 없어요.');
-  const { error } = await sb.from('staff_leave_balances').upsert({
-    facility_id: context.facilityId, staff_id: staffId, leave_year: year,
-    granted_minutes: grantedMinutes, used_minutes: existing?.used_minutes ?? 0,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'staff_id,leave_year' });
-  if (error) throw new Error('휴가 부여일수를 저장하지 못했어요.');
+  const daysText = text(form, 'granted_days');
+  const yearText = text(form, 'leave_year') || todayKST().slice(0,4);
+  const grantedDays = Number(daysText);
+  const year = Number(yearText);
+  if (!staffId || !daysText || !Number.isFinite(grantedDays) || grantedDays < 0 || grantedDays > 365
+      || !/^\\d{4}$/.test(yearText) || year < 2020 || year > 2100) throw new Error('휴가 부여일수를 확인해 주세요.');
+  const { error } = await sb.rpc('set_staff_leave_grant', {
+    p_facility_id: context.facilityId, p_staff_id: staffId, p_year: year, p_granted_days: grantedDays,
+  });
+  if (error) throw new Error(error.message || '휴가 부여일수를 저장하지 못했어요.');
   revalidatePath('/leave'); revalidatePath('/staff');
 }
 
@@ -413,16 +380,21 @@ export async function unlinkStaffWorkerAction(form:FormData){
 
 export async function setStaffPayAction(form:FormData){
   const context=await requireAdminContext(['owner','operator','super']);
+  if(!context.canViewPayroll)throw new Error('급여 관리 권한이 없어요.');
   const sb=adminClient();
   if(!sb)throw new Error('서버 설정을 확인해 주세요.');
   const staffId=text(form,'staff_id');
   const payBasis=text(form,'pay_basis');
   const payRate=Number(text(form,'pay_rate'));
   if(!['monthly','hourly','daily'].includes(payBasis)||!Number.isInteger(payRate)||payRate<=0)throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
-  if(payBasis==='hourly'&&payRate<MIN_HOURLY_WAGE_2026)throw new Error(`시급은 2026년 최저시급 ${MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원 이상으로 입력해 주세요.`);
-  const {data:staff}=await sb.from('facility_staff').select('worker_id,bank_name,account_last4')
+  const {data:staff}=await sb.from('facility_staff').select('worker_id,bank_name,account_last4,contract_start,contract_end')
     .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended').maybeSingle();
   if(!staff)throw new Error('급여 기준을 설정할 직원을 찾지 못했어요.');
+  if (payBasis === 'hourly') {
+    const period = staffPayPeriod(staff.contract_start, staff.contract_end);
+    const wageError = hourlyWageError(payRate, period.start, period.end);
+    if (wageError) throw new Error(wageError);
+  }
   let bankName=text(form,'bank_name')||staff.bank_name||null;
   let accountLast4=text(form,'account_last4')||staff.account_last4||null;
   if(staff.worker_id){

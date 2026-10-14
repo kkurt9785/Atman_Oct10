@@ -15,8 +15,5 @@ export async function isDemoFacility(facilityId: string): Promise<boolean> {
 }
 
 export async function assertNotDemoFacility(facilityId: string) {
-  const sb = adminClient();
-  if (!sb) return;
-  const { data } = await sb.from('facilities').select('is_demo').eq('id', facilityId).maybeSingle();
-  if (data?.is_demo) throw new Error(DEMO_BLOCKED_MESSAGE);
+  if (await isDemoFacility(facilityId)) throw new Error(DEMO_BLOCKED_MESSAGE);
 }

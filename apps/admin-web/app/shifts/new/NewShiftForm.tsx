@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createShiftAction } from '@/lib/actions/shifts';
-import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
+import { calcEstimatedShiftPay, shiftHourlyWageError } from '@/lib/pay';
 import { won } from '@/lib/format';
 
 type Role = 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
@@ -89,7 +89,8 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
 
   useEffect(()=>{if(copiedShift&&recentShift)applyRecentShift();},[copiedShift]); // 선택한 과거 공고는 진입 즉시 채운다
 
-  const estimatedPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage) ?? 0;
+  const wageError = shiftDate ? shiftHourlyWageError(hourlyWage, shiftDate, startTime, endTime) : null;
+  const estimatedPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage, shiftDate) ?? 0;
   const isOvernight = startTime && endTime
     ? endTime <= startTime
     : false;
@@ -113,7 +114,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
     if (!shiftDate) { setError('날짜를 선택해 주세요.'); return; }
     if (!startTime || !endTime) { setError('시작·종료 시간을 입력해 주세요.'); return; }
     if (!description.trim()) { setError('업무 설명을 입력해 주세요.'); return; }
-    if (!hourlyWage || hourlyWage < MIN_HOURLY_WAGE_2026) { setError('시급은 2026년 최저시급(10,320원) 이상이어야 해요.'); return; }
+    if (wageError) { setError(wageError); return; }
 
     const formData = new FormData(e.currentTarget);
     formData.set('required_role', role);
@@ -245,15 +246,15 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
                 type="number"
                 name="hourly_wage"
                 required
-                step={1000}
+                step={1}
                 value={hourlyWage || ''}
                 placeholder={String(defaultWage(role))}
                 onChange={(e) => setHourlyWage(parseInt(e.target.value, 10) || 0)}
                 className="w-full bg-bg rounded-xl pl-8 pr-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
-            {hourlyWage > 0 && hourlyWage < MIN_HOURLY_WAGE_2026 && (
-              <p className="text-label text-warn mt-1">2026년 최저시급(10,320원) 이상이어야 해요</p>
+            {wageError && (
+              <p className="text-label text-warn mt-1">{wageError}</p>
             )}
             {role==='pharmacist' && (
               <p className="text-label text-sub mt-1">대체약사 시세는 보통 시급 30,000~40,000원이에요</p>

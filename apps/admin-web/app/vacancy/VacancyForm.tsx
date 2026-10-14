@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { minimumHourlyWage } from '@/lib/pay';
 import { useMemo, useState } from 'react';
 import type { VacancyCandidate, VacancySource } from '@/lib/db/vacancy';
 import { fillVacancyAction } from './actions';
@@ -43,9 +44,9 @@ function Row({ c, checked, onToggle, locked }: { c: VacancyCandidate; checked: b
   );
 }
 
-export function VacancyForm({ source, candidates, needsShift, defaultWage, defaultDescription, isPublic, poolLocked }: {
+export function VacancyForm({ source, candidates, needsShift, defaultWage, defaultDescription, isPublic, poolLocked, workDate }: {
   source: VacancySource; candidates: VacancyCandidate[]; needsShift: boolean; defaultWage: number;
-  defaultDescription: string; isPublic: boolean; poolLocked: boolean;
+  defaultDescription: string; isPublic: boolean; poolLocked: boolean; workDate: string;
 }) {
   const selectable = useMemo(() => candidates.filter((c) => !c.blockReason && !c.requestStatus && c.workerId && !(poolLocked && c.kind === 'pool')), [candidates, poolLocked]);
   // 요청할 수 있는 사람은 처음부터 모두 골라 둔다 — 대부분은 그대로 보내기만 하면 된다
@@ -75,7 +76,7 @@ export function VacancyForm({ source, candidates, needsShift, defaultWage, defau
         <div className="rounded-2xl bg-white p-4 shadow-card">
           <label className="block text-label font-bold text-ink" htmlFor="vacancy-wage">시급</label>
           <div className="mt-2 flex items-center gap-2">
-            <input id="vacancy-wage" name="hourly_wage" type="number" inputMode="numeric" min={10320} step={100} defaultValue={defaultWage} required className="h-12 w-full rounded-xl bg-bg px-4 text-body font-bold" />
+            <input id="vacancy-wage" name="hourly_wage" type="number" inputMode="numeric" min={minimumHourlyWage(workDate) ?? 1} step={1} defaultValue={defaultWage} required className="h-12 w-full rounded-xl bg-bg px-4 text-body font-bold" />
             <span className="shrink-0 text-label text-sub">원</span>
           </div>
           <details className="mt-3">

@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
-import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
+import { calcEstimatedShiftPay, hourlyWageError } from '@/lib/pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '@/lib/billing-gates';
 import { todayKST } from '@/lib/date';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
@@ -64,7 +64,7 @@ export async function createShiftTemplateAction(formData: FormData) {
   const requiredRole = formText(formData, 'required_role');
   const startTime = formText(formData, 'start_time');
   const endTime = formText(formData, 'end_time');
-  const hourlyWage = Number.parseInt(formText(formData, 'hourly_wage'), 10);
+  const hourlyWage = Number(formText(formData, 'hourly_wage'));
   const description = formText(formData, 'description');
   const department = formText(formData, 'department') || null;
   const requiredHeadcount = Math.min(20, Math.max(1, Number.parseInt(formText(formData, 'required_headcount'), 10) || 1));
@@ -74,7 +74,9 @@ export async function createShiftTemplateAction(formData: FormData) {
   if (facility?.facility_type === 'pharmacy' && !['pharmacist', 'pharmacy_staff'].includes(requiredRole)) {
     throw new Error('약국 반복 일정은 약사 또는 약국 전산·사무직만 선택할 수 있어요.');
   }
-  if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026 || calcEstimatedShiftPay(startTime, endTime, hourlyWage) == null) throw new Error('근무시간과 시급을 확인해 주세요.');
+  const wageError = hourlyWageError(hourlyWage);
+  if (wageError) throw new Error(wageError);
+  if (calcEstimatedShiftPay(startTime, endTime, hourlyWage) == null) throw new Error('근무시간을 확인해 주세요.');
   const { error } = await sb.from('shift_templates').insert({
     facility_id: context.facilityId, name, required_role: requiredRole,
     weekdays: [...new Set(weekdays)].sort(), start_time: startTime, end_time: endTime,
@@ -96,11 +98,13 @@ export async function createStaffingRequirementAction(formData: FormData) {
   const startTime = formText(formData, 'start_time');
   const endTime = formText(formData, 'end_time');
   const requiredHeadcount = Math.min(100, Math.max(1, Number.parseInt(formText(formData, 'required_headcount'), 10) || 1));
-  const hourlyWage = Number.parseInt(formText(formData, 'replacement_hourly_wage'), 10);
+  const hourlyWage = Number(formText(formData, 'replacement_hourly_wage'));
   const description = formText(formData, 'replacement_description');
   const weekdays = [...new Set(formData.getAll('weekdays').map(Number).filter((day) => Number.isInteger(day) && day >= 1 && day <= 7))].sort();
   if (!name || !VALID_ROLES.includes(requiredRole) || !startTime || !endTime || !description || !weekdays.length) throw new Error('필요 인원 기준의 필수 항목을 확인해 주세요.');
-  if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026 || calcEstimatedShiftPay(startTime, endTime, hourlyWage) == null) throw new Error('대체 모집 시 적용할 시간과 시급을 확인해 주세요.');
+  const wageError = hourlyWageError(hourlyWage);
+  if (wageError) throw new Error(wageError);
+  if (calcEstimatedShiftPay(startTime, endTime, hourlyWage) == null) throw new Error('대체 모집 시 적용할 근무시간을 확인해 주세요.');
   const { data: facility } = await sb.from('facilities').select('facility_type').eq('id', context.facilityId).single();
   if (facility?.facility_type === 'pharmacy' && !['pharmacist', 'pharmacy_staff'].includes(requiredRole)) throw new Error('약국은 약사 또는 약국 전산·사무직 기준을 선택해 주세요.');
   const { error } = await sb.from('staffing_requirements').insert({

@@ -3,8 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireAdminContext } from '@/lib/admin-auth';
-import { todayKST } from '@/lib/date';
-import { isLiveDemoFacility, isLiveDemoShift } from '@/lib/live-demo';
+import { isLiveDemoFacility, isLiveDemoShift, liveDemoWindow } from '@/lib/live-demo';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 import { adminClient, userClient } from '@/lib/supabase';
 import { recordShiftAdminAttendanceAction } from '@/lib/actions/clinic-workforce';
@@ -56,15 +55,6 @@ function refreshLiveDemo() {
   revalidatePath('/shifts');
 }
 
-function liveDemoWindow() {
-  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const minute = kst.getUTCHours() * 60 + kst.getUTCMinutes();
-  const start = Math.max(0, minute - 15);
-  const end = start + 60;
-  const time = (value: number) => `${String(Math.floor((value % 1440) / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
-  return { startTime: time(start), endTime: time(end), isOvernight: end >= 1440 };
-}
-
 /**
  * This is intentionally available only to the three seeded demo facilities.
  * It makes a same-day, open demo shift; it never changes the normal shift
@@ -85,14 +75,13 @@ export async function prepareLiveDemoAction() {
   const ids = (shifts ?? []).filter((shift) => isLiveDemoShift(shift.notes)).map((shift) => shift.id);
   if (shiftError || !ids.length) throw new Error('시연용 공고를 찾지 못했어요. 데모 시드를 확인해 주세요.');
 
-  // A live demo must work at the counter now. The one-hour window admits both
-  // GPS check-in and check-out immediately, but uses the same normal server
-  // time checks and attendance state machine as a subscriber's shift.
+  // Keep applications open until the next quarter-hour. Attendance still uses
+  // the configured server time window; early checkout may require approval.
   const window = liveDemoWindow();
   for (const shift of shifts ?? []) {
     const { error: timingError } = await sb.from('shifts').update({
-      shift_date: todayKST(), start_time: window.startTime, end_time: window.endTime,
-      is_overnight: window.isOvernight, estimated_total_pay: Number(shift.hourly_wage),
+      shift_date: window.shiftDate, start_time: window.startTime, end_time: window.endTime,
+      estimated_total_pay: Math.round(Number(shift.hourly_wage) * 0.75),
       updated_at: new Date().toISOString(),
     }).eq('id', shift.id).eq('facility_id', context.facilityId);
     if (timingError) throw new Error('시연 공고 시간을 지금으로 맞추지 못했어요.');
@@ -114,7 +103,7 @@ export async function prepareLiveDemoAction() {
         event_type: 'shift.live_demo_ready',
         dedupe_key: `shift.live_demo_ready:${shift.id}:${recipient.auth_user_id}`,
         title: '지금 지원해 볼 시연 근무가 열렸어요',
-        body: `${todayKST()} ${window.startTime} · ${shift.department ?? '현장 근무'}`,
+        body: `${window.shiftDate} ${window.startTime} · ${shift.department ?? '현장 근무'}`,
         data: { type: 'new_shift', shiftId: shift.id, url: `/shifts?highlight=${shift.id}` },
       });
     }

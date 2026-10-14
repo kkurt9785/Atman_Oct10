@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
-import { getAdminPushSubscription, subscribeToAdminPush } from '@/lib/push-subscribe';
+import { isAdminPushEnabled, subscribeToAdminPush } from '@/lib/push-subscribe';
 
 type AuthLog = {
   action: 'check_in' | 'check_out';
@@ -37,6 +37,8 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
   const router = useRouter();
   const [toast, setToast] = useState<string | null>(null);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(true);
+  const pushBusy = useRef(true);
   const [pushMessage, setPushMessage] = useState<string | null>(null);
   const [connection, setConnection] = useState<'connecting' | 'live' | 'fallback'>('connecting');
   const [hasFreshRecord, setHasFreshRecord] = useState(false);
@@ -44,7 +46,11 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    getAdminPushSubscription().then((subscription) => setPushEnabled(Boolean(subscription))).catch(() => {});
+    let active = true;
+    void isAdminPushEnabled().then(enabled => { if (active) setPushEnabled(enabled); })
+      .catch(() => { if (active) setPushMessage('알림 등록 상태를 확인하지 못했어요. 알림 켜기로 다시 설정해 주세요.'); })
+      .finally(() => { if (active) { pushBusy.current = false; setPushLoading(false); } });
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
@@ -54,10 +60,10 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
       { event: 'INSERT', schema: 'public', table: 'attendance_auth_logs', filter: `facility_id=eq.${facilityId}` },
       async ({ new: raw }) => {
         const log = raw as AuthLog;
-        const name = await resolveName(log);
+        const name = await resolveName(log).catch(()=>'근로자');
         const action = log.action === 'check_in' ? '출근' : '퇴근';
         const message = log.result === 'SUCCESS'
-          ? `${name}님이 ${action} 처리됐어요.`
+          ? (log.action==='check_out'?`${name}님의 퇴근 요청이 접수됐어요. 승인 상태를 확인해 주세요.`:`${name}님이 출근 처리됐어요.`)
           : `${name}님의 ${action} 인증 실패 · ${FAILURE_LABEL[log.failure_reason ?? ''] ?? '확인 필요'}`;
         setToast(message);
         if (timer.current) clearTimeout(timer.current);
@@ -89,12 +95,16 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
   }
 
   async function enablePush() {
+    if (pushBusy.current || pushEnabled) return;
+    pushBusy.current = true;
+    setPushLoading(true);
     setPushMessage(null);
     try {
+      // 사용자 클릭 직후 권한 요청을 시작하고, 인증 조회는 그 뒤에 수행한다.
+      const subscription = await subscribeToAdminPush();
+      if (!subscription) throw new Error('지원되는 브라우저에서 알림 권한을 허용해 주세요.');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('다시 로그인한 뒤 알림을 켜 주세요.');
-      const subscription = await subscribeToAdminPush();
-      if (!subscription) throw new Error('브라우저에서 알림 권한을 허용해 주세요.');
       const { error } = await supabase.from('push_subscriptions').upsert({
         worker_id: user.id,
         endpoint: subscription.endpoint,
@@ -105,6 +115,9 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
       setPushMessage('지각·인증 실패·조기 퇴근 알림을 받을게요.');
     } catch (error) {
       setPushMessage(error instanceof Error ? error.message : '알림을 켜지 못했어요.');
+    } finally {
+      pushBusy.current = false;
+      setPushLoading(false);
     }
   }
 
@@ -114,8 +127,8 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
     <section className="mt-4 flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 shadow-card">
       <span className={`h-2 w-2 shrink-0 rounded-full ${connection==='live'?'bg-success':'bg-amber-500'}`} aria-hidden/>
       <p className="min-w-0 flex-1 truncate text-[0.75rem] font-bold text-sub">{connection==='live'?'실시간 반영 중':'자동으로 새로 보는 중'}{lastUpdatedAt?` · ${lastUpdatedAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})} 갱신`:''}</p>
-      <button type="button" onClick={refreshNow} className="h-8 shrink-0 rounded-lg px-2 text-[0.75rem] font-bold text-sub">새로 보기</button>
-      <button type="button" onClick={enablePush} disabled={pushEnabled} className={`h-8 shrink-0 rounded-lg px-3 text-[0.75rem] font-extrabold ${pushEnabled?'bg-success/10 text-success':'bg-primary text-white'}`}>{pushEnabled?'알림 켜짐':'알림 켜기'}</button>
+      <button type="button" onClick={refreshNow} className="h-11 shrink-0 rounded-lg px-2 text-[0.75rem] font-bold text-sub">새로 보기</button>
+      <button type="button" onClick={enablePush} disabled={pushEnabled || pushLoading} className={`h-11 shrink-0 rounded-lg px-3 text-[0.75rem] font-extrabold ${pushEnabled?'bg-success/10 text-success':'bg-primary text-white'}`}>{pushLoading?'설정 중...':pushEnabled?'알림 켜짐':'알림 켜기'}</button>
     </section>
     {pushMessage&&<p role="status" className="mt-1 px-1 text-[0.6875rem] font-bold text-primary">{pushMessage}</p>}
     {toast&&<div role="status" aria-live="polite" className="fixed inset-x-4 top-4 z-50 mx-auto max-w-[430px] rounded-2xl bg-ink px-4 py-3 text-[0.8125rem] font-bold text-white shadow-xl">{toast}</div>}

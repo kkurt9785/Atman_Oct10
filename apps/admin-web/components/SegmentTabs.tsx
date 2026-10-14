@@ -15,8 +15,8 @@ export function SegmentTabs({ tabs, active, basePath, params = {} }: { tabs: Seg
           const on = tab.key === active;
           return (
             <Link key={tab.key} href={`${basePath}?${query.toString()}`} scroll={false} aria-current={on ? 'page' : undefined}
-              className={`flex h-10 min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-label font-extrabold ${on ? 'bg-primary text-white' : 'text-sub active:bg-bg'}`}>
-              <span className="truncate">{tab.label}</span>
+              className={`flex min-h-[44px] min-w-0 items-center justify-center gap-1 rounded-xl px-1 py-2 text-label font-extrabold ${on ? 'bg-primary text-white' : 'text-sub active:bg-bg'}`}>
+              <span className="text-center">{tab.label}</span>
               {typeof tab.count === 'number' && tab.count > 0 && (
                 <span className={`shrink-0 rounded-full px-1.5 text-[0.6875rem] ${on ? 'bg-white/25 text-white' : tab.warn ? 'bg-amber-100 text-warn' : 'bg-bg text-sub'}`}>{tab.count}</span>
               )}

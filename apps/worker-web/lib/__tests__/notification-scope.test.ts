@@ -12,6 +12,9 @@ const notice = (event_type: string, data: Record<string, unknown> | null = null)
 });
 
 describe('classifyNotice — 알림을 어느 셸에 보일지', () => {
+  it('근무지 필드가 없는 긱 지급 알림도 명시된 목적지로 분류한다', () => {
+    expect(classifyNotice(notice('payout.due', { url: '/gig/settlement', payout_id: 'p1' }), ctx())).toBe('gig');
+  });
   it('공고·지원·채팅·급여 알림은 의료 셸', () => {
     expect(classifyNotice(notice('application.accepted'), ctx())).toBe('medical');
     expect(classifyNotice(notice('chat.message', { staff_id: 'gig-staff' }), ctx())).toBe('medical');

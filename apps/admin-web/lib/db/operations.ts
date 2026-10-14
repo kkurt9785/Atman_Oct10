@@ -207,11 +207,12 @@ export async function getWorkforceCoverage(days = 7): Promise<CoverageDay[]> {
   if (!sb || !facilityId) return [];
   const today = todayKST();
   const end = addDays(today, Math.max(1, days) - 1);
-  const [{ data: templates }, { data: shifts }] = await Promise.all([
+  const [{ data: templates, error: templateError }, { data: shifts, error: shiftError }] = await Promise.all([
     sb.from('shift_templates').select('id,weekdays,required_headcount').eq('facility_id', facilityId).eq('is_active', true),
     sb.from('shifts').select('id,template_id,shift_date,status').eq('facility_id', facilityId)
       .gte('shift_date', today).lte('shift_date', end).neq('status', 'cancelled'),
   ]);
+  if (templateError || shiftError || (templates?.length ?? 0) >= 1000 || (shifts?.length ?? 0) >= 1000) throw new Error('근무표 전체를 확인하지 못했어요. 다시 불러와 주세요.');
   const rows = (shifts ?? []) as any[];
   return Array.from({ length: Math.max(1, days) }, (_, index) => {
     const date = addDays(today, index);
@@ -244,7 +245,7 @@ export async function getWorkforceRecommendations(days = 7): Promise<WorkforceRe
   if (!sb || !facilityId) return [];
   const today = todayKST();
   const end = addDays(today, Math.max(1, days) - 1);
-  const [{ data: requirements }, { data: shifts }, { data: staff }, { data: leaves }, { data: attendances }, { data: pool }] = await Promise.all([
+  const [{ data: requirements, error: requirementError }, { data: shifts, error: shiftError }, { data: staff, error: staffError }, { data: leaves, error: leaveError }, { data: attendances, error: attendanceError }, { data: pool, error: poolError }] = await Promise.all([
     sb.from('staffing_requirements').select('id,name,required_role,weekdays,start_time,end_time,department,required_headcount').eq('facility_id', facilityId).eq('is_active', true),
     sb.from('shifts').select('id,shift_date,start_time,end_time,required_role,department,status').eq('facility_id', facilityId).gte('shift_date', today).lte('shift_date', end).neq('status', 'cancelled'),
     sb.from('facility_staff').select('id,role,department,work_weekdays,default_start_time,default_end_time,contract_start,contract_end,status').eq('facility_id', facilityId).neq('status', 'ended'),
@@ -252,15 +253,19 @@ export async function getWorkforceRecommendations(days = 7): Promise<WorkforceRe
     sb.from('staff_attendances').select('staff_id,work_date,status').eq('facility_id', facilityId).gte('work_date', today).lte('work_date', end).eq('status', 'absent'),
     sb.from('facility_worker_pool').select('worker_id,completed_shift_count,last_worked_at').eq('facility_id', facilityId).eq('status', 'active'),
   ]);
+  if ([requirementError,shiftError,staffError,leaveError,attendanceError,poolError].some(Boolean)
+    || [requirements,shifts,staff,leaves,attendances,pool].some((rows)=>(rows?.length??0)>=1000)) throw new Error('부서별 인력 현황 전체를 확인하지 못했어요. 다시 불러와 주세요.');
   const workerIds = (pool ?? []).map((row: any) => row.worker_id);
-  const [{ data: workers }, { data: busyShifts }] = await Promise.all([
-    workerIds.length ? sb.from('workers').select('id,name,role').in('id', workerIds).eq('verification_status', 'approved').is('deleted_at', null) : Promise.resolve({ data: [] }),
+  const [{ data: workers, error: workersError }, { data: busyShifts, error: busyShiftsError }] = await Promise.all([
+    workerIds.length ? sb.from('workers').select('id,name,role').in('id', workerIds).eq('verification_status', 'approved').is('deleted_at', null) : Promise.resolve({ data: [], error: null }),
     sb.from('shifts').select('id,shift_date,start_time,end_time').gte('shift_date', addDays(today, -1)).lte('shift_date', end).in('status', ['matched','in_progress']),
   ]);
+  if (workersError || busyShiftsError || (workers?.length??0)>=1000 || (busyShifts?.length??0)>=1000) throw new Error('충원 후보와 확정 근무를 모두 확인하지 못했어요.');
   const busyShiftIds = (busyShifts ?? []).map((row: any) => row.id);
-  const { data: busyApplications } = busyShiftIds.length
+  const { data: busyApplications, error: busyApplicationsError } = busyShiftIds.length
     ? await sb.from('shift_applications').select('worker_id,shift_id').in('shift_id', busyShiftIds).eq('status', 'accepted')
-    : { data: [] };
+    : { data: [], error: null };
+  if (busyApplicationsError || (busyApplications?.length??0)>=1000) throw new Error('후보자의 확정 근무를 모두 확인하지 못했어요.');
   const busyShiftById = new Map((busyShifts ?? []).map((row: any) => [row.id, row]));
   const busyByWorker = new Map<string, any[]>();
   for (const application of (busyApplications ?? []) as any[]) {

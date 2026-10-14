@@ -17,7 +17,7 @@ import { ModeSwitch } from '@/components/worker/ModeSwitch';
 import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, PHARMACY_SLOT_NAME, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
 import { loadWorkerShellContext } from '@/lib/worker-mode';
 import { listClaimableCovers } from '@/lib/cover';
-import { enableShiftPush, getExistingSubscription } from '@/lib/push-subscribe';
+import { enableShiftPush, isShiftPushEnabled } from '@/lib/push-subscribe';
 import { useDemoSession } from '@/lib/demo-session';
 
 // 의료 워커 홈 = 근무표 한 장 + 그 칸의 근무. 그 외는 없다.
@@ -263,7 +263,7 @@ export default function HomePage() {
       // 위치는 '현재 위치'를 누를 때만 가져온다(위치정보 이용약관) — 처음엔 등록한 활동 지역 기준
       void isLocationAllowed().then(setLocationOk);
       if ('PushManager' in window && typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
-        void getExistingSubscription().then((existing) => setPushOff(!existing)).catch(() => undefined);
+        void isShiftPushEnabled().then((enabled) => setPushOff(!enabled)).catch(() => undefined);
       }
       const initialBasis: 'gps' | string = areaLabels[0] ?? 'gps';
       setBasis(initialBasis);

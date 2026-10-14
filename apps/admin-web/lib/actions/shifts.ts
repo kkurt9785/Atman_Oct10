@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { createShift } from '../db/shifts';
 import { adminClient } from '../supabase';
 import { requireAdminContext } from '../admin-auth';
-import { calcEstimatedShiftPay, MIN_HOURLY_WAGE_2026 } from '../pay';
+import { calcEstimatedShiftPay, shiftHourlyWageError } from '../pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '../billing-gates';
 import { todayKST } from '../date';
 import { nudgeNotificationDispatch } from '../notify-nudge';
@@ -24,7 +24,7 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   const shiftDate = String(formData.get('shift_date') ?? '');
   const startTime = String(formData.get('start_time') ?? '');
   const endTime = String(formData.get('end_time') ?? '');
-  const hourlyWage = Number.parseInt(String(formData.get('hourly_wage') ?? ''), 10);
+  const hourlyWage = Number(formData.get('hourly_wage'));
   const requiredRole = String(formData.get('required_role') ?? '') as 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
   const description = String(formData.get('description') ?? '').trim();
   const department = String(formData.get('department') ?? '').trim() || null;
@@ -36,8 +36,9 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   if (requiredRole === 'pharmacy_staff' && PHARMACY_STAFF_LICENSED_TASK.test([description, department, notes].filter(Boolean).join(' '))) {
     return { ok: false, message: '약국 전산·사무직 공고에는 조제·복약지도·의약품 판매 등 약사 면허 업무를 포함할 수 없어요.' };
   }
-  if (!Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026) return { ok: false, message: '시급은 2026년 최저시급 이상이어야 해요.' };
-  const estimatedTotalPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage);
+  const wageError = shiftHourlyWageError(hourlyWage, shiftDate, startTime, endTime);
+  if (wageError) return { ok: false, message: wageError };
+  const estimatedTotalPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage, shiftDate);
   if (estimatedTotalPay == null) return { ok: false, message: '근무 시간을 확인해 주세요.' };
 
   const context = await requireAdminContext(['owner','operator','super']);

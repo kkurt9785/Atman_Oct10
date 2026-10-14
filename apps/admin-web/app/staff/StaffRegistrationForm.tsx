@@ -103,7 +103,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
         <summary className="cursor-pointer text-[0.8125rem] font-extrabold text-sub">급여 기준도 함께 기록하기 · 선택</summary>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" className={inputClass} defaultValue=""><option value="">선택 안 함</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
-          <label className="text-label font-medium text-sub">금액<input name="pay_rate" type="number" min="0" step="100" className={inputClass} placeholder="예: 15000"/></label>
+          <label className="text-label font-medium text-sub">금액<input name="pay_rate" type="number" min="0" step="1" className={inputClass} placeholder="예: 15000"/></label>
         </div>
       </details>
 

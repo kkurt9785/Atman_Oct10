@@ -1,13 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import type { AreaPref } from '@/components/onboarding/ActivityArea';
 import {
   enableShiftPush,
-  unsubscribeFromPush,
-  getExistingSubscription,
+  disableShiftPush,
+  isShiftPushEnabled,
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { PrivacySection } from '@/components/settings/PrivacySection';
@@ -28,11 +28,20 @@ export default function SettingsPage() {
   const [locations, setLocations] = useState<AreaPref[]>([]);
   const [profileFilled, setProfileFilled] = useState(0);
   const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushLoading, setPushLoading] = useState(false);
+  const [pushLoading, setPushLoading] = useState(true);
+  const pushBusy = useRef(true);
   const [pushNotice, setPushNotice] = useState('');
   const [showPwaGuide, setShowPwaGuide] = useState(false);
   const [locationSaved, setLocationSaved] = useState(false);
   const [gigworkerLinked, setGigworkerLinked] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void isShiftPushEnabled().then(enabled => { if (active) setPushEnabled(enabled); })
+      .catch(() => { if (active) setPushNotice('알림 등록 상태를 확인하지 못했어요. 아래 버튼으로 다시 설정해 주세요.'); })
+      .finally(() => { if (active) { pushBusy.current = false; setPushLoading(false); } });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     setLocationSaved(new URLSearchParams(window.location.search).get('locationSaved') === '1');
@@ -68,39 +77,34 @@ export default function SettingsPage() {
         setProfileFilled(filled);
       }
 
-      const existing = await getExistingSubscription();
-      setPushEnabled(!!existing);
     }
     load();
   }, [router]);
 
   async function handlePushToggle() {
+    if (pushBusy.current) return;
+    setPushNotice('');
     if (!('PushManager' in window)) {
       setShowPwaGuide(true);
       return;
     }
 
+    pushBusy.current = true;
     setPushLoading(true);
     try {
       if (pushEnabled) {
-        const currentSubscription = await getExistingSubscription();
-        await unsubscribeFromPush();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('로그인이 만료됐어요.');
-        const deleteQuery = supabase.from('push_subscriptions').delete().eq('worker_id', user.id);
-        const { error: deleteError } = currentSubscription
-          ? await deleteQuery.eq('endpoint', currentSubscription.endpoint)
-          : await deleteQuery;
-        if (deleteError) throw deleteError;
+        await disableShiftPush();
         setPushEnabled(false);
       } else {
         const result = await enableShiftPush();
         if (result === 'enabled') setPushEnabled(true);
+        else if (result === 'unsupported') setShowPwaGuide(true);
         else setPushNotice('브라우저 설정에서 알림 권한을 허용해 주세요.');
       }
     } catch (toggleError) {
       setPushNotice('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
     } finally {
+      pushBusy.current = false;
       setPushLoading(false);
     }
   }
@@ -235,7 +239,7 @@ export default function SettingsPage() {
         <div className="text-left">
           <p className="text-[15px] font-bold text-ink">새 근무 알림</p>
           <p className="text-[13px] text-tertiary mt-0.5">
-            {pushEnabled ? '내 직군·활동 지역의 새 근무를 이 기기로 알려드려요' : '알림을 켜면 내 지역 새 근무를 바로 받아요'}
+            {pushLoading ? '알림 설정을 확인하고 있어요...' : pushEnabled ? '내 직군·활동 지역의 새 근무를 이 기기로 알려드려요' : '알림을 켜면 내 지역 새 근무를 바로 받아요'}
           </p>
           <p className="mt-1 text-[11px] leading-4 text-sub">새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요</p>
         </div>

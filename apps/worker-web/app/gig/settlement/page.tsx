@@ -7,7 +7,7 @@ import { isGigLink } from '@/lib/worker-mode';
 import { BankAccount, type BankAccountValue } from '@/components/onboarding/BankAccount';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
 import { PayoutDetail } from '@/components/gig/PayoutDetail';
-import { effectiveBreakMinutes, hoursText, weeklyHolidayPay, currentWeekRangeKST, WEEKLY_HOLIDAY_MIN_MINUTES, type PayoutStatement } from '@/lib/gig-pay';
+import { summarizeAttendancePeriod, payoutDateKST, hoursText, weeklyHolidayPay, currentWeekRangeKST, type PayoutStatement } from '@/lib/gig-pay';
 
 type FacilityRef = { id: string; name: string };
 type Staff = {
@@ -44,39 +44,58 @@ export default function GigSettlementPage() {
   const [shares, setShares] = useState<Share[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
   const [monthRows, setMonthRows] = useState<AttendanceRow[]>([]);
+  const [attendanceError, setAttendanceError] = useState('');
+  const [attendanceStaffId, setAttendanceStaffId] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [bankOpen, setBankOpen] = useState(false);
   const [bankSaving, setBankSaving] = useState(false);
   const [bankError, setBankError] = useState('');
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState('');
 
-  useEffect(() => { void (async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError('');
+    void (async () => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (!active) return;
+    if (authError) throw new Error('로그인 상태를 확인하지 못했어요. 다시 시도해 주세요.');
     if (!user) { window.location.replace('/'); return; }
-    const [{ data: worker }, { data: staffRows }] = await Promise.all([
+    const [{ data: worker, error: workerError }, { data: staffRows, error: staffError }] = await Promise.all([
       supabase.from('workers').select('id,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
       supabase.from('facility_staff').select('id,name,status,worker_kind,pay_basis,pay_rate,default_break_minutes,default_start_time,default_end_time,work_weekdays,contract_start,contract_end,terms_snapshot,terms_snapshot_at,facilities!facility_id(id,name)').order('created_at', { ascending: false }),
     ]);
+    if (!active) return;
+    if (workerError || staffError) throw new Error('근무지 정보를 불러오지 못했어요. 다시 시도해 주세요.');
     const linked = ((staffRows ?? []) as Staff[]).filter(isGigLink);
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id ?? '');
     setWorkerName(worker?.name ?? user.user_metadata?.profile_nickname ?? '');
     if (!worker?.id || linked.length === 0) { setLoading(false); return; }
     const staffIds = linked.map((item) => item.id);
-    const [{ data: bankRow }, { data: shareRows }, { data: payoutRows }] = await Promise.all([
+    const [{ data: bankRow, error: bankLoadError }, { data: shareRows, error: sharesError }, { data: payoutRows, error: payoutsError }] = await Promise.all([
       supabase.from('worker_bank_accounts').select('id,bank_name,account_number_last4')
         .eq('worker_id', worker.id).eq('is_primary', true).is('deleted_at', null).maybeSingle(),
       supabase.from('gig_bank_account_shares').select('staff_id,bank_account_id,shared_at').in('staff_id', staffIds),
       supabase.from('gig_payouts').select('id,staff_id,period_start,period_end,worked_days,worked_minutes,pay_basis,pay_rate,amount,withholding_amount,net_amount,status,pay_at,paid_at,worker_confirm_status,worker_confirmed_at')
         .in('staff_id', staffIds).neq('status', 'cancelled').order('created_at', { ascending: false }),
     ]);
+    if (!active) return;
+    if (bankLoadError || sharesError || payoutsError) throw new Error('계좌·지급 내역을 불러오지 못했어요. 다시 시도해 주세요.');
+    if ((payoutRows?.length ?? 0) >= 1000) throw new Error('지급 내역이 많아 전체 합계를 확인할 수 없어요. 고객센터에 문의해 주세요.');
     setBank((bankRow as Bank | null) ?? null);
     setShares((shareRows ?? []) as Share[]);
     setPayouts((payoutRows ?? []) as Payout[]);
     setBankOpen(!bankRow);
     setLoading(false);
-  })(); }, []);
+  })().catch((error: unknown) => {
+    if (active) { setLoadError(error instanceof Error ? error.message : '정보를 불러오지 못했어요. 다시 시도해 주세요.'); setLoading(false); }
+  });
+    return () => { active = false; };
+  }, [reloadKey]);
 
   const staff = staffList.find((item) => item.id === selectedStaffId) ?? staffList[0] ?? null;
   const facility = staff ? facilityOf(staff) : null;
@@ -87,35 +106,39 @@ export default function GigSettlementPage() {
   const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const monthStart = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth(), 1)).toISOString().slice(0, 10);
   const monthEnd = new Date(Date.UTC(kstNow.getUTCFullYear(), kstNow.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  const week = currentWeekRangeKST();
+  const attendanceStart = week.start < monthStart ? week.start : monthStart;
+  const attendanceEnd = week.end > monthEnd ? week.end : monthEnd;
   useEffect(() => {
     if (!staff?.id) { setMonthRows([]); return; }
     let active = true;
+    setAttendanceError('');
+    setAttendanceStaffId('');
     void supabase.from('staff_attendances').select('work_date,check_in_at,check_out_at,break_minutes,status')
-      .eq('staff_id', staff.id).gte('work_date', monthStart).lte('work_date', monthEnd)
-      .then(({ data }) => { if (active) setMonthRows((data ?? []) as AttendanceRow[]); });
+      .eq('staff_id', staff.id).gte('work_date', attendanceStart).lte('work_date', attendanceEnd)
+      .then(({ data, error }) => {
+        if (!active) return;
+        setAttendanceStaffId(staff.id);
+        const failed = error || (data?.length ?? 0) >= 1000;
+        setAttendanceError(failed ? '전체 근무 기록을 확인하지 못했어요. 다시 불러오거나 고객센터에 문의해 주세요.' : '');
+        setMonthRows(failed ? [] : (data ?? []) as AttendanceRow[]);
+      });
     return () => { active = false; };
-  }, [staff?.id, monthStart, monthEnd]);
+  }, [staff?.id, attendanceStart, attendanceEnd, reloadKey]);
   const month = useMemo(() => {
-    let minutes = 0; const days = new Set<string>();
-    for (const row of monthRows) {
-      if (row.status !== 'completed' || !row.check_in_at || !row.check_out_at) continue;
-      const raw = Math.max(0, Math.round((Date.parse(row.check_out_at) - Date.parse(row.check_in_at)) / 60000));
-      minutes += Math.max(0, raw - effectiveBreakMinutes(raw, row.break_minutes, staff?.default_break_minutes)); days.add(row.work_date);
-    }
+    const { minutes, days } = summarizeAttendancePeriod(monthRows, monthStart, monthEnd);
     const rate = Number(staff?.pay_rate ?? 0);
-    const expected = staff?.pay_basis === 'hourly' ? Math.round((minutes / 60) * rate) : staff?.pay_basis === 'daily' ? days.size * rate : 0;
-    const received = selectedPayouts.filter((p) => p.status === 'paid' && ((p.paid_at ?? p.pay_at ?? '').slice(0, 10) >= monthStart)).reduce((sum, p) => sum + (p.net_amount ?? p.amount), 0);
-    // 이번 주(월~일) 인정 시간 → 주휴수당 안내 (달이 바뀌는 주는 이번 달 기록만 본다)
-    const week = currentWeekRangeKST();
-    let weekMinutes = 0;
-    for (const row of monthRows) {
-      if (row.status !== 'completed' || !row.check_in_at || !row.check_out_at || row.work_date < week.start || row.work_date > week.end) continue;
-      const raw = Math.max(0, Math.round((Date.parse(row.check_out_at) - Date.parse(row.check_in_at)) / 60000));
-      weekMinutes += Math.max(0, raw - effectiveBreakMinutes(raw, row.break_minutes, staff?.default_break_minutes));
-    }
+    const expected = staff?.pay_basis === 'hourly' ? Math.round((minutes / 60) * rate) : staff?.pay_basis === 'daily' ? days * rate : 0;
+    const received = selectedPayouts.filter((p) => {
+      const date = payoutDateKST(p.paid_at, p.pay_at);
+      return p.status === 'paid' && date >= monthStart && date <= monthEnd;
+    }).reduce((sum, p) => sum + (p.net_amount ?? p.amount), 0);
+    // Include the entire week even at a month boundary; this is a reference,
+    // not a determination of contractual hours or holiday-pay eligibility.
+    const { minutes: weekMinutes } = summarizeAttendancePeriod(monthRows, week.start, week.end);
     const holiday = staff?.pay_basis === 'hourly' ? weeklyHolidayPay(weekMinutes, rate) : 0;
-    return { minutes, days: days.size, expected, received, weekMinutes, holiday };
-  }, [monthRows, staff, selectedPayouts, monthStart]);
+    return { minutes, days, expected, received, weekMinutes, holiday };
+  }, [monthRows, staff, selectedPayouts, monthStart, monthEnd, week.start, week.end]);
   // 입금 확인 — 사장님 지급 화면에 ✓/⚠ 로 표시된다
   async function confirmPayout(payoutId: string, received: boolean): Promise<string> {
     const { error } = await supabase.rpc('confirm_my_gig_payout', { p_payout_id: payoutId, p_received: received });
@@ -169,6 +192,7 @@ export default function GigSettlementPage() {
     </header>
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-[13px] text-sub">근태와 정산을 불러오고 있어요...</div>
+      : loadError ? <section className="mt-3 rounded-2xl bg-white p-5"><p role="alert" className="text-[13px] text-red-600">{loadError}</p><button type="button" onClick={() => setReloadKey(key => key + 1)} className="mt-3 min-h-11 rounded-xl bg-primary px-4 text-[13px] font-bold text-white">다시 불러오기</button></section>
       : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center"><b className="text-ink">연결된 초대 근무가 없어요</b><p className="mt-2 text-[13px] text-sub">사장님이 보낸 초대를 먼저 수락해 주세요.</p><GigInviteAction /></section>
       : <>
         {staffList.length > 1 && <label className="mt-3 block rounded-2xl bg-white p-4 text-[12px] font-bold text-sub shadow-sm">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-line bg-white px-3 text-ink">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
@@ -177,20 +201,23 @@ export default function GigSettlementPage() {
           <p className="text-[11px] font-extrabold text-primary">내 근무 조건</p>
           <div className="mt-2 flex items-end justify-between gap-3">
             <h2 className="text-[20px] font-extrabold text-ink">{staff.pay_basis === 'hourly' ? `시급 ${won(Number(staff.pay_rate ?? 0))}` : staff.pay_basis === 'daily' ? `일급 ${won(Number(staff.pay_rate ?? 0))}` : staff.pay_rate ? `월 ${won(Number(staff.pay_rate))}` : '급여 기준 미정'}</h2>
-            {staff.default_break_minutes ? <span className="text-[12px] font-bold text-sub">휴게 {staff.default_break_minutes}분 차감</span> : null}
+            {staff.default_break_minutes ? <span className="text-[12px] font-bold text-sub">예정 휴게 {staff.default_break_minutes}분</span> : null}
           </div>
           <p className="mt-1 text-[12px] text-sub">{[weekdayText(staff.work_weekdays), staff.default_start_time ? `${hhmm(staff.default_start_time)}–${hhmm(staff.default_end_time)}` : '', staff.contract_start ? `${staff.contract_start}${staff.contract_end ? ` ~ ${staff.contract_end}` : '~'}` : ''].filter(Boolean).join(' · ') || '사장님이 정한 일정이 여기에 보여요'}</p>
           {snap && (termsChanged
             ? <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-700"><b>수락할 때와 조건이 달라요.</b> 수락한 조건: {snap.payBasis === 'hourly' ? `시급 ${won(Number(snap.payRate ?? 0))}` : snap.payBasis === 'daily' ? `일급 ${won(Number(snap.payRate ?? 0))}` : ''}{snap.startTime ? ` · ${hhmm(snap.startTime)}–${hhmm(snap.endTime)}` : ''}{snap.breakMinutes ? ` · 휴게 ${snap.breakMinutes}분` : ''} ({(staff?.terms_snapshot_at ?? '').slice(0, 10)} 수락). 바뀐 이유는 사장님께 확인해 주세요.</p>
             : <p className="mt-2 text-[11px] text-sub">{(staff?.terms_snapshot_at ?? '').slice(0, 10)}에 수락한 조건 그대로예요.</p>)}
+          {attendanceStaffId !== staff.id ? <p role="status" className="mt-4 text-[12px] text-sub">근무 시간을 확인하고 있어요.</p>
+            : attendanceError ? <div className="mt-4"><p role="alert" className="text-[12px] text-red-600">{attendanceError}</p><button type="button" onClick={() => setReloadKey(key => key + 1)} className="mt-2 min-h-11 rounded-xl bg-bg px-3 text-[12px] font-bold">다시 불러오기</button></div> : <>
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-bg p-3 text-center">
             <div><p className="text-[11px] text-sub">이번 달 인정</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{hoursText(month.minutes)}</p><p className="text-[10px] text-sub">{month.days}일</p></div>
             <div><p className="text-[11px] text-sub">예상 세전</p><p className="mt-0.5 text-[13px] font-extrabold text-primary">{won(month.expected)}</p><p className="text-[10px] text-sub">{staff.pay_basis === 'hourly' ? '시간 × 시급' : staff.pay_basis === 'daily' ? '일수 × 일급' : '-'}</p></div>
-            <div><p className="text-[11px] text-sub">받은 금액</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{won(month.received)}</p><p className="text-[10px] text-sub">지급 완료 기준</p></div>
+            <div><p className="text-[11px] text-sub">지급 완료 기록</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{won(month.received)}</p><p className="text-[10px] text-sub">실제 입금은 별도 확인</p></div>
           </div>
           {month.holiday > 0
-            ? <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 {hoursText(month.weekMinutes)} 근무 · 개근이면 <b className="text-ink">주휴수당 약 {won(month.holiday)}</b> 대상이에요. 지급액과 별도라 사장님과 확인해 주세요.</p>
-            : <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 {hoursText(month.weekMinutes)} 근무{month.weekMinutes < WEEKLY_HOLIDAY_MIN_MINUTES ? ' · 주 15시간 이상·개근이면 주휴수당 대상이 돼요' : ''}.</p>}
+            ? <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 기록 {hoursText(month.weekMinutes)} 기준 주휴 참고액 <b className="text-ink">약 {won(month.holiday)}</b>. 실제 대상과 금액은 계약한 시간·개근 여부를 사장님과 확인해 주세요. 지급액에 자동 합산하지 않아요.</p>
+            : <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 기록 {hoursText(month.weekMinutes)}. 주휴수당은 실제 기록만으로 판단하지 않으며, 계약한 시간과 개근 여부 확인이 필요해요.</p>}
+          </>}
         </section>
 
         <section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">

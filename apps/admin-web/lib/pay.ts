@@ -1,4 +1,6 @@
 export const MIN_HOURLY_WAGE_2026 = 10320;
+import { shiftHourlyWageError, wageTodayKST } from './shared/gig-pay/minimum-wage';
+export { hourlyWageError, shiftHourlyWageError, lastWorkDate, minimumHourlyWage, staffPayPeriod, wageTodayKST } from './shared/gig-pay/minimum-wage';
 
 function parseTimeToMinutes(time: string): number | null {
   const match = /^([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d)?$/.exec(time);
@@ -22,9 +24,9 @@ export function calcShiftMinutes(startTime: string, endTime: string): number | n
   return total - calcBreakMinutes(total);
 }
 
-export function calcEstimatedShiftPay(startTime: string, endTime: string, hourlyWage: number): number | null {
+export function calcEstimatedShiftPay(startTime: string, endTime: string, hourlyWage: number, workDate?: string): number | null {
   const minutes = calcShiftMinutes(startTime, endTime);
-  if (minutes == null || !Number.isFinite(hourlyWage) || hourlyWage < MIN_HOURLY_WAGE_2026) {
+  if (minutes == null || shiftHourlyWageError(hourlyWage, workDate ?? wageTodayKST(), startTime, endTime)) {
     return null;
   }
   return Math.round((minutes / 60) * hourlyWage);

@@ -60,7 +60,7 @@ export async function openDemoSession(target: { email: string } | 'gig'): Promis
     if (!gig) window.localStorage.removeItem('atman_auth_next');
   } catch { /* 저장소 없어도 진행 */ }
   rememberWorkerShell(gig ? 'gig' : 'medical');
-  return gig ? `/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}` : '/home';
+  return gig ? (payload.gigResume ? '/gig' : `/gig/join?token=${encodeURIComponent(payload.gigInviteToken)}`) : '/home';
 }
 
 // 시연 계정에서 내리기(이동 없음) — 실제 초대 링크를 열기 전처럼, 다음 화면을 내 계정으로 보게 할 때

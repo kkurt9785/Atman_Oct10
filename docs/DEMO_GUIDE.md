@@ -92,4 +92,10 @@ cd ~/atman/apps/worker-web && npm run dev   # localhost:3003
 3. **확인** — 위 SELECT 가 기대대로인지, `SELECT jobname FROM cron.job` 에 demo 잡이 없는지, 두 앱 시작 화면에 시연 입구가 없는지, 다음날 08:30 크론 로그에 revive 가 skipped 인지.
 4. **(선택·나중) 영구 삭제** — 시연 데이터엔 실명 개인정보가 없어 급하지 않다. 지울 때는 FK 가 CASCADE 가 아닌 테이블부터: `wage_payment_instructions`(facility·worker RESTRICT) → `service_usage_events`·`service_invoices`·`service_addon_credits`·`payment_orders`·`facility_subscriptions`(facility RESTRICT) → `shift_reviews`·`attendance_audit`·`settlements`·`wage_calculations`·`payroll_ledger`·`payslips`(옛 테이블, `public.` 접두어 없이 선언돼 CASCADE 없음) → `shift_attendances` → `shift_applications` → `shifts` → `facilities` → `auth.users`(workers·profiles CASCADE) → `workers`. 스크립트는 그때 작성·검토.
 
-시연 재개는 반대로: 환경변수 복구 → `is_active=true, deleted_at=NULL, banned_until=NULL` + 비밀번호 재설정(revive 가 함) → `supabase/restore_demo_crons.sql` → `/api/cron/revive-demo` 1회.
+### 2026-10-14 검토 이후 자동화 정책
+
+`200000`·`210000` 마이그레이션 적용 이후에는 15분 간격의 `refresh_demo_worker_readiness()`만 자동 준비에 사용한다. 진행 중인 시연을 지우는 일일 재시드·위치 회전 작업은 비활성으로 유지한다. **기존 `supabase/restore_demo_crons.sql`은 예전 삭제형 작업을 다시 켜므로 실행하지 않는다.**
+
+시연 재개는 환경변수와 데모 대상 복구를 확인한 뒤 진행한다. 전체 초기화가 꼭 필요한 경우에만 인증된 `POST /api/cron/revive-demo`에 `{"confirmReset":"RESET_DEMO_DATA"}`를 전달한다. `GET`은 405이며, 이 POST는 시연 기록을 재설정하는 수동 작업이다. 일반적인 시연 준비에는 사용하지 않는다.
+
+철수 검증에는 기존 로그인 세션, 미발송 알림·푸시 구독, 마스터 초대코드, 수동 초기화 함수의 실행 권한까지 포함해야 한다. 위 철수 절차만으로 이 검증이 완료된 것은 아니다. 변경된 정책의 적용 상태와 잔여 검증은 `docs/review/2026-10-14_MD_잔여검증.md`를 따른다.

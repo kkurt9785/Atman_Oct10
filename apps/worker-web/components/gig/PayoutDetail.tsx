@@ -1,11 +1,12 @@
 'use client';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { hoursText, periodText, sharePayoutStatement, won, type PayoutStatement } from '@/lib/gig-pay';
 
 // 지급 한 건 — 누르면 '왜 이 금액인지'(시간 × 시급 − 공제)를 펼치고 명세를 공유한다
 export type PayoutConfirm = { status: 'received' | 'missing' | null; onConfirm: (received: boolean) => Promise<string> };
 
 export function PayoutDetail({ statement, right, confirm }: { statement: PayoutStatement; right?: React.ReactNode; confirm?: PayoutConfirm }) {
+  const detailId = useId();
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState('');
   const [confirming, setConfirming] = useState(false);
@@ -25,13 +26,13 @@ export function PayoutDetail({ statement, right, confirm }: { statement: PayoutS
   }
   return <div className="py-3">
     <div className="flex items-center justify-between gap-3">
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="min-w-0 flex-1 text-left active:opacity-70">
-        <p className="text-[15px] font-extrabold text-ink">{won(s.netAmount)} <span className="text-[11px] font-bold text-sub">{open ? '접기' : '명세 보기'} ›</span></p>
-        <p className="mt-0.5 text-[11px] text-sub">{periodText(s.periodStart, s.periodEnd)} · {s.workedDays}일 · {hoursText(s.workedMinutes)}</p>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-controls={detailId} className="min-h-[44px] min-w-0 flex-1 text-left active:opacity-70">
+        <p className="text-[1.125rem] font-extrabold text-ink">{won(s.netAmount)} <span className="text-[0.75rem] font-bold text-sub">{open ? '명세 접기' : '명세 보기'} <span aria-hidden="true">{open ? '⌃' : '⌄'}</span></span></p>
+        <p className="mt-0.5 text-[0.75rem] text-sub">{periodText(s.periodStart, s.periodEnd)} · {s.workedDays}일 · {hoursText(s.workedMinutes)}</p>
       </button>
-      {right}
+      {right && <div className="shrink-0">{right}</div>}
     </div>
-    {open && <div className="mt-3 rounded-xl bg-bg p-3 text-[12px] leading-5 text-ink">
+    {open && <div id={detailId} className="mt-3 rounded-xl bg-bg p-3 text-[0.8125rem] leading-5 text-ink">
       <dl className="divide-y divide-line">
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">계산</dt><dd className="text-right font-bold">{s.payBasis === 'hourly' ? `시급 ${won(s.payRate)} × ${hoursText(s.workedMinutes)}` : s.payBasis === 'daily' ? `일급 ${won(s.payRate)} × ${s.workedDays}일` : `월 정액 ${won(s.payRate)}`}</dd></div>
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">세전</dt><dd className="font-bold">{won(s.amount)}</dd></div>
@@ -41,16 +42,16 @@ export function PayoutDetail({ statement, right, confirm }: { statement: PayoutS
       </dl>
       {confirm && s.status === 'paid' && (confirm.status === null
         ? <div className="mt-3">
-            <p className="text-[11px] font-bold text-sub">통장에 들어왔나요? 사장님 화면에 표시돼요.</p>
+            <p className="text-[0.75rem] font-bold text-sub">통장에 들어왔나요? 사장님 화면에 표시돼요.</p>
             <div className="mt-1.5 grid grid-cols-2 gap-2">
               <button type="button" disabled={confirming} onClick={() => void answer(true)} className="h-11 rounded-xl bg-primary text-[13px] font-extrabold text-white disabled:opacity-60">입금 확인했어요</button>
               <button type="button" disabled={confirming} onClick={() => void answer(false)} className="h-11 rounded-xl border border-line bg-white text-[13px] font-extrabold text-ink disabled:opacity-60">아직 안 들어왔어요</button>
             </div>
-            {confirmError && <p role="alert" className="mt-1.5 text-[11px] font-bold text-red-600">{confirmError}</p>}
+            {confirmError && <p role="alert" className="mt-1.5 text-[0.75rem] font-bold text-red-600">{confirmError}</p>}
           </div>
         : <p className={`mt-3 rounded-xl px-3 py-2 text-[12px] font-bold ${confirm.status === 'received' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>{confirm.status === 'received' ? '입금 확인했어요 ✓' : '아직 못 받았다고 사장님께 표시했어요. 대화 탭에서 한 번 더 말씀드려도 좋아요.'}</p>)}
       <button type="button" onClick={() => void share()} className="mt-3 h-11 w-full rounded-xl border border-primary/30 bg-white text-[13px] font-extrabold text-primary active:opacity-80">명세 공유 · 복사</button>
-      {notice && <p role="status" className="mt-2 text-center text-[11px] font-bold text-sub">{notice}</p>}
+      {notice && <p role="status" className="mt-2 text-center text-[0.75rem] font-bold text-sub">{notice}</p>}
     </div>}
   </div>;
 }

@@ -21,6 +21,7 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    try {
     const [{ data, error: rpcError }, context] = await Promise.all([
       supabase.rpc('get_my_notifications', { p_limit: 50 }),
       loadWorkerShellContext().catch(() => null),
@@ -32,15 +33,20 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
       // 셸 판단 재료를 못 구하면(로그인 만료 등) 거르지 않고 다 보여 준다 — 알림을 숨기는 쪽이 더 위험하다
       setRows(context ? all.filter((row) => noticeBelongsTo(classifyNotice(row, context), shell)) : all);
     }
-    setLoading(false);
+    } catch { setError('알림을 불러오지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.'); }
+    finally { setLoading(false); }
   }, [shell]);
 
   useEffect(() => { void load(); }, [load]);
 
   async function openNotice(row: Notice) {
+    setError('');
     if (!row.read_at) {
-      await supabase.rpc('mark_my_notification_read', { p_notification_id: row.id });
-      setRows((current) => current.map((item) => (item.id === row.id ? { ...item, read_at: new Date().toISOString() } : item)));
+      try {
+        const { data, error: readError } = await supabase.rpc('mark_my_notification_read', { p_notification_id: row.id });
+        if(readError || data !== true) setError('읽음 표시를 저장하지 못했어요. 알림 내용은 계속 확인할 수 있어요.');
+        else setRows((current) => current.map((item) => (item.id === row.id ? { ...item, read_at: new Date().toISOString() } : item)));
+      } catch { setError('읽음 표시를 저장하지 못했어요. 연결 상태를 확인해 주세요.'); }
     }
     const href = noticeHref(row.data?.url, shell);
     if (href) window.location.href = href;
@@ -56,10 +62,11 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
         </div>
         <button onClick={() => void load()} className="-mr-2 min-h-11 px-2 text-[12px] font-bold text-primary">새로고침</button>
       </div>
+      {loading && <p role="status" className="mb-3 text-[13px] text-sub">알림을 확인하고 있어요...</p>}
       {error && (
-        <div className="mb-3 rounded-2xl border border-danger/20 bg-white p-4">
+        <div role="alert" className="mb-3 rounded-2xl border border-danger/20 bg-white p-4">
           <p className="text-[14px] font-bold text-ink">{error}</p>
-          <button onClick={() => void load()} className="mt-2 text-[12px] font-bold text-primary">다시 시도</button>
+          <button onClick={() => void load()} className="mt-2 min-h-11 px-2 text-[13px] font-bold text-primary">다시 시도</button>
         </div>
       )}
       {!loading && !error && rows.length === 0 && (
@@ -74,9 +81,9 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
             <div className="flex items-start gap-3">
               <span className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${row.read_at ? 'bg-line' : 'bg-primary'}`} />
               <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-[15px] font-extrabold text-ink">{row.title}</p>
-                  <time className="shrink-0 text-[11px] text-tertiary">{formatDate(row.created_at)}</time>
+                <div className="flex flex-col items-start gap-1">
+                  <p className="break-words text-[15px] font-extrabold text-ink">{row.title}</p>
+                  <time dateTime={row.created_at} className="text-[11px] text-tertiary">{formatDate(row.created_at)}</time>
                 </div>
                 <p className="mt-1 text-[13px] leading-relaxed text-sub">{row.body}</p>
               </div>

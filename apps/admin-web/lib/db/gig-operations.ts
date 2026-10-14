@@ -1,6 +1,7 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST } from '../date';
+import { isAttendanceCovered, type PayoutCoverage } from '../shared/gig-pay/calculation';
 
 export type GigOperationStatus = 'invite'|'scheduled'|'late'|'working'|'review'|'completed'|'bank'|'pay'|'paid'|'off';
 
@@ -78,7 +79,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
       .eq('facility_id', facilityId).in('staff_id', staffIds).gte('work_date', addDays(today, -31)).lte('work_date', today),
     sb.from('facility_staff_invites').select('staff_id').eq('facility_id', facilityId).eq('status', 'pending').gt('expires_at', new Date().toISOString()).in('staff_id', staffIds),
     sb.from('gig_bank_account_shares').select('staff_id').eq('facility_id', facilityId).in('staff_id', staffIds),
-    sb.from('gig_payouts').select('staff_id,period_end,status').eq('facility_id', facilityId).neq('status', 'cancelled').in('staff_id', staffIds).order('period_end', { ascending: false }),
+    sb.from('gig_payouts').select('staff_id,period_start,period_end,covered_until,attendance_ids,status').eq('facility_id', facilityId).neq('status', 'cancelled').in('staff_id', staffIds).order('period_end', { ascending: false }).limit(1000),
     sb.from('facility_workroom_messages').select('staff_id,created_at,sender_user_id').eq('facility_id', facilityId).in('staff_id', staffIds).order('created_at', { ascending: false }).limit(500),
     adminUserId ? sb.from('facility_workroom_thread_reads').select('staff_id,last_read_at').eq('facility_id', facilityId).eq('user_id', adminUserId) : Promise.resolve({ data: [] }),
     // '미출근 확인'은 시설의 지각 유예를 지난 뒤에만 띄운다 — 정각에 바로 빨간 표시가 뜨면 사장님이 매번 헛걸음한다
@@ -94,27 +95,19 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   const todayAttendance = new Map(attendances.filter((row) => row.work_date === today).map((row) => [row.staff_id, row]));
   const inviteSet = new Set((inviteResult.data ?? []).map((row) => row.staff_id as string));
   const bankSet = new Set((bankResult.data ?? []).map((row) => row.staff_id as string));
-  const payouts = (payoutResult.data ?? []) as Array<{staff_id:string;period_end:string;status:string}>;
-  const lastPaidEnd = new Map<string,string>();
+  const payouts = (payoutResult.data ?? []) as Array<PayoutCoverage & { staff_id: string }>;
+  if (payouts.length >= 1000) throw new Error('전체 지급 내역을 확인할 수 없어요. 운영자에게 문의해 주세요.');
   const scheduledPayout = new Set<string>();
   for (const row of payouts) {
-    if (!lastPaidEnd.has(row.staff_id)) lastPaidEnd.set(row.staff_id,row.period_end);
     if (row.status === 'scheduled') scheduledPayout.add(row.staff_id);
   }
-  // 미정산 일수는 지급 페이지(lib/db/gig-payouts.ts)와 같은 기준으로 센다: 마지막 지급 다음날, 없으면 계약 시작일부터.
-  // 위 attendances 는 오늘 상태용 31일 창이라 그대로 쓰면 한 달 넘게 안 준 근무가 빠진다.
-  const unpaidSince = new Map<string,string>();
-  for (const staff of staffRows ?? []) {
-    const last = lastPaidEnd.get(staff.id as string);
-    unpaidSince.set(staff.id as string, last ? addDays(last, 1) : ((staff.contract_start as string | null) ?? '2020-01-01'));
-  }
-  const earliestSince = [...unpaidSince.values()].sort()[0] ?? today;
-  const { data: completedRows, error: completedError } = await sb.from('staff_attendances').select('staff_id,work_date')
-    .eq('facility_id', facilityId).in('staff_id', staffIds).eq('status', 'completed').gte('work_date', earliestSince).lte('work_date', today);
-  if (completedError) throw new Error('긱워커 미정산 근무를 불러오지 못했어요.');
+  // 지급 화면과 같은 근태 ID 기준. 같은 날 추가 근무와 취소된 과거 지급도 포함한다.
+  const { data: completedRows, error: completedError } = await sb.from('staff_attendances').select('id,staff_id,work_date,check_out_at')
+    .eq('facility_id', facilityId).in('staff_id', staffIds).eq('status', 'completed').not('check_in_at', 'is', null).not('check_out_at', 'is', null).gte('work_date', '2020-01-01').lte('work_date', today).limit(1000);
+  if (completedError || (completedRows?.length ?? 0) >= 1000) throw new Error('긱워커 미정산 근무를 모두 불러오지 못했어요.');
   const unpaidDays = new Map<string,Set<string>>();
-  for (const row of (completedRows ?? []) as Array<{ staff_id: string; work_date: string }>) {
-    if (row.work_date < (unpaidSince.get(row.staff_id) ?? '2020-01-01')) continue;
+  for (const row of (completedRows ?? []) as Array<{ id: string; staff_id: string; work_date: string; check_out_at: string | null }>) {
+    if (isAttendanceCovered(row, payouts.filter((p) => p.staff_id === row.staff_id))) continue;
     (unpaidDays.get(row.staff_id) ?? unpaidDays.set(row.staff_id,new Set()).get(row.staff_id)!).add(row.work_date);
   }
   const readAt = new Map(((readResult.data ?? []) as Array<{staff_id:string;last_read_at:string}>).map((row) => [row.staff_id,row.last_read_at]));

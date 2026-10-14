@@ -30,7 +30,7 @@ export function DemoBar({ kind, aboveNav }: { kind: DemoKind; aboveNav: boolean 
   return (
     <>
       <div ref={barRef} role="region" aria-label="시연 안내"
-        className={`fixed inset-x-3 z-40 mx-auto flex max-w-app items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5 ${aboveNav ? 'bottom-[calc(64px+env(safe-area-inset-bottom))]' : 'bottom-[calc(12px+env(safe-area-inset-bottom))]'}`}>
+        className={`fixed inset-x-3 z-40 mx-auto flex max-w-app items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5 ${aboveNav ? 'bottom-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))]' : 'bottom-[calc(12px+env(safe-area-inset-bottom))]'}`}>
         <span className="min-w-0 flex-1 leading-4">
           <span className="block text-[11px] font-bold text-white/60 [@media(max-height:700px)]:hidden">지금은 시연 화면이에요</span>
           <button type="button" onClick={() => void leaveDemoToStart()} className="-my-1 inline-flex min-h-[32px] items-center text-[13px] font-extrabold text-white underline decoration-white/40 underline-offset-2 active:opacity-70">처음 화면으로</button>

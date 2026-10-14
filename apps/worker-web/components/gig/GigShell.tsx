@@ -27,7 +27,7 @@ export function GigShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       {!bare && <WorkerShellGuard shell="gig" />}
-      <div className={showShell ? 'pb-[calc(56px+env(safe-area-inset-bottom))]' : ''}>{children}</div>
+      <div className={showShell ? 'pb-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))]' : ''}>{children}</div>
       {showShell && demo === false && <InstallBanner hint="잇닿 워커를 홈 화면에 두고 바로 출퇴근하세요" />}
       {showShell && <GigNav />}
     </>

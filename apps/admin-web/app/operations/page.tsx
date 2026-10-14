@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { minimumHourlyWage } from '@/lib/pay';
 import { Card } from '@/components/ui';
 import { won } from '@/lib/format';
 import { todayKST } from '@/lib/date';
@@ -172,11 +173,11 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
 
       {hasOperations && (<>
       <Fold id="staffing-recommendations" eyebrow="근무표·휴가·근태 자동 분석 · 앞으로 7일" title="인력 공백 알림" open={opened === 'staffing-recommendations'}
-        badge={requirements.length === 0 ? '기준 필요' : recommendations.length > 0 ? `${recommendations.length}건` : '없음'} warn={requirements.length === 0 || recommendations.length > 0}>
+        badge={requirements.length === 0 ? '기준 필요' : recommendations.length > 0 ? `${recommendations.length}건` : '추가 공고 없음'} warn={requirements.length === 0 || recommendations.length > 0}>
         {requirements.length === 0 ? (
           <Card className="border border-primary/20 bg-primary/5"><p className="text-body font-extrabold text-ink">먼저 병동별 필요 인원을 정해 주세요</p><p className="text-label text-sub mt-1">기준을 한 번 저장하면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.</p><a href="#staffing-settings" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">필요 인원 설정</a></Card>
         ) : recommendations.length === 0 ? (
-          <Card className="border border-success/20 bg-success/5"><p className="text-body font-extrabold text-ink">현재 확인된 인력 공백이 없어요</p><p className="text-label text-sub mt-1">고정 근무자와 확정 단기 인력이 기준 인원을 충족하고 있어요.</p></Card>
+          <Card><p className="text-body font-extrabold text-ink">추가로 올릴 공고가 없어요</p><p className="text-label text-sub mt-1">고정 직원·확정 인력·모집 중 공고를 합쳐 필요 인원을 반영했어요. 모집 중 공고는 아직 충원된 인원이 아니니 지원 현황을 확인해 주세요.</p></Card>
         ) : (
           <div className="space-y-3">
             {recommendations.slice(0, 5).map((item) => {
@@ -211,7 +212,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
             <div className="grid grid-cols-2 gap-2"><input name="department" placeholder={isPharmacy ? '조제실 (비우면 약국 전체)' : '3병동'} className="h-12 rounded-xl bg-bg px-3"/><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className="grid grid-cols-3 gap-2"><input type="time" name="start_time" defaultValue="09:00" required aria-label="시작 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="time" name="end_time" defaultValue="18:00" required aria-label="종료 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="number" name="required_headcount" min="1" max="100" defaultValue="2" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/></div>
             <div className="flex justify-between gap-1">{Object.entries(DAY_LABEL).map(([day,label]) => <label key={day} className="flex-1"><input type="checkbox" name="weekdays" value={day} defaultChecked={Number(day) <= 5} className="sr-only peer"/><span className="h-10 rounded-xl bg-bg text-sub peer-checked:bg-primary peer-checked:text-white flex items-center justify-center text-label font-bold">{label}</span></label>)}</div>
-            <div><p className="text-[0.75rem] font-bold text-ink mb-2">부족할 때 생성할 대체 공고 조건</p><input type="number" name="replacement_hourly_wage" min="10320" step="100" defaultValue={isPharmacy ? 35000 : 15000} required aria-label="대체 근무 시급" className="w-full h-12 rounded-xl bg-bg px-4"/></div>
+            <div><p className="text-[0.75rem] font-bold text-ink mb-2">부족할 때 생성할 대체 공고 조건</p><input type="number" name="replacement_hourly_wage" min={minimumHourlyWage() ?? 1} step="1" defaultValue={isPharmacy ? 35000 : 15000} required aria-label="대체 근무 시급" className="w-full h-12 rounded-xl bg-bg px-4"/></div>
             <textarea name="replacement_description" required rows={3} placeholder={isPharmacy ? '조제 보조 및 고객 응대 업무' : '해당 병동의 단기 대체 근무'} className="w-full rounded-xl bg-bg px-4 py-3 resize-none"/>
             <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">필요 인원 기준 저장</button>
           </form>
@@ -275,7 +276,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         <summary className="cursor-pointer text-body font-extrabold text-ink">+ 새 반복 일정 만들기</summary>
         <form action={createShiftTemplateAction} className="space-y-4 mt-5">
           <input name="name" required maxLength={80} placeholder={isPharmacy?'예: 토요일 대체약사':'예: 3병동 월·수·금 야간'} className="w-full h-12 rounded-xl bg-bg px-4 text-body"/>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><input type="number" name="required_headcount" min="1" max="20" defaultValue="1" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/><input type="number" name="hourly_wage" min="10320" step="100" defaultValue={isPharmacy?35000:15000} required aria-label="시급" className="h-12 rounded-xl bg-bg px-3"/></div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><input type="number" name="required_headcount" min="1" max="20" defaultValue="1" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/><input type="number" name="hourly_wage" min={minimumHourlyWage() ?? 1} step="1" defaultValue={isPharmacy?35000:15000} required aria-label="시급" className="h-12 rounded-xl bg-bg px-3"/></div>
           <div className="grid grid-cols-2 gap-2"><input type="time" name="start_time" defaultValue={isPharmacy?'09:00':'22:00'} required className="h-12 rounded-xl bg-bg px-3"/><input type="time" name="end_time" defaultValue={isPharmacy?'13:00':'06:00'} required className="h-12 rounded-xl bg-bg px-3"/></div>
           <div className="flex justify-between gap-1">{Object.entries(DAY_LABEL).map(([day,label]) => <label key={day} className="flex-1"><input type="checkbox" name="weekdays" value={day} className="sr-only peer"/><span className="h-10 rounded-xl bg-bg text-sub peer-checked:bg-primary peer-checked:text-white flex items-center justify-center text-label font-bold">{label}</span></label>)}</div>
           <input name="department" placeholder="부서 (선택)" className="w-full h-12 rounded-xl bg-bg px-4"/>

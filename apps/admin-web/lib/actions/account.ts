@@ -14,8 +14,9 @@ export async function closeFacilityAction(input: { reason?: string }): Promise<R
     await assertNotDemoFacility(context.facilityId);
     const sb = userClient(context.accessToken);
     if (!sb) return { ok: false, error: '서버 설정을 확인해 주세요.' };
-    const { error } = await sb.rpc('close_my_facility', { p_facility_id: context.facilityId, p_reason: input.reason?.trim() || null });
+    const { data, error } = await sb.rpc('close_my_facility', { p_facility_id: context.facilityId, p_reason: input.reason?.trim() || null });
     if (error) return { ok: false, error: clean(error.message) };
+    if (data?.ok !== true) return { ok: false, error: '종료 결과를 확인하지 못했어요. 새로고침 후 사업장 상태를 확인해 주세요.' };
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : '사업장을 닫지 못했어요.' };
@@ -28,14 +29,20 @@ export async function withdrawAdminAccountAction(): Promise<Result> {
     const session = await requireAdminSession();
     const sb = userClient(session.accessToken);
     if (!sb) return { ok: false, error: '서버 설정을 확인해 주세요.' };
+    // Check configuration before removing memberships. Keep the session on failure
+    // so an interrupted auth deletion can be retried with the same user identity.
+    const admin = adminClient();
+    if (!admin) return { ok: false, error: '지금은 탈퇴를 처리할 수 없어요. 잠시 후 다시 시도해 주세요.' };
     const { data, error } = await sb.rpc('withdraw_my_admin_account');
     if (error) return { ok: false, error: clean(error.message) };
-    const keepAuth = Boolean((data as { keepAuth?: boolean } | null)?.keepAuth);
+    if (data?.ok !== true || typeof data?.keepAuth !== 'boolean') {
+      return { ok: false, error: '탈퇴 결과를 확인하지 못했어요. 다시 시도해 주세요.' };
+    }
+    const keepAuth = data.keepAuth;
     if (!keepAuth) {
-      const admin = adminClient();
-      if (admin) {
-        const { error: deleteError } = await admin.auth.admin.deleteUser(session.user.id);
-        if (deleteError) console.error('[account] auth user delete failed', deleteError.message);
+      const { error: deleteError } = await admin.auth.admin.deleteUser(session.user.id);
+      if (deleteError) {
+        return { ok: false, error: '관리자 연결은 정리됐지만 계정 삭제가 완료되지 않았어요. 다시 탈퇴를 눌러 마무리해 주세요.' };
       }
     }
     await clearAdminCookies();

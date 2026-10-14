@@ -165,15 +165,13 @@ export const getFacilityAccessInfo=cache(async (
   const sb = adminClient();
   if (!sb) return null;
 
-  const [{ data: owned }, { data: delegated }] = await Promise.all([
-    sb
-      .from('facilities')
-      .select('id')
-      .eq('id', facilityId)
-      .eq('admin_user_id', userId)
-      .eq('is_active', true)
-      .is('deleted_at', null)
-      .maybeSingle(),
+  const session = await getAdminSession();
+  if (!session || session.user.id !== userId) return null;
+  const scoped = userClient(session.accessToken);
+  if (!scoped) return null;
+  const [{ data: role, error: roleError }, { data: delegated, error: accessError }] = await Promise.all([
+    // Same active-facility and demo boundary rules as direct DB access.
+    scoped.rpc('facility_access_role', { p_facility_id: facilityId }),
     sb
       .from('facility_admin_access')
       .select('access_role, can_view_payroll')
@@ -183,8 +181,8 @@ export const getFacilityAccessInfo=cache(async (
   ]);
 
   // 소유자(원장)는 항상 급여 열람 가능. 위임 관리자는 토글 값을 따른다.
-  if (owned) return { role: 'owner', canViewPayroll: true };
-  const role = delegated?.access_role;
+  if (roleError || accessError) return null;
+  if (role === 'owner') return { role: 'owner', canViewPayroll: true };
   if (role !== 'operator' && role !== 'sales' && role !== 'super') return null;
   return { role, canViewPayroll: delegated?.can_view_payroll === true };
 });

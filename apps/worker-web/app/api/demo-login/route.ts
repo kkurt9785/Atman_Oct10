@@ -49,16 +49,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: '데모 로그인에 실패했어요.' }, { status: 401 });
   }
   let gigInviteToken: string | null = null;
+  let gigResume = false;
   if (isGigworkerDemo) {
     const { data: inviteToken, error: inviteError } = await client.rpc('reset_gigworker_invite_demo');
     if (inviteError || typeof inviteToken !== 'string') {
       return NextResponse.json({ error: '긱워커 데모 초대를 준비하지 못했어요.' }, { status: 503 });
     }
     gigInviteToken = inviteToken;
+    const { data: linked, error: linkedError } = await client.from('facility_staff').select('id')
+      .eq('id', '20260922-0000-4000-8000-000000000004').not('worker_id', 'is', null).maybeSingle();
+    if (linkedError) return NextResponse.json({ error: '진행 중인 시연을 확인하지 못했어요.' }, { status: 503 });
+    gigResume = Boolean(linked);
   }
+  const { error: readinessError } = await client.rpc('prepare_my_demo_worker');
+  if (readinessError) return NextResponse.json({ error: '시연 근무 시간을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.' }, { status: 503 });
   return NextResponse.json({
     accessToken: data.session.access_token,
     refreshToken: data.session.refresh_token,
     gigInviteToken,
+    gigResume,
   }, { headers: { 'Cache-Control': 'no-store' } });
 }

@@ -37,7 +37,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {guardMedical && <WorkerShellGuard shell="medical" />}
-      <div className={showNav ? 'pb-[calc(56px+env(safe-area-inset-bottom))]' : ''}>
+      <div className={showNav ? 'pb-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))]' : ''}>
         {children}
         {showDemoBar && <div aria-hidden="true" className="h-20" />}
       </div>

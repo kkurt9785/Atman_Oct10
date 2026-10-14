@@ -22,14 +22,16 @@ export async function GET(request:Request) {
     .select('id,status,due_date,gross_amount,net_amount,deduction_status,bank_name_snapshot,account_last4_snapshot,paid_at,workers(name),shifts!inner(shift_date,start_time,end_time)')
     .eq('facility_id', context.facilityId).gte('shifts.shift_date',`${month}-01`).lte('shifts.shift_date',endDate)
     .order('created_at', { ascending: false }).limit(1000);
-  if (error) return new Response('지급 자료를 불러오지 못했어요.', { status: 500 });
+  if (error || (data?.length ?? 0) >= 1000) return new Response('지급 자료 전체를 확인하지 못해 내보내기를 중단했어요.', { status: 500 });
   const header = ['구분','지급요청ID','급여기간·근무일','근무시간','대상자','세전예상액','지급예정액','공제확인','지급상태','지급예정일','은행','계좌끝4자리','지급완료일'];
   const rows = ((data ?? []) as any[]).map((row) => [
     '공고 지원 인력', row.id, row.shifts?.shift_date, `${row.shifts?.start_time?.slice(0,5) ?? ''}~${row.shifts?.end_time?.slice(0,5) ?? ''}`,
     row.workers?.name ?? '근무자', row.gross_amount, row.net_amount, row.deduction_status, row.status,
     row.due_date, row.bank_name_snapshot, row.account_last4_snapshot, row.paid_at,
   ]);
-  const staffRows=await getStaffWagePayments(month);
+  let staffRows: Awaited<ReturnType<typeof getStaffWagePayments>>;
+  try { staffRows=await getStaffWagePayments(month); }
+  catch { return new Response('직원 급여 자료 전체를 확인하지 못해 내보내기를 중단했어요.', { status: 500 }); }
   const managedRows=staffRows.map(row=>[
     '사업장 등록 직원',`${row.staffId}:${row.periodMonth}`,row.periodMonth.slice(0,7),
     `${Math.floor(row.workedMinutes/60)}시간 ${row.workedMinutes%60}분`,row.workerName,

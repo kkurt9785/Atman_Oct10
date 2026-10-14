@@ -70,7 +70,7 @@ export function InstallBanner({ hint = '홈 화면에서 바로 새 근무를 �
 
   return (
     <>
-      <div className="fixed bottom-[calc(64px+env(safe-area-inset-bottom))] inset-x-3 z-40 max-w-app mx-auto bg-ink text-white rounded-2xl px-3 py-3 shadow-lg flex items-center gap-2 min-[360px]:gap-3 min-[360px]:px-4">
+      <div className="fixed bottom-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))] inset-x-3 z-40 max-w-app mx-auto bg-ink text-white rounded-2xl px-3 py-3 shadow-lg flex items-center gap-2 min-[360px]:gap-3 min-[360px]:px-4">
         <img src="/icon-192.png" alt="" className="hidden h-9 w-9 flex-shrink-0 rounded-xl min-[320px]:block" />
         <button type="button" onClick={mode === 'ios' ? () => setShowIosGuide(true) : install} className="min-w-0 flex-1 text-left">
           <p className="text-[12px] font-bold min-[360px]:text-[13px]">앱처럼 설치하고 알림 받기</p>

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useTransition } from 'react';
+import { useRef, useState } from 'react';
 import { closeFacilityAction, withdrawAdminAccountAction } from '@/lib/actions/account';
 import { supabase } from '@/lib/supabase-browser';
 
@@ -12,29 +12,44 @@ export function AccountClosureSection({ facilityName, facilityWord, canClose, ow
   const [typed, setTyped] = useState('');
   const [reason, setReason] = useState(REASONS[0]);
   const [agree, setAgree] = useState(false);
-  const [pending, start] = useTransition();
+  const [pending, setPending] = useState(false);
+  const inFlight = useRef(false);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
-  function close() {
+  async function close() {
+    if (inFlight.current || isDemo || !canClose || typed.trim() !== facilityName.trim()) return;
+    inFlight.current = true;
+    setPending(true);
     setMessage(null);
-    start(async () => {
+    try {
       const result = await closeFacilityAction({ reason });
-      if (!result.ok) { setMessage({ kind: 'error', text: result.error ?? '닫지 못했어요.' }); return; }
+      if (!result.ok) throw new Error(result.error ?? '닫지 못했어요.');
       setMessage({ kind: 'ok', text: `${facilityWord}을(를) 닫았어요. 처음 화면으로 이동해요.` });
       setTimeout(() => window.location.replace('/'), 1200);
-    });
+    } catch (error) {
+      setMessage({ kind: 'error', text: error instanceof Error ? error.message : '처리하지 못했어요. 다시 시도해 주세요.' });
+      inFlight.current = false;
+      setPending(false);
+    }
   }
-  function withdraw() {
+  async function withdraw() {
+    if (inFlight.current || isDemo || ownsActive || !agree) return;
+    inFlight.current = true;
+    setPending(true);
     setMessage(null);
-    start(async () => {
+    try {
       const result = await withdrawAdminAccountAction();
-      if (!result.ok) { setMessage({ kind: 'error', text: result.error ?? '탈퇴하지 못했어요.' }); return; }
-      await supabase.auth.signOut().catch(() => undefined);
+      if (!result.ok) throw new Error(result.error ?? '탈퇴하지 못했어요.');
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
       window.location.replace('/login?withdrawn=1');
-    });
+    } catch (error) {
+      setMessage({ kind: 'error', text: error instanceof Error ? error.message : '처리하지 못했어요. 다시 시도해 주세요.' });
+      inFlight.current = false;
+      setPending(false);
+    }
   }
 
-  return <div className="space-y-4 px-4 pt-4 pb-10">
+  return <div aria-busy={pending} className="space-y-4 px-4 pt-4 pb-10">
     <section className="rounded-2xl bg-white p-5 shadow-card">
       <p className="text-label font-bold text-primary">{facilityWord} 닫기</p>
       <h2 className="mt-1 text-title font-extrabold text-ink">{facilityName}</h2>
@@ -63,7 +78,7 @@ export function AccountClosureSection({ facilityName, facilityWord, canClose, ow
     <section className="rounded-2xl bg-white p-5 shadow-card">
       <p className="text-label font-bold text-primary">내 관리자 계정</p>
       <h2 className="mt-1 text-title font-extrabold text-ink">계정 탈퇴</h2>
-      <p className="mt-2 text-label leading-5 text-sub">관리자 권한이 모두 사라지고 로그인할 수 없게 돼요. 운영 중인 사업장이 있으면 먼저 닫거나 다른 관리자에게 넘긴 뒤 탈퇴할 수 있어요.</p>
+      <p className="mt-2 text-label leading-5 text-sub">관리자 권한이 모두 사라져요. 소유한 사업장은 먼저 닫아 주세요. 같은 계정의 근무자 서비스는 유지되며, 근무자 탈퇴는 근무자 앱에서 따로 진행해요.</p>
       {isDemo ? <p className="mt-4 rounded-xl bg-bg px-3 py-2 text-label text-sub">시연 계정은 탈퇴할 수 없어요.</p>
         : ownsActive ? <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-label font-bold text-amber-700">운영 중인 {facilityWord}이(가) 있어요. 위에서 먼저 닫아 주세요.</p>
         : <>

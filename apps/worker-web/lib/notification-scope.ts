@@ -1,4 +1,5 @@
 import type { WorkerShell, WorkerShellContext } from '@/lib/worker-mode';
+import { safeNotificationPath } from './shared/notifications/navigation';
 
 // 알림함은 계정 단위(get_my_notifications)라 긱 근무지 알림과 병원·약국 알림이 한 줄로 섞여 온다.
 // 어느 셸의 알림인지는 payload 의 근무지 단서(staff_id / facilityId)로 가른다.
@@ -28,6 +29,8 @@ function stringField(data: Record<string, unknown>, ...keys: string[]) {
 export function classifyNotice(notice: Notice, context: ScopeContext): NoticeScope {
   const data = notice.data ?? {};
   const kind = stringField(data, 'kind') ?? notice.event_type ?? '';
+  const explicitPath = safeNotificationPath(data.url);
+  if (explicitPath === '/gig' || explicitPath?.startsWith('/gig/') || explicitPath?.startsWith('/gig?')) return 'gig';
   const attendanceLike = kind.startsWith('attendance.') || kind.startsWith('workroom.') || kind.startsWith('payout.');
   // 공고·지원·채팅·급여·자격 알림은 의료 워커 셸에만 있다
   if (!attendanceLike) return 'medical';
@@ -51,9 +54,9 @@ export function noticeBelongsTo(scope: NoticeScope, shell: WorkerShell) {
 
 // DB 함수는 알림 URL 을 의료 셸 기준(/workplace, /workroom)으로 적는다. 긱 셸에서는 같은 화면의 /gig 경로로 연다.
 export function noticeHref(url: unknown, shell: WorkerShell) {
-  if (typeof url !== 'string' || !url.startsWith('/') || url.startsWith('//')) return null;
-  if (shell === 'medical') return url;
-  if (url === '/workroom' || url.startsWith('/workroom?')) return url.replace('/workroom', '/gig/workroom');
-  if (url === '/workplace' || url.startsWith('/workplace?')) return url.replace('/workplace', '/gig');
-  return url;
+  const path = safeNotificationPath(url);
+  if (!path || shell === 'medical') return path;
+  if (/^\/workroom(?:[?#]|$)/.test(path)) return path.replace('/workroom', '/gig/workroom');
+  if (/^\/workplace(?:[?#]|$)/.test(path)) return path.replace('/workplace', '/gig');
+  return path;
 }

@@ -40,7 +40,7 @@ export function AdminDemoBar() {
     <>
       <div aria-hidden="true" className="h-16" />
       <div ref={barRef} role="region" aria-label="시연 안내"
-        className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[30rem] items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5">
+        className="fixed inset-x-3 bottom-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[30rem] items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5">
         <span className="min-w-0 flex-1 leading-4">
           <span className="block text-[0.6875rem] font-bold text-white/60 [@media(max-height:700px)]:hidden">지금은 시연 화면이에요</span>
           <button type="button" disabled={Boolean(leaving)} onClick={() => void leave('start')}

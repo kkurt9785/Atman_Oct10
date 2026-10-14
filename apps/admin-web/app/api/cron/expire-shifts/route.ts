@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { todayKST } from '@/lib/date';
-import { reviveDemoShowcase } from '@/lib/demo/revive-showcase';
 import { recheckStaleBusinessStatuses } from '@/lib/business-status';
 
 export const runtime = 'nodejs';
@@ -22,6 +21,15 @@ export async function GET(req: NextRequest) {
   if (!sb) return NextResponse.json({ error: 'DB unavailable' }, { status: 500 });
 
   const today = todayKST();
+
+  // 시연 데이터 삭제·재시드는 자동 실행하지 않는다. 표시된 시연 공고의
+  // 시간을 먼저 갱신해야 아래 일반 만료 처리에 의해 취소되지 않는다.
+  let demo: unknown = null;
+  if (process.env.DEMO_SHOWCASE_ENABLED !== 'false') {
+    const {data,error}=await sb.rpc('refresh_demo_worker_readiness');
+    if(error)return NextResponse.json({ok:false,error:'데모 준비 상태를 확인하지 못해 만료 처리를 중단했어요.'},{status:503});
+    demo={ok:true,mode:'readiness',result:data};
+  }
 
   // 1. 날짜 지난 open 시프트 → cancelled
   const { data: cancelled } = await sb
@@ -50,18 +58,6 @@ export async function GET(req: NextRequest) {
       .in('shift_id', oldIds)
       .select('id');
     expiredApps = updated?.length ?? 0;
-  }
-
-  // 4. 지난 데모 정리 직후 오늘자 데모 쇼케이스 재시드 (KST 08:30 실행).
-  //    DEMO_SHOWCASE_ENABLED=false 로 끌 수 있다 (실제 운영 전환 시).
-  let demo: unknown = null;
-  if (process.env.DEMO_SHOWCASE_ENABLED !== 'false') {
-    try {
-      demo = await reviveDemoShowcase();
-    } catch (error) {
-      console.error('[cron/expire-shifts] demo revive failed', error);
-      demo = { ok: false, error: String(error) };
-    }
   }
 
   // 5. 사업자 상태 월 1회 재조회(국세청) — 휴업·폐업이면 공고 등록이 막힌다

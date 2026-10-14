@@ -10,13 +10,8 @@ export const won = (value: number) => `${Math.round(value).toLocaleString('ko-KR
 export const hoursText = (minutes: number) => `${Math.floor(minutes / 60)}시간${minutes % 60 ? ` ${minutes % 60}분` : ''}`;
 export const periodText = (start: string, end: string) => (start === end ? start : `${start} ~ ${end}`);
 
-// 휴게: 행에 적힌 값이 있으면 그대로, 없으면(옛 기록) 4시간 이상일 때만 근무자 기본 휴게 — 사장님 앱 정산과 같은 규칙
-export function effectiveBreakMinutes(workedMinutes: number, rowBreak: number | null | undefined, staffDefault: number | null | undefined) {
-  const explicit = Number(rowBreak ?? 0);
-  if (explicit > 0) return Math.min(explicit, workedMinutes);
-  if (workedMinutes < 240) return 0;
-  return Math.min(Number(staffDefault ?? 0), workedMinutes);
-}
+// 실제 기록한 휴게만 차감한다. 양쪽 앱과 지급 계산의 공용 규칙.
+export { effectiveBreakMinutes, summarizeAttendancePeriod, payoutDateKST } from './shared/gig-pay/calculation';
 
 export function statementText(s: PayoutStatement) {
   const basis = s.payBasis === 'hourly' ? `시급 ${won(s.payRate)} × ${hoursText(s.workedMinutes)}`

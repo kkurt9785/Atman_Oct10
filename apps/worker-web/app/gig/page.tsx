@@ -15,6 +15,7 @@ import { InstallAppButton } from '@/components/InstallAppButton';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { ModeSwitch } from '@/components/worker/ModeSwitch';
 import { GigInviteAction } from '@/components/invite/GigInviteAction';
+import { currentGigAttendances, type GigAttendanceRecord } from '@/lib/attendance-feedback';
 
 const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
@@ -87,7 +88,7 @@ type Staff = {
   facilities: FacilityRef | FacilityRef[];
   gig_assignments?: GigAssignment[] | null;
 };
-type AttendanceState = { staff_id: string; check_in_at: string | null; check_out_at: string | null; work_date: string; status?: string; break_minutes?: number };
+type AttendanceState = GigAttendanceRecord;
 
 const facilityOf = (staff: Staff) => (Array.isArray(staff.facilities) ? staff.facilities[0] : staff.facilities) ?? null;
 function kstDate() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
@@ -127,8 +128,12 @@ function GigTodayContent() {
   const [message, setMessage] = useState('');
   const [signedOut, setSignedOut] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   useEffect(() => { void (async () => {
+    setLoading(true);setLoadError(false);
+    try {
     const user = await getSignedInUser();
     if (!user) { setSignedOut(true); setLoading(false); return; }
     // 긱 셸 알림함은 탭에 없다 — 헤더 종 아이콘이 유일한 입구라 안 읽은 긱 알림 수를 같이 보여 준다
@@ -137,39 +142,39 @@ function GigTodayContent() {
         if (!context) return;
         setUnreadCount(((notices ?? []) as Notice[]).filter((row) => !row.read_at && noticeBelongsTo(classifyNotice(row, context), 'gig')).length);
       }).catch(() => undefined);
-    const { data } = await supabase.from('facility_staff')
+    const { data, error: staffError } = await supabase.from('facility_staff')
       .select('id,name,worker_kind,default_start_time,default_end_time,contract_start,contract_end,work_weekdays,facilities!facility_id(id,name),gig_assignments(id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source)')
       .neq('status', 'ended').order('created_at', { ascending: false });
+    if(staffError)throw staffError;
     const all = (data ?? []) as Staff[];
     const linked = all.filter(isGigLink);
     setStaffList(linked);
     setSelectedStaffId(linked[0]?.id ?? '');
-    const { data: workerRow } = await supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
+    const { data: workerRow, error: workerError } = await supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
+    if(workerError)throw workerError;
     setHasMedicalLink(hasMedicalContext(getLinkKinds(all), workerRow?.role));
     if (linked.length) {
       const facilityIds = [...new Set(linked.map((item) => facilityOf(item)?.id).filter(Boolean))] as string[];
-      const [{ data: settings }, { data: records }] = await Promise.all([
+      const [{ data: settings, error: settingsError }, { data: records, error: recordsError }] = await Promise.all([
         supabase.from('facility_attendance_settings').select('facility_id,authentication_mode').in('facility_id', facilityIds),
         supabase.from('staff_attendances').select('staff_id,check_in_at,check_out_at,work_date,status,break_minutes')
           .in('staff_id', linked.map((item) => item.id)).gte('work_date', new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString().slice(0, 10)).order('work_date', { ascending: false }),
       ]);
+      if(settingsError||recordsError)throw settingsError??recordsError;
       setAttendanceModes(Object.fromEntries((settings ?? []).map((row) => [row.facility_id, row.authentication_mode as AttendanceMode])));
       const today = kstDate();
-      const map: Record<string, AttendanceState> = {};
-      const rows = (records ?? []) as AttendanceState[];
-      for (const row of rows) if (!map[row.staff_id] && row.work_date === today) map[row.staff_id] = row;
-      for (const row of rows) if (!map[row.staff_id] && row.check_in_at && !row.check_out_at) map[row.staff_id] = row;
-      setAttendance(map);
+      setAttendance(currentGigAttendances((records ?? []) as AttendanceState[], today));
     }
     if (legacyToken) setMessage('이전 정적 QR은 운영 종료됐어요. 사장님 화면의 동적 QR을 다시 스캔해 주세요.');
-    setLoading(false);
-  })(); }, [attendanceToken, legacyToken]);
+    } catch { setLoadError(true); }
+    finally { setLoading(false); }
+  })(); }, [attendanceToken, legacyToken, loadAttempt]);
 
   const staff = staffList.find((item) => item.id === selectedStaffId) ?? staffList[0] ?? null;
   const facility = staff ? facilityOf(staff) : null;
-  const assignment=staff?assignmentFor(staff):null;
-  const mode = facility?.id ? attendanceModes[facility.id] ?? 'gps_or_qr' : 'gps_or_qr';
   const current = staff ? attendance[staff.id] : null;
+  const assignment=staff?assignmentFor(staff,current?.work_date??kstDate()):null;
+  const mode = facility?.id ? attendanceModes[facility.id] ?? 'gps_or_qr' : 'gps_or_qr';
   const scheduledToday = Boolean(staff && isScheduledToday(staff));
   const canRecord = Boolean(current?.check_in_at) || scheduledToday;
   const done = Boolean(current?.check_out_at);
@@ -181,21 +186,23 @@ function GigTodayContent() {
     <header className="flex items-start justify-between gap-3">
       <div><Wordmark size={20} /><div className="mt-3"><ModeSwitch current="gig" /></div></div>
       <div className="flex items-center gap-2">
-        <Link href="/gig/notifications" aria-label={unreadCount ? `근무 알림 ${unreadCount}건 안 읽음` : '근무 알림'} className="relative flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-sub">
+        <Link href="/gig/notifications" aria-label={unreadCount ? `근무 알림 ${unreadCount}건 안 읽음` : '근무 알림'} className="relative flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white text-sub focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
           <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
           {unreadCount > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-extrabold text-white">{unreadCount > 9 ? '9+' : unreadCount}</span>}
         </Link>
-        <Link href="/gig/settings" aria-label="앱 설정" className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-white text-[16px] text-sub">⚙</Link>
+        <Link href="/gig/settings" aria-label="앱 설정" className="flex h-11 w-11 items-center justify-center rounded-full border border-line bg-white text-[16px] text-sub focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">⚙</Link>
       </div>
     </header>
 
     <section className="mt-5 flex items-end justify-between gap-3 px-1">
-      <div><h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.5px] text-ink">오늘 근무</h1><p className="mt-1 text-[13px] text-sub">출퇴근 기록에만 집중하면 돼요.</p></div>
+      <div><h1 className="text-[22px] font-extrabold leading-tight tracking-[-0.5px] text-ink">오늘 근무</h1><p className="mt-1 text-[13px] text-sub">오늘 일정과 출퇴근 상태를 확인하세요.</p></div>
       {staff && <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{staff.name}님</span>}
     </section>
     <LinkedNotice />
+    {message && <p role="status" className="mt-3 rounded-xl border border-line bg-white p-3 text-[13px] font-bold">{message}</p>}
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-sub">근무를 확인하고 있어요...</div>
+      : loadError ? <section role="alert" className="mt-3 rounded-2xl bg-white p-6 text-center shadow-sm"><b>근무 정보를 불러오지 못했어요</b><p className="mt-2 text-[13px] text-sub">연결 상태를 확인하고 다시 시도해 주세요. 기존 출퇴근 기록은 변경되지 않았어요.</p><button type="button" onClick={()=>setLoadAttempt(n=>n+1)} className="mt-4 h-11 rounded-xl bg-primary px-5 font-bold text-white">다시 불러오기</button></section>
       : !staff && hasMedicalLink ? <section className="mt-3 rounded-2xl bg-white p-8 text-center shadow-sm" aria-busy="true">
           <b className="text-[16px] text-ink">근무 찾기로 이동 중이에요</b>
           <p className="mt-2 text-[13px] leading-5 text-sub">초대를 받으면 이 화면에서 바로 연결돼요.</p>
@@ -206,7 +213,7 @@ function GigTodayContent() {
           <GigInviteAction />
         </section>
       : <>
-        {staffList.length > 1 && <label className="mt-3 block rounded-2xl bg-white p-4 text-[12px] font-bold text-sub shadow-sm">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-line bg-white px-3 text-ink">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
+        {staffList.length > 1 && <label className="mt-3 block rounded-2xl bg-white p-4 text-[12px] font-bold text-sub shadow-sm">근무지 선택<select value={selectedStaffId} onChange={(event) => {setSelectedStaffId(event.target.value);setMessage('');}} className="mt-2 h-11 w-full rounded-xl border border-line bg-white px-3 text-ink">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
 
         <section className="mt-3 rounded-3xl bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
@@ -220,11 +227,13 @@ function GigTodayContent() {
             : pending ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 사장님이 승인하면 근무시간이 확정돼요.</p>
             : canRecord ? <div className="mt-4">
                 <TouchToCheckButton
-                  key={current?.check_in_at ? 'check_out' : 'check_in'} dark targetType="staff" targetId={staff.id}
+                  key={`${staff.id}:${current?.check_in_at ? 'check_out' : 'check_in'}`} targetType="staff" targetId={staff.id}
                   action={current?.check_in_at ? 'check_out' : 'check_in'} qrToken={attendanceToken} mode={mode}
+                  helpHref={`/gig/workroom${facility?.id ? `?facility=${encodeURIComponent(facility.id)}` : ''}`}
                   onSuccess={(response: AttendanceResult) => {
                     const now = new Date().toISOString();
                     const checkingOut = Boolean(current?.check_in_at);
+                    setMessage(response.status==='pending'?'조기 퇴근 승인을 요청했어요. 사장님 승인 후 근무시간이 확정돼요.':`${checkingOut?'퇴근':'출근'} 기록을 저장했어요.${(response.lateMinutes??0)>0?` 지각 ${response.lateMinutes}분으로 기록됐어요.`:''}`);
                     setAttendance((state) => ({ ...state, [staff.id]: {
                       ...(state[staff.id] ?? { staff_id: staff.id, work_date: kstDate(), check_in_at: null, check_out_at: null }),
                       ...(checkingOut
@@ -243,7 +252,6 @@ function GigTodayContent() {
           <Link href="/gig/settlement" className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">✓</span><b className="mt-3 block text-[15px] text-ink">근태·지급</b><span className="mt-1 block text-[11px] leading-4 text-sub">기록 확인·지급 계좌·지급 현황</span></Link>
         </div>
       </>}
-    {message && <p role="status" className="mt-4 rounded-xl border border-line bg-white p-3 text-[13px] font-bold">{message}</p>}
   </main>;
 }
 

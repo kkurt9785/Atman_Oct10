@@ -82,6 +82,7 @@ export default async function VacancyPage({ searchParams }: { searchParams: Prom
             candidates={candidates}
             needsShift={!vacancy.shiftId}
             defaultWage={vacancy.hourlyWage}
+            workDate={vacancy.date}
             defaultDescription={vacancy.description}
             isPublic={vacancy.audience === 'public'}
             poolLocked={!poolAllowed}

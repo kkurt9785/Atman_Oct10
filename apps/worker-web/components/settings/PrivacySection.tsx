@@ -17,7 +17,12 @@ export function PrivacySection({ dark = false }: { dark?: boolean }) {
   const [busy, setBusy] = useState<'marketing' | 'location_data' | null>(null);
   const [notice, setNotice] = useState('');
 
-  useEffect(() => { void getMyConsents().then(setConsents).catch(() => setConsents({ marketing: false, location: true })); }, []);
+  async function loadConsents() {
+    setNotice('');
+    try { setConsents(await getMyConsents()); }
+    catch { setNotice('동의 상태를 확인하지 못했어요. 다시 확인해 주세요.'); }
+  }
+  useEffect(() => { void loadConsents(); }, []);
 
   async function toggle(type: 'marketing' | 'location_data') {
     if (!consents || busy) return;
@@ -25,13 +30,15 @@ export function PrivacySection({ dark = false }: { dark?: boolean }) {
     if (type === 'location_data' && current && !window.confirm('위치정보 이용 동의를 철회할까요?\n출퇴근은 사업장 동적 QR·와이파이로만 인증되고, 현재 위치로 공고를 볼 수 없어요.')) return;
     setBusy(type);
     setNotice('');
+    try {
     const result = await setMyConsent(type, !current);
-    setBusy(null);
     if (!result.ok) { setNotice(result.message ?? '동의 상태를 바꾸지 못했어요.'); return; }
     setConsents((prev) => prev && (type === 'marketing' ? { ...prev, marketing: !current } : { ...prev, location: !current }));
     setNotice(type === 'marketing'
       ? (!current ? '혜택·이벤트 알림 수신에 동의했어요.' : '혜택·이벤트 알림을 보내지 않을게요.')
       : (!current ? '위치정보 이용에 다시 동의했어요.' : '위치정보 이용 동의를 철회했어요.'));
+    } catch { setNotice('동의 변경 결과를 확인하지 못했어요. 잠시 후 다시 확인해 주세요.'); setConsents(null); }
+    finally { setBusy(null); }
   }
 
   const card = dark ? 'bg-white/8 text-white' : 'bg-white shadow-sm';
@@ -44,11 +51,11 @@ export function PrivacySection({ dark = false }: { dark?: boolean }) {
       <div className={`divide-y ${dark ? 'divide-white/10' : 'divide-line'} rounded-2xl ${card}`}>
         <button type="button" onClick={() => toggle('marketing')} disabled={!consents || busy !== null} className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left disabled:opacity-60">
           <span><span className={`block text-[15px] font-bold ${title}`}>혜택·이벤트 알림 (선택)</span><span className={`mt-0.5 block text-[12px] ${sub}`}>근무·지급 같은 필수 알림은 이 설정과 관계없이 와요</span></span>
-          <Toggle on={Boolean(consents?.marketing)} />
+          {consents ? <Toggle on={consents.marketing} /> : <span className="shrink-0 text-[12px]">확인 필요</span>}
         </button>
         <button type="button" onClick={() => toggle('location_data')} disabled={!consents || busy !== null} className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left disabled:opacity-60">
           <span><span className={`block text-[15px] font-bold ${title}`}>위치정보 이용</span><span className={`mt-0.5 block text-[12px] ${sub}`}>출근하기·현재 위치를 누를 때만 위치를 확인해요</span></span>
-          <Toggle on={consents?.location ?? true} />
+          {consents ? <Toggle on={consents.location} /> : <span className="shrink-0 text-[12px]">확인 필요</span>}
         </button>
         <div className={`flex flex-wrap gap-x-4 gap-y-1 px-5 py-3.5 text-[13px] font-semibold ${dark ? 'text-white/80' : 'text-sub'}`}>
           <Link href="/legal/terms" className="underline">이용약관</Link>
@@ -60,6 +67,7 @@ export function PrivacySection({ dark = false }: { dark?: boolean }) {
         </Link>
       </div>
       {notice && <p role="status" className={`mt-2 px-1 text-[12px] font-bold ${dark ? 'text-white/80' : 'text-primary'}`}>{notice}</p>}
+      {!consents && notice && <button type="button" onClick={loadConsents} className="mt-2 h-11 rounded-xl border border-line px-4 text-[13px] font-bold">동의 상태 다시 확인</button>}
     </section>
   );
 }

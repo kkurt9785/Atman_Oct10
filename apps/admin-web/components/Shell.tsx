@@ -50,17 +50,17 @@ export function Shell({ children, facilityMode }: { children: React.ReactNode; f
   return (
     <AuthGuard>
       <FacilityModeGuard mode={facilityMode} />
-      <div className={`mx-auto min-h-screen bg-bg pb-24 ${facilityMode==='gig'?'max-w-5xl':'max-w-app'}`}>
+      <div className={`mx-auto min-h-screen bg-bg pb-[calc(var(--bottom-nav-height)+2rem+env(safe-area-inset-bottom))] ${facilityMode==='gig'?'max-w-5xl':'max-w-app'}`}>
         <header className="sticky top-0 z-10 flex h-16 items-center gap-2 bg-bg/90 px-4 backdrop-blur">
           <span className="shrink-0 whitespace-nowrap"><Wordmark size={17} suffix={null} /></span>
           <FacilitySwitcher />
           <span className="hidden sm:block"><TextSizeToggle /></span>
-          <Link href="/notifications" aria-label="알림" title="알림" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sub active:bg-surface"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></Link>
+          <Link href="/notifications" aria-label="알림" title="알림" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-sub active:bg-surface"><svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></Link>
           <button
             onClick={handleLogout}
             aria-label="로그아웃"
             title="로그아웃"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-sub active:bg-surface"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-sub active:bg-surface"
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4" />

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GigActionForm } from './GigActionForm';
 import type { GigProject } from '@/lib/db/gig-projects';
-import { MIN_HOURLY_WAGE_2026, calcBreakMinutes, weeklyHolidayPay } from '@/lib/pay';
+import { minimumHourlyWage, hourlyWageError, lastWorkDate, calcBreakMinutes, weeklyHolidayPay } from '@/lib/pay';
 
 const inputClass = 'mt-2 h-12 w-full rounded-xl border border-line bg-white px-3 text-body text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/10';
 const WEEKDAYS: [number, string][] = [[1, '월'], [2, '화'], [3, '수'], [4, '목'], [5, '금'], [6, '토'], [7, '일']];
@@ -37,6 +37,9 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
   const effectiveBreak = breakTouched ? breakMinutes : autoBreak;
   const workMinutes = Math.max(0, span - effectiveBreak);
   const rate = Number(payRate) || 0;
+  const lastDate = lastWorkDate(scheduleMode === 'single' ? startsOn : endsOn, startTime, endTime);
+  const minimumWage = minimumHourlyWage(startsOn, lastDate);
+  const wageError = payRate ? hourlyWageError(rate, startsOn, lastDate) : null;
   const people = Math.max(1, Number(headcount) || 1);
   const dailyPay = Math.round((workMinutes / 60) * rate);
   const daysPerWeek = scheduleMode === 'single' ? 1 : weekdays.length;
@@ -74,10 +77,10 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
     </section>
 
     <section className="mt-5 grid grid-cols-2 gap-3">
-      <label className="text-label font-medium text-sub">시급 <span className="font-normal text-tertiary">· 이 근무 공통</span><input name="pay_rate" type="number" min={MIN_HOURLY_WAGE_2026} step="100" value={payRate} onChange={(event) => setPayRate(event.target.value)} className={inputClass} placeholder={`${MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')} 이상`} /></label>
+      <label className="text-label font-medium text-sub">시급 <span className="font-normal text-tertiary">· 이 근무 공통</span><input name="pay_rate" type="number" min={minimumWage ?? 1} step="1" value={payRate} onChange={(event) => setPayRate(event.target.value)} className={inputClass} placeholder={minimumWage ? `${minimumWage.toLocaleString('ko-KR')} 이상` : '근무 날짜 확인'} /></label>
       <label className="text-label font-medium text-sub">필요 인원<input name="headcount" type="number" min="1" max="200" required value={headcount} onChange={(event) => setHeadcount(event.target.value)} className={inputClass} /></label>
       <div className="col-span-2 rounded-xl bg-bg p-3 text-[0.75rem] leading-5 text-sub" aria-live="polite">
-        {rate > 0 && rate < MIN_HOURLY_WAGE_2026 && <p className="font-bold text-red-600">2026년 최저시급 {MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원보다 적어요. (2027년부터 10,700원)</p>}
+        {wageError && <p role="alert" className="font-bold text-red-600">{wageError}</p>}
         <p>하루 {hoursText(workMinutes)} 근무{effectiveBreak > 0 ? ` (휴게 ${effectiveBreak}분 뺀 시간)` : ''}{rate > 0 ? <> · 1인 <b className="text-ink">{won(dailyPay)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * people)}</b></> : null}</> : ' · 시급을 넣으면 하루 금액이 보여요'}</p>
         {scheduleMode === 'repeat' && rate > 0 && (holiday > 0
           ? <p className="mt-1">주 {daysPerWeek}일 {hoursText(weeklyMinutes)} → 개근한 주는 <b className="text-ink">주휴수당 약 {won(holiday)}</b>이 별도로 생겨요 (주 15시간 이상, 1인 기준).</p>

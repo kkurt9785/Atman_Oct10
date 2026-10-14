@@ -5,26 +5,23 @@ import { CONSENT_VERSION } from '@/components/onboarding/Terms';
 export type MyConsents = { marketing: boolean; location: boolean };
 
 export async function getMyConsents(): Promise<MyConsents> {
-  const { data } = await supabase.from('worker_consents')
+  const { data, error } = await supabase.from('worker_consents')
     .select('consent_type, granted, granted_at')
     .in('consent_type', ['marketing', 'location_data'])
     .order('granted_at', { ascending: false });
+  if (error) throw new Error('동의 상태를 확인하지 못했어요. 다시 시도해 주세요.');
   const rows = (data ?? []) as Array<{ consent_type: string; granted: boolean }>;
   const latest = (type: string) => rows.find((row) => row.consent_type === type)?.granted;
-  // 위치정보는 가입 때 필수 동의라 기록이 없으면 동의 상태로 본다
-  return { marketing: latest('marketing') ?? false, location: latest('location_data') ?? true };
+  return { marketing: latest('marketing') ?? false, location: latest('location_data') ?? false };
 }
 
 export async function setMyConsent(type: 'marketing' | 'location_data', granted: boolean): Promise<{ ok: boolean; message?: string }> {
   const { error } = await supabase.rpc('set_my_consent', { p_type: type, p_granted: granted, p_version: CONSENT_VERSION });
   if (error) return { ok: false, message: error.message.replace(/^.*?: /, '') || '동의 상태를 바꾸지 못했어요.' };
-  locationAllowed = null;
   return { ok: true };
 }
 
-// 위치를 쓰기 직전에 확인한다(출퇴근·현재 위치 공고). 화면마다 다시 묻지 않도록 한 번만 읽는다.
-let locationAllowed: Promise<boolean> | null = null;
+// 위치를 쓰기 직전에 조회한다. 영구 캐시는 계정 전환·다른 기기의 철회를 놓친다.
 export function isLocationAllowed(): Promise<boolean> {
-  if (!locationAllowed) locationAllowed = getMyConsents().then((c) => c.location).catch(() => true);
-  return locationAllowed;
+  return getMyConsents().then((c) => c.location).catch(() => false);
 }
