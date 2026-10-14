@@ -166,7 +166,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
       <div ref={bottomRef}/>
     </section>
 
-    <section className="sticky bottom-[calc(64px+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card">
+    <section className="sticky bottom-[calc(64px+var(--demo-bar,0px)+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card">
       {error && <p role="alert" className="mb-2 rounded-xl bg-red-50 px-3 py-2 text-[0.75rem] font-bold text-red-600">{error}</p>}
       {checkOpen ? (
         <div className="mb-3 rounded-xl bg-primary/5 p-3">

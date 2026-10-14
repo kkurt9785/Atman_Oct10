@@ -122,7 +122,7 @@ export function VacancyForm({ source, candidates, needsShift, defaultWage, defau
           <Link href="/applications" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-label font-extrabold text-white">지원 현황 보기</Link>
         </div>
       ) : (
-        <div className="sticky bottom-20 space-y-2 bg-bg pb-2 pt-2">
+        <div className="sticky bottom-[calc(5rem+var(--demo-bar,0px))] space-y-2 bg-bg pb-2 pt-2">
           <SubmitButton count={count} makePublic={makePublic && !isPublic} pending={pending} />
           <p className="text-center text-[0.75rem] text-sub">요청받은 분 중 <b className="text-ink">먼저 수락한 분으로 바로 확정</b>돼요. 나머지 요청은 자동으로 닫혀요.</p>
         </div>

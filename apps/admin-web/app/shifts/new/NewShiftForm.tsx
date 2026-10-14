@@ -322,7 +322,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
         )}
 
         {/* 제출 버튼 — 긴 폼이라 하단 탭 위에 붙여 둔다(결원 채우기와 같은 방식) */}
-        <div className="sticky bottom-20 z-10 space-y-2 bg-bg pb-2 pt-2">
+        <div className="sticky bottom-[calc(5rem+var(--demo-bar,0px))] z-10 space-y-2 bg-bg pb-2 pt-2">
           <button
             type="submit"
             disabled={isPending || estimatedPay === 0}

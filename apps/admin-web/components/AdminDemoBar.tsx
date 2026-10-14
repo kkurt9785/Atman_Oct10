@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 
 // 시연 중에는 어느 화면에서든 바로 가입하거나 처음 화면(로그인)으로 — 하단 탭 위에 띄운다.
@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase-browser';
 export function AdminDemoBar() {
   const [demo, setDemo] = useState(false);
   const [leaving, setLeaving] = useState<'signup' | 'start' | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     let active = true;
     void supabase.auth.getSession().then(({ data }) => {
@@ -14,6 +15,17 @@ export function AdminDemoBar() {
     });
     return () => { active = false; };
   }, []);
+  // 띠 높이를 --demo-bar 로 알린다 — 공고 올리기·워크룸 입력칸 같은 하단 고정 요소가 띠 위로 올라간다(375×667에서 가려지던 문제)
+  useEffect(() => {
+    const el = barRef.current;
+    if (!demo || !el) return;
+    const root = document.documentElement;
+    const set = () => root.style.setProperty('--demo-bar', `${el.offsetHeight + 8}px`);
+    set();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(set);
+    observer?.observe(el);
+    return () => { observer?.disconnect(); root.style.removeProperty('--demo-bar'); };
+  }, [demo]);
   if (!demo) return null;
 
   async function leave(next: 'signup' | 'start') {
@@ -27,10 +39,10 @@ export function AdminDemoBar() {
   return (
     <>
       <div aria-hidden="true" className="h-16" />
-      <div role="region" aria-label="시연 안내"
-        className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[30rem] items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg">
+      <div ref={barRef} role="region" aria-label="시연 안내"
+        className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[30rem] items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5">
         <span className="min-w-0 flex-1 leading-4">
-          <span className="block text-[0.6875rem] font-bold text-white/60">지금은 시연 화면이에요</span>
+          <span className="block text-[0.6875rem] font-bold text-white/60 [@media(max-height:700px)]:hidden">지금은 시연 화면이에요</span>
           <button type="button" disabled={Boolean(leaving)} onClick={() => void leave('start')}
             className="-my-1 inline-flex min-h-[32px] items-center text-[0.8125rem] font-extrabold text-white underline decoration-white/40 underline-offset-2 active:opacity-70">
             처음 화면으로

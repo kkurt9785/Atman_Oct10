@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { endDemoSession, leaveDemoToStart, type DemoKind } from '@/lib/demo-session';
 import { KakaoGlyph } from '@/lib/kakao-login';
 import { DemoEndSheet } from './DemoSignup';
@@ -10,6 +10,18 @@ import { DemoEndSheet } from './DemoSignup';
 export function DemoBar({ kind, aboveNav }: { kind: DemoKind; aboveNav: boolean }) {
   const [leaving, setLeaving] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
+  // 띠 높이를 --demo-bar 로 알린다 — 워크룸 입력칸 같은 하단 고정 요소가 띠 위로 올라간다(375×667에서 가려지던 문제)
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const set = () => root.style.setProperty('--demo-bar', `${el.offsetHeight + 8}px`);
+    set();
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(set);
+    observer?.observe(el);
+    return () => { observer?.disconnect(); root.style.removeProperty('--demo-bar'); };
+  }, []);
   function start() {
     if (kind === 'gig') { setSheet(true); return; }
     setLeaving(true);
@@ -17,10 +29,10 @@ export function DemoBar({ kind, aboveNav }: { kind: DemoKind; aboveNav: boolean 
   }
   return (
     <>
-      <div role="region" aria-label="시연 안내"
-        className={`fixed inset-x-3 z-40 mx-auto flex max-w-app items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg ${aboveNav ? 'bottom-[calc(64px+env(safe-area-inset-bottom))]' : 'bottom-[calc(12px+env(safe-area-inset-bottom))]'}`}>
+      <div ref={barRef} role="region" aria-label="시연 안내"
+        className={`fixed inset-x-3 z-40 mx-auto flex max-w-app items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5 ${aboveNav ? 'bottom-[calc(64px+env(safe-area-inset-bottom))]' : 'bottom-[calc(12px+env(safe-area-inset-bottom))]'}`}>
         <span className="min-w-0 flex-1 leading-4">
-          <span className="block text-[11px] font-bold text-white/60">지금은 시연 화면이에요</span>
+          <span className="block text-[11px] font-bold text-white/60 [@media(max-height:700px)]:hidden">지금은 시연 화면이에요</span>
           <button type="button" onClick={() => void leaveDemoToStart()} className="-my-1 inline-flex min-h-[32px] items-center text-[13px] font-extrabold text-white underline decoration-white/40 underline-offset-2 active:opacity-70">처음 화면으로</button>
         </span>
         <button type="button" disabled={leaving} onClick={start}

@@ -6,7 +6,7 @@
 @tailwind utilities;
 
 /* 기본 = 모던(16px). rem 기반이라 root만 키우면 글씨·아이콘 전체가 함께 커짐 */
-:root { font-size: 16px; }
+:root { font-size: 16px; --demo-bar: 0px; } /* --demo-bar: 시연 띠가 떠 있을 때 그 높이(+여백). 하단 고정 버튼이 띠 위로 올라가도록 bottom 계산에 더한다 */
 html.big-text { font-size: 20px; }   /* 토스식 큰글씨 모드 (×1.25) */
 
 html, body { background: #F2F4F6; color: #191F28; }
@@ -18,3 +18,10 @@ body {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
+
+/* PC(마우스)에서만 — 버튼·링크 hover 피드백. 터치 기기엔 영향 없음 */
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled):hover, a[href]:hover { filter: brightness(0.96); }
+}
+/* 키보드 포커스 링 — 폼 Tab 이동이 보이게 */
+:focus-visible { outline: 2px solid #1B64DA; outline-offset: 2px; }

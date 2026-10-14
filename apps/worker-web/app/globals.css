@@ -4,6 +4,7 @@
 @tailwind utilities;
 
 @layer base {
+  :root { --demo-bar: 0px; } /* 시연 띠 높이(+여백). 띠가 떠 있는 동안 DemoBar가 채우고, 하단 고정 요소가 bottom 계산에 더한다 */
   html { background-color: #F2F4F6; }
   /* 한글은 어절 단위로만 줄바꿈 — '지났/어요' 같은 글자 단위 깨짐 방지(관리자 앱과 같은 규칙) */
   body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; word-break: keep-all; overflow-wrap: break-word; }
