@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { refreshFacilityBusinessStatus } from './business-status';
 
 // 승인/반려 핵심 로직. 서버 액션(lib/actions/platform.ts)과 QA 스크립트가 같은 함수를 쓴다.
 // sb는 service-role 클라이언트, actor는 운영자(잇닿) 계정.
@@ -27,6 +28,12 @@ export async function approveFacilityCore(sb: SupabaseClient, actor: Actor, inpu
   if (before.approved_at) return { ok: false, error: '이미 승인된 사업장이에요.' };
   const { data: dupe } = await sb.from('facilities').select('id, name').eq('business_registration_number', brn).neq('id', input.facilityId).is('deleted_at', null).maybeSingle();
   if (dupe) return { ok: false, error: `같은 사업자등록번호가 "${dupe.name}"에 이미 있어요.` };
+  // 직업안정법 §25 구인자 확인 — 국세청 상태조회에서 휴업·폐업·미등록이면 승인하지 않는다(키 없으면 건너뜀)
+  const biz = await refreshFacilityBusinessStatus(sb, input.facilityId, brn);
+  if (biz && biz.status !== 'active') {
+    const label = biz.status === 'closed' ? '폐업' : biz.status === 'suspended' ? '휴업' : '미등록';
+    return { ok: false, error: `국세청 조회에서 ${label} 사업자로 확인돼 승인할 수 없어요 (${biz.detail}). 번호를 확인해 주세요.` };
+  }
 
   const now = new Date().toISOString();
   const { error } = await sb.from('facilities')

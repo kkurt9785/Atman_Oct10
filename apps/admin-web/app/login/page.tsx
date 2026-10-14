@@ -32,6 +32,7 @@ function LoginInner() {
   const [demoError, setDemoError] = useState('');
   const searchParams = useSearchParams();
   const error = searchParams.get('error');
+  const withdrawn = searchParams.get('withdrawn') === '1';
   const installRequested = searchParams.get('install') === '1';
   // 설치 링크를 카카오톡에서 열면 인앱 브라우저라 '홈 화면에 추가'가 불가능하다 — 바로 크롬/사파리로 보낸다.
   // 시연 링크(?demo=)는 인앱에서도 그대로 되므로 건드리지 않는다.
@@ -150,6 +151,7 @@ function LoginInner() {
           <p role="alert" className="text-[0.8125rem] text-red-600 text-center">이 카카오 계정은 근무자용으로 가입돼 있어요.<br />사업장 계정은 다른 카카오 계정으로 로그인해 주세요.</p>
         </div>
       )}
+      {withdrawn && <p role="status" className="mb-3 rounded-xl bg-emerald-50 px-4 py-3 text-[0.8125rem] font-bold text-emerald-700">탈퇴가 완료됐어요. 그동안 이용해 주셔서 고마워요.</p>}
       {error === 'oauth_state' && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
           <p role="alert" className="text-center text-[0.8125rem] text-amber-700">로그인 요청이 만료됐어요. 카카오 로그인을 다시 눌러 주세요.</p>

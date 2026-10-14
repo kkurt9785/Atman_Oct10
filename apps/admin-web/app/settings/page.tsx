@@ -8,10 +8,12 @@ import { AdminAccessSection } from './AdminAccessSection';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { facilityTypeLabel } from '@/lib/facility-label';
+import { AccountClosureSection } from './AccountClosureSection';
+import { adminClient } from '@/lib/supabase';
 
 const MODE_LABEL: Record<string, string> = { gps_or_qr: '앱에서 버튼만 누르기', gps: '위치(GPS) 우선', gps_qr: '위치 + 동적 QR', qr: '동적 QR만', network: '사업장 Wi-Fi만', admin: '관리자 승인만' };
-type Section = 'location' | 'profile' | 'attendance' | 'brn' | 'admins';
-const SECTIONS: Section[] = ['location', 'profile', 'attendance', 'brn', 'admins'];
+type Section = 'location' | 'profile' | 'attendance' | 'brn' | 'admins' | 'account';
+const SECTIONS: Section[] = ['location', 'profile', 'attendance', 'brn', 'admins', 'account'];
 
 // 설정은 토스 '전체' 탭처럼 목록만 — 누르면 그 설정 하나만 있는 화면(?section=)이 열린다
 function Row({ href, title, detail, warn }: { href: string; title: string; detail: string; warn?: boolean }) {
@@ -30,7 +32,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const showBrn = Boolean(shop && context && shop.approvedAt === null && shop.registrationSource.startsWith('self_'));
   const showAdmins = Boolean(admins && admins.length > 0);
   const section = SECTIONS.includes(params.section as Section) ? params.section as Section : null;
-  const TITLE: Record<Section, string> = { location: '위치·연락처', profile: `${facilityWord} 소개·규모`, attendance: '출퇴근 인증 규칙', brn: '사업자 서류', admins: '관리자 권한' };
+  // 계정 탈퇴는 운영 중인(내가 소유한) 사업장이 없을 때만 — 설정 화면에서 미리 알려 준다
+  const sbAdmin = adminClient();
+  const { data: ownedActive } = context && sbAdmin
+    ? await sbAdmin.from('facilities').select('id').eq('admin_user_id', context.user.id).is('deleted_at', null).eq('is_active', true).limit(1)
+    : { data: [] as Array<{ id: string }> };
+  const ownsActive = (ownedActive ?? []).length > 0;
+  const canClose = ['owner', 'super'].includes(context?.accessRole ?? '');
+  const TITLE: Record<Section, string> = { location: '위치·연락처', profile: `${facilityWord} 소개·규모`, attendance: '출퇴근 인증 규칙', brn: '사업자 서류', admins: '관리자 권한', account: '계정·사업장 종료' };
 
   if (section) {
     return (
@@ -45,11 +54,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
             : <p className="px-5 pt-4 text-label text-sub">위치 정보를 불러오지 못했어요.</p>)}
           {(section === 'profile' || section === 'attendance') && <FacilityProfileForm profile={profile} facilityType={shop?.facilityType ?? 'clinic'} part={section} />}
           {section === 'brn' && (showBrn && shop && context
-            ? <BrnDocumentSection facilityId={context.facilityId} brnSubmitted={shop.brnSubmitted} hasDocument={Boolean(shop.brnDocumentPath)} />
+            ? <BrnDocumentSection facilityId={context.facilityId} brnSubmitted={shop.brnSubmitted} hasDocument={Boolean(shop.brnDocumentPath)} businessStatus={shop.businessStatus} businessStatusDetail={shop.businessStatusDetail} />
             : <p className="px-5 pt-4 text-label text-sub">제출할 사업자 서류가 없어요.</p>)}
           {section === 'admins' && (showAdmins && admins
             ? <AdminAccessSection admins={admins} facilityWord={facilityWord} />
             : <p className="px-5 pt-4 text-label text-sub">관리자 권한을 볼 수 없어요.</p>)}
+          {section === 'account' && <AccountClosureSection facilityName={shop?.name ?? ''} facilityWord={facilityWord} canClose={canClose} ownsActive={ownsActive} isDemo={Boolean(shop?.isDemo)} />}
         </div>
       </div>
     );
@@ -70,11 +80,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <section className="px-4 pt-5 pb-8">
         <p className="mb-2 px-1 text-label font-bold text-sub">{facilityWord}</p>
         <div className="divide-y divide-line overflow-hidden rounded-2xl bg-white shadow-card">
-          {showBrn && shop && <Row href="/settings?section=brn" title="사업자 서류" detail={shop.brnSubmitted || shop.brnDocumentPath ? '제출했어요 · 확인 중' : '제출하면 공고를 올릴 수 있어요'} warn={!shop.brnSubmitted && !shop.brnDocumentPath} />}
+          {showBrn && shop && <Row href="/settings?section=brn" title="사업자 서류" detail={shop.businessStatus === 'closed' || shop.businessStatus === 'suspended' ? `국세청 조회: ${shop.businessStatus === 'closed' ? '폐업' : '휴업'} 사업자 — 확인이 필요해요` : shop.brnSubmitted || shop.brnDocumentPath ? '제출했어요 · 확인 중' : '제출하면 공고를 올릴 수 있어요'} warn={!shop.brnSubmitted && !shop.brnDocumentPath} />}
           <Row href="/settings?section=location" title="위치·연락처" detail={location?.addressText || '주소를 등록해 주세요'} warn={!location?.addressText} />
           <Row href="/settings?section=profile" title={`${facilityWord} 소개·규모`} detail={profile?.employee_count ? `총원 ${profile.employee_count}명` : '총원을 입력하면 부족 인원을 알려드려요'} warn={!profile?.employee_count} />
           <Row href="/settings?section=attendance" title="출퇴근 인증 규칙" detail={MODE_LABEL[profile?.attendance_mode ?? 'gps_or_qr'] ?? '앱에서 버튼만 누르기'} />
           {showAdmins && admins && <Row href="/settings?section=admins" title="관리자 권한" detail={`관리자 ${admins.length}명 · 급여 열람 권한`} />}
+        </div>
+      </section>
+      <section className="px-4 pb-10">
+        <p className="mb-2 px-1 text-label font-bold text-sub">계정</p>
+        <div className="overflow-hidden rounded-2xl bg-white shadow-card">
+          <Row href="/settings?section=account" title="계정·사업장 종료" detail={`${facilityWord} 닫기 · 관리자 계정 탈퇴`} />
         </div>
       </section>
     </div>

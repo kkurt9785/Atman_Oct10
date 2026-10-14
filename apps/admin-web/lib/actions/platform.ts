@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshFacilityBusinessStatus } from '../business-status';
 import { adminClient } from '../supabase';
 import { getPlatformAdminSession } from '../platform-admin';
 import { approveFacilityCore, rejectFacilityCore } from '../platform-approval';
@@ -15,6 +16,7 @@ export type SelfRegisteredFacility = {
   admin_user_id: string | null; admin_email: string | null; lng: number | null; lat: number | null;
   brn_submitted: string | null; brn_document_path: string | null;
   documentUrl?: string | null; // 서버에서 서명한 열람 URL(10분)
+  business_status?: string | null; business_status_detail?: string | null; business_status_checked_at?: string | null;
 };
 
 export type RegistrationRequest = {
@@ -41,6 +43,13 @@ export async function listSelfRegisteredFacilities(pendingOnly = true): Promise<
     const { data: signed } = await sb.storage.from('facility-documents').createSignedUrl(row.brn_document_path, 600);
     row.documentUrl = signed?.signedUrl ?? null;
   }));
+  // 국세청 조회 결과(RPC 컬럼에 없어 따로 붙인다)
+  const ids = rows.map((row) => row.id);
+  if (ids.length) {
+    const { data: biz } = await sb.from('facilities').select('id,business_status,business_status_detail,business_status_checked_at').in('id', ids);
+    const byId = new Map(((biz ?? []) as Array<{ id: string; business_status: string | null; business_status_detail: string | null; business_status_checked_at: string | null }>).map((item) => [item.id, item]));
+    rows.forEach((row) => { const item = byId.get(row.id); row.business_status = item?.business_status ?? null; row.business_status_detail = item?.business_status_detail ?? null; row.business_status_checked_at = item?.business_status_checked_at ?? null; });
+  }
   return rows;
 }
 
@@ -126,6 +135,22 @@ export async function approveSelfRegisteredFacility(input: { facilityId: string;
     return result;
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : '승인하지 못했어요.' };
+  }
+}
+
+// 운영자가 카드에서 국세청 상태를 다시 조회한다
+export async function recheckBusinessStatusAction(input: { facilityId: string }): Promise<{ ok: boolean; status?: string; detail?: string; error?: string }> {
+  try {
+    const { sb } = await requirePlatform();
+    const { data: facility } = await sb.from('facilities').select('business_registration_number,brn_submitted').eq('id', input.facilityId).maybeSingle();
+    const brn = String(facility?.brn_submitted ?? facility?.business_registration_number ?? '').replace(/\D/g, '');
+    if (brn.length !== 10) return { ok: false, error: '사업자등록번호 10자리가 없어요.' };
+    const result = await refreshFacilityBusinessStatus(sb, input.facilityId, brn);
+    if (!result) return { ok: false, error: process.env.NTS_BUSINESS_API_KEY ? '국세청 조회 결과를 받지 못했어요. 잠시 후 다시 시도해 주세요.' : 'NTS_BUSINESS_API_KEY 가 설정되지 않아 조회할 수 없어요.' };
+    revalidatePath('/ops/facilities');
+    return { ok: true, status: result.status, detail: result.detail };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : '조회하지 못했어요.' };
   }
 }
 

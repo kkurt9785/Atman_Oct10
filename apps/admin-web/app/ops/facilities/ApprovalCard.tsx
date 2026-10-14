@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { approveSelfRegisteredFacility, rejectSelfRegisteredFacility, setRegistrationRequestStatus, type SelfRegisteredFacility, type RegistrationRequest } from '@/lib/actions/platform';
+import { approveSelfRegisteredFacility, recheckBusinessStatusAction, rejectSelfRegisteredFacility, setRegistrationRequestStatus, type SelfRegisteredFacility, type RegistrationRequest } from '@/lib/actions/platform';
 
 const TYPE_LABEL: Record<string, string> = {
   care_hospital: '요양병원', general_hospital: '종합병원', small_hospital: '병원·의원', nursing_home: '요양원', home_health: '방문간호', pharmacy: '약국',
@@ -15,6 +15,15 @@ function formatBrn(v: string) {
 
 export function ApprovalCard({ facility: f }: { facility: SelfRegisteredFacility }) {
   const [brn, setBrn] = useState(f.brn_submitted ? formatBrn(f.brn_submitted) : '');
+  const [biz, setBiz] = useState<{ status: string | null; detail: string | null }>({ status: f.business_status ?? null, detail: f.business_status_detail ?? null });
+  const [checking, setChecking] = useState(false);
+  async function recheck() {
+    setChecking(true);
+    const result = await recheckBusinessStatusAction({ facilityId: f.id });
+    setChecking(false);
+    if (result.ok) setBiz({ status: result.status ?? null, detail: result.detail ?? null });
+    else setMessage({ kind: 'error', text: result.error ?? '조회하지 못했어요.' });
+  }
   const [reason, setReason] = useState('');
   const [mode, setMode] = useState<'idle' | 'reject'>('idle');
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -59,6 +68,7 @@ export function ApprovalCard({ facility: f }: { facility: SelfRegisteredFacility
         <dt className="text-sub">등록 경로</dt><dd className="text-ink">{f.registration_source === 'self_hira' ? `심평원 대조됨${f.hira_cl_cd ? ` · ${CL_LABEL[f.hira_cl_cd] ?? f.hira_cl_cd}` : ''}` : '지도 검색(심평원 미대조)'}</dd>
         <dt className="text-sub">요양기관기호</dt><dd className="truncate font-mono text-ink">{f.hira_ykiho ?? '—'}</dd>
         <dt className="text-sub">원장 제출 번호</dt><dd className="font-mono text-ink">{f.brn_submitted ?? '미제출'}</dd>
+        <dt className="text-sub">국세청 조회</dt><dd className="text-ink">{biz.status ? <span className={biz.status === 'active' ? 'font-bold text-emerald-700' : 'font-bold text-red-600'}>{({ active: '계속사업자', suspended: '휴업', closed: '폐업', unknown: '미등록' } as Record<string, string>)[biz.status] ?? biz.status}{biz.detail ? ` · ${biz.detail}` : ''}</span> : <span className="text-sub">미조회</span>}<button type="button" onClick={() => void recheck()} disabled={checking} className="ml-2 rounded-lg border border-line px-2 py-1 text-[0.6875rem] font-bold text-ink disabled:opacity-50">{checking ? '조회 중' : '다시 조회'}</button></dd>
         <dt className="text-sub">등록증</dt><dd className="text-ink">{f.documentUrl ? <a href={f.documentUrl} target="_blank" rel="noreferrer" className="font-bold text-primary underline">열어 보기</a> : f.brn_document_path ? '있음(열람 URL 발급 실패)' : '미제출'}</dd>
         <dt className="text-sub">등록일</dt><dd className="text-ink">{new Date(f.created_at).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</dd>
       </dl>

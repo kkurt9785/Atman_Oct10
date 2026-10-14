@@ -6,7 +6,9 @@ import { uploadBrnDocument } from '@/lib/brn-document-client';
 import { submitFacilityBrnDocument } from '@/lib/facility';
 
 // 승인 대기 사업장만: 사업자등록번호·등록증을 뒤늦게 올리거나 교체
-export function BrnDocumentSection({ facilityId, brnSubmitted, hasDocument }: { facilityId: string; brnSubmitted: string | null; hasDocument: boolean }) {
+const STATUS_LABEL: Record<string, string> = { active: '계속사업자로 확인됐어요 ✓', suspended: '휴업 사업자로 조회됐어요', closed: '폐업 사업자로 조회됐어요', unknown: '국세청에 등록되지 않은 번호로 조회됐어요' };
+
+export function BrnDocumentSection({ facilityId, brnSubmitted, hasDocument, businessStatus, businessStatusDetail }: { facilityId: string; brnSubmitted: string | null; hasDocument: boolean; businessStatus?: string | null; businessStatusDetail?: string | null }) {
   const [brn, setBrn] = useState(brnSubmitted ?? '');
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
@@ -29,6 +31,7 @@ export function BrnDocumentSection({ facilityId, brnSubmitted, hasDocument }: { 
 
   return (
     <form id="brn-document" onSubmit={submit} className="scroll-mt-20 px-4 pt-5">
+      {businessStatus && <p className={`mb-3 rounded-xl px-3 py-2 text-[0.75rem] font-bold ${businessStatus === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>국세청 조회 · {STATUS_LABEL[businessStatus] ?? businessStatus}{businessStatusDetail ? ` (${businessStatusDetail})` : ''}{businessStatus !== 'active' ? ' — 번호가 맞는지 확인하고 다시 제출해 주세요.' : ''}</p>}
       <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
         <p className="text-[0.8125rem] font-bold text-amber-800">사업자 확인 · 승인 대기 중</p>
         <p className="mb-4 mt-1 text-[0.75rem] leading-5 text-amber-700">사업자등록번호와 등록증을 올려 주시면 확인이 빨라져요. {uploaded ? '등록증은 이미 받았어요.' : ''}</p>

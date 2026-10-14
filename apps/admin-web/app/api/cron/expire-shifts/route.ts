@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { todayKST } from '@/lib/date';
 import { reviveDemoShowcase } from '@/lib/demo/revive-showcase';
+import { recheckStaleBusinessStatuses } from '@/lib/business-status';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -63,12 +64,17 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // 5. 사업자 상태 월 1회 재조회(국세청) — 휴업·폐업이면 공고 등록이 막힌다
+  let businessCheck: unknown = null;
+  try { businessCheck = await recheckStaleBusinessStatuses(sb); } catch (error) { businessCheck = { ok: false, error: String(error) }; }
+
   const result = {
     ok: true,
     as_of: today,
     cancelled_shifts:     cancelled?.length ?? 0,
     expired_applications: expiredApps,
     demo,
+    business_check: businessCheck,
   };
   console.log('[cron/expire-shifts]', result);
   return NextResponse.json(result);

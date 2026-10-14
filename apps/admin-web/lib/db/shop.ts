@@ -16,6 +16,8 @@ export type ShopInfo = {
   registrationSource: string;
   brnSubmitted: string | null;
   brnDocumentPath: string | null;
+  businessStatus: string | null;        // 국세청 사업자 상태조회 결과(active/suspended/closed/unknown)
+  businessStatusDetail: string | null;
 };
 
 // 한 요청 안에서 레이아웃·페이지가 같이 부르므로 요청 단위로 캐시한다.
@@ -26,7 +28,7 @@ export const getShop = cache(async (): Promise<ShopInfo | null> => {
 
   const facilityRes = await sb
     .from('facilities')
-    .select('name, facility_type, employee_count, is_5plus, plan_code, is_demo, approved_at, registration_source, brn_submitted, brn_document_path')
+    .select('name, facility_type, employee_count, is_5plus, plan_code, is_demo, approved_at, registration_source, brn_submitted, brn_document_path, business_status, business_status_detail')
     .eq('id', facilityId)
     .single();
 
@@ -45,5 +47,7 @@ export const getShop = cache(async (): Promise<ShopInfo | null> => {
     registrationSource: f.registration_source ?? 'invite',
     brnSubmitted: f.brn_submitted ?? null,
     brnDocumentPath: f.brn_document_path ?? null,
+    businessStatus: f.business_status ?? null,
+    businessStatusDetail: f.business_status_detail ?? null,
   };
 });

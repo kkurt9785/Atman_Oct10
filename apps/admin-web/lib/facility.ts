@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { refreshFacilityBusinessStatus } from './business-status';
 import { findHiraMatch } from './hira';
 import { cache } from 'react';
 import { adminClient, userClient } from './supabase';
@@ -211,6 +212,9 @@ export async function submitFacilityBrnDocument(input: { facilityId: string; brn
       p_facility_id: input.facilityId, p_brn_submitted: input.brn?.trim() || null, p_document_path: input.documentPath ?? null,
     });
     if (error) return { ok: false, error: error.message.replace(/^.*?: /, '') };
+    // 직업안정법 §25 구인자 확인 — 번호를 냈으면 국세청 상태를 바로 조회해 적어 둔다(키 없으면 건너뜀, 운영자 확인은 그대로)
+    const admin = adminClient();
+    if (admin && input.brn) await refreshFacilityBusinessStatus(admin, input.facilityId, input.brn).catch(() => null);
     revalidatePath('/'); revalidatePath('/settings');
     return { ok: true };
   } catch (error) {

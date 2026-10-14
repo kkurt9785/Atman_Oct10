@@ -20,6 +20,7 @@ type FacilityDetail = {
   average_daily_prescriptions: number | null;
   handover_minutes: number | null;
 };
+type FacilityTrust = { approved_at: string | null; registration_source: string | null; business_status: string | null };
 
 type Stats = {
   avgRating: number | null;
@@ -67,6 +68,8 @@ type Props = {
 
 export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
   const [facility, setFacility] = useState<FacilityDetail | null>(null);
+  // 사업자 확인 표시용(승인·국세청 상태). 별도 조회라 컬럼 권한이 없어도 본문은 그대로 뜬다
+  const [trust, setTrust] = useState<FacilityTrust | null>(null);
   const [stats, setStats] = useState<Stats>({ avgRating: null, completedCount: 0, reapplyRate: null });
   const [loading, setLoading] = useState(true);
 
@@ -85,6 +88,8 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
       ]);
 
       setFacility(fac);
+      void supabase.from('facilities').select('approved_at, registration_source, business_status').eq('id', facilityId).maybeSingle()
+        .then(({ data }) => { if (data) setTrust(data as FacilityTrust); }, () => undefined);
 
       const ids = (shiftIds ?? []).map((s: { id: string }) => s.id);
       if (ids.length === 0) { setLoading(false); return; }
@@ -139,6 +144,7 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
                 {facility ? FACILITY_TYPE_LABEL[facility.facility_type] ?? '의료 사업장' : ''}
               </p>
               <h2 className="text-[20px] font-extrabold text-ink">{facilityName}</h2>
+              {trust && (trust.approved_at || !String(trust.registration_source ?? '').startsWith('self_')) && trust.business_status !== 'closed' && <p className="mt-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700">사업자 확인된 사업장 ✓</p>}
             </div>
             <button onClick={onClose} className="text-[22px] text-tertiary leading-none mt-1">✕</button>
           </div>
