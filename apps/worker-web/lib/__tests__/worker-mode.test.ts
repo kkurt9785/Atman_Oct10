@@ -52,4 +52,9 @@ describe('isMedicalShellPath — 가드 대상 경로', () => {
       expect(isMedicalShellPath(path)).toBe(false);
     }
   });
+  it('긱워커도 공통 계정 삭제 경로에 접근할 수 있다', () => {
+    expect(isMedicalShellPath('/settings/withdraw')).toBe(false);
+    expect(isMedicalShellPath('/account-deletion')).toBe(false);
+    expect(isMedicalShellPath('/settings/profile')).toBe(true);
+  });
 });

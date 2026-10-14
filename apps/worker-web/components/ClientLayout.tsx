@@ -11,7 +11,7 @@ import { useDemoSession } from '@/lib/demo-session';
 import { DemoBar } from './DemoBar';
 
 // 시연 띠를 숨기는 경로 — 시연 입구 자체이거나, 화면 아래에 고정 버튼·카드가 있어 띠가 가리는 곳
-const DEMO_BAR_HIDDEN = ['/demo', '/gig/demo', '/map', '/store', '/earnings', '/jobs', '/chat', '/onboarding', '/auth'];
+const DEMO_BAR_HIDDEN = ['/demo', '/gig/demo', '/map', '/store', '/earnings', '/jobs', '/chat', '/onboarding', '/auth', '/account-deletion', '/settings/withdraw'];
 // 내 정보 화면은 맨 아래에 같은 가입 카드(DemoSignupCard)가 있어 띠를 겹쳐 띄우지 않는다
 const DEMO_BAR_HIDDEN_EXACT = ['/settings', '/gig/settings'];
 
@@ -29,7 +29,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
   }, []);
   useEffect(() => { trackPath(path); }, [path]);
   const showNav = NAV_PREFIXES.some((prefix) => path.startsWith(prefix))
-    && !path.startsWith('/workplace/qr') && !path.startsWith('/workplace/join');
+    && !path.startsWith('/workplace/qr') && !path.startsWith('/workplace/join') && path !== '/settings/withdraw';
   const guardMedical = isMedicalShellPath(path);
   const demo = useDemoSession();
   const gigNav = path.startsWith('/gig') && !path.startsWith('/gig/join') && !path.startsWith('/gig/demo');

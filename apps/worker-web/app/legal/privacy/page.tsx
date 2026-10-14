@@ -1,4 +1,5 @@
 import { LegalDoc, COMPANY } from '@/components/legal/LegalDoc';
+import Link from 'next/link';
 
 export const metadata = { title: '개인정보 처리방침 | 잇닿' };
 
@@ -81,7 +82,7 @@ export default function PrivacyPage() {
         },
         {
           title: '회원의 권리',
-          body: <p>회원은 언제든지 자신의 개인정보 열람·정정·삭제·처리정지와 동의 철회를 요청할 수 있습니다. 프로필 정보는 앱의 ‘내 정보’에서 직접 고칠 수 있고, 마케팅·위치정보 동의 철회와 회원 탈퇴도 ‘내 정보’에서 바로 할 수 있습니다. 그 밖의 요청은 고객센터({COMPANY.phone})로 하면 지체 없이 처리합니다. 법령이 보관을 정한 정보는 삭제 요청에도 해당 기간 동안 보관될 수 있습니다.</p>,
+          body: <><p>회원은 언제든지 자신의 개인정보 열람·정정·삭제·처리정지와 동의 철회를 요청할 수 있습니다. 프로필 정보는 앱의 ‘내 정보’에서 직접 고칠 수 있고, 마케팅·위치정보 동의 철회와 회원 탈퇴도 ‘내 정보’에서 바로 할 수 있습니다. 그 밖의 요청은 고객센터({COMPANY.phone})로 하면 지체 없이 처리합니다. 법령이 보관을 정한 정보는 삭제 요청에도 해당 기간 동안 보관될 수 있습니다.</p><p>앱을 설치하지 않은 경우에도 <Link href="/account-deletion" className="font-bold text-primary underline">계정 및 개인정보 삭제 페이지</Link>에서 삭제를 진행할 수 있습니다.</p></>,
         },
         {
           title: '안전성 확보 조치',

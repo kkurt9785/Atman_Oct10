@@ -21,6 +21,8 @@ export const WORKER_SHELL_HOME: Record<WorkerShell, string> = { gig: '/gig', med
 const MEDICAL_SHELL_PREFIXES = ['/home', '/applications', '/earnings', '/rewards', '/settings', '/notifications', '/workplace', '/workroom', '/chat', '/store'];
 
 export function isMedicalShellPath(path: string) {
+  // Account deletion belongs to every worker, including gig-only accounts.
+  if (path === '/settings/withdraw') return false;
   if (path.startsWith('/workplace/join')) return false;
   return MEDICAL_SHELL_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 }

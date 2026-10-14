@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { KAKAO_OAUTH_STATE_KEY } from '@/lib/kakao-login';
 import { loadWorkerShellContext, WORKER_SHELL_HOME } from '@/lib/worker-mode';
+import { safeNotificationPath } from '@/lib/shared/notifications/navigation';
 
 function CallbackInner() {
   const router = useRouter();
@@ -37,7 +38,7 @@ function CallbackInner() {
         const data = await res.json();
 
         if (data.error || !data.id_token) {
-          router.replace('/onboarding');
+          setFailed(true);
           return;
         }
 
@@ -52,15 +53,24 @@ function CallbackInner() {
           return;
         }
 
+        let next: string | null = null;
+        try {
+          next = safeNotificationPath(window.localStorage.getItem('atman_auth_next'));
+        } catch { /* Storage may be unavailable; normal login can still continue. */ }
+        // Deleting an incomplete account must not require completing onboarding.
+        if (next === '/settings/withdraw') {
+          try { window.localStorage.removeItem('atman_auth_next'); } catch { /* Optional storage. */ }
+          router.replace(next);
+          return;
+        }
         const { data: profile } = await supabase
           .from('profiles')
           .select('onboarding_done')
           .single();
 
         if (profile?.onboarding_done) {
-          const next=window.localStorage.getItem('atman_auth_next');
-          if(next?.startsWith('/')){
-            window.localStorage.removeItem('atman_auth_next');
+          if(next){
+            try { window.localStorage.removeItem('atman_auth_next'); } catch { /* Optional storage. */ }
             router.replace(next);
           }else{
             // 이미 가입한 사람은 마지막에 쓰던 쪽(근무 찾기 / 초대 근무)으로 — 초대 근무만 쓰는 사람이 근무 찾기 홈을 거쳐 튕기지 않게
