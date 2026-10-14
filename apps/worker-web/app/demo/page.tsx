@@ -46,7 +46,7 @@ export default function WorkerDemoPage() {
           <ol className="mt-1.5 space-y-1 text-[12px] leading-5 text-sub">
             <li><b className="text-primary">①</b> 근무 찾기 → <b className="text-ink">지원하기</b></li>
             <li><b className="text-primary">②</b> 내 근무 → 확정 근무 → <b className="text-ink">사업장 채팅</b></li>
-            <li><b className="text-primary">③</b> 홈 → <b className="text-ink">출근하기</b></li>
+            <li><b className="text-primary">③</b> 홈 → <b className="text-ink">출근하기</b> <span className="text-sub">(근무 시작 1시간 전~1시간 후에만)</span></li>
           </ol>
           <Link href="/worker-intro#demo" className="mt-2 inline-block text-[12px] font-bold text-primary">먼저 1분 영상으로 보기 →</Link>
         </div>

@@ -6,9 +6,9 @@
 
 | 용도 | 계정 | 비고 |
 |---|---|---|
-| 병원 관리자 | sales-demo-**1**@demo.atman.co.kr | W여성병원 · 모든 조작 가능 |
-| 약국 관리자 | sales-demo-**2**@demo.atman.co.kr | 수원 온누리 데모약국 · 모든 조작 가능 |
-| 요양병원 관리자 | sales-demo-**3**@demo.atman.co.kr | 수원요양병원 · 모든 조작 가능 |
+| 병원 관리자 | sales-demo-**1**@demo.atman.co.kr | W여성병원(**광주 광산구**) · super · 근무자 짝은 worker-demo-1(광주 RN) → 공고는 **간호사(RN)**로 |
+| 약국 관리자 | sales-demo-**2**@demo.atman.co.kr | 수원 온누리 데모약국 · super · 근무자 짝은 worker-demo-6(약사) |
+| 요양병원 관리자 | sales-demo-**3**@demo.atman.co.kr | 수원요양병원 · super · 근무자 짝은 worker-demo-5(수원 영통 NA) → 공고는 **간호조무사(NA)**로 |
 | 워커 (광주 RN) | worker-demo-**1**@demo.atman.co.kr | 광주 광산구 병원 미팅용 |
 | 약국 직원 (박하늘·전산/접수) | worker-demo-**2** | 온누리약국 출퇴근·휴가·근태 캘린더 |
 | 워커 (수원 권선 NA) | worker-demo-**3** | |
@@ -18,7 +18,9 @@
 
 비밀번호 공통: `Atman-demo-2026!`
 
-⚠️ 데모 로그인 버튼은 **로컬 dev에서만** 노출됩니다 (`NEXT_PUBLIC_ENABLE_DEMO_LOGIN=1` + 비프로덕션). 프로덕션(admin.itdot.co.kr)에는 보이지 않는 게 정상.
+> 세 관리자 계정은 `apps/admin-web/lib/demo/revive-showcase.ts`가 매일 아침 **전부 super**로 되돌린다(sales·operator 시연 계정은 없음). 공고는 지역이 맞는 근무자 짝에게만 보인다 — 병원(광주)에서 올린 공고는 수원 조무사 시연에 안 뜬다(2026-10-14 QA).
+
+데모 로그인 버튼은 `NEXT_PUBLIC_ENABLE_DEMO_LOGIN=1`일 때 노출된다. **2026-10 현재 운영(admin.itdot.co.kr·itdot.co.kr)에도 켜져 있다**(공개 시연 입구). 끄려면 두 Vercel 프로젝트의 환경변수를 바꾸고 다시 배포.
 
 ## 2. 시연 전날 (또는 당일 아침)
 
@@ -62,3 +64,9 @@ cd ~/atman/apps/worker-web && npm run dev   # localhost:3003
 | `scripts/revive_demo.py` | 시프트·지원·근무 데이터 재생성 (시연 전날 실행) |
 | `scripts/setup_demo_worker_accounts.py` | 워커 데모 계정 6개 + 계좌 + 지오펜스 해제 (1회) |
 | `supabase/prod_demo_teardown.sql` | 데모 정리 (실서비스 전환 시) |
+
+## 시연 때 걸리기 쉬운 것 (2026-10-14 QA)
+
+- **출근하기는 근무 시작 1시간 전~1시간 후에만 된다**(사업장 설정 `check_in_after_minutes`, 기본 60). 조무사 시연의 오늘 D 근무(07:00)는 08:00이 지나면 홈이 '사업장에 알리기'로 바뀐다. 출근 장면을 보여 주려면 그 시간 안에 하거나, 관리자 `/live-demo`의 수동 출근을 쓴다.
+- 지원은 같은 시간대 공고 여러 건에 할 수 있고(설계), **수락은 한 건만** 된다.
+- 시연 공고의 예상 지급액은 관리자 공고와 같은 공식(4시간 이상 휴게 30분, 8시간 이상 60분 차감)이다.

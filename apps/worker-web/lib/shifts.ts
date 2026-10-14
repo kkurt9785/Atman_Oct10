@@ -8,9 +8,9 @@ export type ApplyShiftResult =
 
 function classify(message: string): ApplyFailureReason {
   if (/로그인/.test(message)) return 'auth';
-  if (/심사|워커/.test(message)) return 'worker';
+  if (/심사|워커|근무자만/.test(message)) return 'worker';
   if (/이미 지원/.test(message)) return 'duplicate';
-  if (/지원할 수 없|자격|지난|시간대/.test(message)) return 'unavailable';
+  if (/지원할 수 없|자격|지난|시작한|시간대/.test(message)) return 'unavailable';
   return 'error';
 }
 

@@ -12,6 +12,7 @@
 //       데모 워커 95명(kakao_id=kakao_demo_*)은 DB에 이미 존재.
 
 import { todayKST } from '@/lib/date';
+import { calcEstimatedShiftPay } from '@/lib/pay';
 
 type Worker = { id: string; kakao_id: string; role: string };
 type Facility = { id: string; name?: string; business_registration_number: string; facility_type: string };
@@ -222,8 +223,9 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
       start_time: st,
       end_time: et,
       hourly_wage: wage,
-      estimated_total_pay: wage * 8,
-      description: '시연용 오늘 확정 근무예요. 데모 워커가 배정되어 관리자 홈에 보여요.',
+      // 관리자가 공고를 올릴 때와 같은 공식(휴게 차감) — 시연 공고만 금액 공식이 다르던 문제
+      estimated_total_pay: calcEstimatedShiftPay(st, et, wage) ?? wage * 8,
+      description: '시연용 확정 근무예요. 출퇴근 기록과 지급 확인까지 체험할 수 있어요.',
       department: dept,
       notes: `DEMO-SHOWCASE-MATCHED-${String(rn).padStart(4, '0')}`,
       status: 'in_progress',
@@ -267,6 +269,12 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     check_in_distance_m: 80,
   }));
   const att = await req('POST', '/rest/v1/shift_attendances', attendances);
+  // 지원 행에도 출근 시각을 적는다 — 근무지 화면 카드는 '출근하기'인데 근태 내역은 '근무 중'으로 어긋나던 문제
+  const matchedIds = appRows.data.map((a) => a.id);
+  if (matchedIds.length) {
+    const patched = await req('PATCH', `/rest/v1/shift_applications?id=in.(${matchedIds.join(',')})`, { checked_in_at: iso(25 * MIN) });
+    if (patched.status >= 300) throw new Error(`matched applications check-in patch failed: ${patched.status} ${JSON.stringify(patched.data)}`);
+  }
 
   // ── 7. 모집(open) 시프트 50 + applied 지원 (시프트당 3명) ────────────────────
   const openShifts: Array<Record<string, unknown>> = [];
@@ -284,8 +292,8 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
       start_time: st,
       end_time: et,
       hourly_wage: wage,
-      estimated_total_pay: wage * 8,
-      description: '시연용 오늘 모집 공고예요. 데모 워커 지원자가 관리자 지원 현황에 보여요.',
+      estimated_total_pay: calcEstimatedShiftPay(st, et, wage) ?? wage * 8,
+      description: '시연용 모집 공고예요. 지원하면 사업장 확인 중으로 바뀌고, 수락되면 채팅방이 열려요.',
       department: dept,
       notes: `DEMO-SHOWCASE-OPEN-${String(rn).padStart(4, '0')}`,
       status: 'open',
