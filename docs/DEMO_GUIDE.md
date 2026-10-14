@@ -70,3 +70,18 @@ cd ~/atman/apps/worker-web && npm run dev   # localhost:3003
 - **출근하기는 근무 시작 1시간 전~1시간 후에만 된다**(사업장 설정 `check_in_after_minutes`, 기본 60). 조무사 시연의 오늘 D 근무(07:00)는 08:00이 지나면 홈이 '사업장에 알리기'로 바뀐다. 출근 장면을 보여 주려면 그 시간 안에 하거나, 관리자 `/live-demo`의 수동 출근을 쓴다.
 - 지원은 같은 시간대 공고 여러 건에 할 수 있고(설계), **수락은 한 건만** 된다.
 - 시연 공고의 예상 지급액은 관리자 공고와 같은 공식(4시간 이상 휴게 30분, 8시간 이상 60분 차감)이다.
+
+## 시연 종료(철수) 절차 — 시연과 운영은 한 버전, 끝나면 데모만 사라진다
+
+데모는 `facilities.is_demo`·`workers.is_demo`(`kakao_id 'kakao_demo_%'`)·`@demo.atman.co.kr` 계정으로만 식별되고, 실제 사용자 화면은 이미 `is_active`·`deleted_at`·`status='open'`·`is_demo` 필터로 걸러진다. 그래서 철수는 코드 배포 없이 스위치와 데이터만으로 된다.
+
+1. **앱 스위치** — Vercel 환경변수 바꾸고 두 앱 재배포
+   - `NEXT_PUBLIC_ENABLE_DEMO_LOGIN=0` (admin-web·worker-web): 시연 버튼, `/api/demo-login`, `/demo`, `/gig/demo` 숨김
+   - `DEMO_SHOWCASE_ENABLED=false` (admin-web): `expire-shifts` 크론(매일 08:30)의 revive 중지
+2. **DB 끄기(되돌릴 수 있음)** — `supabase/demo_retirement.sql` 0단계(PREVIEW)로 수를 보고 1단계(RETIRE) 실행
+   - 데모 pg_cron 해제 · 마스터 초대코드 OFF · 데모 공고 취소 · 데모 사업장 `is_active=false, deleted_at` · 데모 근무자 `deleted_at` · 데모 계정 `banned_until`
+   - 이 순간부터 근처 공고·공개 공고·지원·초대 수락·시연 로그인에서 데모가 전부 빠진다. 병원 데모 워커도 같은 규칙.
+3. **DB 지우기(선택, 되돌릴 수 없음)** — 같은 파일 2단계(PURGE). `SET app.confirm_demo_purge='yes'` 뒤에만 동작. FK RESTRICT 테이블(구독·결제·사용량·지급 지시)부터 순서대로 지운다. 시연 데이터엔 실명 개인정보가 없어 급하지 않고, 운영 통계에서 데모를 완전히 빼고 싶을 때 한다.
+4. **확인** — PREVIEW 를 다시 돌려 0인지, `cron.job` 에 demo 잡이 없는지, 두 앱 시작 화면에 시연 입구가 없는지.
+
+시연 재개는 반대로: 환경변수 복구 → 1단계 UPDATE 역방향(`is_active=true, deleted_at=NULL, banned_until=NULL`) → `supabase/restore_demo_crons.sql` → revive 1회(`/api/cron/revive-demo`).
