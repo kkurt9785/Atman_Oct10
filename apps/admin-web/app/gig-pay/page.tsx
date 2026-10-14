@@ -6,7 +6,7 @@ import { getGigPayoutBoard } from '@/lib/db/gig-payouts';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { CreatePayoutForm, PayoutRowActions, WithholdingCalculator } from './PayoutForm';
-import { MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
+import { MIN_HOURLY_WAGE_2026, weeklyHolidayPay, WEEKLY_HOLIDAY_MIN_MINUTES } from '@/lib/pay';
 import { PayoutDetail } from './PayoutDetail';
 import type { PayoutStatement } from '@/lib/pay-statement';
 
@@ -53,6 +53,7 @@ export default async function GigPayPage() {
           </div>
           <p className="mt-2 rounded-xl bg-bg px-3 py-2 text-[0.75rem] text-sub">{row.unpaidDays > 0 ? `${row.unpaidSince} ~ ${row.unpaidUntil} · ${row.unpaidDays}일 · ${hours(row.unpaidMinutes)}${row.unpaidBreakMinutes > 0 ? ` · 휴게 ${row.unpaidBreakMinutes}분 차감` : ''}` : '마지막 지급 이후 완료된 근무가 없어요'}</p>
           {row.openToday && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[0.75rem] font-bold text-amber-700">오늘 근무 중이에요 · 퇴근한 뒤에 지급하면 오늘 근무까지 한 번에 들어가요</p>}
+          {row.payBasis === 'hourly' && row.payRate && row.weekMinutes >= WEEKLY_HOLIDAY_MIN_MINUTES && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[0.75rem] leading-5 text-sub">이번 주 {hours(row.weekMinutes)} 근무 · 개근이면 <b className="text-ink">주휴수당 약 {won(weeklyHolidayPay(row.weekMinutes, row.payRate))}</b>이 별도예요. 지급액에 자동으로 더하지 않으니 확인 후 메모에 적어 주세요.</p>}
           {row.accountNumber && <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2"><p className="text-[0.6875rem] font-extrabold tracking-[0.08em] text-emerald-700">근무자가 전달한 지급 계좌</p><p className="mt-1 select-all text-[0.875rem] font-extrabold text-ink">{row.bankName} {row.accountNumber}</p><p className="mt-0.5 text-[0.6875rem] text-sub">예금주 {row.accountHolderName}</p></div>}
           {row.workerLinked && row.unpaidDays > 0 && !row.accountNumber && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[0.75rem] font-bold text-amber-700">근무자가 초대를 수락하면 계좌가 전달돼요. 아직이면 근무자에게 근태·지급 탭에서 전달을 부탁하세요.</p>}
           {!row.payBasis || !row.payRate ? (

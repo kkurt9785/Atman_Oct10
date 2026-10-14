@@ -1,5 +1,6 @@
 import { adminClient, userClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
+import { currentWeekRangeKST } from '../pay';
 
 // 긱워커 지급 보드. 근무자별로 '마지막 지급 이후 완료된 근무'를 묶어 금액을 계산한다.
 // 하루가 끝나면 그날 것만, 일주일 뒤면 일주일치가 한 건으로 잡힌다. 실제 이체는 관리자가 하고 여기엔 기록만 남는다.
@@ -20,6 +21,8 @@ export type GigPayoutStaff = {
   unpaidSince: string; unpaidUntil: string; unpaidMinutes: number; unpaidDays: number; unpaidAmount: number;
   /** 이번 미지급 계산에서 차감한 휴게 합계 */
   unpaidBreakMinutes: number;
+  /** 이번 주(월~일) 인정 근무 분 — 주휴수당 안내용 */
+  weekMinutes: number;
   /** 오늘 출근했고 아직 퇴근 전 — 지금 지급하면 오늘 근무가 다음 지급으로 넘어간다 */
   openToday: boolean;
   payouts: GigPayout[];
@@ -109,6 +112,19 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
     ? await sb.from('staff_attendances').select('staff_id').in('staff_id', staffIds).eq('work_date', today).not('check_in_at', 'is', null).is('check_out_at', null)
     : { data: [] as Array<{ staff_id: string }> };
   const openTodayIds = new Set(((openRows ?? []) as Array<{ staff_id: string }>).map((item) => item.staff_id));
+  // 이번 주 인정 근무(주휴수당 안내용) — 정산과 같은 휴게 규칙
+  const week = currentWeekRangeKST();
+  const defaultBreakByStaff = new Map(((staff ?? []) as Array<{ id: string; default_break_minutes: number | null }>).map((item) => [item.id, Number(item.default_break_minutes ?? 0)]));
+  const { data: weekRows } = staffIds.length
+    ? await sb.from('staff_attendances').select('staff_id,check_in_at,check_out_at,break_minutes').in('staff_id', staffIds).eq('status', 'completed').gte('work_date', week.start).lte('work_date', week.end)
+    : { data: [] as Array<{ staff_id: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }> };
+  const weekMinutesByStaff = new Map<string, number>();
+  for (const row of (weekRows ?? []) as Array<{ staff_id: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }>) {
+    if (!row.check_in_at || !row.check_out_at) continue;
+    const raw = Math.max(0, Math.round((Date.parse(row.check_out_at) - Date.parse(row.check_in_at)) / 60000));
+    const brk = effectiveBreakMinutes(raw, row.break_minutes, defaultBreakByStaff.get(row.staff_id));
+    weekMinutesByStaff.set(row.staff_id, (weekMinutesByStaff.get(row.staff_id) ?? 0) + Math.max(0, raw - brk));
+  }
   for (const row of (staff ?? []) as Array<Record<string, unknown>>) {
     const staffId = row.id as string;
     const list = byStaff.get(staffId) ?? [];
@@ -132,7 +148,7 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
       accountHolderName: sharedBank?.account_holder_name ?? null,
       bankSharedAt: sharedBank?.shared_at ?? null,
       unpaidSince: work.firstDate ?? since, unpaidUntil: work.lastDate ?? today, unpaidMinutes: work.minutes, unpaidDays: work.days,
-      unpaidBreakMinutes: work.breakMinutes, openToday: openTodayIds.has(staffId),
+      unpaidBreakMinutes: work.breakMinutes, weekMinutes: weekMinutesByStaff.get(staffId) ?? 0, openToday: openTodayIds.has(staffId),
       unpaidAmount: amountFor(basis, rate, work.minutes, work.days),
       payouts: list,
     });

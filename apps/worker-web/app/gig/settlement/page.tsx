@@ -7,7 +7,7 @@ import { isGigLink } from '@/lib/worker-mode';
 import { BankAccount, type BankAccountValue } from '@/components/onboarding/BankAccount';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
 import { PayoutDetail } from '@/components/gig/PayoutDetail';
-import { effectiveBreakMinutes, hoursText, type PayoutStatement } from '@/lib/gig-pay';
+import { effectiveBreakMinutes, hoursText, weeklyHolidayPay, currentWeekRangeKST, WEEKLY_HOLIDAY_MIN_MINUTES, type PayoutStatement } from '@/lib/gig-pay';
 
 type FacilityRef = { id: string; name: string };
 type Staff = {
@@ -101,7 +101,16 @@ export default function GigSettlementPage() {
     const rate = Number(staff?.pay_rate ?? 0);
     const expected = staff?.pay_basis === 'hourly' ? Math.round((minutes / 60) * rate) : staff?.pay_basis === 'daily' ? days.size * rate : 0;
     const received = selectedPayouts.filter((p) => p.status === 'paid' && ((p.paid_at ?? p.pay_at ?? '').slice(0, 10) >= monthStart)).reduce((sum, p) => sum + (p.net_amount ?? p.amount), 0);
-    return { minutes, days: days.size, expected, received };
+    // 이번 주(월~일) 인정 시간 → 주휴수당 안내 (달이 바뀌는 주는 이번 달 기록만 본다)
+    const week = currentWeekRangeKST();
+    let weekMinutes = 0;
+    for (const row of monthRows) {
+      if (row.status !== 'completed' || !row.check_in_at || !row.check_out_at || row.work_date < week.start || row.work_date > week.end) continue;
+      const raw = Math.max(0, Math.round((Date.parse(row.check_out_at) - Date.parse(row.check_in_at)) / 60000));
+      weekMinutes += Math.max(0, raw - effectiveBreakMinutes(raw, row.break_minutes, staff?.default_break_minutes));
+    }
+    const holiday = staff?.pay_basis === 'hourly' ? weeklyHolidayPay(weekMinutes, rate) : 0;
+    return { minutes, days: days.size, expected, received, weekMinutes, holiday };
   }, [monthRows, staff, selectedPayouts, monthStart]);
   const toStatement = (item: Payout): PayoutStatement => ({
     facilityName: facility?.name ?? '', workerName: staff?.name ?? workerName, periodStart: item.period_start, periodEnd: item.period_end,
@@ -160,7 +169,9 @@ export default function GigSettlementPage() {
             <div><p className="text-[11px] text-sub">예상 세전</p><p className="mt-0.5 text-[13px] font-extrabold text-primary">{won(month.expected)}</p><p className="text-[10px] text-sub">{staff.pay_basis === 'hourly' ? '시간 × 시급' : staff.pay_basis === 'daily' ? '일수 × 일급' : '-'}</p></div>
             <div><p className="text-[11px] text-sub">받은 금액</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{won(month.received)}</p><p className="text-[10px] text-sub">지급 완료 기준</p></div>
           </div>
-          <p className="mt-2 text-[11px] leading-4 text-sub">주 15시간 이상·개근이면 주휴수당 대상일 수 있어요. 금액은 사장님과 확인해 주세요.</p>
+          {month.holiday > 0
+            ? <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 {hoursText(month.weekMinutes)} 근무 · 개근이면 <b className="text-ink">주휴수당 약 {won(month.holiday)}</b> 대상이에요. 지급액과 별도라 사장님과 확인해 주세요.</p>
+            : <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 {hoursText(month.weekMinutes)} 근무{month.weekMinutes < WEEKLY_HOLIDAY_MIN_MINUTES ? ' · 주 15시간 이상·개근이면 주휴수당 대상이 돼요' : ''}.</p>}
         </section>
 
         <section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
