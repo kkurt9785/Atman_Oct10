@@ -6,6 +6,7 @@ import { getGigPayoutBoard } from '@/lib/db/gig-payouts';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { CreatePayoutForm, PayoutRowActions, WithholdingCalculator } from './PayoutForm';
+import { MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
 
 const PAY: Record<string, string> = { hourly: '시급', daily: '일급', monthly: '월급' };
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
@@ -43,13 +44,14 @@ export default async function GigPayPage() {
             <div><div className="flex items-center gap-2"><p className="text-[1rem] font-extrabold text-ink">{row.name}</p>{row.status==='ended'&&<span className="rounded-full bg-bg px-2 py-0.5 text-[0.6875rem] font-bold text-sub">근무 종료</span>}</div><p className="mt-0.5 text-[0.75rem] text-sub">{row.payBasis && row.payRate ? `${PAY[row.payBasis]} ${won(row.payRate)}` : '급여 기준 미설정'} · {!row.workerLinked ? '앱 미연결' : row.accountNumber ? '지급 계좌 전달 완료' : '근무자 계좌 전달 대기'}</p></div>
             <span className="shrink-0 text-[1.125rem] font-extrabold text-primary">{won(row.unpaidAmount)}</span>
           </div>
-          <p className="mt-2 rounded-xl bg-bg px-3 py-2 text-[0.75rem] text-sub">{row.unpaidDays > 0 ? `${row.unpaidSince} ~ ${row.unpaidUntil} · ${row.unpaidDays}일 · ${hours(row.unpaidMinutes)}` : '마지막 지급 이후 완료된 근무가 없어요'}</p>
+          <p className="mt-2 rounded-xl bg-bg px-3 py-2 text-[0.75rem] text-sub">{row.unpaidDays > 0 ? `${row.unpaidSince} ~ ${row.unpaidUntil} · ${row.unpaidDays}일 · ${hours(row.unpaidMinutes)}${row.unpaidBreakMinutes > 0 ? ` · 휴게 ${row.unpaidBreakMinutes}분 차감` : ''}` : '마지막 지급 이후 완료된 근무가 없어요'}</p>
+          {row.openToday && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[0.75rem] font-bold text-amber-700">오늘 근무 중이에요 · 퇴근한 뒤에 지급하면 오늘 근무까지 한 번에 들어가요</p>}
           {row.accountNumber && <div className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2"><p className="text-[0.6875rem] font-extrabold tracking-[0.08em] text-emerald-700">근무자가 전달한 지급 계좌</p><p className="mt-1 select-all text-[0.875rem] font-extrabold text-ink">{row.bankName} {row.accountNumber}</p><p className="mt-0.5 text-[0.6875rem] text-sub">예금주 {row.accountHolderName}</p></div>}
           {row.workerLinked && row.unpaidDays > 0 && !row.accountNumber && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[0.75rem] font-bold text-amber-700">근무자가 초대를 수락하면 계좌가 전달돼요. 아직이면 근무자에게 근태·지급 탭에서 전달을 부탁하세요.</p>}
           {!row.payBasis || !row.payRate ? (
             <WorkforceActionForm kind="set_staff_pay" values={{ staff_id: row.staffId }} className="mt-3 grid grid-cols-3 gap-2" successMessage="급여 기준을 저장했어요.">
               <select name="pay_basis" defaultValue="hourly" className="h-10 rounded-xl border border-line bg-white px-2 text-[0.75rem]"><option value="hourly">시급</option><option value="daily">일급</option></select>
-              <input name="pay_rate" type="number" min="0" step="100" required placeholder="금액" className="h-10 rounded-xl border border-line bg-white px-2 text-[0.75rem]" />
+              <input name="pay_rate" type="number" min={MIN_HOURLY_WAGE_2026} step="100" required placeholder={`시급 ${MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원 이상`} className="h-10 rounded-xl border border-line bg-white px-2 text-[0.75rem]" />
               <button className="h-10 rounded-xl bg-ink text-[0.75rem] font-extrabold text-white">저장</button>
             </WorkforceActionForm>
           ) : canManage && row.unpaidDays > 0 ? (

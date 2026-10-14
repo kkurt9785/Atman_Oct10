@@ -1,6 +1,7 @@
 'use server';
 
 import { assertNotDemoFacility } from '../demo-guard';
+import { MIN_HOURLY_WAGE_2026 } from '../pay';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
@@ -27,7 +28,7 @@ function readSchedule(form: FormData) {
   if (!DATE.test(startsOn) || !DATE.test(endsOn) || endsOn < startsOn) throw new Error('근무 기간을 확인해 주세요.');
   if (!TIME.test(startTime) || !TIME.test(endTime)) throw new Error('근무 시간을 확인해 주세요.');
   if (!Number.isInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > 720) throw new Error('휴게시간을 확인해 주세요.');
-  if (payRate !== null && (!Number.isInteger(payRate) || payRate <= 0)) throw new Error('시급을 확인해 주세요.');
+  if (payRate !== null && (!Number.isInteger(payRate) || payRate < MIN_HOURLY_WAGE_2026)) throw new Error(`시급은 2026년 최저시급 ${MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원 이상으로 입력해 주세요.`);
   if (!Number.isInteger(headcount) || headcount < 1 || headcount > 200) throw new Error('필요 인원을 확인해 주세요.');
   if (startsOn === endsOn) weekdays = [new Date(`${startsOn}T00:00:00Z`).getUTCDay() || 7];
   if (weekdays.length === 0) throw new Error('반복 요일을 하나 이상 선택해 주세요.');

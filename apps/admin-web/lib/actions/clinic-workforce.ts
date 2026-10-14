@@ -1,6 +1,7 @@
 'use server';
 
 import { assertNotDemoFacility } from '../demo-guard';
+import { MIN_HOURLY_WAGE_2026 } from '../pay';
 import { isGigStaff, isGigworkerFacility } from '@/lib/facility-mode';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
@@ -90,6 +91,7 @@ export async function addClinicStaffAction(form: FormData) {
   }
   if (!['regular','fixed_term','temporary','daily'].includes(engagementType)) throw new Error('근무 형태를 확인해 주세요.');
   if ((!isGigworker||payBasis||payRate) && (!['monthly','hourly','daily'].includes(payBasis) || !Number.isInteger(payRate) || payRate <= 0)) throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
+  if (payBasis==='hourly' && Number.isInteger(payRate) && payRate>0 && payRate<MIN_HOURLY_WAGE_2026) throw new Error(`시급은 2026년 최저시급 ${MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원 이상으로 입력해 주세요.`);
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   if(!Number.isInteger(breakMinutes)||breakMinutes<0||breakMinutes>720)throw new Error('휴게시간을 확인해 주세요.');
   if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
@@ -417,6 +419,7 @@ export async function setStaffPayAction(form:FormData){
   const payBasis=text(form,'pay_basis');
   const payRate=Number(text(form,'pay_rate'));
   if(!['monthly','hourly','daily'].includes(payBasis)||!Number.isInteger(payRate)||payRate<=0)throw new Error('급여 계산 방식과 금액을 확인해 주세요.');
+  if(payBasis==='hourly'&&payRate<MIN_HOURLY_WAGE_2026)throw new Error(`시급은 2026년 최저시급 ${MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원 이상으로 입력해 주세요.`);
   const {data:staff}=await sb.from('facility_staff').select('worker_id,bank_name,account_last4')
     .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended').maybeSingle();
   if(!staff)throw new Error('급여 기준을 설정할 직원을 찾지 못했어요.');

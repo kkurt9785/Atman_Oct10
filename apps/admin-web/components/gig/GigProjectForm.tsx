@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GigActionForm } from './GigActionForm';
 import type { GigProject } from '@/lib/db/gig-projects';
+import { MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
 
 const inputClass = 'mt-2 h-12 w-full rounded-xl border border-line bg-white px-3 text-body text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/10';
 const WEEKDAYS: [number, string][] = [[1, '월'], [2, '화'], [3, '수'], [4, '목'], [5, '금'], [6, '토'], [7, '일']];
@@ -49,7 +50,7 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
     </section>
 
     <section className="mt-5 grid grid-cols-2 gap-3">
-      <label className="text-label font-medium text-sub">시급 <span className="font-normal text-tertiary">· 이 근무 공통</span><input name="pay_rate" type="number" min="0" step="100" defaultValue={project?.payRate ?? ''} className={inputClass} placeholder="예: 15000" /></label>
+      <label className="text-label font-medium text-sub">시급 <span className="font-normal text-tertiary">· 이 근무 공통 · 2026년 최저시급 {MIN_HOURLY_WAGE_2026.toLocaleString('ko-KR')}원 이상</span><input name="pay_rate" type="number" min={MIN_HOURLY_WAGE_2026} step="100" defaultValue={project?.payRate ?? ''} className={inputClass} placeholder="예: 15000" /></label>
       <label className="text-label font-medium text-sub">필요 인원<input name="headcount" type="number" min="1" max="200" required defaultValue={project?.headcount ?? 1} className={inputClass} /></label>
       <label className="col-span-2 text-label font-medium text-sub">메모 <span className="font-normal text-tertiary">· 선택, 관리자만 봄</span><input name="note" maxLength={500} defaultValue={project?.note ?? ''} className={inputClass} placeholder="예: 행사장 2층 안내데스크 집합" /></label>
     </section>

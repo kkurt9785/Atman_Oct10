@@ -10,7 +10,6 @@ import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
 function todayKST() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
-function nextDay(date: string) { return new Date(new Date(`${date}T00:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10); }
 
 // 지급은 사업장 종류와 무관하게 '긱 근무자'에게만 기록한다. 직원 월급은 /payroll 이 맡는다.
 async function requireFacility(sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string) {
@@ -47,10 +46,10 @@ export async function createGigPayoutAction(form: FormData) {
   if (mode === 'later' && (payAt ?? '') < today) throw new Error('지급 예정일은 오늘 이후로 선택해 주세요.');
 
   const [{ data: staff }, facility, { data: last }, { data: bankShare }] = await Promise.all([
-    sb.from('facility_staff').select('id,name,worker_id,worker_kind,pay_basis,pay_rate,contract_start').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
+    sb.from('facility_staff').select('id,name,worker_id,worker_kind,pay_basis,pay_rate,contract_start,default_break_minutes').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
     requireFacility(sb, context.facilityId),
-    sb.from('gig_payouts').select('period_end').eq('facility_id', context.facilityId).eq('staff_id', staffId)
-      .neq('status', 'cancelled').order('period_end', { ascending: false }).limit(1).maybeSingle(),
+    sb.from('gig_payouts').select('period_end,covered_until').eq('facility_id', context.facilityId).eq('staff_id', staffId)
+      .neq('status', 'cancelled').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     sb.from('gig_bank_account_shares').select('bank_account_id').eq('facility_id', context.facilityId).eq('staff_id', staffId).maybeSingle(),
   ]);
   if (!staff) throw new Error('근무자를 찾을 수 없어요.');
@@ -60,15 +59,18 @@ export async function createGigPayoutAction(form: FormData) {
     .eq('worker_id', staff.worker_id).eq('is_primary', true).is('deleted_at', null).maybeSingle();
   if (!activeBank) throw new Error('근무자가 변경한 지급 계좌를 다시 전달해야 해요.');
   if (!staff.pay_basis || !staff.pay_rate) throw new Error('먼저 급여 기준(시급·일급)을 설정해 주세요.');
-  const since = last?.period_end ? nextDay(last.period_end) : (staff.contract_start ?? '2020-01-01');
+  // 마지막 지급에 포함된 마지막 퇴근 시각(covered_until) 이후 완료분만 — 날짜로 끊으면 지급한 날 오후 근무가 영영 빠진다
+  const since = last?.period_end ? (last.period_end as string) : (staff.contract_start ?? '2020-01-01');
   if (since > today) throw new Error('아직 지급할 근무가 없어요.');
-  const work = await summarizeWork(sb, context.facilityId, staffId, since, today);
+  const afterCheckOut = last ? ((last.covered_until as string | null) ?? `${last.period_end}T23:59:59+09:00`) : null;
+  const work = await summarizeWork(sb, context.facilityId, staffId, since, today, { afterCheckOut, defaultBreakMinutes: Number(staff.default_break_minutes ?? 0) });
   const amount = amountFor(staff.pay_basis, Number(staff.pay_rate), work.minutes, work.days);
-  if (work.days === 0 || amount <= 0) throw new Error('마지막 지급 이후 완료된 근무가 없어요.');
+  if (work.days === 0) throw new Error('마지막 지급 이후 완료된 근무가 없어요.');
+  if (amount <= 0) throw new Error('인정 근무가 0분이라 지급액이 0원이에요. 휴게시간 설정을 확인해 주세요.');
   const tax = withholding(amount, withhold);
 
   const { data: created, error } = await sb.from('gig_payouts').insert({
-    facility_id: context.facilityId, staff_id: staffId, period_start: since, period_end: today,
+    facility_id: context.facilityId, staff_id: staffId, period_start: work.firstDate ?? since, period_end: work.lastDate ?? today, covered_until: work.lastCheckOut,
     worked_minutes: work.minutes, worked_days: work.days, pay_basis: staff.pay_basis, pay_rate: staff.pay_rate, amount,
     withholding_rate: tax.rate, withholding_amount: tax.total, net_amount: tax.net,
     status: mode === 'now' ? 'paid' : 'scheduled', pay_at: mode === 'now' ? today : payAt,

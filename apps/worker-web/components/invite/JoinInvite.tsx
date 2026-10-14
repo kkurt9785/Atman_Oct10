@@ -21,6 +21,7 @@ export type JoinVariant = 'gig' | 'medical';
 
 type InvitePreview = {
   ok: boolean;
+  reason?: string;
   message?: string;
   isGigworker?: boolean;
   facilityName?: string;
@@ -76,6 +77,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   const [status, setStatus] = useState<'loading' | 'preview' | 'claiming' | 'success' | 'error'>('loading');
   const [demoEnd, setDemoEnd] = useState<DemoKind | null>(null);
   const [demoBlocked, setDemoBlocked] = useState(false);
+  // 시연 사업장 초대를 실제 계정(또는 로그인 전)으로 열었을 때 — 시연 입구로 안내
+  const [demoOnly, setDemoOnly] = useState(false);
   const [message, setMessage] = useState('근무 초대를 확인하고 있어요...');
   const [preview, setPreview] = useState<InvitePreview | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -100,8 +103,9 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
 
       const invite = previewData as InvitePreview | null;
       if (previewError || !invite?.ok) {
+        setDemoOnly(invite?.reason === 'DEMO_ONLY');
         setStatus('error');
-        setMessage(invite?.message ?? '초대 정보를 불러오지 못했어요. 관리자에게 새 링크를 요청해 주세요.');
+        setMessage(invite?.message ?? '초대 정보를 불러오지 못했어요. 사장님께 새 링크를 요청해 주세요.');
         return;
       }
 
@@ -220,7 +224,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'claiming' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-60">연결 중...</button>}
       {status === 'success' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-80">근무 화면으로 이동 중...</button>}
       {status === 'error' && demoBlocked && <button type="button" onClick={async () => { await leaveDemo(); window.location.replace(window.location.href); }} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연 끝내고 이 초대 받기</button>}
-      {status === 'error' && !demoBlocked && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
+      {status === 'error' && demoOnly && <Link href={isGig ? '/gig/demo' : '/demo'} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연으로 둘러보기</Link>}
+      {status === 'error' && !demoBlocked && !demoOnly && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
     </section>
     {demoEnd && <DemoEndSheet kind={demoEnd} intent="leave" onClose={() => setDemoEnd(null)} />}
   </main>;
