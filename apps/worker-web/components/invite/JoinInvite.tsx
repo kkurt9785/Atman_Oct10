@@ -167,6 +167,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       // 계좌가 있으면 지금 전달한다. 없으면 근무 화면 안내에서 근태·지급 탭으로 잇는다
       const { error: shareError } = await supabase.rpc('share_my_gig_bank_account', { p_staff_id: staffId });
       bank = shareError ? 'missing' : 'shared';
+      // 수락한 시점의 근무 조건(시급·시간·휴게·기간)을 남긴다 — 뒤에 조건이 바뀌어도 '수락한 조건'을 다시 볼 수 있게
+      await supabase.rpc('snapshot_my_gig_terms', { p_staff_id: staffId }).then(() => undefined, () => undefined);
     }
     rememberWorkerShell(variant);
     window.dispatchEvent(new Event('atman:workplace-linked'));

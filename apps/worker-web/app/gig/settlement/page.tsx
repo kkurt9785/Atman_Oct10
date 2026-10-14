@@ -16,6 +16,9 @@ type Staff = {
   pay_basis?: string | null; pay_rate?: number | null; default_break_minutes?: number | null;
   default_start_time?: string | null; default_end_time?: string | null; work_weekdays?: number[] | null;
   contract_start?: string | null; contract_end?: string | null;
+  // 초대 수락 시점의 조건(snapshot_my_gig_terms) — 지금 조건과 다르면 알려 준다
+  terms_snapshot?: { payBasis?: string | null; payRate?: number | null; startTime?: string | null; endTime?: string | null; breakMinutes?: number | null; acceptedAt?: string | null } | null;
+  terms_snapshot_at?: string | null;
 };
 type AttendanceRow = { work_date: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null; status: string };
 type Bank = { id: string; bank_name: string | null; account_number_last4: string | null };
@@ -24,6 +27,7 @@ type Payout = {
   id: string; staff_id: string; period_start: string; period_end: string; worked_days: number; worked_minutes: number;
   pay_basis: string; pay_rate: number; amount: number; withholding_amount: number | null; net_amount: number | null;
   status: 'scheduled' | 'paid' | 'cancelled'; pay_at: string | null; paid_at: string | null;
+  worker_confirm_status: 'received' | 'missing' | null; worker_confirmed_at: string | null;
 };
 const WEEKDAY = ['', '월', '화', '수', '목', '금', '토', '일'];
 const weekdayText = (days?: number[] | null) => !days?.length ? '' : days.length === 7 ? '매일' : days.map((d) => WEEKDAY[d] ?? '').join('·');
@@ -52,7 +56,7 @@ export default function GigSettlementPage() {
     if (!user) { window.location.replace('/'); return; }
     const [{ data: worker }, { data: staffRows }] = await Promise.all([
       supabase.from('workers').select('id,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
-      supabase.from('facility_staff').select('id,name,status,worker_kind,pay_basis,pay_rate,default_break_minutes,default_start_time,default_end_time,work_weekdays,contract_start,contract_end,facilities!facility_id(id,name)').order('created_at', { ascending: false }),
+      supabase.from('facility_staff').select('id,name,status,worker_kind,pay_basis,pay_rate,default_break_minutes,default_start_time,default_end_time,work_weekdays,contract_start,contract_end,terms_snapshot,terms_snapshot_at,facilities!facility_id(id,name)').order('created_at', { ascending: false }),
     ]);
     const linked = ((staffRows ?? []) as Staff[]).filter(isGigLink);
     setStaffList(linked);
@@ -64,7 +68,7 @@ export default function GigSettlementPage() {
       supabase.from('worker_bank_accounts').select('id,bank_name,account_number_last4')
         .eq('worker_id', worker.id).eq('is_primary', true).is('deleted_at', null).maybeSingle(),
       supabase.from('gig_bank_account_shares').select('staff_id,bank_account_id,shared_at').in('staff_id', staffIds),
-      supabase.from('gig_payouts').select('id,staff_id,period_start,period_end,worked_days,worked_minutes,pay_basis,pay_rate,amount,withholding_amount,net_amount,status,pay_at,paid_at')
+      supabase.from('gig_payouts').select('id,staff_id,period_start,period_end,worked_days,worked_minutes,pay_basis,pay_rate,amount,withholding_amount,net_amount,status,pay_at,paid_at,worker_confirm_status,worker_confirmed_at')
         .in('staff_id', staffIds).neq('status', 'cancelled').order('created_at', { ascending: false }),
     ]);
     setBank((bankRow as Bank | null) ?? null);
@@ -112,6 +116,18 @@ export default function GigSettlementPage() {
     const holiday = staff?.pay_basis === 'hourly' ? weeklyHolidayPay(weekMinutes, rate) : 0;
     return { minutes, days: days.size, expected, received, weekMinutes, holiday };
   }, [monthRows, staff, selectedPayouts, monthStart]);
+  // 입금 확인 — 사장님 지급 화면에 ✓/⚠ 로 표시된다
+  async function confirmPayout(payoutId: string, received: boolean): Promise<string> {
+    const { error } = await supabase.rpc('confirm_my_gig_payout', { p_payout_id: payoutId, p_received: received });
+    if (error) return error.message.replace(/^.*?: /, '') || '지금은 확인을 남기지 못했어요.';
+    setPayouts((current) => current.map((p) => (p.id === payoutId ? { ...p, worker_confirm_status: received ? 'received' : 'missing', worker_confirmed_at: new Date().toISOString() } : p)));
+    return '';
+  }
+  // 수락한 조건과 지금 조건이 다른가(시급·시간·휴게)
+  const snap = staff?.terms_snapshot ?? null;
+  const termsChanged = Boolean(snap && (
+    Number(snap.payRate ?? 0) !== Number(staff?.pay_rate ?? 0) || (snap.startTime ?? '').slice(0, 5) !== (staff?.default_start_time ?? '').slice(0, 5)
+    || (snap.endTime ?? '').slice(0, 5) !== (staff?.default_end_time ?? '').slice(0, 5) || Number(snap.breakMinutes ?? 0) !== Number(staff?.default_break_minutes ?? 0)));
   const toStatement = (item: Payout): PayoutStatement => ({
     facilityName: facility?.name ?? '', workerName: staff?.name ?? workerName, periodStart: item.period_start, periodEnd: item.period_end,
     workedDays: item.worked_days, workedMinutes: item.worked_minutes, payBasis: item.pay_basis, payRate: item.pay_rate,
@@ -164,6 +180,9 @@ export default function GigSettlementPage() {
             {staff.default_break_minutes ? <span className="text-[12px] font-bold text-sub">휴게 {staff.default_break_minutes}분 차감</span> : null}
           </div>
           <p className="mt-1 text-[12px] text-sub">{[weekdayText(staff.work_weekdays), staff.default_start_time ? `${hhmm(staff.default_start_time)}–${hhmm(staff.default_end_time)}` : '', staff.contract_start ? `${staff.contract_start}${staff.contract_end ? ` ~ ${staff.contract_end}` : '~'}` : ''].filter(Boolean).join(' · ') || '사장님이 정한 일정이 여기에 보여요'}</p>
+          {snap && (termsChanged
+            ? <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-700"><b>수락할 때와 조건이 달라요.</b> 수락한 조건: {snap.payBasis === 'hourly' ? `시급 ${won(Number(snap.payRate ?? 0))}` : snap.payBasis === 'daily' ? `일급 ${won(Number(snap.payRate ?? 0))}` : ''}{snap.startTime ? ` · ${hhmm(snap.startTime)}–${hhmm(snap.endTime)}` : ''}{snap.breakMinutes ? ` · 휴게 ${snap.breakMinutes}분` : ''} ({(staff?.terms_snapshot_at ?? '').slice(0, 10)} 수락). 바뀐 이유는 사장님께 확인해 주세요.</p>
+            : <p className="mt-2 text-[11px] text-sub">{(staff?.terms_snapshot_at ?? '').slice(0, 10)}에 수락한 조건 그대로예요.</p>)}
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-bg p-3 text-center">
             <div><p className="text-[11px] text-sub">이번 달 인정</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{hoursText(month.minutes)}</p><p className="text-[10px] text-sub">{month.days}일</p></div>
             <div><p className="text-[11px] text-sub">예상 세전</p><p className="mt-0.5 text-[13px] font-extrabold text-primary">{won(month.expected)}</p><p className="text-[10px] text-sub">{staff.pay_basis === 'hourly' ? '시간 × 시급' : staff.pay_basis === 'daily' ? '일수 × 일급' : '-'}</p></div>
@@ -200,7 +219,7 @@ export default function GigSettlementPage() {
           <h2 className="text-[18px] font-extrabold text-ink">지급 현황</h2>
           {selectedPayouts.length === 0
             ? <p className="mt-3 text-[13px] leading-5 text-sub">아직 지급 기록이 없어요. 사장님이 지급을 기록하면 여기에 바로 남아요.</p>
-            : <div className="mt-3 divide-y divide-line">{selectedPayouts.map((item) => <PayoutDetail key={item.id} statement={toStatement(item)} right={<span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${item.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>{item.status === 'paid' ? '지급 완료' : `${item.pay_at ?? ''} 지급 예정`}</span>} />)}</div>}
+            : <div className="mt-3 divide-y divide-line">{selectedPayouts.map((item) => <PayoutDetail key={item.id} statement={toStatement(item)} confirm={{ status: item.worker_confirm_status, onConfirm: (received) => confirmPayout(item.id, received) }} right={<span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${item.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>{item.status === 'paid' ? '지급 완료' : `${item.pay_at ?? ''} 지급 예정`}</span>} />)}</div>}
         </section>
       </>}
   </main>;

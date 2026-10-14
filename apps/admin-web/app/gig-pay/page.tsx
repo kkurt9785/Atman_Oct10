@@ -80,7 +80,11 @@ export default async function GigPayPage() {
     {paid.length > 0 && <>
       <h2 className="mt-6 px-1 text-[0.9375rem] font-extrabold text-ink">지급 완료</h2>
       <div className="mt-3 divide-y divide-line rounded-2xl bg-white shadow-card">
-        {paid.map((p) => <div key={p.id} className="px-4"><p className="pt-3 text-[0.75rem] font-bold text-ink">{p.name}</p><PayoutDetail statement={toStatement(p)} right={<span className="shrink-0 text-[0.6875rem] font-bold text-emerald-600">{p.payAt} 지급</span>} /></div>)}
+        {paid.map((p) => <div key={p.id} className="px-4"><p className="pt-3 text-[0.75rem] font-bold text-ink">{p.name}</p><PayoutDetail statement={toStatement(p)} right={p.workerConfirmStatus === 'received'
+          ? <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[0.6875rem] font-extrabold text-emerald-700">입금 확인 ✓</span>
+          : p.workerConfirmStatus === 'missing'
+            ? <span className="shrink-0 rounded-full bg-red-50 px-2 py-1 text-[0.6875rem] font-extrabold text-red-600">⚠ 아직 못 받았대요</span>
+            : <span className="shrink-0 text-[0.6875rem] font-bold text-emerald-600">{p.payAt} 지급 · 확인 대기</span>} /></div>)}
       </div>
     </>}
     <WithholdingCalculator />

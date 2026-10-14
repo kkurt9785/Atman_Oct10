@@ -11,6 +11,8 @@ export type GigPayout = {
   status: 'scheduled' | 'paid' | 'cancelled'; payAt: string | null; paidAt: string | null; note: string | null; createdAt: string;
   /** 이 지급에 포함된 마지막 퇴근 시각 — 다음 지급은 이 시각 이후 완료분부터 */
   coveredUntil: string | null;
+  /** 근무자 입금 확인(received) / 못 받음(missing) */
+  workerConfirmStatus: 'received' | 'missing' | null; workerConfirmedAt: string | null;
 };
 export type GigPayoutStaff = {
   staffId: string; name: string; workerLinked: boolean;
@@ -102,6 +104,7 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
       status: row.status as GigPayout['status'], payAt: (row.pay_at as string | null) ?? null, paidAt: (row.paid_at as string | null) ?? null,
       note: (row.note as string | null) ?? null, createdAt: row.created_at as string,
       coveredUntil: (row.covered_until as string | null) ?? null,
+      workerConfirmStatus: (row.worker_confirm_status as 'received' | 'missing' | null) ?? null, workerConfirmedAt: (row.worker_confirmed_at as string | null) ?? null,
     };
     (byStaff.get(item.staffId) ?? byStaff.set(item.staffId, []).get(item.staffId)!).push(item);
   }
