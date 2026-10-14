@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Card, SectionTitle } from '@/components/ui';
 import { adminClient } from '@/lib/supabase';
 import { getCurrentFacilityId } from '@/lib/facility';
+import { formatDate } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +71,7 @@ export default async function ChatsPage() {
   return (
     <main className="px-4">
       <h1 className="text-display font-extrabold text-ink mt-3 mb-1 px-1">근무자 채팅</h1>
-      <p className="text-label text-sub mb-4 px-1">채용확정된 근무자와 근무에 필요한 내용만 대화해요 · 근무 종료 24시간 후 잠김</p>
+      <p className="text-label text-sub mb-4 px-1">채용 확정된 근무자와 근무에 필요한 내용만 대화해요 · 근무 종료 24시간 후 잠김</p>
 
       <SectionTitle>대화 목록</SectionTitle>
       {rows.length === 0 ? (
@@ -92,12 +93,12 @@ export default async function ChatsPage() {
                   <span className={`text-[0.6875rem] font-bold px-2 py-0.5 rounded-full ${
                     row.status === 'accepted' ? 'bg-primary/10 text-primary' : 'bg-bg text-sub'
                   }`}>
-                    {row.status === 'accepted' ? '채용확정' : '완료'}
+                    {row.status === 'accepted' ? '채용 확정' : '완료'}
                   </span>
-                  {row.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-[0.625rem] font-extrabold text-white">새 메시지</span>}
+                  {row.unread && <span className="rounded-full bg-primary px-2 py-0.5 text-[0.6875rem] font-extrabold text-white">새 메시지</span>}
                 </div>
                 <p className="text-label text-sub truncate mt-0.5">
-                  {row.lastMessage ?? `${row.shiftDate} ${row.startTime} 근무`}
+                  {row.lastMessage ?? `${formatDate(row.shiftDate)} ${row.startTime} 근무`}
                 </p>
               </div>
               <span className="text-sub text-xl flex-shrink-0 ml-3">→</span>

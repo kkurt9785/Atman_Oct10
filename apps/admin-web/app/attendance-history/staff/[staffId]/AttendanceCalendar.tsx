@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { AttendanceHistoryRow } from '@/lib/db/attendance-history';
+import { formatDate } from '@/lib/format';
 
 // 알밤·시프티류 근태 앱 표준 문법: 월 캘린더에 상태를 색으로, 탭하면 그 날 상세.
 // 하루=카드 1장 리스트(월 30장 스크롤)를 대체한다.
@@ -84,7 +85,7 @@ export function AttendanceCalendar({ month, rows, today }: { month: string; rows
       ) : row ? (
         <div className="mt-3 rounded-2xl bg-white p-4 shadow-sm" role="region" aria-live="polite" aria-label="선택한 날짜 상세">
           <div className="flex items-center justify-between">
-            <p className="text-[0.8125rem] font-extrabold">{row.workDate} <span className="ml-1 font-medium text-sub">예정 {row.scheduledStart?.slice(0, 5) ?? '—'}~{row.scheduledEnd?.slice(0, 5) ?? '—'}</span></p>
+            <p className="text-[0.8125rem] font-extrabold">{formatDate(row.workDate)} <span className="ml-1 font-medium text-sub">예정 {row.scheduledStart?.slice(0, 5) ?? '—'}~{row.scheduledEnd?.slice(0, 5) ?? '—'}</span></p>
             <span className="rounded-full bg-bg px-2.5 py-1 text-[0.6875rem] font-bold">{STATUS_LABEL[row.status] ?? row.status}</span>
           </div>
           <div className="mt-3 rounded-xl bg-bg p-3 text-[0.75rem]">

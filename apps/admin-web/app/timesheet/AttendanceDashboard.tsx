@@ -97,7 +97,7 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
         const staffRow=person.kind==='staff'?person.staff:null;
         const shiftRow=person.kind==='shift'?person.shift:null;
         return <Card key={person.key} className="p-4 shadow-card">
-          <div className="flex justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><p className="font-bold">{person.name}</p><span className="rounded-md bg-bg px-1.5 py-0.5 text-[0.625rem] font-bold text-sub">{person.employment}</span></div><p className="mt-1 truncate text-label text-sub">{person.subtitle}</p></div><span className={`h-fit shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold ${state.style}`}>{state.label}</span></div>
+          <div className="flex justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-1.5"><p className="font-bold">{person.name}</p><span className="rounded-md bg-bg px-1.5 py-0.5 text-[0.6875rem] font-bold text-sub">{person.employment}</span></div><p className="mt-1 truncate text-label text-sub">{person.subtitle}</p></div><span className={`h-fit shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-bold ${state.style}`}>{state.label}</span></div>
           <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-label text-sub">
             <div>출근 <b className="text-ink">{fmt(person.checkInAt)}</b><span className="mx-2">→</span>퇴근 <b className="text-ink">{fmt(person.checkOutAt)}</b></div>
             {person.method&&<div className="mt-1 text-[0.6875rem]">인증 {AUTH[person.method]??person.method}{person.distance!=null?` · 사업장에서 ${person.distance}m`:''}</div>}

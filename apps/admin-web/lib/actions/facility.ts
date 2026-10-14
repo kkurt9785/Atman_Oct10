@@ -124,7 +124,7 @@ export async function saveFacilityProfile(formData: FormData) {
     const {data:networkSettings}=await sb.from('facility_attendance_settings')
       .select('allowed_ips').eq('facility_id',context.facilityId).maybeSingle();
     if(!(networkSettings?.allowed_ips?.length)){
-      throw new Error('사업장 Wi-Fi/IP 인증을 선택하려면 먼저 현재 네트워크를 등록해 주세요.');
+      throw new Error('사업장 Wi-Fi 인증을 선택하려면 먼저 현재 네트워크를 등록해 주세요.');
     }
   }
   const attendancePatch={

@@ -42,9 +42,9 @@ export function CreatePayoutForm({ staffId, amount, disabled, disabledReason }: 
         <span className="text-[0.6875rem] font-medium text-sub">소득세 3% + 지방소득세 0.3%</span>
       </label>
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
-        <div><p className="text-[0.625rem] text-sub">세전</p><p className="text-[0.8125rem] font-bold text-ink">{won(amount)}</p></div>
-        <div><p className="text-[0.625rem] text-sub">공제</p><p className="text-[0.8125rem] font-bold text-red-600">−{won(tax.total)}</p></div>
-        <div><p className="text-[0.625rem] text-sub">실지급</p><p className="text-[0.9375rem] font-extrabold text-primary">{won(tax.net)}</p></div>
+        <div><p className="text-[0.6875rem] text-sub">세전</p><p className="text-[0.8125rem] font-bold text-ink">{won(amount)}</p></div>
+        <div><p className="text-[0.6875rem] text-sub">공제</p><p className="text-[0.8125rem] font-bold text-red-600">−{won(tax.total)}</p></div>
+        <div><p className="text-[0.6875rem] text-sub">실지급</p><p className="text-[0.9375rem] font-extrabold text-primary">{won(tax.net)}</p></div>
       </div>
     </div>
     {!later ? (
@@ -97,9 +97,9 @@ export function WithholdingCalculator() {
       <span className="text-[0.8125rem] text-sub">원</span>
     </div>
     <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-      <div className="rounded-xl bg-bg py-2"><p className="text-[0.625rem] text-sub">소득세 3%</p><p className="text-[0.8125rem] font-bold text-ink">{won(tax.incomeTax)}</p></div>
-      <div className="rounded-xl bg-bg py-2"><p className="text-[0.625rem] text-sub">지방소득세 0.3%</p><p className="text-[0.8125rem] font-bold text-ink">{won(tax.localTax)}</p></div>
-      <div className="rounded-xl bg-primary/10 py-2"><p className="text-[0.625rem] text-primary">실지급</p><p className="text-[0.9375rem] font-extrabold text-primary">{won(tax.net)}</p></div>
+      <div className="rounded-xl bg-bg py-2"><p className="text-[0.6875rem] text-sub">소득세 3%</p><p className="text-[0.8125rem] font-bold text-ink">{won(tax.incomeTax)}</p></div>
+      <div className="rounded-xl bg-bg py-2"><p className="text-[0.6875rem] text-sub">지방소득세 0.3%</p><p className="text-[0.8125rem] font-bold text-ink">{won(tax.localTax)}</p></div>
+      <div className="rounded-xl bg-primary/10 py-2"><p className="text-[0.6875rem] text-primary">실지급</p><p className="text-[0.9375rem] font-extrabold text-primary">{won(tax.net)}</p></div>
     </div>
     <p className="mt-2 text-[0.6875rem] leading-4 text-sub">10원 미만 절사 기준의 간이 계산이에요. 일용근로자 처리(하루 15만원 이하 비과세 등)나 신고는 세무 기준을 따라 주세요.</p>
   </section>;

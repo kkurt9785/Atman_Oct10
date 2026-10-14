@@ -26,10 +26,10 @@ export function GigParticipantsPanel({ project, candidates, workerOrigin }: { pr
         return <li key={member.assignmentId} className="flex items-center justify-between gap-3 py-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2"><b className="text-[0.9375rem] text-ink">{member.name}</b>
-              {status ? <span className={`rounded-full px-2 py-0.5 text-[0.625rem] font-extrabold ${status[1]}`}>{status[0]}</span>
-                : member.workerLinked ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[0.625rem] font-extrabold text-primary">이어짐</span>
-                : member.invitePending ? <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[0.625rem] font-extrabold text-violet-700">잇기 대기</span>
-                : <span className="rounded-full bg-bg px-2 py-0.5 text-[0.625rem] font-extrabold text-sub">잇기 링크 필요</span>}
+              {status ? <span className={`rounded-full px-2 py-0.5 text-[0.6875rem] font-extrabold ${status[1]}`}>{status[0]}</span>
+                : member.workerLinked ? <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[0.6875rem] font-extrabold text-primary">이어짐</span>
+                : member.invitePending ? <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[0.6875rem] font-extrabold text-violet-700">잇기 대기</span>
+                : <span className="rounded-full bg-bg px-2 py-0.5 text-[0.6875rem] font-extrabold text-sub">잇기 링크 필요</span>}
             </div>
             {member.workerLinked && member.accountName && member.accountName !== member.name && <p className="mt-0.5 text-[0.6875rem] font-bold text-warn">수락한 계정: {member.accountName} · 본인 확인</p>}
             {member.workerLinked && <div className="mt-1"><UnlinkWorkerButton staffId={member.staffId} name={member.name} accountName={member.accountName} inviteUrlBase={`${workerOrigin}/gig/join`} align="start" /></div>}
@@ -44,7 +44,7 @@ export function GigParticipantsPanel({ project, candidates, workerOrigin }: { pr
 
     {candidates.length > 0 && <GigActionForm kind="add_participants" values={{ project_id: project.id }} successMessage="근무에 넣었어요." className="mt-4 rounded-xl bg-bg p-3">
       <p className="text-[0.75rem] font-extrabold text-ink">등록된 근무자 잇기</p>
-      <div className="mt-2 flex flex-wrap gap-2">{candidates.map((candidate) => <label key={candidate.staffId} className="flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[0.8125rem] font-bold text-ink"><input type="checkbox" name="staff_ids" value={candidate.staffId} className="h-4 w-4 accent-primary" />{candidate.name}{!candidate.workerLinked && <span className="text-[0.625rem] font-medium text-sub">· 초대 전</span>}</label>)}</div>
+      <div className="mt-2 flex flex-wrap gap-2">{candidates.map((candidate) => <label key={candidate.staffId} className="flex cursor-pointer items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-[0.8125rem] font-bold text-ink"><input type="checkbox" name="staff_ids" value={candidate.staffId} className="h-4 w-4 accent-primary" />{candidate.name}{!candidate.workerLinked && <span className="text-[0.6875rem] font-medium text-sub">· 초대 전</span>}</label>)}</div>
       <button className="mt-3 h-10 w-full rounded-xl bg-ink text-[0.75rem] font-extrabold text-white">선택한 사람 잇기</button>
     </GigActionForm>}
 

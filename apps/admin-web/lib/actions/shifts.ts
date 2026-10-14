@@ -13,7 +13,7 @@ import { nudgeNotificationDispatch } from '../notify-nudge';
 const ALL_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff'] as const;
 const ROLE_LABEL: Record<string, string> = {
   rn: '간호사', na: '간호조무사', pharmacist: '약사',
-  pharmacy_staff: '약국 전산·사무직', any: '자격 무관 인력',
+  pharmacy_staff: '약국 전산·사무직', any: '직군 무관',
 };
 const PHARMACY_STAFF_LICENSED_TASK = /(조제|복약\s*지도|복약지도|의약품\s*(판매|조제)|처방\s*(검토|감사)|최종\s*(검수|확인))/;
 

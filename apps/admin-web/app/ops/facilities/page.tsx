@@ -53,7 +53,7 @@ export default async function PlatformFacilitiesPage() {
                 <ul className="mt-3 space-y-1.5">
                   {issues.map((c) => (
                     <li key={c.key} className="text-[0.8125rem] leading-5">
-                      <span className={`mr-1.5 inline-block rounded px-1.5 py-0.5 text-[0.625rem] font-extrabold ${c.level === 'error' ? 'bg-warn/10 text-warn' : 'bg-amber-100 text-amber-700'}`}>{c.level === 'error' ? '문제' : '주의'}</span>
+                      <span className={`mr-1.5 inline-block rounded px-1.5 py-0.5 text-[0.6875rem] font-extrabold ${c.level === 'error' ? 'bg-warn/10 text-warn' : 'bg-amber-100 text-amber-700'}`}>{c.level === 'error' ? '문제' : '주의'}</span>
                       <b className="text-ink">{c.label}</b>{c.count != null ? <span className="text-sub"> · {c.count}</span> : null}
                       {c.detail && <span className="block pl-9 text-[0.75rem] text-sub">{c.detail}</span>}
                     </li>

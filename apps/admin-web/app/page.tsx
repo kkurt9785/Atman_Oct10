@@ -41,7 +41,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
   const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + attendanceFailures.length;
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
-  const todayCount=clinicStaff.length+shiftStaff.length;
+  // 오늘 근태 화면(AttendanceDashboard)과 같은 기준 — 예전엔 등록 직원 전체를 '오늘 예정'으로 셌다
+  const todayCount=clinicStaff.filter((s)=>s.scheduledToday||s.attendanceStatus!=='off').length+shiftStaff.length;
   const activeStaffCount = clinicStaff.filter((row) => row.status !== 'ended').length;
   const targetStaffCount = shop.employeeCount ?? 0;
   const registeredShortage = targetStaffCount > 0 ? Math.max(0, targetStaffCount - activeStaffCount) : 0;
@@ -78,6 +79,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         <p className="text-body text-sub">{shop.name}</p>
         <h1 className="text-display font-extrabold text-ink mt-1">{isPharmacy?'약국장님':'원장님'}, 안녕하세요 👋</h1>
       </div>
+      {/* 가장 자주 하는 일 — 작은 폰(375×667) 첫 화면에서도 보이게 인사말 바로 아래 */}
+      <Link href="/shifts/new" className="mb-4 flex min-h-tap items-center justify-center gap-2 rounded-2xl bg-primary text-body font-extrabold text-white shadow-btn active:opacity-85"><span className="text-[1.25rem] leading-none">＋</span>근무자 모집</Link>
 
       {/* 첫 화면은 채용 공고보다 인력 공백과 다음 행동을 먼저 보여준다. */}
       <Card className={registeredShortage > 0 ? 'mb-4 border border-amber-200 bg-amber-50' : 'mb-4 shadow-sm'}>
@@ -95,7 +98,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
                 {registeredShortage > 0 ? '직원 등록 →' : '운영 기준 →'}
               </Link>
             </div>
-            {registeredShortage > 0 && <p className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-[0.75rem] leading-5 text-sub">총원 기준을 먼저 맞추면 휴가·결근이 생겼을 때 바로 대체 모집으로 이어갈 수 있어요.</p>}
           </div>
         ) : (
           <div className="mt-2 flex items-center justify-between gap-4">
@@ -132,13 +134,9 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         </Card>
         {coverToApprove+pendingCount+attendanceReviewCount+(canViewPayroll?ops.pendingWageCount:0)===0&&<p className="mt-2 px-1 text-[0.75rem] font-medium text-success">오늘 바로 처리할 업무를 모두 마쳤어요.</p>}
       </section>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <Link href="/shifts/new" className="rounded-2xl bg-primary px-5 py-5 text-white shadow-btn active:opacity-85"><span className="text-[1.25rem]">＋</span><p className="mt-2 text-[1.0625rem] font-extrabold">근무자 모집</p><p className="mt-1 text-[0.75rem] text-white/80">날짜와 시간만 정하면 돼요</p></Link>
-        <Link href="/timesheet" className="rounded-2xl bg-white px-5 py-5 active:bg-bg"><span className="text-[1.25rem]">◷</span><p className="mt-2 text-[1.0625rem] font-extrabold text-ink">오늘 근무 보기</p><p className="mt-1 text-[0.75rem] text-sub">출퇴근과 확인 요청을 봐요</p></Link>
-      </div>
       {/* 긱워커 전용 근무지(/setup/claim-facility?mode=gigworker)는 사업장이 없는 관리자만 만들 수 있다(admin_user_id UNIQUE).
           기존 사업장은 직원 관리의 단기근무 등록으로 외부 단기근로자를 초대한다. */}
-      <Link href="/staff?view=contract&entry=gigworker" className="mt-3 flex items-center justify-between rounded-xl bg-white px-4 py-3 active:bg-bg"><span><b className="text-[0.875rem] text-ink">외부 단기근로자 초대</b><span className="ml-2 text-[0.75rem] text-sub">당근 등에서 구한 인력의 날짜·시간을 정하고 링크를 보내요</span></span><span className="font-bold text-primary">→</span></Link>
+      <Link href="/staff?view=contract&entry=gigworker" className="mt-4 flex items-center justify-between rounded-xl bg-white px-4 py-3 active:bg-bg"><span><b className="text-[0.875rem] text-ink">외부 단기근로자 초대</b><span className="ml-2 text-[0.75rem] text-sub">당근 등에서 구한 인력의 날짜·시간을 정하고 링크를 보내요</span></span><span className="font-bold text-primary">→</span></Link>
       <div className="mt-3"><OperationsFlow compact/></div>
       <Link href="/workforce" className="mt-3 flex items-center justify-between rounded-xl bg-primary/5 px-4 py-3 text-label font-bold text-primary"><span>함께한 근무자 다시 요청</span><span>→</span></Link>
 

@@ -13,4 +13,8 @@ html, body { background: #F2F4F6; color: #191F28; }
 body {
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   -webkit-font-smoothing: antialiased;
+  /* 한글은 어절 단위로만 줄바꿈 — '재/직', '(익/일)', '받아/요' 같은 글자 단위 깨짐 방지.
+     overflow-wrap은 anywhere가 아니라 break-word: anywhere는 최소 너비 계산에 들어가 flex 안 짧은 배지를 다시 쪼갠다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }

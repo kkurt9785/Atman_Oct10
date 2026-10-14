@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { getWorkforcePool } from '@/lib/db/workforce';
-import { hours } from '@/lib/format';
+import { hours, formatShortDate } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { facilityTypeLabel } from '@/lib/facility-label';
+import { ROLE_FULL_LABEL } from '@/lib/constants';
 
-const ROLE_LABEL: Record<string,string> = { rn: '간호사 RN', na: '간호조무사 NA', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
+const ROLE_LABEL = ROLE_FULL_LABEL;
 const CREDENTIAL_STYLE = {
   valid: 'bg-success/15 text-success',
   expiring: 'bg-amber-100 text-amber-700',
@@ -38,7 +39,7 @@ export default async function WorkforcePage() {
       <div className="grid grid-cols-3 gap-2 mb-5">
         <Card className="p-3"><p className="text-[0.6875rem] text-sub">전체</p><p className="text-title font-extrabold mt-1">{members.length}명</p></Card>
         <Card className="p-3"><p className="text-[0.6875rem] text-sub">초대 가능</p><p className="text-title font-extrabold text-primary mt-1">{active.length}명</p></Card>
-        <Card className="p-3"><p className="text-[0.6875rem] text-sub">자격 확인</p><p className="text-title font-extrabold text-warn mt-1">{needsAttention.length}건</p></Card>
+        <Card className="p-3"><p className="text-[0.6875rem] text-sub">자격 확인</p><p className={`text-title font-extrabold mt-1 ${needsAttention.length>0?'text-warn':'text-ink'}`}>{needsAttention.length}건</p></Card>
       </div>
 
       {members.length === 0 ? (
@@ -60,7 +61,7 @@ export default async function WorkforcePage() {
                       <span className="text-[0.6875rem] font-bold rounded-full bg-primary/10 text-primary px-2 py-0.5">{ROLE_LABEL[member.role]}</span>
                     </div>
                     <p className="text-label text-sub mt-1">완료 {member.completedShiftCount}회 · 누적 {hours(member.totalWorkedMinutes)}</p>
-                    {member.lastWorkedAt && <p className="text-[0.6875rem] text-sub mt-1">최근 근무 {member.lastWorkedAt}</p>}
+                    {member.lastWorkedAt && <p className="text-[0.6875rem] text-sub mt-1">최근 근무 {formatShortDate(member.lastWorkedAt)}</p>}
                   </div>
                   <span className={`shrink-0 text-[0.6875rem] font-bold rounded-full px-2.5 py-1 ${CREDENTIAL_STYLE[member.credentialStatus]}`}>
                     {CREDENTIAL_LABEL[member.credentialStatus]}

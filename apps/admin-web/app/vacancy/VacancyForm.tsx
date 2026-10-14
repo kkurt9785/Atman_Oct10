@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { VacancyCandidate, VacancySource } from '@/lib/db/vacancy';
 import { fillVacancyAction } from './actions';
@@ -58,6 +59,9 @@ export function VacancyForm({ source, candidates, needsShift, defaultWage, defau
     return next;
   });
   const count = selectable.filter((c) => checked.has(c.workerId!)).length;
+  // 이미 공개 공고인데 요청할 사람이 없으면 보낼 게 없다 — 비활성 버튼만 두지 말고 다음 할 일을 알려 준다
+  const nothingToSend = isPublic && selectable.length === 0;
+  const alreadyRequested = candidates.some((c) => c.requestStatus === 'invited');
   const [pending, setPending] = useState(false);
 
   return (
@@ -97,7 +101,7 @@ export function VacancyForm({ source, candidates, needsShift, defaultWage, defau
           </div>
         </section>
       )}
-      {candidates.length === 0 && (
+      {candidates.length === 0 && !isPublic && (
         <p className="rounded-2xl bg-white p-5 text-center text-label text-sub shadow-card">같은 직군의 직원이나 함께 일한 근무자가 아직 없어요. 공개 공고로 올리면 근처 근무자에게 알림이 가요.</p>
       )}
 
@@ -111,10 +115,18 @@ export function VacancyForm({ source, candidates, needsShift, defaultWage, defau
         </label>
       )}
 
-      <div className="sticky bottom-20 space-y-2 pt-1">
-        <SubmitButton count={count} makePublic={makePublic && !isPublic} pending={pending} />
-        <p className="text-center text-[0.75rem] text-sub">요청받은 분 중 <b className="text-ink">먼저 수락한 분으로 바로 확정</b>돼요. 나머지 요청은 자동으로 닫혀요.</p>
-      </div>
+      {nothingToSend ? (
+        <div className="rounded-2xl bg-white p-4 text-center shadow-card">
+          <p className="text-label font-bold text-ink">{alreadyRequested ? '요청을 보냈어요. 먼저 수락한 분으로 확정돼요' : '지금 바로 요청할 수 있는 분이 없어요'}</p>
+          <p className="mt-1 text-[0.75rem] leading-5 text-sub">공개 공고로 열려 있어서 지원이 들어오면 지원 현황에서 확정할 수 있어요. 위 &lsquo;링크 보내기&rsquo;로 더 알릴 수도 있어요.</p>
+          <Link href="/applications" className="mt-3 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-label font-extrabold text-white">지원 현황 보기</Link>
+        </div>
+      ) : (
+        <div className="sticky bottom-20 space-y-2 bg-bg pb-2 pt-2">
+          <SubmitButton count={count} makePublic={makePublic && !isPublic} pending={pending} />
+          <p className="text-center text-[0.75rem] text-sub">요청받은 분 중 <b className="text-ink">먼저 수락한 분으로 바로 확정</b>돼요. 나머지 요청은 자동으로 닫혀요.</p>
+        </div>
+      )}
     </form>
   );
 }

@@ -29,7 +29,8 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
   const [error, setError] = useState<string | null>(null);
 
   const isPharmacy = facilityType === 'pharmacy';
-  const roles = isPharmacy ? ALL_ROLES.filter(({value})=>value==='pharmacist'||value==='pharmacy_staff') : ALL_ROLES;
+  // 병원·요양병원에는 약국 전산·사무직 공고가 없다 — 선택지를 줄여 고르기 쉽게
+  const roles = isPharmacy ? ALL_ROLES.filter(({value})=>value==='pharmacist'||value==='pharmacy_staff') : ALL_ROLES.filter(({value})=>value!=='pharmacy_staff');
   const [role, setRole] = useState<Role>(isPharmacy ? 'pharmacist' : 'rn');
   const [shiftDate, setShiftDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -320,17 +321,19 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
           </div>
         )}
 
-        {/* 제출 버튼 */}
-        <button
-          type="submit"
-          disabled={isPending || estimatedPay === 0}
-          className="flex items-center justify-center min-h-tap rounded-xl bg-primary text-white text-body font-bold w-full disabled:opacity-50 active:opacity-90 transition-opacity"
-        >
-          {isPending ? '등록 중...' : invitedWorker ? '반복근무 요청 보내기' : '공고 올리기'}
-        </button>
-        {!isPending && estimatedPay === 0 && (
-          <p className="text-label text-sub text-center -mt-2">근무 날짜·시간·시급을 입력하면 등록할 수 있어요</p>
-        )}
+        {/* 제출 버튼 — 긴 폼이라 하단 탭 위에 붙여 둔다(결원 채우기와 같은 방식) */}
+        <div className="sticky bottom-20 z-10 space-y-2 bg-bg pb-2 pt-2">
+          <button
+            type="submit"
+            disabled={isPending || estimatedPay === 0}
+            className="flex items-center justify-center min-h-tap rounded-xl bg-primary text-white text-body font-bold w-full disabled:opacity-50 active:opacity-90 transition-opacity"
+          >
+            {isPending ? '등록 중...' : invitedWorker ? '반복근무 요청 보내기' : '공고 올리기'}
+          </button>
+          {!isPending && estimatedPay === 0 && (
+            <p className="text-label text-sub text-center">근무 날짜·시간·시급을 입력하면 등록할 수 있어요</p>
+          )}
+        </div>
       </form>
     </main>
   );

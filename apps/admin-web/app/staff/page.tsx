@@ -12,6 +12,8 @@ import { UnlinkWorkerButton } from './UnlinkWorkerButton';
 import { ConvertWorkerForm } from './ConvertWorkerForm';
 import { getShop } from '@/lib/db/shop';
 import { workerShellPathsForKind } from '@/lib/facility-mode';
+import { formatShortDate } from '@/lib/format';
+import { OpenOnHash } from '@/components/OpenOnHash';
 
 const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', pharmacist:'약사', pharmacy_staff:'약국 전산·사무직', coordinator:'코디네이터', admin:'행정', other:'기타' };
 const TYPE: Record<string,string> = { regular:'상시 직원', fixed_term:'기간제', temporary:'임시 계약', daily:'단기 근무' };
@@ -26,10 +28,10 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
   const isGigworkerEntry=params.entry==='gigworker';
   const view:StaffView=['regular','contract','shift'].includes(requested??'')?requested as StaffView:'all';
   const context = await getAdminContext();
-  const canReviewWorkers = context?.accessRole === 'super';
-  const [clinicStaff, shiftStaff, pending,shop] = await Promise.all([
-    getClinicStaff(), getStaff(), canReviewWorkers ? getPendingWorkers() : Promise.resolve([]),getShop(),
-  ]);
+  const [clinicStaff, shiftStaff, shop] = await Promise.all([getClinicStaff(), getStaff(), getShop()]);
+  // 면허 심사는 실제 운영 계정만 — 시연 사업장은 공용 super 계정이라 섹션 자체를 숨긴다
+  const canReviewWorkers = context?.accessRole === 'super' && !shop?.isDemo;
+  const pending = canReviewWorkers ? await getPendingWorkers() : [];
   const gigworkerMode=shop?.mode==='gig';
   // 초대 링크는 워커 앱의 해당 셸(/gig/join 또는 /workplace/join)로 열린다
   const contractCount = clinicStaff.filter((s)=>['fixed_term','temporary','daily'].includes(s.engagementType)).length;
@@ -41,6 +43,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
     ?? (process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');
 
   return <main className="px-4 pb-28">
+    <OpenOnHash />
     <div className="mt-3 mb-4 px-1">
       <div className="flex items-center gap-3">
         <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-white text-[1.3125rem] text-ink shadow-sm active:bg-bg" aria-label="홈으로 돌아가기">←</Link>
@@ -56,16 +59,19 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
     </div>}
 
     {!gigworkerMode&&<nav aria-label="직원 유형" className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1.5 shadow-sm">
-      {([['all','전체',clinicStaff.length+shiftStaff.length],['regular','상시',regularCount],['contract','계약·임시',contractCount],['shift','오늘 단기',shiftStaff.length]] as const).map(([key,label,count])=><Link key={key} href={`/staff?view=${key}`} aria-current={view===key?'page':undefined} className={`flex min-h-11 flex-col items-center justify-center rounded-xl text-[0.6875rem] font-bold ${view===key?'bg-primary text-white':'text-sub'}`}><span>{label}</span><span className={`mt-0.5 text-[0.625rem] ${view===key?'text-white/70':'text-tertiary'}`}>{count}명</span></Link>)}
+      {([['all','전체',clinicStaff.length+shiftStaff.length],['regular','상시',regularCount],['contract','계약·임시',contractCount],['shift','오늘 단기',shiftStaff.length]] as const).map(([key,label,count])=><Link key={key} href={`/staff?view=${key}`} aria-current={view===key?'page':undefined} className={`flex min-h-11 flex-col items-center justify-center rounded-xl text-[0.6875rem] font-bold ${view===key?'bg-primary text-white':'text-sub'}`}><span>{label}</span><span className={`mt-0.5 text-[0.6875rem] ${view===key?'text-white/70':'text-tertiary'}`}>{count}명</span></Link>)}
     </nav>}
 
     <div className={`${gigworkerMode?'grid-cols-1':'grid-cols-2'} grid gap-2 mt-3`}>
-      <Link href="/timesheet" className="min-h-tap rounded-xl bg-primary text-white flex items-center justify-center text-body font-bold">오늘 근태 보기</Link>
+      {/* 직원 화면의 주 동작은 등록 — 오늘 근태는 하단 '근태' 탭과 겹친다. 긱 모드는 등록 폼이 이미 펼쳐져 있어 근태 바로가기를 둔다 */}
+      {gigworkerMode
+        ?<Link href="/timesheet" className="min-h-tap rounded-xl bg-primary text-white flex items-center justify-center text-body font-bold">오늘 근태 보기</Link>
+        :<a href="#staff-register" className="min-h-tap rounded-xl bg-primary text-white flex items-center justify-center text-body font-bold">＋ 직원 등록</a>}
       {!gigworkerMode&&<Link href="/leave" className="min-h-tap rounded-xl bg-white border border-line flex items-center justify-center text-body font-bold">휴가 관리</Link>}
       {!gigworkerMode&&clinicStaff.some((s)=>s.workerKind==='gig')&&<Link href="/gig-pay" className="col-span-2 min-h-tap rounded-xl bg-ink flex items-center justify-center text-body font-bold text-white">단기·긱 근무자 지급 관리 →</Link>}
     </div>
 
-    <details open={gigworkerMode||isGigworkerEntry} className="mt-5 bg-white rounded-2xl shadow-card group">
+    <details id="staff-register" open={gigworkerMode||isGigworkerEntry} className="mt-5 scroll-mt-20 bg-white rounded-2xl shadow-card group">
       <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between">
         <span className="font-bold text-body">＋ {gigworkerMode||isGigworkerEntry?'긱워커 등록·잇기(초대)':'기존 직원 직접 등록'}</span><span className="text-sub group-open:rotate-180">⌄</span>
       </summary>
@@ -76,9 +82,9 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
     {view!=='shift'&&<><SectionTitle>{gigworkerMode?'등록한 긱워커':view==='regular'?'상시 직원':view==='contract'?'계약·임시 직원':'관리 중인 직원'}</SectionTitle>
     {visibleStaff.length===0 ? <Card className="py-9 text-center"><p className="font-bold">해당 유형의 직원이 없어요</p><p className="text-label text-sub mt-1">위 등록 메뉴에서 직원을 추가할 수 있어요.</p></Card> :
       <Card className="divide-y divide-line p-0">{visibleStaff.map((s)=><div key={s.id} className="px-5 py-4">
-        <div className="flex items-start justify-between gap-3"><div><div className="flex gap-2 items-center"><p className="font-bold">{s.name}</p><span className="text-[0.625rem] rounded bg-bg px-1.5 py-0.5 text-sub">{SOURCE[s.source]}</span></div><p className="text-label text-sub mt-1">{gigworkerMode?(s.department??'단기 근무'):`${ROLE[s.role]??s.role} · ${s.department??'부서 미지정'}`}</p><p className="text-[0.75rem] text-sub mt-0.5">{TYPE[s.engagementType]}{s.contractStart?` · ${s.contractStart}`:''}{s.contractEnd&&s.contractEnd!==s.contractStart?`~${s.contractEnd}`:''} · {s.defaultStart.slice(0,5)}~{s.defaultEnd.slice(0,5)}</p></div>
-        <span className={`text-[0.6875rem] font-bold px-2 py-1 rounded-full ${s.status==='active'?'bg-success/10 text-success':s.status==='leave'?'bg-amber-100 text-amber-700':'bg-bg text-sub'}`}>{s.status==='active'?'재직':s.status==='leave'?'휴가':'종료'}</span></div>
-        <div className="mt-2">{s.workerId?<div className="flex items-start justify-between gap-3"><div><p className="text-[0.75rem] font-bold text-success">✓ 이어짐 · 계정·워크룸 연결</p>{s.accountName&&s.accountName!==s.name&&<p className="mt-0.5 text-[0.6875rem] font-bold text-warn">수락한 계정 이름: {s.accountName} · 본인이 맞는지 확인해 주세요</p>}</div><div className="flex flex-col items-end gap-1"><Link href={gigworkerMode?`/workroom?staff=${s.id}`:'/workroom'} className="text-[0.75rem] font-bold text-primary">{gigworkerMode?'1:1 대화 열기':'워크룸 열기'} →</Link>{!s.phone?.startsWith('DEMO-')&&<UnlinkWorkerButton staffId={s.id} name={s.name} accountName={s.accountName} inviteUrlBase={`${workerOrigin}${workerShellPathsForKind(s.workerKind).join}`}/>}</div></div>:s.phone?.startsWith('DEMO-')?<p className="text-[0.75rem] text-sub">데모 직원</p>:s.inviteToken?<div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[0.75rem] text-warn">수락 대기 · 7일 이내</p><div className="flex items-center gap-3"><CopyInviteButton url={`${workerOrigin}${workerShellPathsForKind(s.workerKind).join}?token=${s.inviteToken}`}/><WorkforceActionForm kind="create_invite" values={{staff_id:s.id}} successMessage="이전 링크를 끄고 새 초대를 만들었어요."><button className="text-[0.6875rem] font-bold text-sub">재발급</button></WorkforceActionForm></div></div>:<WorkforceActionForm kind="create_invite" values={{staff_id:s.id}} successMessage="일회용 초대를 만들었어요."><button className="text-[0.75rem] font-bold text-primary">일회용 초대 만들기</button></WorkforceActionForm>}</div>
+        <div className="flex items-start justify-between gap-3"><div><div className="flex gap-2 items-center"><p className="font-bold">{s.name}</p><span className="shrink-0 whitespace-nowrap text-[0.6875rem] rounded bg-bg px-1.5 py-0.5 text-sub">{SOURCE[s.source]}</span></div><p className="text-label text-sub mt-1">{gigworkerMode?(s.department??'단기 근무'):`${ROLE[s.role]??s.role} · ${s.department??'부서 미지정'}`}</p><p className="text-[0.75rem] text-sub mt-0.5">{TYPE[s.engagementType]}{s.contractStart?` · ${formatShortDate(s.contractStart)}`:''}{s.contractEnd&&s.contractEnd!==s.contractStart?`~${formatShortDate(s.contractEnd)}`:''} · {s.defaultStart.slice(0,5)}~{s.defaultEnd.slice(0,5)}</p></div>
+        <span className={`shrink-0 whitespace-nowrap text-[0.6875rem] font-bold px-2 py-1 rounded-full ${s.status==='active'?'bg-success/10 text-success':s.status==='leave'?'bg-amber-100 text-amber-700':'bg-bg text-sub'}`}>{s.status==='active'?'재직':s.status==='leave'?'휴가':'종료'}</span></div>
+        <div className="mt-2">{s.workerId?<div className="flex items-start justify-between gap-3"><div><p className="text-[0.75rem] font-bold text-success">✓ 이어짐 · 계정·워크룸 연결</p>{s.accountName&&s.accountName!==s.name&&<p className="mt-0.5 text-[0.6875rem] font-bold text-warn">수락한 계정 이름: {s.accountName} · 본인이 맞는지 확인해 주세요</p>}</div><div className="flex shrink-0 flex-col items-end gap-1"><Link href={gigworkerMode?`/workroom?staff=${s.id}`:'/workroom'} className="whitespace-nowrap text-[0.75rem] font-bold text-primary">{gigworkerMode?'1:1 대화 열기':'워크룸 열기'} →</Link>{!s.phone?.startsWith('DEMO-')&&<UnlinkWorkerButton staffId={s.id} name={s.name} accountName={s.accountName} inviteUrlBase={`${workerOrigin}${workerShellPathsForKind(s.workerKind).join}`}/>}</div></div>:s.phone?.startsWith('DEMO-')?<p className="text-[0.75rem] text-sub">데모 직원</p>:s.inviteToken?<div className="flex flex-wrap items-center justify-between gap-2"><p className="text-[0.75rem] text-warn">수락 대기 · 7일 이내</p><div className="flex items-center gap-3"><CopyInviteButton url={`${workerOrigin}${workerShellPathsForKind(s.workerKind).join}?token=${s.inviteToken}`}/><WorkforceActionForm kind="create_invite" values={{staff_id:s.id}} successMessage="이전 링크를 끄고 새 초대를 만들었어요."><button className="text-[0.6875rem] font-bold text-sub">재발급</button></WorkforceActionForm></div></div>:<WorkforceActionForm kind="create_invite" values={{staff_id:s.id}} successMessage="일회용 초대를 만들었어요."><button className="text-[0.75rem] font-bold text-primary">일회용 초대 만들기</button></WorkforceActionForm>}</div>
         {!gigworkerMode&&<details className="mt-3 rounded-xl bg-bg group"><summary className="flex cursor-pointer list-none items-center justify-between px-3 py-3 text-[0.75rem] font-bold"><span>{s.payBasis&&s.payRate?`${PAY[s.payBasis]} ${s.payRate.toLocaleString('ko-KR')}원`:'급여 기준 설정 필요'}</span><span className="text-sub">시급 확인 ›</span></summary><WorkforceActionForm kind="set_staff_pay" values={{staff_id:s.id}} className="grid grid-cols-2 gap-2 px-3 pb-3" successMessage="급여 기준을 저장했어요."><select name="pay_basis" defaultValue={s.payBasis??'hourly'} className="h-11 rounded-xl border border-line bg-white px-3 text-[0.75rem]"><option value="hourly">시급</option><option value="monthly">월급</option><option value="daily">일급</option></select><input name="pay_rate" type="number" min="0" step="100" required defaultValue={s.payRate??undefined} placeholder="세전 시급" className="h-11 rounded-xl border border-line bg-white px-3 text-[0.75rem]"/>{s.workerId?<div className="col-span-2 rounded-xl border border-success/20 bg-success/5 px-3 py-3"><p className="text-[0.75rem] font-bold text-success">✓ 근무자 등록 지급계좌 확인됨</p><p className="mt-1 text-[0.6875rem] text-sub">{s.bankName&&s.accountLast4?`${s.bankName} · ****${s.accountLast4}`:'계좌 정보 동기화 중'} · 변경은 근무자 본인만 가능</p></div>:<><input name="bank_name" maxLength={40} defaultValue={s.bankName??''} placeholder="지급 은행" className="h-11 rounded-xl border border-line bg-white px-3 text-[0.75rem]"/><input name="account_last4" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} defaultValue={s.accountLast4??''} placeholder="계좌 끝 4자리" className="h-11 rounded-xl border border-line bg-white px-3 text-[0.75rem]"/></>}<p className="col-span-2 text-[0.6875rem] leading-4 text-sub">인정 근무시간은 근태 기록에서 자동 집계되며 급여 지급관리에서 최종 확인해요.</p><button className="col-span-2 h-10 rounded-xl bg-ink text-[0.75rem] font-bold text-white">시급 저장</button></WorkforceActionForm></details>}
         {gigworkerMode&&<details className="mt-3 rounded-xl bg-bg group"><summary className="flex cursor-pointer list-none items-center justify-between px-3 py-3 text-[0.75rem] font-bold text-sub"><span>근무 종료·교체</span><span>›</span></summary><div className="px-3 pb-3"><p className="text-[0.6875rem] leading-5 text-sub">종료하면 워크룸 참여가 끝나고 무료 베타의 한 자리가 비어요. 기존 근태와 미지급 정산 기록은 그대로 남아요.</p><WorkforceActionForm kind="end_staff" values={{staff_id:s.id}} successMessage="근무를 종료했어요. 새 근무자를 등록할 수 있어요."><button className="mt-2 h-10 w-full rounded-xl border border-red-200 bg-white text-[0.75rem] font-extrabold text-red-600">이 근무자 종료하기</button></WorkforceActionForm></div></details>}
       </div>)}</Card>}</>}

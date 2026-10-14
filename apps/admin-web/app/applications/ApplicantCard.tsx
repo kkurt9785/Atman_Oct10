@@ -126,11 +126,10 @@ export function ApplicantCard({
               <span className={`text-[0.8125rem] font-bold px-2 py-0.5 rounded-full ${ROLE_COLOR[applicant.role] ?? 'bg-line text-sub'}`}>
                 {ROLE_LABEL[applicant.role] ?? applicant.role}
               </span>
-              {applicant.verificationStatus === 'approved' && (
-                <span className="text-[0.8125rem] text-success font-semibold">✓인증</span>
-              )}
-              {needsFacilityCredentialCheck && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[0.75rem] font-bold text-amber-700">사업장 확인 필요</span>}
-              {alreadyConfirmed && <span className="rounded-full bg-success/10 px-2 py-0.5 text-[0.75rem] font-bold text-success">✓ 사업장 확인 · {verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ?? '완료'}</span>}
+              {/* 인증 표시는 하나만 — 예전엔 '✓인증'과 '✓ 사업장 확인 · 완료'가 함께 붙었다. 필터 이름(자격 확인 필요/완료)과 같은 말로 */}
+              {needsFacilityCredentialCheck
+                ? <span className="whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[0.75rem] font-bold text-amber-700">자격 확인 필요</span>
+                : (alreadyConfirmed || applicant.verificationStatus === 'approved') && <span className="whitespace-nowrap rounded-full bg-success/10 px-2 py-0.5 text-[0.75rem] font-bold text-success">✓ 자격 확인{alreadyConfirmed && verificationMethodLabel[applicant.credentialVerificationMethod ?? ''] ? ` · ${verificationMethodLabel[applicant.credentialVerificationMethod ?? '']}` : ''}</span>}
             </div>
             <div className="flex items-center gap-2 mt-0.5 flex-wrap">
               {applicant.distanceMeters != null && (

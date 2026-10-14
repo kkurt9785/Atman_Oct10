@@ -11,20 +11,20 @@ const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무�
 const STATUS_STYLE: Record<string, string> = {
   open:        'bg-primary/10 text-primary',
   matched:     'bg-success/15 text-success',
-  in_progress: 'bg-warn/15 text-warn',
+  in_progress: 'bg-success text-white',
   completed:   'bg-line text-sub',
   cancelled:   'bg-line text-sub',
 };
 const STATUS_LABEL: Record<string, string> = {
-  open:        '모집중',
-  matched:     '채용확정',
-  in_progress: '근무중',
+  open:        '모집 중',
+  matched:     '채용 확정',
+  in_progress: '근무 중',
   completed:   '완료',
   cancelled:   '취소됨',
 };
 
 function ShiftCard({ s }: { s: ShiftRow }) {
-  const timeRange = `${s.start_time.slice(0, 5)} – ${s.end_time.slice(0, 5)}${s.is_overnight ? ' (익일)' : ''}`;
+  const timeRange = `${s.start_time.slice(0, 5)} – ${s.end_time.slice(0, 5)}`;
   const isCancellable = s.status === 'open' || s.status === 'matched';
 
   return (
@@ -32,10 +32,10 @@ function ShiftCard({ s }: { s: ShiftRow }) {
       <div className="flex items-start justify-between mb-2">
         <div className="min-w-0 flex-1">
           <p className="text-label text-sub">{formatDate(s.shift_date)} · {ROLE_LABEL[s.required_role]}</p>
-          <p className="text-title font-bold text-ink mt-0.5">{timeRange}</p>
+          <p className="text-title font-bold text-ink mt-0.5"><span className="whitespace-nowrap">{timeRange}</span>{s.is_overnight && <span className="ml-1 whitespace-nowrap text-label font-bold text-sub">(익일)</span>}</p>
         </div>
         <div className="flex items-center gap-2 ml-3 flex-shrink-0">
-          <span className={`text-label font-bold px-3 py-1 rounded-full ${STATUS_STYLE[s.status]}`}>
+          <span className={`whitespace-nowrap text-label font-bold px-3 py-1 rounded-full ${STATUS_STYLE[s.status]}`}>
             {STATUS_LABEL[s.status]}
           </span>
           {isCancellable && <CancelButton shiftId={s.id} />}
@@ -72,7 +72,7 @@ export default async function ShiftsPage() {
       <div className="flex justify-end mb-4 px-1">
         <Link href="/operations" className="text-label font-bold text-primary">반복 일정·미충원 관리 →</Link>
       </div>
-      <OperationsFlow active="recruit"/>
+      <div className="mb-4"><OperationsFlow active="recruit"/></div>
 
       <ExpiredShiftBanner shifts={expiredShifts} />
 

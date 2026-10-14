@@ -54,8 +54,8 @@ export function CoverRequestCard({ row }: { row: CoverRequestRow }) {
             <button type="button" disabled={busy !== null} onClick={() => run('reject')} className="min-h-12 rounded-xl border border-line text-label font-bold text-sub disabled:opacity-50">
               {busy === 'reject' ? '처리 중…' : '다른 분 기다리기'}
             </button>
-            <button type="button" disabled={busy !== null} onClick={() => run('approve')} className="min-h-12 rounded-xl bg-primary text-label font-extrabold text-white disabled:opacity-50">
-              {busy === 'approve' ? '확정 중…' : `${row.claimerName}님으로 확정`}
+            <button type="button" disabled={busy !== null} onClick={() => run('approve')} aria-label={`${row.claimerName}님으로 대타 확정`} className="min-h-12 rounded-xl bg-primary text-label font-extrabold text-white disabled:opacity-50">
+              {busy === 'approve' ? '확정 중…' : '대타 확정'}
             </button>
           </div>
         </>

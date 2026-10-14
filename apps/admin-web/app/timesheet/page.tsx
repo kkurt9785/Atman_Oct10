@@ -33,11 +33,11 @@ export default async function TimesheetPage(){
     </div>
     <div className="mt-4 grid grid-cols-3 gap-2">
       <Link href={isGigworker?'/staff?view=contract&entry=gigworker':'/staff'} className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">{isGigworker?'근무자 관리':'직원 관리'}</Link>
-      <Link href="/attendance-qr" className="flex h-11 items-center justify-center rounded-xl bg-primary text-label font-bold text-white">출퇴근 인증</Link>
+      <Link href="/attendance-qr" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">출퇴근 인증</Link>
       <Link href={isGigworker?'/attendance-history':'/leave'} className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">{isGigworker?'전체 내역':'휴가 관리'}</Link>
     </div>
     {!isGigworker&&<div className="mt-3"><OperationsFlow active="attendance"/></div>}
     <AttendanceDashboard staff={staff} matched={isGigworker?[]:matched} upcoming={isGigworker?[]:upcoming} failures={failures} arrivalAlerts={arrivalAlerts.filter((alert) => alert.kind === 'no_show')} facilityId={facilityId} summaryHref={summaryHref} isGigworker={isGigworker}/>
-    <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 출퇴근 기록입니다. 수정 이력은 감사 기록에 남아요.</p>
+    <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 출퇴근 기록이에요. 수정 이력은 감사 기록에 남아요.</p>
   </main>;
 }

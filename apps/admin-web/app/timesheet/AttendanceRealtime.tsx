@@ -110,10 +110,14 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
 
   return <>
     {hasFreshRecord&&<button type="button" onClick={refreshNow} className="mt-4 flex w-full items-center justify-between rounded-2xl bg-primary px-4 py-3 text-left text-white shadow-btn"><span><b className="block text-[0.8125rem]">새 출퇴근 기록이 들어왔어요</b><span className="mt-0.5 block text-[0.6875rem] text-white/80">근태 현황에 자동으로 반영했어요.</span></span><span className="text-[0.75rem] font-extrabold">새 기록 보기 →</span></button>}
-    <section className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4 shadow-card">
-      <div><div className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${connection==='live'?'bg-success':'bg-amber-500'}`}/><p className="text-[0.8125rem] font-extrabold">{connection==='live'?'실시간 근태 연결됨':'자동 갱신으로 확인 중'}</p></div><p className="mt-1 text-[0.6875rem] leading-4 text-sub">정상 출퇴근은 즉시 표시하고, 연결이 불안정해도 30초마다 다시 확인해요.{lastUpdatedAt?` · ${lastUpdatedAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})} 갱신`:''}</p>{pushMessage&&<p role="status" className="mt-1 text-[0.6875rem] font-bold text-primary">{pushMessage}</p>}</div>
-      <div className="flex shrink-0 flex-col gap-1.5"><button type="button" onClick={enablePush} disabled={pushEnabled} className={`h-9 rounded-xl px-3 text-[0.6875rem] font-extrabold ${pushEnabled?'bg-success/10 text-success':'bg-primary text-white'}`}>{pushEnabled?'이 기기 알림 켜짐':'이 기기 알림'}</button><button type="button" onClick={refreshNow} className="text-[0.625rem] font-bold text-sub">지금 새로 보기</button></div>
+    {/* 연결 상태는 한 줄로 — 예전엔 설명 문단까지 110px를 차지해 '확인 필요' 목록을 밀어냈다 */}
+    <section className="mt-4 flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-2.5 shadow-card">
+      <span className={`h-2 w-2 shrink-0 rounded-full ${connection==='live'?'bg-success':'bg-amber-500'}`} aria-hidden/>
+      <p className="min-w-0 flex-1 truncate text-[0.75rem] font-bold text-sub">{connection==='live'?'실시간 반영 중':'자동으로 새로 보는 중'}{lastUpdatedAt?` · ${lastUpdatedAt.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false})} 갱신`:''}</p>
+      <button type="button" onClick={refreshNow} className="h-8 shrink-0 rounded-lg px-2 text-[0.75rem] font-bold text-sub">새로 보기</button>
+      <button type="button" onClick={enablePush} disabled={pushEnabled} className={`h-8 shrink-0 rounded-lg px-3 text-[0.75rem] font-extrabold ${pushEnabled?'bg-success/10 text-success':'bg-primary text-white'}`}>{pushEnabled?'알림 켜짐':'알림 켜기'}</button>
     </section>
+    {pushMessage&&<p role="status" className="mt-1 px-1 text-[0.6875rem] font-bold text-primary">{pushMessage}</p>}
     {toast&&<div role="status" aria-live="polite" className="fixed inset-x-4 top-4 z-50 mx-auto max-w-[430px] rounded-2xl bg-ink px-4 py-3 text-[0.8125rem] font-bold text-white shadow-xl">{toast}</div>}
   </>;
 }

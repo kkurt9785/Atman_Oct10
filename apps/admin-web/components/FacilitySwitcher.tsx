@@ -81,7 +81,7 @@ export function FacilitySwitcher() {
           return <option key={facility.id} value={facility.id}>{facility.name} · {kind.label}</option>;
         })}
       </select>
-      <span className="pointer-events-none absolute right-2 text-[0.625rem] text-sub">⌄</span>
+      <span className="pointer-events-none absolute right-2 text-[0.6875rem] text-sub">⌄</span>
     </label>
   );
 }

@@ -82,7 +82,8 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
     return () => { void supabase.removeChannel(channel); };
   }, [facilityId, load, loadStatus, selectedStaffId]);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  // block 기본값(start)은 창 전체를 끌어내려 상단 제목이 가려졌다 — 메시지가 있을 때만, 필요한 만큼만 내린다
+  useEffect(() => { if (messages.length > 0) bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, [messages]);
 
   async function send() {
     const body = input.trim();
@@ -117,7 +118,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
 
   return <main className="mx-auto flex min-h-[calc(100dvh-8.5rem)] w-full max-w-3xl flex-col px-4 pb-4">
     <header className="mb-3 rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[0.625rem] font-extrabold tracking-[0.14em]">WORKROOM</span><span className="text-[0.75rem] font-bold text-white/65">연결 {linkedCount}명</span></div>
+      <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[0.6875rem] font-extrabold">워크룸</span><span className="text-[0.75rem] font-bold text-white/65">연결 {linkedCount}명</span></div>
       <h1 className="mt-4 text-[1.5625rem] font-extrabold">{facilityName}</h1>
       <p className="mt-1 text-[0.75rem] leading-5 text-white/65">전체 공지와 근무자별 비공개 대화를 나눠 관리해요.</p>
     </header>
@@ -134,7 +135,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
       {!loading && messages.length === 0 && <div className="py-16 text-center"><p className="text-[0.9375rem] font-bold text-ink">{selectedMember?`${selectedMember.name}님과 첫 대화를 시작하세요`:'첫 공지를 남겨보세요'}</p><p className="mt-1 text-[0.75rem] text-sub">{selectedMember?'이 대화는 해당 근무자와 관리자만 볼 수 있어요.':'가입한 모든 근무자의 앱과 알림으로 전달돼요.'}</p></div>}
       <div className="flex flex-col gap-3">
         {messages.map((message) => {
-          if (message.sender_type === 'system') return <div key={message.id} className={`rounded-2xl px-4 py-3 text-[0.75rem] leading-5 ${message.message_type === 'attendance' ? 'border border-primary/15 bg-primary/5 text-ink' : 'bg-bg text-sub'}`}><p className="font-bold text-primary">{message.sender_name}</p><p>{message.body}</p><time className="mt-1 block text-[0.625rem] text-tertiary">{timeLabel(message.created_at)}</time></div>;
+          if (message.sender_type === 'system') return <div key={message.id} className={`rounded-2xl px-4 py-3 text-[0.75rem] leading-5 ${message.message_type === 'attendance' ? 'border border-primary/15 bg-primary/5 text-ink' : 'bg-bg text-sub'}`}><p className="font-bold text-primary">{message.sender_name}</p><p>{message.body}</p><time className="mt-1 block text-[0.6875rem] text-tertiary">{timeLabel(message.created_at)}</time></div>;
           const isCheck = message.metadata?.kind === 'check' && typeof message.metadata?.checkId === 'string';
           if (isCheck) {
             const rows = checkStatus[message.metadata.checkId as string] ?? [];
@@ -142,7 +143,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
             const pending = rows.filter((row) => !row.replied_at);
             const due = dueLabel(message.metadata.dueAt);
             return <div key={message.id} className="self-stretch rounded-2xl border border-primary/25 bg-primary/5 px-4 py-3">
-              <div className="flex items-center justify-between"><span className="text-[0.6875rem] font-extrabold tracking-[0.1em] text-primary">출석 확인</span><time className="text-[0.625rem] text-tertiary">{timeLabel(message.created_at)}</time></div>
+              <div className="flex items-center justify-between"><span className="text-[0.6875rem] font-extrabold tracking-[0.1em] text-primary">출석 확인</span><time className="text-[0.6875rem] text-tertiary">{timeLabel(message.created_at)}</time></div>
               <p className="mt-1 whitespace-pre-wrap text-[0.875rem] font-bold leading-5 text-ink">{message.body}</p>
               {due && <p className="mt-1 text-[0.6875rem] text-sub">기한 {due}</p>}
               <div className="mt-3 flex items-center justify-between rounded-xl bg-white px-3 py-2">
@@ -156,9 +157,9 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
           const mine = message.sender_type === 'admin';
           const notice = message.message_type === 'announcement';
           return <div key={message.id} className={`max-w-[86%] ${mine ? 'self-end' : 'self-start'}`}>
-            <p className={`mb-1 text-[0.625rem] font-bold ${mine ? 'text-right text-primary' : 'text-sub'}`}>{notice ? '공지 · ' : ''}{message.sender_name}</p>
+            <p className={`mb-1 text-[0.6875rem] font-bold ${mine ? 'text-right text-primary' : 'text-sub'}`}>{notice ? '공지 · ' : ''}{message.sender_name}</p>
             <div className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[0.875rem] leading-5 ${notice ? 'border border-amber-200 bg-amber-50 text-ink' : mine ? 'rounded-br-md bg-primary text-white' : 'rounded-bl-md border border-line bg-white text-ink'}`}>{message.body}</div>
-            <time className={`mt-1 block text-[0.625rem] text-tertiary ${mine ? 'text-right' : ''}`}>{timeLabel(message.created_at)}</time>
+            <time className={`mt-1 block text-[0.6875rem] text-tertiary ${mine ? 'text-right' : ''}`}>{timeLabel(message.created_at)}</time>
           </div>;
         })}
       </div>

@@ -287,7 +287,7 @@ export async function approveWorkforceRecommendationAction(formData: FormData) {
   if (!recommendation) redirect('/operations?notice=recommendation_changed');
   const { data: requirement } = await sb.from('staffing_requirements').select('*')
     .eq('id', recommendation.requirementId).eq('facility_id', context.facilityId).eq('is_active', true).maybeSingle();
-  if (!requirement) throw new Error('추천 기준이 된 필요 인원 설정을 찾지 못했어요.');
+  if (!requirement) throw new Error('인력 공백 기준이 된 필요 인원 설정을 찾지 못했어요.');
   const estimatedPay = calcEstimatedShiftPay(requirement.start_time, requirement.end_time, requirement.replacement_hourly_wage);
   if (estimatedPay == null) throw new Error('대체 모집의 근무시간과 시급을 확인해 주세요.');
   const batchId = randomUUID();
@@ -300,7 +300,7 @@ export async function approveWorkforceRecommendationAction(formData: FormData) {
     notes: `인력 공백 추천 승인 · ${recommendation.reason}`, posted_by: context.user.id,
   }));
   const { data: created, error } = await sb.from('shifts').insert(rows).select('id');
-  if (error || !created?.length) throw new Error('추천 공고를 생성하지 못했어요.');
+  if (error || !created?.length) throw new Error('대체 모집 공고를 만들지 못했어요.');
   const usageKey = `job_posting_batch:${context.facilityId}:${batchId}`;
   try {
     await consumePlanUsage(sb, context.facilityId, 'job_posting_slot', created.length, usageKey);
@@ -315,7 +315,7 @@ export async function approveWorkforceRecommendationAction(formData: FormData) {
     if (recipientError) {
       await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
       await releasePlanUsage(sb, usageKey);
-      throw new Error('알림 대상을 확인하지 못해 추천 반영을 취소했어요.');
+      throw new Error('알림 대상을 확인하지 못해 공고 등록을 취소했어요.');
     }
     for (const recipient of data ?? []) if (recipient.auth_user_id) recipients.add(recipient.auth_user_id as string);
   }
@@ -330,7 +330,7 @@ export async function approveWorkforceRecommendationAction(formData: FormData) {
     if (outboxError) {
       await sb.from('shifts').delete().eq('facility_id', context.facilityId).eq('generation_batch_id', batchId);
       await releasePlanUsage(sb, usageKey);
-      throw new Error('근무자 알림 저장에 실패해 추천 반영을 취소했어요.');
+      throw new Error('근무자 알림 저장에 실패해 공고 등록을 취소했어요.');
     }
     await nudgeNotificationDispatch();
   }

@@ -37,10 +37,12 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
   // 혜택 목록은 이용 중·인기 요금제만 펼친다 — 나머지는 '포함 내용 보기'로(요금제 탭이 휴대폰 두 화면 넘게 길었다)
   const [opened, setOpened] = useState<string | null>(null);
   const meta = CYCLES.find((c) => c.key === cycle)!;
+  // 무료 요금제만 보이는 경우(긱워커 무료 베타 등)엔 결제 주기·할인 선택이 의미가 없다
+  const hasPaidPlan = plans.some((plan) => plan.monthly_fee > 0);
 
   return (
     <>
-      <div className="mb-3 grid grid-cols-3 gap-1.5 rounded-2xl bg-white p-1.5 shadow-card" role="group" aria-label="결제 주기 선택">
+      {hasPaidPlan && <div className="mb-3 grid grid-cols-3 gap-1.5 rounded-2xl bg-white p-1.5 shadow-card" role="group" aria-label="결제 주기 선택">
         {CYCLES.map((c) => (
           <button
             key={c.key}
@@ -52,8 +54,8 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
             {c.label}
           </button>
         ))}
-      </div>
-      {cycle !== 'monthly' && (
+      </div>}
+      {hasPaidPlan && cycle !== 'monthly' && (
         <div className="mb-3 rounded-xl bg-primary/5 border border-primary/15 px-3 py-2.5">
           <p className="text-[0.6875rem] leading-4 text-sub">
             {meta.months}개월 선결제 · 부가세 별도 · 중도해지 시 이용 개월은 할인 전 정상가로 정산 후 잔액 환불

@@ -94,7 +94,7 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
             className="w-full border border-line rounded-xl px-4 py-3 text-[0.9375rem] outline-none focus:border-primary"
           />
           <p className="mt-1.5 text-[0.6875rem] leading-5 text-tertiary">
-            상시 근무가 필요한 전체 인원 기준입니다. 등록 직원 수와 비교해 부족 인원과 요금제 한도를 계산해요.
+            상시 근무가 필요한 전체 인원 기준이에요. 등록 직원 수와 비교해 부족 인원과 요금제 한도를 계산해요.
           </p>
         </div>
 
@@ -169,40 +169,46 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
         <p className="text-[0.75rem] text-tertiary mb-4">실내 GPS 오차를 고려해 {facilityWord} 환경에 맞게 선택하세요.</p>
         <label className="block text-[0.8125rem] text-sub mb-4">기본 인증 방식
           <select name="attendance_mode" value={attendanceMode} onChange={event=>setAttendanceMode(event.target.value as FacilityProfile['attendance_mode'])} className="mt-1.5 w-full h-12 rounded-xl border border-line bg-white px-3 text-[0.875rem]">
-            <option value="gps_or_qr">추천 · 앱에서 버튼만 누르기</option>
+            <option value="gps_or_qr">가장 쉬움 · 앱에서 버튼만 누르기</option>
             <option value="gps">위치(GPS) 우선 · QR/Wi-Fi 보완</option>
             <option value="gps_qr">위치 + 동적 QR 모두 필수</option>
             <option value="qr">동적 QR만</option>
-            <option value="network">사업장 Wi-Fi/IP만</option>
+            <option value="network">사업장 Wi-Fi만</option>
             <option value="admin">관리자 승인만</option>
           </select>
         </label>
-        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[0.75rem] leading-5 text-sub"><b className="text-primary">추천 · 버튼 한 번으로 출퇴근</b><br/>직원은 앱에서 출퇴근 버튼만 누르면 돼요. 시스템이 위치 또는 등록된 {facilityWord} Wi-Fi를 자동으로 확인하고, 둘 다 어려울 때만 60초 동적 QR을 안내해요.</div>
+        <div className="mb-4 rounded-xl bg-blue-50 p-3 text-[0.75rem] leading-5 text-sub"><b className="text-primary">가장 쉬움 · 버튼 한 번으로 출퇴근</b><br/>직원은 앱에서 출퇴근 버튼만 누르면 돼요. 시스템이 위치 또는 등록된 {facilityWord} Wi-Fi를 자동으로 확인하고, 둘 다 어려울 때만 60초 동적 QR을 안내해요.</div>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-[0.75rem] text-sub">GPS 반경
             <select name="gps_radius_meters" defaultValue={profile?.gps_radius_meters??30} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">
               {[10,20,30,50,100,200].map(v=><option key={v} value={v}>{v}m{v>=100?' (대형 건물·실내)':''}</option>)}
             </select>
           </label>
-          <label className="text-[0.75rem] text-sub">허용 정확도
+          <label className="text-[0.75rem] text-sub">GPS 허용 오차(m)
             <input name="max_gps_accuracy_meters" type="number" min="10" max="500" defaultValue={profile?.max_gps_accuracy_meters??80} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/>
           </label>
-          <label className="text-[0.75rem] text-sub">출근 전(분)<input name="check_in_before_minutes" type="number" min="0" max="360" defaultValue={profile?.check_in_before_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
-          <label className="text-[0.75rem] text-sub">출근 후(분)<input name="check_in_after_minutes" type="number" min="0" max="360" defaultValue={profile?.check_in_after_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
-          <label className="text-[0.75rem] text-sub">퇴근 전(분)<input name="check_out_before_minutes" type="number" min="0" max="360" defaultValue={profile?.check_out_before_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
-          <label className="text-[0.75rem] text-sub">퇴근 후(분)<input name="check_out_after_minutes" type="number" min="0" max="720" defaultValue={profile?.check_out_after_minutes??120} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
+        </div>
+        {/* 시간 숫자 6칸은 기본값으로 충분한 경우가 많아 접어 둔다. 접혀 있어도 값은 함께 저장된다 */}
+        <details className="mt-3 rounded-xl border border-line px-3 py-2">
+          <summary className="cursor-pointer py-1 text-[0.8125rem] font-bold text-ink">세부 시간 설정 <span className="font-normal text-sub">· 출퇴근 가능 시간, 지각·조퇴 유예</span></summary>
+        <div className="mt-2 grid grid-cols-2 gap-3">
+          <label className="text-[0.75rem] text-sub">출근 가능 · 예정 전(분)<input name="check_in_before_minutes" type="number" min="0" max="360" defaultValue={profile?.check_in_before_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
+          <label className="text-[0.75rem] text-sub">출근 가능 · 예정 후(분)<input name="check_in_after_minutes" type="number" min="0" max="360" defaultValue={profile?.check_in_after_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
+          <label className="text-[0.75rem] text-sub">퇴근 가능 · 예정 전(분)<input name="check_out_before_minutes" type="number" min="0" max="360" defaultValue={profile?.check_out_before_minutes??60} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
+          <label className="text-[0.75rem] text-sub">퇴근 가능 · 예정 후(분)<input name="check_out_after_minutes" type="number" min="0" max="720" defaultValue={profile?.check_out_after_minutes??120} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
           <label className="text-[0.75rem] text-sub">지각 유예(분)<input name="late_grace_minutes" type="number" min="0" max="120" defaultValue={profile?.late_grace_minutes??20} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
           <label className="text-[0.75rem] text-sub">조퇴 유예(분)<input name="early_leave_grace_minutes" type="number" min="0" max="120" defaultValue={profile?.early_leave_grace_minutes??10} className="mt-1 w-full h-11 rounded-xl border border-line px-3"/></label>
         </div>
         <p className="mt-2 text-[0.75rem] leading-5 text-tertiary">예정 출근시각에서 <b className="text-ink">지각 유예</b>까지는 지각으로 기록하지 않아요. 기본 20분이고, 0분으로 두면 1분만 늦어도 지각으로 남아요.</p>
         <p className="mt-1 text-[0.75rem] leading-5 text-tertiary">예정 퇴근시각에서 <b className="text-ink">조퇴 유예</b> 안에 퇴근을 누르면 승인 없이 바로 퇴근이 확정돼요. 일이 예정보다 조금 일찍 끝나는 경우를 위한 값이라 기본 10분이에요. 유예를 넘겨 퇴근하면 지금처럼 관리자 승인 대기로 남고, <b className="text-ink">승인하지 않으면 그날 근무는 급여에 0분으로 잡혀요.</b> 0분으로 두면 1분만 일찍 눌러도 승인이 필요해요.</p>
+        </details>
         {(attendanceMode==='gps'||attendanceMode==='gps_or_qr')
           ?<label className="mt-4 flex items-center gap-2 text-[0.8125rem] font-bold text-ink"><input name="qr_fallback_enabled" type="checkbox" defaultChecked={profile?.qr_fallback_enabled??true} className="h-4 w-4 accent-primary"/>위치 인증 실패 시 동적 QR 보완 허용</label>
           :(profile?.qr_fallback_enabled??true)&&<input type="hidden" name="qr_fallback_enabled" value="on"/>}
 
         <div className="mt-5 border-t border-line pt-4">
           <p className="text-[0.8125rem] font-bold text-ink">{facilityWord} 네트워크 인증</p>
-          <p className="text-[0.75rem] text-tertiary mt-1 leading-5">{facilityWord} Wi-Fi의 공인 IP를 등록해 출퇴근에 활용해요. 이 기기를 {facilityWord} Wi-Fi에 연결한 뒤 등록하세요. 추천 방식의 마지막 보완 수단이나 `Wi-Fi/IP만` 단독 방식으로 선택할 수 있어요.</p>
+          <p className="text-[0.75rem] text-tertiary mt-1 leading-5">{facilityWord} Wi-Fi 주소를 등록해 출퇴근에 활용해요. 이 기기를 {facilityWord} Wi-Fi에 연결한 뒤 등록하세요. &lsquo;가장 쉬움&rsquo; 방식의 마지막 보완 수단으로 쓰거나 &lsquo;Wi-Fi만&rsquo; 방식으로 고를 수 있어요.</p>
           {allowedIps.length > 0 && (
             <p className="mt-2 text-[0.75rem] text-sub">등록된 네트워크 {allowedIps.length}개: {allowedIps.join(', ')}</p>
           )}

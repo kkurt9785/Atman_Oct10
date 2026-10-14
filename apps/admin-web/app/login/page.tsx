@@ -138,7 +138,7 @@ function LoginInner() {
       <div className="flex min-h-[260px] [@media(max-height:700px)]:min-h-[196px] flex-1 flex-col items-center justify-center text-center">
         <div className="flex items-center gap-2">
           <Wordmark size={34} suffix={null} />
-          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[0.625rem] font-extrabold text-primary">관리자</span>
+          <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[0.6875rem] font-extrabold text-primary">관리자</span>
         </div>
         <h1 className="mt-7 [@media(max-height:700px)]:mt-4 text-[1.5rem] font-extrabold tracking-[-0.7px] text-ink">인력 관리, 전화·엑셀 없이</h1>
         <p className="mt-2 text-[0.875rem] leading-6 text-sub">결원·출퇴근·급여를 버튼 몇 번으로 끝내요.</p>

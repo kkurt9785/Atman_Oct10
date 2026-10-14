@@ -10,7 +10,9 @@ import { hasPlanFeature } from '@/lib/billing-gates';
 import { adminClient } from '@/lib/supabase';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { getActiveCoverRequests } from '@/lib/db/cover';
+import { getPendingCount } from '@/lib/db/applications';
 import { OpenOnHash } from '@/components/OpenOnHash';
+import { ROLE_FULL_LABEL } from '@/lib/constants';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
@@ -46,8 +48,8 @@ const NOTICE: Record<string, string> = {
   template_off: '반복 일정 사용을 중지했어요.',
   gaps_filled: '앞으로 7일의 근무표 공백을 공고로 만들고 근무자에게 알렸어요.',
   no_schedule_gap: '앞으로 7일 근무표에는 새로 만들 공백이 없어요.',
-  recommendation_applied: '추천안을 승인해 공고를 만들고 대상 근무자에게 알렸어요.',
-  recommendation_changed: '근무표가 갱신되어 추천안이 달라졌어요. 최신 내용을 다시 확인해 주세요.',
+  recommendation_applied: '인력 공백을 공고로 올리고 대상 근무자에게 알렸어요.',
+  recommendation_changed: '근무표가 바뀌어 인력 공백 내용이 달라졌어요. 최신 내용을 다시 확인해 주세요.',
   requirement_saved: '병동·직군별 필요 인원 기준을 저장했어요.',
   requirement_off: '필요 인원 기준 사용을 중지했어요.',
   live_demo_reset: '시연을 처음 상태로 돌렸어요. 워커 앱에서 새 공고에 직접 지원해 보세요.',
@@ -64,18 +66,20 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   // 운영 자동화는 Pro·Pharmacy Plus 기능 — 미충족 플랜에는 실행 시점 에러 대신 먼저 안내한다.
   // 플랜 조회도 같은 Promise.all 에 넣어 순차 왕복을 없앤다.
   const gateSb = adminClient();
-  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations, covers] = await Promise.all([
+  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations, covers, pendingApplicants] = await Promise.all([
     getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(),
     getWorkforceCoverage(), getWorkforceRecommendations(), getShop(),
     gateSb ? hasPlanFeature(gateSb, context.facilityId, 'operations') : Promise.resolve(false),
     getActiveCoverRequests(),
+    // 홈 '확인이 필요한 업무'와 숫자가 어긋나지 않게 새 지원자도 같이 센다(읽기만)
+    getPendingCount().catch(() => 0),
   ]);
   // 대타 승인은 요금제와 무관한 기본 흐름이다 — 노쇼 직전의 출구라 막지 않는다
   const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
   const isPharmacy = shop?.facilityType === 'pharmacy';
   const roleOptions: [string, string][] = isPharmacy
     ? [['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직']]
-    : [['rn', '간호사 RN'], ['na', '간호조무사 NA'], ['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직'], ['any', '자격 무관']];
+    : [['rn', ROLE_FULL_LABEL.rn], ['na', ROLE_FULL_LABEL.na], ['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직'], ['any', '자격 무관']];
   // '지금 확인할 일'의 단일 기준은 개별 알림 목록이다. 요약 숫자도 여기서 파생해야 위·아래 숫자가 어긋나지 않는다.
   // (summary.urgentUnfilledCount 는 이미 시작한 시프트까지 세서 아래 카드 수와 달라졌다)
   const noShowAlerts = operationAlerts.filter((alert) => alert.kind === 'no_show');
@@ -83,7 +87,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   // 지금 벌어지고 있는 미출근을 먼저, 그다음 곧 시작하는데 지원자가 없는 근무
   const todoAlerts = [...noShowAlerts, ...unfilledAlerts];
   const hiddenAlerts = todoAlerts.slice(ALERT_LIMIT);
-  const todoCount = todoAlerts.length + coverToApprove + summary.expiringCredentialCount + summary.pendingWageCount;
+  const todoCount = todoAlerts.length + coverToApprove + pendingApplicants + summary.expiringCredentialCount + summary.pendingWageCount;
   const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
   const recruitingCount = coverage.reduce((sum, day) => sum + day.recruiting, 0);
   return (
@@ -100,7 +104,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         </Card>
       )}
       <div className="mt-3 mb-5 px-1">
-        <p className="text-label font-bold text-primary">운영 자동화</p>
+        <p className="text-label font-bold text-primary">인력 운영</p>
         <h1 className="text-display font-extrabold text-ink mt-1">이번 달 인력 운영</h1>
         <p className="text-label text-sub mt-2">반복 일정과 놓치기 쉬운 업무를 한곳에서 확인하세요.</p>
       </div>
@@ -112,7 +116,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         <p className={`text-money font-extrabold mt-1 ${todoCount > 0 ? 'text-ink' : 'text-success'}`}>{todoCount > 0 ? `확인할 일 ${todoCount}건` : '확인할 일 없음'}</p>
         <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-line text-center">
           <div><p className={`text-title font-extrabold ${noShowAlerts.length > 0 ? 'text-warn' : 'text-tertiary'}`}>{noShowAlerts.length}</p><p className="text-[0.75rem] text-sub">미출근</p></div>
-          <div><p className={`text-title font-extrabold ${unfilledAlerts.length > 0 ? 'text-warn' : 'text-tertiary'}`}>{unfilledAlerts.length}</p><p className="text-[0.75rem] text-sub">지원자 없음</p></div>
+          <div><p className={`text-title font-extrabold ${unfilledAlerts.length > 0 ? 'text-warn' : 'text-tertiary'}`}>{unfilledAlerts.length}</p><p className="text-[0.75rem] text-sub">곧 시작·미충원</p></div>
           <div><p className="text-title font-extrabold text-primary">{summary.openShiftCount}</p><p className="text-[0.75rem] text-sub">이번 달 모집 중</p></div>
         </div>
         <div className="mt-4 flex items-center justify-between rounded-xl bg-bg px-3 py-2.5">
@@ -155,9 +159,10 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
               )}
             </div>
           )}
-          {(coverToApprove > 0 || summary.expiringCredentialCount > 0 || summary.pendingWageCount > 0) && (
+          {(coverToApprove > 0 || pendingApplicants > 0 || summary.expiringCredentialCount > 0 || summary.pendingWageCount > 0) && (
             <Card className={`${todoAlerts.length > 0 ? 'mt-2' : ''} divide-y divide-line py-1`}>
               {coverToApprove > 0 && <Link href="/applications#cover" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">대타 승인 대기</span><b className="text-primary">{coverToApprove}건 →</b></Link>}
+              {pendingApplicants > 0 && <Link href="/applications" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">새 지원자 확인</span><b className="text-primary">{pendingApplicants}건 →</b></Link>}
               {summary.expiringCredentialCount > 0 && <Link href="/workforce" className="flex items-center justify-between py-3 text-label"><span className="text-ink">30일 안에 만료되는 자격</span><b className="text-warn">{summary.expiringCredentialCount}건 →</b></Link>}
               {summary.pendingWageCount > 0 && <Link href="/payroll" className="flex items-center justify-between py-3 text-label"><span className="text-ink">급여 승인·지급 대기</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
             </Card>

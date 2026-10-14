@@ -11,10 +11,11 @@ export function ConvertWorkerForm({ workerId, workerOrigin }: { workerId: string
     <p className="text-[0.75rem] font-extrabold text-ink">직원 관리에 등록했어요 · 본인이 수락해야 연결돼요</p>
     <div className="mt-2"><CopyInviteButton url={inviteUrl} primary /></div>
   </div>;
-  return <WorkforceActionForm kind="convert_worker" values={{ worker_id: workerId }} className="grid grid-cols-3 gap-2 mt-3" successMessage="직원 관리에 등록했어요."
+  // 시간 칸을 3열에 넣으면 '오전 09:00'이 잘려서 2열 + 라벨, 버튼은 아래 전폭으로
+  return <WorkforceActionForm kind="convert_worker" values={{ worker_id: workerId }} className="grid grid-cols-2 gap-2 mt-3" successMessage="직원 관리에 등록했어요."
     onSuccess={(raw) => { const token = (raw as { inviteToken?: string | null } | undefined)?.inviteToken; setInviteUrl(token ? `${workerOrigin}/workplace/join?token=${token}` : ''); }}>
-    <input name="default_start_time" type="time" defaultValue="09:00" className="h-10 rounded-lg border border-line px-2 text-[0.75rem]" />
-    <input name="default_end_time" type="time" defaultValue="18:00" className="h-10 rounded-lg border border-line px-2 text-[0.75rem]" />
-    <button className="h-10 rounded-lg bg-primary/10 text-primary text-[0.75rem] font-bold">직원 전환 초대</button>
+    <label className="text-[0.75rem] text-sub">기본 출근<input name="default_start_time" type="time" defaultValue="09:00" className="mt-1 h-11 w-full rounded-lg border border-line px-2 text-[0.875rem] text-ink" /></label>
+    <label className="text-[0.75rem] text-sub">기본 퇴근<input name="default_end_time" type="time" defaultValue="18:00" className="mt-1 h-11 w-full rounded-lg border border-line px-2 text-[0.875rem] text-ink" /></label>
+    <button className="col-span-2 h-11 rounded-lg bg-primary/10 text-primary text-[0.8125rem] font-bold">직원 전환 초대</button>
   </WorkforceActionForm>;
 }

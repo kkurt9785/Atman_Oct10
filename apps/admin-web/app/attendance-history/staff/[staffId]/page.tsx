@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Card } from '@/components/ui';
+import { formatShortDate } from '@/lib/format';
 import { getStaffAttendanceDetail } from '@/lib/db/attendance-history';
 import { AttendanceCalendar } from './AttendanceCalendar';
 
@@ -24,7 +25,7 @@ export default async function StaffAttendancePage({params,searchParams}:{params:
         <h1 className="text-display font-extrabold">{staff.name}</h1>
         <span className="rounded-full bg-bg px-2 py-0.5 text-[0.6875rem] font-bold text-sub">{ROLE[staff.role]??staff.role} · {ENGAGEMENT[staff.engagementType]??staff.engagementType}</span>
       </div>
-      <p className="mt-1 text-label text-sub">{staff.department??'부서 미지정'}{staff.defaultStart?` · 근무 ${staff.defaultStart.slice(0,5)}~${staff.defaultEnd?.slice(0,5)??''}`:''}{firstWorkDate?` · 첫 기록 ${firstWorkDate}`:''}</p>
+      <p className="mt-1 text-label text-sub">{staff.department??'부서 미지정'}{staff.defaultStart?` · 근무 ${staff.defaultStart.slice(0,5)}~${staff.defaultEnd?.slice(0,5)??''}`:''}{firstWorkDate?` · 첫 기록 ${formatShortDate(firstWorkDate)}`:''}</p>
     </div>
     <div className="mt-4 flex items-center justify-between rounded-2xl bg-white p-2 shadow-sm">
       {hasPrev?<Link href={`/attendance-history/staff/${staffId}?month=${moveMonth(month,-1)}`} className="flex h-11 w-11 items-center justify-center text-xl">‹</Link>:<span className="flex h-11 w-11 items-center justify-center text-xl text-line">‹</span>}

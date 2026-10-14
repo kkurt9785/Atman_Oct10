@@ -15,7 +15,7 @@ export function UnlinkWorkerButton({ staffId, name, accountName, inviteUrlBase, 
   const [inviteUrl, setInviteUrl] = useState('');
   async function unlink() {
     const who = accountName && accountName !== name ? `${name}(계정 ${accountName})` : name;
-    if (!window.confirm(`${who}님의 계정 연결을 해제할까요?\n전달받은 지급 계좌도 회수되고, 새 일회용 초대가 만들어져요. 근태·정산 기록은 남습니다.`)) return;
+    if (!window.confirm(`${who}님의 계정 연결을 해제할까요?\n전달받은 지급 계좌도 회수되고, 새 일회용 초대가 만들어져요. 근태·정산 기록은 남아요.`)) return;
     setLoading(true); setError('');
     const data = new FormData(); data.set('staff_id', staffId);
     const result = await runWorkforceAction('unlink_worker', data);

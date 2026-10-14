@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
+import { formatDate } from '@/lib/format';
+import { getChatHeader, type ChatHeader } from './actions';
 
 type Message = {
   id: string;
@@ -24,6 +26,8 @@ export default function AdminChatPage() {
   const [open, setOpen] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [header, setHeader] = useState<ChatHeader | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const quickReplies=['채용이 확정됐어요.','예정 시간에 와주세요.','도착하면 채팅 남겨주세요.'];
 
@@ -37,6 +41,12 @@ export default function AdminChatPage() {
     ]);
     setMessages((rows ?? []) as Message[]);
     setOpen(isOpen === true);
+    setLoaded(true);
+  }, [applicationId]);
+
+  // 상단 제목용 — 실패해도 채팅은 그대로 쓴다
+  useEffect(() => {
+    getChatHeader(applicationId).then(setHeader).catch(() => setHeader(null));
   }, [applicationId]);
 
   useEffect(() => {
@@ -86,16 +96,22 @@ export default function AdminChatPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-bg">
+    <div className="flex flex-col h-dvh bg-bg">
       <div className="bg-white px-5 pt-4 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
         <button onClick={() => router.back()} aria-label="뒤로 가기" className="text-ink text-[1.25rem] leading-none -ml-2 flex h-11 w-11 items-center justify-center">←</button>
         <div className="flex-1">
-          <h1 className="text-[1rem] font-extrabold text-ink">근무자 채팅</h1>
-          <p className="text-[0.6875rem] text-tertiary">개인 연락처 공유 대신 채팅을 이용해 주세요 · 기록 보관</p>
+          <h1 className="text-[1rem] font-extrabold text-ink">{header ? `${header.workerName}님과 채팅` : '근무자 채팅'}</h1>
+          <p className="text-[0.6875rem] text-tertiary">{header?.shiftDate ? `${formatDate(header.shiftDate)} ${header.startTime} 근무 · ` : ''}개인 연락처 대신 채팅을 써 주세요</p>
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
+        {loaded && messages.length === 0 && (
+          <div className="m-auto max-w-[260px] text-center">
+            <p className="text-body font-bold text-ink">아직 대화가 없어요</p>
+            <p className="mt-1 text-label text-sub">{open ? '아래 문구를 누르면 바로 입력돼요. 근무 시간·위치 안내를 먼저 보내 보세요.' : '이 채팅은 종료됐어요.'}</p>
+          </div>
+        )}
         {messages.map((m) =>
           m.sender_type === 'system' ? (
             <div key={m.id} className="bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 text-[0.8125rem] text-ink whitespace-pre-line">
@@ -108,7 +124,7 @@ export default function AdminChatPage() {
               }`}>
                 {m.body}
               </div>
-              <p className={`text-[0.625rem] text-tertiary mt-0.5 ${m.sender_type === 'facility' ? 'text-right' : ''}`}>
+              <p className={`text-[0.6875rem] text-tertiary mt-0.5 ${m.sender_type === 'facility' ? 'text-right' : ''}`}>
                 {m.sender_type === 'worker' ? '근무자 · ' : ''}{timeLabel(m.created_at)}
               </p>
             </div>

@@ -4,11 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { getPlatformAdminSession } from '../platform-admin';
 import { adminClient } from '../supabase';
+import { assertNotDemoFacility } from '../demo-guard';
 
 async function reviewWorker(workerId: string, action: 'approve' | 'reject') {
   // 잇닿 운영자(사업장 없어도 됨) 또는 시설 super. 일반 원장은 다른 시설 워커 서류를 볼 수 없다.
   const platform = await getPlatformAdminSession();
   const context = platform ? null : await requireAdminContext(['super']);
+  // 시연 사업장(공용 super 계정)은 실제 근무자를 심사할 수 없다
+  if (context) await assertNotDemoFacility(context.facilityId);
   const actorId = platform?.user.id ?? context?.user.id ?? null;
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');

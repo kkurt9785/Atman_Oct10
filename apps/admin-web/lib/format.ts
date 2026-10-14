@@ -20,6 +20,16 @@ export function formatDate(dateStr: string) {
   return label ? `${base} ${label}` : base;
 }
 
+/** '2026-09-13' → '9/13', 올해(KST)가 아니면 '2027/10/13'. 계약 기간처럼 요일·오늘 라벨이 필요 없는 곳에 쓴다. */
+export function formatShortDate(dateStr: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+  if (!match) return dateStr;
+  const [, y, m, d] = match;
+  const kstYear = new Date(Date.now() + 9 * 3600000).getUTCFullYear();
+  const md = `${Number(m)}/${Number(d)}`;
+  return Number(y) === kstYear ? md : `${y}/${md}`;
+}
+
 /** '09:00:00' → '오전 9:00' */
 export function formatTime(t: string) {
   const [h, m] = t.split(':');

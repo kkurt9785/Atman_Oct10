@@ -3,6 +3,7 @@ import { Card } from '@/components/ui';
 import { getClinicLeaveRequests, getClinicStaff } from '@/lib/db/clinic-workforce';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { formatDate } from '@/lib/format';
 
 const TYPE:Record<string,string>={annual:'연차',half_day:'반차',quarter_day:'반반차',hourly:'시간차',sick:'병가',other:'기타'};
 const STATUS:Record<string,{label:string;style:string}>={pending:{label:'승인 대기',style:'text-warn bg-warn/10'},approved:{label:'승인',style:'text-success bg-success/10'},rejected:{label:'반려',style:'text-red-600 bg-red-50'},cancelled:{label:'취소',style:'text-sub bg-bg'}};
@@ -29,7 +30,7 @@ export default async function LeavePage(){
       <WorkforceActionForm kind="add_leave" className="px-5 pb-5 grid grid-cols-2 gap-3" resetOnSuccess successMessage="승인 휴가로 등록했어요.">
         <label className="col-span-2 text-label text-sub">직원<select name="staff_id" required className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"><option value="">선택해 주세요</option>{staff.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
         <label className="text-label text-sub">휴가 종류<select name="leave_type" className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"><option value="annual">연차 · 종일</option><option value="half_day">반차 · 4시간</option><option value="quarter_day">반반차 · 2시간</option><option value="hourly">시간차</option><option value="sick">병가</option><option value="other">기타</option></select></label>
-        <label className="text-label text-sub">시간차 사용시간<select name="hourly_minutes" className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"><option value="60">1시간</option><option value="120">2시간</option><option value="180">3시간</option><option value="240">4시간</option><option value="300">5시간</option><option value="360">6시간</option><option value="420">7시간</option></select><span className="block text-[0.625rem] mt-1">시간차 선택 시에만 적용</span></label>
+        <label className="text-label text-sub">시간차 사용시간<select name="hourly_minutes" className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"><option value="60">1시간</option><option value="120">2시간</option><option value="180">3시간</option><option value="240">4시간</option><option value="300">5시간</option><option value="360">6시간</option><option value="420">7시간</option></select><span className="block text-[0.6875rem] mt-1">시간차 선택 시에만 적용</span></label>
         <label className="text-label text-sub">시작일<input name="start_date" type="date" required className="mt-1 w-full h-12 rounded-xl border border-line px-2"/></label>
         <label className="text-label text-sub">종료일<input name="end_date" type="date" className="mt-1 w-full h-12 rounded-xl border border-line px-2"/></label>
         <label className="col-span-2 text-label text-sub">메모<input name="reason" className="mt-1 w-full h-12 rounded-xl border border-line px-3" placeholder="선택"/></label>
@@ -38,7 +39,7 @@ export default async function LeavePage(){
     </details>
     <h2 className="text-title font-bold mt-7 mb-3 px-1">최근 휴가</h2>
     {requests.length===0?<Card className="py-9 text-center text-label text-sub">등록된 휴가가 없어요.</Card>:<Card className="divide-y divide-line p-0">{requests.map((r:any)=>{const person=Array.isArray(r.facility_staff)?r.facility_staff[0]:r.facility_staff; const state=STATUS[r.status]??STATUS.pending; return <div key={r.id} className="px-5 py-4">
-      <div className="flex justify-between gap-3"><div><p className="font-bold">{person?.name??'직원'}</p><p className="text-label text-sub mt-1">{r.start_date}{r.end_date!==r.start_date?` ~ ${r.end_date}`:''} · {TYPE[r.leave_type]??'휴가'} · {r.requested_minutes/60}시간</p>{r.reason&&<p className="text-[0.75rem] text-sub mt-1">{r.reason}</p>}</div><span className={`text-[0.6875rem] font-bold rounded-full h-fit px-2 py-1 ${state.style}`}>{state.label}</span></div>
+      <div className="flex justify-between gap-3"><div><p className="font-bold">{person?.name??'직원'}</p><p className="text-label text-sub mt-1">{formatDate(r.start_date)}{r.end_date!==r.start_date?` ~ ${formatDate(r.end_date)}`:''} · {TYPE[r.leave_type]??'휴가'} · {r.requested_minutes/60}시간</p>{r.reason&&<p className="text-[0.75rem] text-sub mt-1">{r.reason}</p>}</div><span className={`text-[0.6875rem] font-bold rounded-full h-fit px-2 py-1 ${state.style}`}>{state.label}</span></div>
       {r.status==='pending'&&<div className="grid grid-cols-2 gap-2 mt-3">
         <WorkforceActionForm kind="decide_leave" values={{request_id:r.id,decision:'rejected'}}><button className="w-full h-10 rounded-xl border border-line text-label font-bold">반려</button></WorkforceActionForm>
         <WorkforceActionForm kind="decide_leave" values={{request_id:r.id,decision:'approved'}}><button className="w-full h-10 rounded-xl bg-primary text-white text-label font-bold">승인</button></WorkforceActionForm>
