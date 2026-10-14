@@ -92,10 +92,11 @@ cd ~/atman/apps/worker-web && npm run dev   # localhost:3003
 3. **확인** — 위 SELECT 가 기대대로인지, `SELECT jobname FROM cron.job` 에 demo 잡이 없는지, 두 앱 시작 화면에 시연 입구가 없는지, 다음날 08:30 크론 로그에 revive 가 skipped 인지.
 4. **(선택·나중) 영구 삭제** — 시연 데이터엔 실명 개인정보가 없어 급하지 않다. 지울 때는 FK 가 CASCADE 가 아닌 테이블부터: `wage_payment_instructions`(facility·worker RESTRICT) → `service_usage_events`·`service_invoices`·`service_addon_credits`·`payment_orders`·`facility_subscriptions`(facility RESTRICT) → `shift_reviews`·`attendance_audit`·`settlements`·`wage_calculations`·`payroll_ledger`·`payslips`(옛 테이블, `public.` 접두어 없이 선언돼 CASCADE 없음) → `shift_attendances` → `shift_applications` → `shifts` → `facilities` → `auth.users`(workers·profiles CASCADE) → `workers`. 스크립트는 그때 작성·검토.
 
-### 2026-10-14 검토 이후 자동화 정책
+### 2026-10-14 자동화 정책 (저녁 확정)
 
-`200000`·`210000` 마이그레이션 적용 이후에는 15분 간격의 `refresh_demo_worker_readiness()`만 자동 준비에 사용한다. 진행 중인 시연을 지우는 일일 재시드·위치 회전 작업은 비활성으로 유지한다. **기존 `supabase/restore_demo_crons.sql`은 예전 삭제형 작업을 다시 켜므로 실행하지 않는다.**
-
-시연 재개는 환경변수와 데모 대상 복구를 확인한 뒤 진행한다. 전체 초기화가 꼭 필요한 경우에만 인증된 `POST /api/cron/revive-demo`에 `{"confirmReset":"RESET_DEMO_DATA"}`를 전달한다. `GET`은 405이며, 이 POST는 시연 기록을 재설정하는 수동 작업이다. 일반적인 시연 준비에는 사용하지 않는다.
+- **매일 08:30 KST 자동 재시드는 유지한다**(`expire-shifts` 크론 → `reviveDemoShowcase`). 영업 전 시각이라 진행 중인 시연을 지우지 않고, 데모 사업장 50곳의 공고·확정·지원·대타·채팅과 긱 시연 사업장 정리를 매일 새로 만든다. 끄는 스위치는 `DEMO_SHOWCASE_ENABLED=false`(철수 때만).
+- **15분 크론 `refresh_demo_worker_readiness()`는 보조**: 긱 페르소나(초대 근무 시연)의 근무시간을 '지금~45분 뒤'로 맞춰 출근·퇴근이 바로 되게 하고, 라이브 시연(`LIVE-SALES-DEMO-%`) 공고 시각만 지금 기준으로 옮긴다. 일반 시연 공고(`DEMO-SHOWCASE-OPEN-%`)의 D·E·N 시간은 건드리지 않는다(2026-10-14 오후 한때 3곳 공고를 45분짜리로 옮기던 버전은 되돌림).
+- 예전 SQL 크론(`demo_showcase_refresh_0005kst` 등)은 비활성 그대로 둔다. 재시드 경로는 08:30 revive 하나다. `supabase/restore_demo_crons.sql` 은 실행하지 않는다.
+- 급한 전체 초기화는 인증된 `POST /api/cron/revive-demo` 에 `{"confirmReset":"RESET_DEMO_DATA"}` (`GET` 은 405).
 
 철수 검증에는 기존 로그인 세션, 미발송 알림·푸시 구독, 마스터 초대코드, 수동 초기화 함수의 실행 권한까지 포함해야 한다. 위 철수 절차만으로 이 검증이 완료된 것은 아니다. 변경된 정책의 적용 상태와 잔여 검증은 `docs/review/2026-10-14_MD_잔여검증.md`를 따른다.

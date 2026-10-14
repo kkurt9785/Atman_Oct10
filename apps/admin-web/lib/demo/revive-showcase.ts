@@ -5,8 +5,9 @@
 // 원본의 REST/GoTrue 호출을 그대로 raw fetch 로 1:1 이식한다.
 //
 // 사용처:
-//  - app/api/cron/revive-demo (담당자 확인 후 수동 POST 재시드만 허용)
-// 자동 작업은 refresh_demo_worker_readiness로 시간·활동 상태만 갱신한다.
+//  - app/api/cron/expire-shifts  (매일 KST 08:30, 영업 전 자동 재시드 — 2026-10-14 되돌림)
+//  - app/api/cron/revive-demo    (담당자 확인 후 수동 POST { confirmReset: 'RESET_DEMO_DATA' })
+// 15분 크론 refresh_demo_worker_readiness 는 긱 페르소나 근무시간과 라이브 시연 공고 시각만 지금 기준으로 맞춘다.
 //
 // 전제: 데모 병원 50개(business_registration_number=DEMO-TARGET-*)와
 //       데모 워커 95명(kakao_id=kakao_demo_*)은 DB에 이미 존재.

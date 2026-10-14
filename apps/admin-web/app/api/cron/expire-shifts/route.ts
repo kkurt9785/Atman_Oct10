@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminClient } from '@/lib/supabase';
 import { todayKST } from '@/lib/date';
 import { recheckStaleBusinessStatuses } from '@/lib/business-status';
+import { reviveDemoShowcase } from '@/lib/demo/revive-showcase';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -21,15 +22,6 @@ export async function GET(req: NextRequest) {
   if (!sb) return NextResponse.json({ error: 'DB unavailable' }, { status: 500 });
 
   const today = todayKST();
-
-  // 시연 데이터 삭제·재시드는 자동 실행하지 않는다. 표시된 시연 공고의
-  // 시간을 먼저 갱신해야 아래 일반 만료 처리에 의해 취소되지 않는다.
-  let demo: unknown = null;
-  if (process.env.DEMO_SHOWCASE_ENABLED !== 'false') {
-    const {data,error}=await sb.rpc('refresh_demo_worker_readiness');
-    if(error)return NextResponse.json({ok:false,error:'데모 준비 상태를 확인하지 못해 만료 처리를 중단했어요.'},{status:503});
-    demo={ok:true,mode:'readiness',result:data};
-  }
 
   // 1. 날짜 지난 open 시프트 → cancelled
   const { data: cancelled } = await sb
@@ -58,6 +50,22 @@ export async function GET(req: NextRequest) {
       .in('shift_id', oldIds)
       .select('id');
     expiredApps = updated?.length ?? 0;
+  }
+
+  // 4. 오늘자 데모 쇼케이스 재시드 (KST 08:30, 영업 전) — 병원·약국·요양병원 시연 공고 50·확정 50·지원 150·대타·채팅과
+  //    긱 시연 사업장 정리(cleanup_gig_demo_facility)까지. DEMO_SHOWCASE_ENABLED=false 로 끌 수 있다(철수 때).
+  //    2026-10-14 검토에서 한 번 꺼졌다가 되돌림: 15분 readiness 만으로는 3곳만 유지돼 나머지 49곳 공고가 만료 뒤 비어 갔다.
+  let demo: unknown = null;
+  if (process.env.DEMO_SHOWCASE_ENABLED !== 'false') {
+    try {
+      demo = await reviveDemoShowcase();
+    } catch (error) {
+      console.error('[cron/expire-shifts] demo revive failed', error);
+      demo = { ok: false, error: String(error) };
+    }
+    // 재시드 직후 긱 페르소나 근무시간을 지금 기준으로(출근·퇴근 창 안) — 15분 크론과 같은 함수, 실패해도 만료 처리는 유지
+    const { data: readiness, error: readinessError } = await sb.rpc('refresh_demo_worker_readiness');
+    demo = { revive: demo, readiness: readinessError ? { ok: false, error: readinessError.message } : readiness };
   }
 
   // 5. 사업자 상태 월 1회 재조회(국세청) — 휴업·폐업이면 공고 등록이 막힌다
