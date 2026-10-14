@@ -12,7 +12,8 @@ const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 export function CreatePayoutForm({ staffId, amount, disabled, disabledReason }: { staffId: string; amount: number; disabled?: boolean; disabledReason?: string }) {
   const [pending, start] = useTransition();
   const [later, setLater] = useState(false);
-  const [withhold, setWithhold] = useState(true);
+  // 기본은 공제 없음 — 출퇴근을 정해 주고 시급을 주는 단기 알바는 근로자(일용근로소득)라 3.3%(사업소득)는 프리랜서 계약일 때만
+  const [withhold, setWithhold] = useState(false);
   const [payAt, setPayAt] = useState(plusDays(7));
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
@@ -39,7 +40,7 @@ export function CreatePayoutForm({ staffId, amount, disabled, disabledReason }: 
     <div className="rounded-xl bg-bg p-3">
       <label className="flex items-center justify-between gap-2 text-[0.75rem] font-bold text-ink">
         <span className="flex items-center gap-2"><input type="checkbox" checked={withhold} onChange={(event) => setWithhold(event.target.checked)} className="h-4 w-4 accent-primary" />3.3% 원천징수 (사업소득)</span>
-        <span className="text-[0.6875rem] font-medium text-sub">소득세 3% + 지방소득세 0.3%</span>
+        <span className="text-[0.6875rem] font-medium text-sub">프리랜서 계약일 때만</span>
       </label>
       <div className="mt-2 grid grid-cols-3 gap-2 text-center">
         <div><p className="text-[0.6875rem] text-sub">세전</p><p className="text-[0.8125rem] font-bold text-ink">{won(amount)}</p></div>

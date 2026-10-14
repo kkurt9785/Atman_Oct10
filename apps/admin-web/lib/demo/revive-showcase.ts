@@ -158,6 +158,11 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   });
   const gigworkerTarget=gigworker.data?.[0];
   if(!gigworkerTarget)throw new Error('gigworker demo target missing');
+  // 긱 시연 사업장엔 방문자·QA가 만든 근무·초대·공지가 쌓인다 — 고정 시드(근무자 1·초대 1)만 남기고 매일 정리
+  const gigCleanup = await req('POST', '/rest/v1/rpc/cleanup_gig_demo_facility', {
+    p_keep_staff: '20260922-0000-4000-8000-000000000004', p_keep_invite: '20260922-0000-4000-8000-000000000005',
+  });
+  if (gigCleanup.status >= 300) console.warn('[revive] gig demo cleanup skipped', gigCleanup.status, JSON.stringify(gigCleanup.data));
   // sales-demo-1은 병원 시연과 긱 시연을 모두 전환해 보여 준다. 재시드가 기존 권한을 전부 지우므로
   // 긱 접근도 같은 배치에 넣지 않으면 매일 다시 사라진다.
   accessRows.push({user_id:adminIds['sales-demo-1@demo.atman.co.kr'],facility_id:gigworkerTarget.id,access_role:'super',can_view_payroll:true});

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
 import { startKakaoLogin } from '@/lib/kakao-login';
+import { getExistingSubscription, unsubscribeFromPush } from '@/lib/push-subscribe';
 
 // 시연 계정으로 갈아타기 — 시작 화면 카드, /demo, /gig/demo 가 같이 쓴다.
 // 노출은 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 하나로 막는다(출시 때 0이면 카드는 설명만 남는다).
@@ -64,6 +65,14 @@ export async function openDemoSession(target: { email: string } | 'gig'): Promis
 
 // 시연 계정에서 내리기(이동 없음) — 실제 초대 링크를 열기 전처럼, 다음 화면을 내 계정으로 보게 할 때
 export async function leaveDemo() {
+  // 시연 중 켠 푸시 구독은 끊는다 — 안 끊으면 이 폰이 이후에도 공용 시연 계정의 알림을 받는다
+  try {
+    const sub = await getExistingSubscription();
+    if (sub) {
+      await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+      await unsubscribeFromPush();
+    }
+  } catch { /* 구독 정리에 실패해도 나간다 */ }
   await supabase.auth.signOut().catch(() => undefined);
   setGigworkerModePreference(false);
   try { window.localStorage.removeItem('atman_demo_panel'); } catch { /* 저장소 없어도 진행 */ }
