@@ -7,6 +7,8 @@ import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { CreatePayoutForm, PayoutRowActions, WithholdingCalculator } from './PayoutForm';
 import { MIN_HOURLY_WAGE_2026 } from '@/lib/pay';
+import { PayoutDetail } from './PayoutDetail';
+import type { PayoutStatement } from '@/lib/pay-statement';
 
 const PAY: Record<string, string> = { hourly: '시급', daily: '일급', monthly: '월급' };
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
@@ -23,6 +25,11 @@ export default async function GigPayPage() {
   if (!context || !canManage) redirect('/');
   const board = await getGigPayoutBoard(context.accessToken);
   const unpaidTotal = board.reduce((sum, row) => sum + row.unpaidAmount, 0);
+  // 지급 한 건을 '왜 이 금액인지'까지 보여 주고 공유하는 명세 — 근무자 앱과 같은 문장
+  const toStatement = (p: { name: string; periodStart: string; periodEnd: string; workedDays: number; workedMinutes: number; payBasis: string; payRate: number; amount: number; withholdingAmount: number; netAmount: number; status: 'scheduled' | 'paid' | 'cancelled'; payAt: string | null; paidAt: string | null }): PayoutStatement => ({
+    facilityName: shop.name, workerName: p.name, periodStart: p.periodStart, periodEnd: p.periodEnd, workedDays: p.workedDays, workedMinutes: p.workedMinutes,
+    payBasis: p.payBasis, payRate: p.payRate, amount: p.amount, withholdingAmount: p.withholdingAmount, netAmount: p.netAmount, status: p.status, payAt: p.payAt, paidAt: p.paidAt,
+  });
   const scheduled = board.flatMap((row) => row.payouts.filter((p) => p.status === 'scheduled').map((p) => ({ ...p, name: row.name })));
   const paid = board.flatMap((row) => row.payouts.filter((p) => p.status === 'paid').map((p) => ({ ...p, name: row.name }))).sort((a, b) => (b.paidAt ?? '').localeCompare(a.paidAt ?? '')).slice(0, 10);
 
@@ -65,14 +72,14 @@ export default async function GigPayPage() {
     {scheduled.length > 0 && <>
       <h2 className="mt-6 px-1 text-[0.9375rem] font-extrabold text-ink">지급 예정</h2>
       <div className="mt-3 divide-y divide-line rounded-2xl bg-white shadow-card">
-        {scheduled.map((p) => <div key={p.id} className="flex items-center justify-between gap-2 px-4 py-3"><div><p className="text-[0.8125rem] font-bold text-ink">{p.name} · 실지급 {won(p.netAmount)}</p><p className="text-[0.6875rem] text-sub">세전 {won(p.amount)}{p.withholdingAmount ? ` · 3.3% −${won(p.withholdingAmount)}` : ''} · {p.periodStart} ~ {p.periodEnd} · {p.workedDays}일 · 예정일 {p.payAt}{p.note ? ` · ${p.note}` : ''}</p></div>{canManage && <PayoutRowActions payoutId={p.id} />}</div>)}
+        {scheduled.map((p) => <div key={p.id} className="px-4"><p className="pt-3 text-[0.75rem] font-bold text-ink">{p.name}{p.note ? <span className="font-medium text-sub"> · {p.note}</span> : null}</p><PayoutDetail statement={toStatement(p)} right={canManage ? <PayoutRowActions payoutId={p.id} /> : undefined} /></div>)}
       </div>
     </>}
 
     {paid.length > 0 && <>
       <h2 className="mt-6 px-1 text-[0.9375rem] font-extrabold text-ink">지급 완료</h2>
       <div className="mt-3 divide-y divide-line rounded-2xl bg-white shadow-card">
-        {paid.map((p) => <div key={p.id} className="flex items-center justify-between gap-2 px-4 py-3"><div><p className="text-[0.8125rem] font-bold text-ink">{p.name} · 실지급 {won(p.netAmount)}</p><p className="text-[0.6875rem] text-sub">세전 {won(p.amount)}{p.withholdingAmount ? ` · 3.3% −${won(p.withholdingAmount)}` : ''} · {p.periodStart} ~ {p.periodEnd} · {p.workedDays}일 · {hours(p.workedMinutes)}</p></div><span className="text-[0.6875rem] font-bold text-emerald-600">{p.payAt} 지급</span></div>)}
+        {paid.map((p) => <div key={p.id} className="px-4"><p className="pt-3 text-[0.75rem] font-bold text-ink">{p.name}</p><PayoutDetail statement={toStatement(p)} right={<span className="shrink-0 text-[0.6875rem] font-bold text-emerald-600">{p.payAt} 지급</span>} /></div>)}
       </div>
     </>}
     <WithholdingCalculator />
