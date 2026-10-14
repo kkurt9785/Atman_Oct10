@@ -73,15 +73,23 @@ cd ~/atman/apps/worker-web && npm run dev   # localhost:3003
 
 ## 시연 종료(철수) 절차 — 시연과 운영은 한 버전, 끝나면 데모만 사라진다
 
-데모는 `facilities.is_demo`·`workers.is_demo`(`kakao_id 'kakao_demo_%'`)·`@demo.atman.co.kr` 계정으로만 식별되고, 실제 사용자 화면은 이미 `is_active`·`deleted_at`·`status='open'`·`is_demo` 필터로 걸러진다. 그래서 철수는 코드 배포 없이 스위치와 데이터만으로 된다.
+데모는 `facilities.is_demo`·`workers.is_demo`(`kakao_id 'kakao_demo_%'`)·`@demo.atman.co.kr` 계정으로만 식별되고, 실제 사용자 화면·RPC는 이미 `is_active`·`deleted_at`·`status='open'`·`is_demo` 로 걸러진다. 그래서 철수는 **코드 배포 없이 스위치와 데이터만으로** 된다. 정본 스크립트는 `scripts/prepare-production.sql`(트랜잭션 가드 2개 필요: `app.environment='production'`, `app.confirm_demo_cleanup='YES'`).
 
-1. **앱 스위치** — Vercel 환경변수 바꾸고 두 앱 재배포
-   - `NEXT_PUBLIC_ENABLE_DEMO_LOGIN=0` (admin-web·worker-web): 시연 버튼, `/api/demo-login`, `/demo`, `/gig/demo` 숨김
-   - `DEMO_SHOWCASE_ENABLED=false` (admin-web): `expire-shifts` 크론(매일 08:30)의 revive 중지
-2. **DB 끄기(되돌릴 수 있음)** — `supabase/demo_retirement.sql` 0단계(PREVIEW)로 수를 보고 1단계(RETIRE) 실행
-   - 데모 pg_cron 해제 · 마스터 초대코드 OFF · 데모 공고 취소 · 데모 사업장 `is_active=false, deleted_at` · 데모 근무자 `deleted_at` · 데모 계정 `banned_until`
-   - 이 순간부터 근처 공고·공개 공고·지원·초대 수락·시연 로그인에서 데모가 전부 빠진다. 병원 데모 워커도 같은 규칙.
-3. **DB 지우기(선택, 되돌릴 수 없음)** — 같은 파일 2단계(PURGE). `SET app.confirm_demo_purge='yes'` 뒤에만 동작. FK RESTRICT 테이블(구독·결제·사용량·지급 지시)부터 순서대로 지운다. 시연 데이터엔 실명 개인정보가 없어 급하지 않고, 운영 통계에서 데모를 완전히 빼고 싶을 때 한다.
-4. **확인** — PREVIEW 를 다시 돌려 0인지, `cron.job` 에 demo 잡이 없는지, 두 앱 시작 화면에 시연 입구가 없는지.
+1. **앱 스위치(Vercel 환경변수 → 두 앱 재배포)**
+   - `NEXT_PUBLIC_ENABLE_DEMO_LOGIN=0` (admin-web·worker-web): 시연 버튼, `/api/demo-login`, `/demo`, `/gig/demo`, 초대 화면의 시연 입구 숨김(빌드 시 결정)
+   - `DEMO_SHOWCASE_ENABLED=false` (admin-web): `expire-shifts` 크론(매일 08:30)의 revive 중지. 이걸 빼먹으면 revive 가 데모 계정 비밀번호를 매일 되돌리고(`revive-showcase.ts:122-125`) soft delete 된 사업장을 못 찾아 500 로그를 남긴다
+   - `DEMO_ACCOUNT_PASSWORD` (admin-web·worker-web) 제거
+2. **DB 끄기(되돌릴 수 있음)** — `scripts/prepare-production.sql` 실행: 데모 pg_cron 해제 · 데모 계정 `banned_until=infinity`+비번 무작위 · 데모 근무자 `deleted_at` · 데모 사업장 `is_active=false, deleted_at` · 데모 새로고침 함수 권한 회수. 그 스크립트에 없어서 **같은 트랜잭션에 덧붙일 것 3개**:
+   ```sql
+   UPDATE public.app_demo_settings SET master_invite_enabled = false;                       -- 마스터 초대코드 OFF
+   UPDATE public.shifts s SET status='cancelled' FROM public.facilities f                    -- 데모 공고는 열린 채 남지 않게
+     WHERE f.id=s.facility_id AND f.is_demo AND s.status IN ('open','in_progress');
+   UPDATE public.workers SET deleted_at=COALESCE(deleted_at,now())                           -- is_demo 가 안 찍힌 옛 데모 워커
+     WHERE kakao_id LIKE 'kakao_demo_%' AND deleted_at IS NULL;
+   ```
+   실행 전 수 확인: `SELECT count(*) FROM facilities WHERE is_demo; SELECT count(*) FROM workers WHERE is_demo OR kakao_id LIKE 'kakao_demo_%'; SELECT email FROM auth.users WHERE email LIKE '%@demo.atman.co.kr';`
+   이 순간부터 근처 공고·공개 공고·지원·초대 수락·시연 로그인에서 데모가 전부 빠진다. 병원 데모 워커도 같은 규칙.
+3. **확인** — 위 SELECT 가 기대대로인지, `SELECT jobname FROM cron.job` 에 demo 잡이 없는지, 두 앱 시작 화면에 시연 입구가 없는지, 다음날 08:30 크론 로그에 revive 가 skipped 인지.
+4. **(선택·나중) 영구 삭제** — 시연 데이터엔 실명 개인정보가 없어 급하지 않다. 지울 때는 FK 가 CASCADE 가 아닌 테이블부터: `wage_payment_instructions`(facility·worker RESTRICT) → `service_usage_events`·`service_invoices`·`service_addon_credits`·`payment_orders`·`facility_subscriptions`(facility RESTRICT) → `shift_reviews`·`attendance_audit`·`settlements`·`wage_calculations`·`payroll_ledger`·`payslips`(옛 테이블, `public.` 접두어 없이 선언돼 CASCADE 없음) → `shift_attendances` → `shift_applications` → `shifts` → `facilities` → `auth.users`(workers·profiles CASCADE) → `workers`. 스크립트는 그때 작성·검토.
 
-시연 재개는 반대로: 환경변수 복구 → 1단계 UPDATE 역방향(`is_active=true, deleted_at=NULL, banned_until=NULL`) → `supabase/restore_demo_crons.sql` → revive 1회(`/api/cron/revive-demo`).
+시연 재개는 반대로: 환경변수 복구 → `is_active=true, deleted_at=NULL, banned_until=NULL` + 비밀번호 재설정(revive 가 함) → `supabase/restore_demo_crons.sql` → `/api/cron/revive-demo` 1회.
