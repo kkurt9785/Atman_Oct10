@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import type { AreaPref } from '@/components/onboarding/ActivityArea';
 import {
-  subscribeToPush,
+  enableShiftPush,
   unsubscribeFromPush,
   getExistingSubscription,
 } from '@/lib/push-subscribe';
@@ -40,17 +40,20 @@ export default function SettingsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/onboarding'); return; }
 
-      setName(user.user_metadata?.profile_nickname ?? '사용자');
+      const nickname = user.user_metadata?.profile_nickname as string | undefined;
+      setName(nickname ?? '사용자');
 
       const [{ data: locPref }, { data: workerProf }, { data: staffLinks }] = await Promise.all([
         supabase.from('worker_location_prefs').select('locations').single(),
         supabase.from('workers')
-          .select('role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
+          .select('name, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
         supabase.from('facility_staff').select('worker_kind').neq('status', 'ended'),
       ]);
 
+      // 가입한 이름(계좌 예금주와 같은 이름)이 먼저, 카카오 닉네임은 이름이 없을 때만
+      if (workerProf?.name) setName(workerProf.name);
       setGigworkerLinked(hasGigworkerLink(getLinkKinds(staffLinks)));
       setRole(workerProf?.role ?? '');
       setLocations(locPref?.locations ?? []);
@@ -91,23 +94,9 @@ export default function SettingsPage() {
         if (deleteError) throw deleteError;
         setPushEnabled(false);
       } else {
-        const sub = await subscribeToPush();
-        if (sub) {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const { error: upsertError } = await supabase.from('push_subscriptions').upsert({
-              worker_id: user.id, endpoint: sub.endpoint,
-              subscription: sub.toJSON(),
-            }, { onConflict: 'worker_id,endpoint' });
-            if (upsertError) {
-              await unsubscribeFromPush().catch(() => undefined);
-              throw upsertError;
-            }
-          }
-          setPushEnabled(true);
-        } else {
-          setPushNotice('브라우저 설정에서 알림 권한을 허용해 주세요.');
-        }
+        const result = await enableShiftPush();
+        if (result === 'enabled') setPushEnabled(true);
+        else setPushNotice('브라우저 설정에서 알림 권한을 허용해 주세요.');
       }
     } catch (toggleError) {
       setPushNotice('알림 설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
@@ -131,7 +120,7 @@ export default function SettingsPage() {
   const profileDone = profileFilled >= PROFILE_TOTAL;
 
   return (
-    <main className="px-4 pb-10 pt-[env(safe-area-inset-top)]">
+    <main className="px-4 pb-10 pt-[max(48px,env(safe-area-inset-top))]">
       {locationSaved && (
         <p role="status" className="mx-4 mt-3 rounded-xl bg-green-50 px-3 py-2 text-[13px] font-bold text-green-700">
           활동 지역을 저장했어요.
@@ -140,8 +129,8 @@ export default function SettingsPage() {
       {pushNotice && (
         <p role="alert" className="mx-4 mt-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{pushNotice}</p>
       )}
-      <div className="px-1 mt-2 mb-6">
-        <h1 className="text-[24px] font-extrabold text-ink">내 정보</h1>
+      <div className="px-1 mb-6">
+        <h1 className="text-[28px] font-extrabold text-ink">내 정보</h1>
       </div>
 
       {/* 프로필 카드 */}
@@ -226,7 +215,7 @@ export default function SettingsPage() {
           <div>
             <div className="flex items-center gap-2">
               <p className="text-[15px] font-bold text-ink">잇닿 리워드·친구 초대</p>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">런칭</span>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">혜택</span>
             </div>
             <p className="mt-1.5 text-[13px] text-tertiary">첫 근무 진행과 초대 현황을 확인해요</p>
           </div>
@@ -234,7 +223,7 @@ export default function SettingsPage() {
         </div>
       </Link>
 
-      {/* 시프트 알림 */}
+      {/* 새 근무 알림 */}
       <button
         onClick={handlePushToggle}
         role="switch"
@@ -244,9 +233,9 @@ export default function SettingsPage() {
         className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
       >
         <div className="text-left">
-          <p className="text-[15px] font-bold text-ink">이 기기 새 근무 알림</p>
+          <p className="text-[15px] font-bold text-ink">새 근무 알림</p>
           <p className="text-[13px] text-tertiary mt-0.5">
-            {pushEnabled ? '내 직군과 활동 지역에 맞는 새 근무를 알려드려요' : '알림을 켜면 맞춤 근무를 바로 받아요'}
+            {pushEnabled ? '내 직군·활동 지역의 새 근무를 이 기기로 알려드려요' : '알림을 켜면 내 지역 새 근무를 바로 받아요'}
           </p>
           <p className="mt-1 text-[11px] leading-4 text-sub">새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요</p>
         </div>

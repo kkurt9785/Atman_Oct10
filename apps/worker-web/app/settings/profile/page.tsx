@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { BackButton } from '@/components/BackButton';
 import { validateLicenseFile } from '@/components/onboarding/LicenseUpload';
 
 type LicenseMode = 'photo' | 'text';
@@ -140,18 +141,11 @@ export default function ProfileEditPage() {
   }
 
   return (
-    <main className="px-4 pb-32 pt-[env(safe-area-inset-top)]">
-      {/* 헤더 */}
-      <div className="flex items-center gap-3 mt-2 mb-6 px-1">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="text-2xl text-sub leading-none"
-          aria-label="뒤로"
-        >
-          ←
-        </button>
-        <h1 className="text-[22px] font-extrabold text-ink">내 프로필 카드</h1>
+    <main className="px-4 pb-32 pt-[max(16px,env(safe-area-inset-top))]">
+      {/* 헤더 — 설치 앱엔 브라우저 뒤로가기가 없다. 알림·링크로 바로 열려도 내 정보로 돌아간다 */}
+      <div className="mb-6 px-1">
+        <BackButton href="/settings" label="내 정보" />
+        <h1 className="mt-2 text-[24px] font-extrabold text-ink">내 프로필 카드</h1>
       </div>
 
       <div className="flex flex-col gap-5">

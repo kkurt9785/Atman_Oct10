@@ -55,7 +55,7 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: str
   },
   accepted: {
     label: '채용 확정',
-    description: '사업장이 수락했어요. 근무 당일 원터치 출근을 준비해 주세요.',
+    description: '사업장이 수락했어요. 근무 당일 출근하기를 눌러 주세요.',
     className: 'bg-[#E5FAF4] text-success',
   },
   rejected: {
@@ -75,10 +75,19 @@ const STATUS_CONFIG: Record<ApplicationStatus, { label: string; description: str
   },
   completed: {
     label: '근무 완료',
-    description: '체크아웃이 완료됐고 급여 지급현황에서 확인할 수 있어요.',
+    description: '퇴근하기까지 기록됐어요. 급여 지급 현황에서 확인할 수 있어요.',
     className: 'bg-[#E5FAF4] text-success',
   },
 };
+
+// 근무 시작 시각(KST)이 지났는데 아직 '사업장 확인 중'인 지원 — 더는 진행될 수 없으니 마감으로 보여 준다
+function startsAtOf(app: Application) {
+  return Date.parse(`${app.shift.shift_date}T${app.shift.start_time.slice(0, 5)}:00+09:00`);
+}
+function isApplyClosed(app: Application) {
+  return app.status === 'applied' && app.shift.status !== 'cancelled' && startsAtOf(app) <= Date.now();
+}
+const isActive = (app: Application) => ['invited', 'applied'].includes(app.status) && !isApplyClosed(app);
 
 function stepState(app: Application, step: 'applied' | 'accepted' | 'work') {
   if (app.status === 'invited') return step === 'applied' ? 'current' : 'muted';
@@ -93,7 +102,7 @@ function stepState(app: Application, step: 'applied' | 'accepted' | 'work') {
 function StatusSteps({ app }: { app: Application }) {
   const steps = [
     { key: 'applied' as const, label: '지원함' },
-    { key: 'accepted' as const, label: '채용확정' },
+    { key: 'accepted' as const, label: '채용 확정' },
     { key: 'work' as const, label: app.checked_in_at ? '근무 중' : '출근 예정' },
   ];
 
@@ -108,7 +117,8 @@ function StatusSteps({ app }: { app: Application }) {
               state === 'done'
                 ? 'bg-[#E5FAF4] text-success'
                 : state === 'current'
-                  ? 'bg-primary/10 text-primary'
+                  // 지금 기다리는 단계 — 끝난 단계처럼 보이지 않게 점선 테두리로만 표시
+                  ? 'border border-dashed border-primary/50 bg-white text-primary'
                   : 'bg-bg text-tertiary'
             }`}
           >
@@ -227,12 +237,19 @@ function ApplicationCard({
   const vacancyCopy = app.confirm_on_accept ? VACANCY_STATUS[app.status] : undefined;
   // 사업장이 근무를 취소했으면 요청·지원 상태와 상관없이 그렇게 보여 준다(수락 버튼도 숨김)
   const shiftCancelled = app.shift.status === 'cancelled' && !['completed', 'accepted'].includes(app.status);
+  const applyClosed = isApplyClosed(app);
   const { label, description, className } = coveredByOther
     ? { label: '대타 확정', description: `${cover?.claimer_name ?? '동료'}님이 이 근무를 맡았어요. 빠지셔도 돼요.`, className: 'bg-[#E5FAF4] text-success' }
     : shiftCancelled
       ? { label: '근무 취소', description: '사업장 사정으로 근무가 취소됐어요.', className: 'bg-[#F2F4F6] text-tertiary' }
-      : vacancyCopy ?? STATUS_CONFIG[app.status];
-  const startsAt = Date.parse(`${app.shift.shift_date}T${app.shift.start_time.slice(0, 5)}:00+09:00`);
+      : applyClosed
+        ? { label: '지원 마감', description: '근무 시작 시간이 지나 지원이 마감됐어요.', className: 'bg-[#F2F4F6] text-tertiary' }
+        : vacancyCopy ?? STATUS_CONFIG[app.status];
+  // '사업장 확인 중'은 배지만으로 충분하다 — 같은 말을 한 번 더 하지 않는다(카드 길이 줄이기)
+  const showDescription = !(app.status === 'applied' && !applyClosed && !shiftCancelled);
+  // 진행 단계 칩은 확정 이후에만 — 확인 중일 땐 배지가 같은 정보를 준다
+  const showSteps = ['accepted', 'completed'].includes(app.status) && !coveredByOther;
+  const startsAt = startsAtOf(app);
   const canSeekCover = app.status === 'accepted' && !app.checked_in_at && !app.checked_out_at && startsAt > Date.now();
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
   const appliedDate = new Date(app.applied_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
@@ -249,7 +266,7 @@ function ApplicationCard({
     dDiff === 0 ? '오늘' : dDiff === 1 ? '내일' : dDiff > 0 ? `D-${dDiff}` : null;
 
   return (
-    <div className="bg-white rounded-card shadow-card p-5 mb-3">
+    <div className="bg-white rounded-card shadow-card p-4 mb-3">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[13px] font-semibold text-sub">{app.shift.shift_date}</span>
         <span className={`text-[12px] font-bold px-2.5 py-1 rounded-full ${className}`}>{label}</span>
@@ -261,10 +278,10 @@ function ApplicationCard({
       {app.shift.department && (
         <p className="text-[13px] text-tertiary mb-0.5">{app.shift.department}</p>
       )}
-      <p className="text-[13px] font-semibold text-primary mb-2">{mobilityLabel(app.shift)}</p>
-      <p className="text-[14px] text-sub line-clamp-2 mb-3">{app.shift.description}</p>
-      <p className="text-[13px] text-sub bg-bg rounded-xl px-3 py-2 mb-3">{description}</p>
-      <StatusSteps app={app} />
+      {mobilityLabel(app.shift) && <p className="text-[13px] font-semibold text-primary mb-2">{mobilityLabel(app.shift)}</p>}
+      {app.shift.description && <p className="text-[14px] text-sub line-clamp-1 mb-3">{app.shift.description}</p>}
+      {showDescription && <p className="text-[13px] text-sub bg-bg rounded-xl px-3 py-2 mb-3">{description}</p>}
+      {showSteps && <StatusSteps app={app} />}
 
       {app.status === 'invited' && !shiftCancelled && (
         <div className="grid grid-cols-2 gap-2 mt-3">
@@ -327,7 +344,7 @@ function ApplicationCard({
         </Link>
       )}
 
-      {app.status === 'applied' && !shiftCancelled && (
+      {app.status === 'applied' && !shiftCancelled && !applyClosed && (
         <button
           onClick={() => onCancel(app.id)}
           className="mt-3 w-full h-11 border border-line rounded-btn text-[14px] font-semibold text-sub active:bg-bg"
@@ -386,7 +403,7 @@ export default function ApplicationsPage() {
 
       const loadedApps=(data as unknown as Application[]) ?? [];
       setApps(loadedApps);
-      setActivityFilter(loadedApps.some(app=>['invited','applied'].includes(app.status))?'active':loadedApps.some(app=>app.status==='accepted')?'accepted':loadedApps.some(app=>app.status==='completed')?'completed':'all');
+      setActivityFilter(loadedApps.some(isActive)?'active':loadedApps.some(app=>app.status==='accepted')?'accepted':loadedApps.some(app=>app.status==='completed')?'completed':'all');
       setLoading(false);
     }
     load();
@@ -440,11 +457,11 @@ export default function ApplicationsPage() {
       : response?.status==='pending' ? app : { ...app, checked_out_at: response?.checkOutAt??now, status: 'completed' as const }));
   }
   const activityCounts={
-    active:apps.filter(app=>['invited','applied'].includes(app.status)).length,
+    active:apps.filter(isActive).length,
     accepted:apps.filter(app=>app.status==='accepted').length,
     completed:apps.filter(app=>app.status==='completed').length,
   };
-  const visibleApps=activityFilter==='all'?apps:apps.filter(app=>activityFilter==='active'?['invited','applied'].includes(app.status):app.status===activityFilter);
+  const visibleApps=activityFilter==='all'?apps:apps.filter(app=>activityFilter==='active'?isActive(app):app.status===activityFilter);
 
   if (loading) {
     return (
@@ -475,7 +492,7 @@ export default function ApplicationsPage() {
       <div className="flex items-center justify-between mb-5">
         <p className="text-[14px] font-bold text-ink">지원 현황 {apps.length > 0 ? `(${apps.length})` : ''}</p>
         <button onClick={() => router.push('/earnings')} className="text-[13px] font-bold text-primary bg-primary/8 px-3 py-2 rounded-xl">
-          급여 지급현황 →
+          급여 지급 현황 →
         </button>
       </div>
 

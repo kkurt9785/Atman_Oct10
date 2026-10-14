@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BackButton } from '@/components/BackButton';
 
 const SHIPPING_FEE = 3500;
 const FREE_SHIPPING_THRESHOLD = 30000;
@@ -271,11 +272,9 @@ export default function StorePage() {
       {/* 헤더 */}
       <div className="bg-white sticky top-0 z-20 border-b border-line">
         <div className="flex items-center gap-3 px-5 pt-12 pb-3">
-          <button onClick={() => router.back()} className="text-ink text-[20px] leading-none -ml-1 p-1">
-            ←
-          </button>
+          <BackButton href="/applications" />
           <h1 className="text-[18px] font-extrabold text-ink flex-1">간호용품 스토어</h1>
-          <button onClick={() => router.push('/earnings')} className="text-[12px] font-bold text-primary bg-primary/8 px-3 py-2 rounded-xl">급여 현황</button>
+          <button onClick={() => router.push('/earnings')} className="text-[12px] font-bold text-primary bg-primary/8 px-3 py-2 rounded-xl">급여 지급 현황</button>
         </div>
 
         {/* 결제 안내 배너 */}

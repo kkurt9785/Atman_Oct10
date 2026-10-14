@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackButton } from '@/components/BackButton';
+import { GigInviteAction } from '@/components/invite/GigInviteAction';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { isGigKind } from '@/lib/worker-mode';
@@ -154,15 +155,14 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
   return <main className="flex min-h-[calc(100dvh-5rem)] flex-col bg-bg px-4 pb-4 pt-4">
     {!isGig && <div className="mb-2"><BackButton href="/workplace" label="내 직장" anyPrevious /></div>}
     <header className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <div className="flex items-center justify-between"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[10px] font-extrabold tracking-[0.14em]">{isGig ? 'GIG CHAT' : 'WORKROOM'}</span>{selected&&<span className="text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
-      <h1 className="mt-4 text-[25px] font-extrabold">{isGig ? '관리자와 근무 대화' : '사업장 워크룸'}</h1>
-      <p className="mt-1 text-[12px] leading-5 text-white/65">{isGig ? '전화번호나 카톡 친구 추가 없이 관리자 공지, 출석 확인, 근무 대화를 한곳에 남겨요.' : '카톡 단체방 대신 공지, 출석 확인, 근무 대화, 출퇴근 기록을 한곳에 남겨요.'}</p>
+      <div className="flex items-start justify-between gap-3"><h1 className="text-[25px] font-extrabold">{isGig ? '사장님과 근무 대화' : '사업장 워크룸'}</h1>{selected&&<span className="mt-2 shrink-0 text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
+      <p className="mt-1 text-[12px] leading-5 text-white/65">{isGig ? '전화번호나 카톡 친구 추가 없이 공지, 출석 확인, 근무 대화를 한곳에 남겨요.' : '카톡 단체방 대신 공지, 출석 확인, 근무 대화, 출퇴근 기록을 한곳에 남겨요.'}</p>
       {rooms.length > 1 && <select value={selectedId} onChange={(event)=>setSelectedId(event.target.value)} className="mt-4 h-11 w-full rounded-xl border border-white/10 bg-white/10 px-3 text-[13px] font-bold text-white outline-none">{rooms.map((room)=><option key={room.facility_id} value={room.facility_id} className="text-ink">{room.facility_name}{room.unread_count?` · 새 소식 ${room.unread_count}`:''}</option>)}</select>}
     </header>
 
     {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-[12px] font-bold text-red-600">{error}</p>}
     {loading ? <div className="mt-4 flex-1 rounded-2xl bg-white py-20 text-center text-[13px] text-sub">워크룸을 불러오고 있어요...</div>
-      : !selected ? <section className="mt-4 flex-1 rounded-2xl bg-white px-6 py-16 text-center"><p className="text-[16px] font-extrabold text-ink">아직 참여한 워크룸이 없어요</p><p className="mt-2 text-[13px] leading-5 text-sub">관리자의 일회용 가입 링크나 현장 QR을 열면 전화번호 없이 사업장과 연결돼요.</p></section>
+      : !selected ? <section className="mt-4 flex-1 rounded-2xl bg-white px-6 py-16 text-center"><p className="text-[16px] font-extrabold text-ink">{isGig ? '아직 연결된 대화방이 없어요' : '아직 참여한 워크룸이 없어요'}</p><p className="mt-2 text-[13px] leading-5 text-sub">{isGig ? '사장님이 보낸 초대 링크나 현장 QR을 열면 전화번호 없이 연결돼요.' : '관리자의 일회용 가입 링크나 현장 QR을 열면 전화번호 없이 사업장과 연결돼요.'}</p>{isGig && <GigInviteAction />}</section>
       : <section className="mt-3 min-h-[360px] flex-1 overflow-y-auto rounded-2xl bg-white px-4 py-4 shadow-sm">
         <div className="mb-4 border-b border-line pb-3"><p className="text-[15px] font-extrabold text-ink">{selected.facility_name}</p>{selected.address_text&&<p className="mt-0.5 text-[11px] text-sub">{selected.address_text}</p>}</div>
         <div className="flex flex-col gap-3">
@@ -186,7 +186,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
             const direct = message.staff_id !== null;
             return <div key={message.id} className={`max-w-[86%] ${mine?'self-end':'self-start'}`}><p className={`mb-1 text-[10px] font-bold ${mine?'text-right text-primary':'text-sub'}`}>{notice?'공지 · ':''}{direct&&!isGig?'비공개 · ':''}{message.sender_name}</p><div className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[14px] leading-5 ${notice?'border border-amber-200 bg-amber-50 text-ink':mine?'rounded-br-md bg-primary text-white':'rounded-bl-md border border-line bg-white text-ink'}`}>{message.body}</div><time className={`mt-1 block text-[10px] text-tertiary ${mine?'text-right':''}`}>{timeLabel(message.created_at)}</time></div>;
           })}
-          {messages.length===0&&<div className="py-14 text-center"><p className="text-[14px] font-bold text-ink">아직 대화가 없어요</p><p className="mt-1 text-[12px] text-sub">관리자에게 필요한 내용을 여기서 바로 물어보세요.</p></div>}
+          {messages.length===0&&<div className="py-14 text-center"><p className="text-[14px] font-bold text-ink">아직 대화가 없어요</p><p className="mt-1 text-[12px] text-sub">{isGig ? '사장님께' : '관리자에게'} 필요한 내용을 여기서 바로 물어보세요.</p></div>}
         </div><div ref={bottomRef}/>
       </section>}
 

@@ -97,7 +97,7 @@ export default function IntroPage() {
           실제 화면으로 보세요
         </h2>
         <p className="mt-2 text-[13px] leading-5 text-sub">
-          빈 근무 공고를 만들고 워커를 수락한 뒤, 출퇴근 기록과 지급 확인까지 이어지는 관리자 흐름입니다.
+          빈 근무 공고를 만들고 근무자를 수락한 뒤, 출퇴근 기록과 지급 확인까지 이어지는 관리자 흐름이에요.
         </p>
         <div className="mt-5 overflow-hidden rounded-card border border-line bg-black shadow-card">
           <video
@@ -109,7 +109,7 @@ export default function IntroPage() {
             aria-label="잇닿 관리자 서비스 시연 영상"
           >
             <source src="/demo/itdot-admin-demo.mp4" type="video/mp4" />
-            브라우저가 동영상 재생을 지원하지 않습니다.
+            이 브라우저에서는 영상을 재생할 수 없어요.
           </video>
         </div>
         <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 10초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>

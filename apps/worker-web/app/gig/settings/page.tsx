@@ -91,7 +91,7 @@ export default function GigSettingsPage() {
         <BackButton href="/gig" label="오늘" />
         <span className="mt-2 flex w-fit rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">초대 근무</span>
         <h1 className="mt-2 text-[24px] font-extrabold text-ink">앱 설정</h1>
-        <p className="mt-1 text-[13px] text-sub">알림과 연결된 워커 모드만 관리해요. 계좌와 지급은 근태·지급 탭에 있어요.</p>
+        <p className="mt-1 text-[13px] text-sub">이 기기의 알림을 관리해요. 계좌와 지급은 근태·지급 탭에 있어요.</p>
       </div>
 
       <div className="mb-4 rounded-2xl bg-white p-5 shadow-sm">

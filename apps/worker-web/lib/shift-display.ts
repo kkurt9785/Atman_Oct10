@@ -58,11 +58,16 @@ export function distanceKm(shift: ShiftDisplayLike) {
 export function mobilityLabel(shift: ShiftDisplayLike) {
   const km = distanceKm(shift);
   if (km == null || !Number.isFinite(km)) {
-    const area = areaLabel(shift);
-    return area ? `${area} · 활동지역 내` : '활동지역 내';
+    // 거리를 모르면 지역 이름만 — 활동 지역 안인지 확인하지 않았으니 '활동지역 내'라고 하지 않는다
+    return areaLabel(shift) ?? '';
   }
 
   const roundedKm = km < 10 ? km.toFixed(1) : Math.round(km).toString();
   const minutes = Math.max(8, Math.round((km / 22) * 60 + 8));
   return `${roundedKm}km · 이동 약 ${minutes}분`;
+}
+
+// 이미 시작한 근무는 지원할 수 없다 — 서버 조회가 오늘 공고를 시간과 상관없이 돌려줘서 화면에서 한 번 더 거른다
+export function hasStarted(shift: { shift_date: string; start_time: string }, now = Date.now()) {
+  return Date.parse(`${shift.shift_date}T${shift.start_time.slice(0, 5)}:00+09:00`) <= now;
 }

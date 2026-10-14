@@ -9,14 +9,16 @@ import { getSignedInUser } from '@/lib/auth-user';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
 import { dateKST } from '@/lib/date';
-import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
+import { facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 import { WeekRoster } from '@/components/roster/WeekRoster';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { ModeSwitch } from '@/components/worker/ModeSwitch';
-import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
+import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, PHARMACY_SLOT_NAME, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
 import { loadWorkerShellContext } from '@/lib/worker-mode';
 import { listClaimableCovers } from '@/lib/cover';
+import { enableShiftPush, getExistingSubscription } from '@/lib/push-subscribe';
+import { useDemoSession } from '@/lib/demo-session';
 
 // 의료 워커 홈 = 근무표 한 장 + 그 칸의 근무. 그 외는 없다.
 //   ● 확정 근무, ○ 지원 중, +N 그 시간대에 갈 수 있는 근무. 칸을 누르면 아래 목록이 그 칸으로 좁혀진다.
@@ -26,7 +28,8 @@ type ShiftWithFacility = Shift & {
   facilities: { name: string; address_text?: string | null; facility_type?: string | null } | null;
 };
 type NextAction={label:string;title:string;href:string;tone:'primary'|'success'};
-type Activity = { shift_id: string; status: string; checked_in_at: string | null; checked_out_at: string | null; shifts: { shift_date: string; start_time: string; facility_id?: string } | Array<{ shift_date: string; start_time: string; facility_id?: string }> | null };
+type ActivityShift = { shift_date: string; start_time: string; end_time?: string | null; is_overnight?: boolean | null; facility_id?: string };
+type Activity = { id: string; shift_id: string; status: string; checked_in_at: string | null; checked_out_at: string | null; shifts: ActivityShift | ActivityShift[] | null };
 const shiftOfActivity = (row: Activity) => (Array.isArray(row.shifts) ? row.shifts[0] : row.shifts) ?? null;
 
 function matchesCell(shift: Shift, cell: { date: string; slot: RosterSlot } | null) {
@@ -34,11 +37,14 @@ function matchesCell(shift: Shift, cell: { date: string; slot: RosterSlot } | nu
   return shift.shift_date === cell.date && slotOf(shift.start_time) === cell.slot;
 }
 
-function minutesUntilKstTime(time: string) {
-  const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  const nowMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const [hour, minute] = time.slice(0, 5).split(':').map(Number);
-  return hour * 60 + minute - nowMinutes;
+// 근무 시작·종료까지 남은 분(지났으면 음수). 날짜까지 보고 계산해서 익일(야간) 근무는 종료가 다음 날이 된다.
+function minutesUntilShift(shift: ActivityShift) {
+  const at = (date: string, time: string) => Date.parse(`${date}T${time.slice(0, 5)}:00+09:00`);
+  const start = at(shift.shift_date, shift.start_time);
+  let end = shift.end_time ? at(shift.shift_date, shift.end_time) : start + 8 * 60 * 60 * 1000;
+  if (end <= start) end += 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  return { toStart: Math.round((start - now) / 60000), toEnd: Math.round((end - now) / 60000) };
 }
 
 function ListCard({ shift, worked, onApply }: { shift: ShiftWithFacility; worked: boolean; onApply: () => void }) {
@@ -101,6 +107,11 @@ export default function HomePage() {
   const [nextAction,setNextAction]=useState<NextAction|null>(null);
   // 함께 일한 사업장의 대타 요청 중 내가 아직 안 맡은 것 — 있을 때만 배너로 알린다
   const [openCoverCount, setOpenCoverCount] = useState(0);
+  // 새 근무 알림이 꺼진 기기 — '가만히 있어도 일이 들어온다'의 전제라 홈에서 한 번에 켜게 한다(시연 계정은 공용이라 묻지 않는다)
+  const demo = useDemoSession();
+  const [pushOff, setPushOff] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushNotice, setPushNotice] = useState('');
 
   // 공고 탐색 기준 — 현재 위치 또는 등록 지역 중 하나
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
@@ -143,7 +154,7 @@ export default function HomePage() {
       setShifts([]);
       return;
     }
-    setShifts(mapRows((data ?? []) as Record<string, unknown>[]));
+    setShifts(mapRows((data ?? []) as Record<string, unknown>[]).filter((shift) => !hasStarted(shift)));
   }, []);
 
   async function selectBasis(b: 'gps' | string) {
@@ -174,11 +185,12 @@ export default function HomePage() {
         router.replace('/shifts');
         return;
       }
-      setName(user.user_metadata?.profile_nickname ?? '사용자');
+      const nickname = user.user_metadata?.profile_nickname as string | undefined;
+      setName(nickname ?? '사용자');
 
       const [{ data: locPref }, { data: workerRow }, shellContext] = await Promise.all([
         supabase.from('worker_location_prefs').select('locations').single(),
-        supabase.from('workers').select('id, role, verification_status').eq('auth_user_id', user.id).maybeSingle(),
+        supabase.from('workers').select('id, name, role, verification_status').eq('auth_user_id', user.id).maybeSingle(),
         loadWorkerShellContext(user).catch(() => null),
       ]);
       void listClaimableCovers().then((list) => setOpenCoverCount(list.filter((cover) => !cover.claimed_by_me).length));
@@ -188,6 +200,8 @@ export default function HomePage() {
         router.replace('/onboarding?step=terms');
         return;
       }
+      // 가입한 이름(계좌 예금주와 같은 이름)이 먼저, 카카오 닉네임은 이름이 없을 때만
+      if (workerRow.name) setName(workerRow.name);
       const userRole = (workerRow.role as WorkerRole) ?? 'rn';
       const areaLabels = ((locPref?.locations ?? []) as { label: string }[]).map((l) => l.label);
       setRole(userRole);
@@ -201,7 +215,7 @@ export default function HomePage() {
       if (workerRow?.id) {
         const { data: appData } = await supabase
           .from('shift_applications')
-          .select('shift_id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time,facility_id)')
+          .select('id,shift_id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time,end_time,is_overnight,facility_id)')
           .eq('worker_id', workerRow.id)
           .in('status', ['invited','applied', 'accepted','completed']);
         const rows=[...((appData??[]) as unknown as Activity[])].sort((left,right)=>{
@@ -213,22 +227,35 @@ export default function HomePage() {
         setActivity(rows);
         setApplied(new Set(rows.filter(a=>['applied','accepted'].includes(a.status)).map(a=>a.shift_id)));
         const today=dateKST();
+        const yesterday=dateKST(-1);
         const inProgress=rows.find(a=>a.status==='accepted'&&a.checked_in_at&&!a.checked_out_at);
-        const todayReady=rows.find(a=>a.status==='accepted'&&!a.checked_in_at&&shiftOfActivity(a)?.shift_date===today);
+        // 출근 전 확정 근무: 오늘 근무 + 어제 시작한 익일(야간) 근무. 아직 안 끝난 근무를 먼저 고른다.
+        const notCheckedIn=rows.filter(a=>{
+          const shift=shiftOfActivity(a);
+          return a.status==='accepted'&&!a.checked_in_at&&!a.checked_out_at&&shift&&(shift.shift_date===today||shift.shift_date===yesterday);
+        });
+        const todayReady=notCheckedIn.find(a=>minutesUntilShift(shiftOfActivity(a)!).toEnd>0)
+          ??notCheckedIn.find(a=>shiftOfActivity(a)?.shift_date===today);
         const waiting=rows.find(a=>a.status==='invited')??rows.find(a=>a.status==='applied');
         if(inProgress)setNextAction({label:'퇴근하기',title:'현재 근무 중이에요',href:'/workplace',tone:'success'});
         else if(todayReady){
-          const shift=shiftOfActivity(todayReady);
-          const minutes=minutesUntilKstTime(shift?.start_time??'00:00');
-          setNextAction(minutes>30
-            ?{label:'근무 준비',title:`오늘 ${shift?.start_time?.slice(0,5)??''} 근무가 있어요`,href:'/applications',tone:'primary'}
-            :{label:'출근하기',title:minutes>0?`${minutes}분 뒤 근무 시작`:'근무 시작 시간이에요',href:'/workplace',tone:'primary'});
+          const shift=shiftOfActivity(todayReady)!;
+          const {toStart,toEnd}=minutesUntilShift(shift);
+          setNextAction(toEnd<=0
+            // 출근 기록 없이 근무가 끝났으면 출근 버튼 대신 사업장에 알리게 한다
+            ?{label:'사업장에 알리기',title:'출근 기록 없이 근무 시간이 지났어요',href:`/chat/${todayReady.id}`,tone:'primary'}
+            :toStart>30
+              ?{label:'근무 준비',title:`오늘 ${shift.start_time.slice(0,5)} 근무가 있어요`,href:'/applications',tone:'primary'}
+              :{label:'출근하기',title:toStart>0?`${toStart}분 뒤 근무 시작`:toStart===0?'근무 시작 시간이에요':`시작 ${-toStart}분 지났어요`,href:'/workplace',tone:'primary'});
         }
         else if(waiting)setNextAction({label:'확인',title:waiting.status==='invited'?'새 근무 요청이 도착했어요':'사업장에서 지원을 확인하고 있어요',href:'/applications',tone:'primary'});
       }
 
       // 위치는 '현재 위치'를 누를 때만 가져온다(위치정보 이용약관) — 처음엔 등록한 활동 지역 기준
       void isLocationAllowed().then(setLocationOk);
+      if ('PushManager' in window && typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+        void getExistingSubscription().then((existing) => setPushOff(!existing)).catch(() => undefined);
+      }
       const initialBasis: 'gps' | string = areaLabels[0] ?? 'gps';
       setBasis(initialBasis);
       await fetchShifts(null, initialBasis);
@@ -238,7 +265,14 @@ export default function HomePage() {
   }, [router, fetchShifts]);
 
   const roleLabel = WORKER_ROLE_LABEL[role];
-  const openShifts = useMemo(() => shifts.filter((s) => !applied.has(s.id)), [shifts, applied]);
+  const slotNames = role === 'pharmacist' || role === 'pharmacy_staff' ? PHARMACY_SLOT_NAME : SLOT_NAME;
+  // 확정 근무가 있는 시간대(같은 날·같은 칸)의 공고는 지원해도 DB가 막는다 — 처음부터 보이지 않게 한다
+  const busyCells = useMemo(() => new Set(activity
+    .filter((a) => a.status === 'accepted' || a.status === 'completed')
+    .map((a) => shiftOfActivity(a))
+    .filter((shift): shift is ActivityShift => Boolean(shift))
+    .map((shift) => cellKey(shift.shift_date, slotOf(shift.start_time)))), [activity]);
+  const openShifts = useMemo(() => shifts.filter((s) => !applied.has(s.id) && !busyCells.has(cellKey(s.shift_date, slotOf(s.start_time)))), [shifts, applied, busyCells]);
 
   // 근무표: 지원 가능한 근무 수(+N) + 확정(●)·지원 중(○)
   const cells = useMemo(() => {
@@ -272,6 +306,21 @@ export default function HomePage() {
   const selectedDay = week.find((day) => day.date === cell?.date);
   const selectedCount = cell ? cells[cellKey(cell.date, cell.slot)]?.count ?? 0 : 0;
 
+  async function turnOnPush() {
+    if (pushBusy) return;
+    setPushBusy(true);
+    setPushNotice('');
+    try {
+      const result = await enableShiftPush();
+      if (result === 'enabled') setPushOff(false);
+      else setPushNotice('휴대폰 설정에서 이 앱의 알림을 허용해 주세요.');
+    } catch {
+      setPushNotice('알림을 켜지 못했어요. 내 정보에서 다시 시도해 주세요.');
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   function handleApplied() {
     if (selected) setApplied((prev) => new Set(prev).add(selected.id));
     setSelected(null);
@@ -289,11 +338,11 @@ export default function HomePage() {
     <div className="pb-24">
       <div className="px-5 pt-12">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="shrink-0">
             <Wordmark size={20} />
             <div className="mt-3"><ModeSwitch current="medical" /></div>
           </div>
-          <span className="rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{name} {roleLabel}</span>
+          <span className="ml-3 min-w-0 truncate rounded-full bg-primary/10 px-3 py-1.5 text-[12px] font-extrabold text-primary">{name} {roleLabel}</span>
         </div>
 
         {openCoverCount > 0 && (
@@ -304,11 +353,19 @@ export default function HomePage() {
         )}
 
         {nextAction && (
-          <Link href={nextAction.href} className={`mt-4 flex items-center justify-between rounded-2xl px-4 py-3.5 text-white shadow-btn ${nextAction.tone==='success'?'bg-success':'bg-primary'}`}>
+          <Link href={nextAction.href} className={`mt-4 flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-white shadow-btn ${nextAction.tone==='success'?'bg-success':'bg-primary'}`}>
             <span className="text-[15px] font-extrabold">{nextAction.title}</span>
-            <span className="shrink-0 rounded-lg bg-white/20 px-3 py-1.5 text-[12px] font-extrabold">{nextAction.label} →</span>
+            <span className="shrink-0 whitespace-nowrap rounded-lg bg-white/20 px-3 py-1.5 text-[12px] font-extrabold">{nextAction.label} →</span>
           </Link>
         )}
+
+        {pushOff && demo === false && (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3">
+            <span className="text-[13px] font-bold text-ink">새 근무 알림이 꺼져 있어요</span>
+            <button type="button" onClick={() => void turnOnPush()} disabled={pushBusy} className="h-9 shrink-0 whitespace-nowrap rounded-lg bg-primary px-3 text-[12px] font-extrabold text-white disabled:opacity-60">{pushBusy ? '켜는 중…' : '켜기'}</button>
+          </div>
+        )}
+        {pushNotice && <p role="alert" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-700">{pushNotice}</p>}
 
         <h1 className="mt-5 text-[22px] font-extrabold leading-tight tracking-[-0.5px] text-ink">
           이번 주 내 근무표
@@ -328,15 +385,18 @@ export default function HomePage() {
         {locNotice && <p role="alert" className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] font-bold text-amber-700">{locNotice}</p>}
 
         <div className="mt-3">
-          <WeekRoster week={week} cells={cells} selected={cell} onSelect={(date, slot) => { setCellTouched(true); setCell(cell?.date === date && cell?.slot === slot ? null : { date, slot }); }} />
-          <p className="mt-2 px-1 text-[11px] text-tertiary">● 확정 · ○ 지원 중 · +숫자 = 갈 수 있는 근무. 같은 칸을 다시 누르면 전체 보기</p>
+          <WeekRoster week={week} cells={cells} selected={cell} slotNames={slotNames === SLOT_NAME ? undefined : slotNames} onSelect={(date, slot) => { setCellTouched(true); setCell(cell?.date === date && cell?.slot === slot ? null : { date, slot }); }} />
+          <p className="mt-2 truncate whitespace-nowrap px-1 text-[11px] text-tertiary">● 확정 · ○ 지원 중 · +숫자 갈 수 있는 근무</p>
         </div>
       </div>
 
       <section className="px-5 mt-5">
         <div className="mb-3 flex items-end justify-between gap-3">
-          <h2 className="text-[16px] font-extrabold text-ink">{cell && selectedDay ? `${selectedDay.isToday ? '오늘' : `${selectedDay.weekday}요일 ${selectedDay.dayNumber}일`} · ${cell.slot} ${SLOT_NAME[cell.slot]}` : '이번 주 전체'}</h2>
-          <span className="text-[12px] font-bold text-sub">{cell ? selectedCount : filtered.length}건</span>
+          <h2 className="text-[16px] font-extrabold text-ink">{cell && selectedDay ? `${selectedDay.isToday ? '오늘' : `${selectedDay.weekday}요일 ${selectedDay.dayNumber}일`} · ${slotNames[cell.slot]} 근무` : '이번 주 전체'}</h2>
+          <span className="flex shrink-0 items-center gap-2 text-[12px] font-bold text-sub">
+            {cell ? selectedCount : filtered.length}건
+            {cell && filtered.length > 0 && <button type="button" onClick={() => { setCellTouched(true); setCell(null); }} className="min-h-9 px-1 text-primary">전체 보기</button>}
+          </span>
         </div>
 
         {filtered.length === 0 ? (

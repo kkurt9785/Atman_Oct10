@@ -211,7 +211,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
 
       {status === 'preview' && preview && <>
         <button type="button" onClick={() => void claimInvite()} className="mt-5 [@media(max-height:700px)]:mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
-          {!signedIn ? '카카오로 가입하고 잇기' : !hasWorker ? '인적사항 등록하고 잇기' : '잇기 · 초대 수락하고 연결'}
+          {!signedIn ? '카카오로 가입하고 초대 수락' : !hasWorker ? '인적사항 등록하고 초대 수락' : '초대 수락하고 연결'}
         </button>
         <p className="mt-2 text-center text-[11px] leading-5 text-sub">앱 설치 없이 바로 수락돼요 · 전화번호 없이 카카오 로그인으로만 연결</p>
         {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}

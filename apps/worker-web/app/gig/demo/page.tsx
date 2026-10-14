@@ -45,31 +45,34 @@ export default function GigDemoPage() {
         <ol className="mt-6 space-y-2 rounded-2xl bg-bg p-4 text-[13px] leading-5 text-sub">
           <li><b className="text-primary">1.</b> 아래 버튼 → 초대 확인 화면에서 <b className="text-ink">초대 수락</b></li>
           <li><b className="text-primary">2.</b> 오늘 근무 화면에서 <b className="text-ink">출근하기</b>를 길게 눌러 출근</li>
-          <li><b className="text-primary">3.</b> 관리자 앱(긱워커 근태 시연)에서 출근·대화가 바로 반영되는지 확인</li>
           <li className="text-tertiary">다시 누르면 언제든 처음 상태(초대 대기)로 돌아와요.</li>
         </ol>
 
+        {/* 시작 버튼은 영상보다 위 — 첫 화면에서 바로 누를 수 있게 */}
+        <div className="mt-4">
+          {ENABLED ? (
+            <button type="button" onClick={() => void start()} disabled={loading} className="flex h-14 w-full items-center justify-center rounded-btn bg-primary text-[16px] font-extrabold text-white shadow-btn disabled:opacity-60">
+              {loading ? '시연 계정 준비 중...' : '시연 계정으로 시작'}
+            </button>
+          ) : (
+            <p className="rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>
+          )}
+          {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-600">{error}</p>}
+        </div>
+
         <section className="mt-5" aria-labelledby="gig-demo-video-title">
-          <p id="gig-demo-video-title" className="text-[12px] font-extrabold text-sub">먼저 영상으로 보기 · 약 1분</p>
+          <p id="gig-demo-video-title" className="text-[12px] font-extrabold text-sub">영상으로 보기 · 약 1분</p>
           <div className="mt-2 overflow-hidden rounded-2xl border border-line bg-black">
             <video className="block aspect-[9/16] w-full bg-black" controls playsInline preload="metadata" poster="/demo/itdot-gig-demo-poster.jpg" aria-label="잇닿 초대 근무 시연 영상">
               <source src="/demo/itdot-gig-demo.mp4" type="video/mp4" />
-              브라우저가 동영상 재생을 지원하지 않습니다.
+              이 브라우저에서는 영상을 재생할 수 없어요.
             </video>
           </div>
         </section>
 
         <div className="flex-grow" />
 
-        {ENABLED ? (
-          <button type="button" onClick={() => void start()} disabled={loading} className="flex h-14 w-full items-center justify-center rounded-btn bg-primary text-[16px] font-extrabold text-white shadow-btn disabled:opacity-60">
-            {loading ? '시연 계정 준비 중...' : '시연 계정으로 시작'}
-          </button>
-        ) : (
-          <p className="rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>
-        )}
-        {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-600">{error}</p>}
-        <div className="mt-2"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
+        <div className="mt-4"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
         <p className="mt-2 text-center text-[11px] leading-4 text-tertiary">근무 찾기와 초대 근무 모두 잇닿 워커 앱 하나로 써요.</p>
         <Link href="/demo" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-sub">다른 시연 보기</Link>
         <Link href="/" className="flex h-10 items-center justify-center text-[13px] font-bold text-tertiary">처음으로</Link>

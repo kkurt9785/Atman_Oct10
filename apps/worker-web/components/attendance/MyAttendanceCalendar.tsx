@@ -8,7 +8,7 @@ type Row = {
   check_in_method: string | null; check_out_method: string | null; source: string;
 };
 const STATUS_LABEL: Record<string, string> = { scheduled: '예정', working: '근무 중', checkout_pending: '승인 대기', completed: '완료', late: '지각', absent: '결근', leave: '휴가' };
-const AUTH: Record<string, string> = { GPS: '위치', GPS_QR: '위치+QR', QR: 'QR', QR_FALLBACK: 'QR 보완', WORKPLACE_NET: '사업장 네트워크', ADMIN: '관리자', qr: '기존 QR', button: '원터치' };
+const AUTH: Record<string, string> = { GPS: '위치', GPS_QR: '위치+QR', QR: 'QR', QR_FALLBACK: 'QR 보완', WORKPLACE_NET: '사업장 네트워크', ADMIN: '관리자', qr: 'QR', button: '출근하기 버튼' };
 const DAY_STYLE: Record<string, string> = { completed: 'bg-primary text-white', working: 'bg-primary/15 text-primary', checkout_pending: 'bg-amber-100 text-amber-700', late: 'bg-amber-400 text-white', absent: 'bg-red-500 text-white', leave: 'bg-emerald-400 text-white', scheduled: 'bg-bg text-sub' };
 const LEGEND: [string, string][] = [['bg-primary', '완료'], ['bg-primary/15', '근무 중'], ['bg-amber-400', '지각'], ['bg-amber-100', '승인 대기'], ['bg-red-500', '결근'], ['bg-emerald-400', '휴가'], ['bg-bg', '예정']];
 const kstToday = () => new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10);

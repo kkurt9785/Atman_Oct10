@@ -64,7 +64,7 @@ function RewardsContent(){
   const steps=[
     {label:'프로필 확인',description:role==='pharmacy_staff'?'활동지역·경력·이력서 확인을 완료해요':'활동지역·경력·최근 근무지 입력을 완료해요',done:data.milestones.profileVerified,reward:'커피 5천원'},
     {label:'첫 공고 지원',description:'원하는 공고를 직접 선택해 지원해요',done:data.milestones.firstApplied,reward:null},
-    {label:'첫 근무 완료',description:'출퇴근과 사업장 근태 확정까지 완료해요',done:data.milestones.firstShiftCompleted,reward:'2만원'},
+    {label:'첫 근무 완료',description:'출퇴근하고 사업장이 근무 기록을 확정하면 완료돼요',done:data.milestones.firstShiftCompleted,reward:'2만원'},
   ];
   const qualified=data.rewards.reduce((sum,row)=>row.status!=='cancelled'?sum+row.amount:sum,0);
 
@@ -73,11 +73,11 @@ function RewardsContent(){
       <BackButton href="/settings" label="내 정보" />
       <p className="text-[12px] font-bold text-primary">가입보다 실제 활동을 응원해요</p>
       <h1 className="mt-1 text-[26px] font-extrabold text-ink">잇닿 리워드</h1>
-      <p className="mt-2 text-[13px] leading-5 text-sub">임금과 별개인 런칭 혜택이에요. 첫 근무 관련 리워드는 근태 확정 후 7일 동안 확인해요.</p>
+      <p className="mt-2 text-[13px] leading-5 text-sub">임금과 별개인 가입 혜택이에요. 첫 근무 리워드는 사업장이 근무 기록을 확정한 뒤 7일 안에 확인해요.</p>
     </header>
 
     {notice&&<p role="alert" className="mx-5 mt-4 rounded-xl bg-amber-50 p-3 text-[12px] font-bold text-amber-700">{notice}</p>}
-    {!data.eligible&&<div className="mx-5 mt-4 rounded-2xl border border-line bg-white p-4"><p className="text-[13px] font-bold text-ink">{data.isDemo?'시연 계정에서는 진행 화면만 보여드려요':'런칭 신규 가입 혜택 대상이 아니에요'}</p><p className="mt-1 text-[12px] text-sub">친구 초대는 가능하며 실제 지급 조건은 캠페인 안내를 기준으로 해요.</p></div>}
+    {!data.eligible&&<div className="mx-5 mt-4 rounded-2xl border border-line bg-white p-4"><p className="text-[13px] font-bold text-ink">{data.isDemo?'시연 계정에서는 진행 화면만 보여드려요':'신규 가입 혜택 대상이 아니에요'}</p><p className="mt-1 text-[12px] text-sub">친구 초대는 가능하며 실제 지급 조건은 캠페인 안내를 기준으로 해요.</p></div>}
 
     <section className="mx-5 mt-5 rounded-3xl bg-ink p-5 text-white">
       <p className="text-[12px] font-semibold text-white/60">확정·검토 중 리워드</p>
@@ -100,7 +100,7 @@ function RewardsContent(){
       <h2 className="mt-1 text-[19px] font-extrabold">친구 5천원 · 나는 1만원</h2>
       <p className="mt-2 text-[12px] leading-5 text-sub">친구가 초대 링크로 신규 가입하고 첫 근무를 완료해야 리워드가 확정돼요.</p>
       <button onClick={share} className="mt-4 h-12 w-full rounded-xl bg-[#FEE500] text-[14px] font-extrabold text-[#191919]">{copied?'초대 링크를 복사했어요':'친구 초대 링크 공유'}</button>
-      <p className="mt-2 text-center text-[11px] text-tertiary">자가 추천·중복 계정은 대상에서 제외돼요.</p>
+      <p className="mt-2 text-center text-[11px] text-tertiary">나를 직접 초대했거나 중복 계정이면 대상에서 빠져요.</p>
       {data.referrals.length>0&&<div className="mt-4 border-t border-line pt-3"><p className="text-[13px] font-bold">초대 현황</p><div className="mt-2 divide-y divide-line">{data.referrals.map(row=><div key={row.id} className="flex justify-between py-2.5 text-[12px]"><span>{row.name}</span><b className={row.status==='first_shift_completed'?'text-success':'text-primary'}>{REFERRAL_STATUS[row.status]??row.status}</b></div>)}</div></div>}
     </section>
 
@@ -108,7 +108,7 @@ function RewardsContent(){
 
     <details className="mx-5 mt-5 rounded-2xl border border-line bg-white p-4 text-[12px] text-sub">
       <summary className="cursor-pointer font-bold text-ink">지급 조건 확인</summary>
-      <ul className="mt-3 list-disc space-y-1.5 pl-4 leading-5"><li>신규 가입·휴대전화 등록과 직군별 프로필 확인이 필요해요.</li><li>첫 근무는 정상 체크아웃과 사업장 근태 확정 후 인정돼요.</li><li>취소·노쇼·분쟁 기록은 검토 또는 지급 제외될 수 있어요.</li><li>캠페인 예산 소진 시 사전 안내 후 종료될 수 있어요.</li></ul>
+      <ul className="mt-3 list-disc space-y-1.5 pl-4 leading-5"><li>신규 가입·휴대전화 등록과 직군별 프로필 확인이 필요해요.</li><li>첫 근무는 정상 퇴근 기록과 사업장의 근무 기록 확정 후 인정돼요.</li><li>취소·노쇼·분쟁 기록은 검토 또는 지급 제외될 수 있어요.</li><li>캠페인 예산 소진 시 사전 안내 후 종료될 수 있어요.</li></ul>
     </details>
   </main>;
 }

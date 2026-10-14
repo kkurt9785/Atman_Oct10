@@ -31,7 +31,7 @@ export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onS
         <ul className="space-y-3 text-[14px] text-sub">
           <li className="flex gap-2"><span aria-hidden="true">✓</span><span>{isNursing?'면허 사진은 선택 사항이며, 채용 확정 전 사업장이 면접 등에서 자격을 확인해요.':role==='pharmacy_staff'?'경력과 활동지역은 지원한 약국 담당자가 검토할 때 참고할 수 있어요.':'면허·자격 서류 상태는 지원한 사업장이 검토할 때 참고할 수 있어요.'}</span></li>
           <li className="flex gap-2"><span aria-hidden="true">✓</span><span>근무 전 시간, 위치, 급여 조건을 다시 확인해 주세요.</span></li>
-          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>근무 당일에는 GPS 원터치 출퇴근을 우선 사용하고 필요할 때 60초 QR로 인증해요.</span></li>
+          <li className="flex gap-2"><span aria-hidden="true">✓</span><span>근무 당일에는 출근하기 버튼으로 위치를 확인해 출퇴근하고, 필요할 때 60초 QR로 인증해요.</span></li>
         </ul>
       </div>
 

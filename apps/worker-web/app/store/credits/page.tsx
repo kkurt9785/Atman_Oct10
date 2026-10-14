@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { BackButton } from '@/components/BackButton';
 
 type PaymentRow = {
   id: string;
@@ -78,10 +80,11 @@ export default function EarningsPage() {
 
   return <main className="min-h-screen bg-bg pb-20">
     <header className="bg-white px-5 pt-12 pb-5">
-      <button onClick={() => router.back()} className="text-[14px] text-sub mb-4">← 돌아가기</button>
+      {/* 설치 앱엔 브라우저 뒤로가기가 없고, 알림으로 바로 열리면 앞 화면도 없다 — 상위 화면(내 근무)으로 */}
+      <div className="mb-2"><BackButton href="/applications" label="내 근무" /></div>
       <p className="text-[12px] font-bold text-primary mb-1">사업장 직접 지급</p>
       <h1 className="text-[26px] font-extrabold text-ink">급여 지급 현황</h1>
-      <p className="text-[13px] text-sub mt-2 leading-5">잇닿은 근무시간과 지급 정보를 관리하고, 임금은 채용 사업장이 워커가 등록한 본인 명의 계좌로 직접 지급해요.</p>
+      <p className="text-[13px] text-sub mt-2 leading-5">임금은 근무한 사업장이 내가 등록한 본인 명의 계좌로 직접 보내요.</p>
     </header>
 
     <section className="grid grid-cols-2 gap-3 px-5 -mt-1 py-5">
@@ -89,16 +92,17 @@ export default function EarningsPage() {
       <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-[12px] text-sub">지급 완료</p><p className="text-[20px] font-extrabold text-primary mt-1">{won(paid)}</p></div>
     </section>
 
-    <section className="mx-5 mb-5 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3" aria-label="지급 문의 안내">
+    {/* 문의 안내는 지급 내역이 있을 때만 — '아래에서 확인 요청'이 가리킬 카드가 있어야 한다 */}
+    {rows.length > 0 && <section className="mx-5 mb-5 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3" aria-label="지급 문의 안내">
       <p className="text-[13px] font-extrabold text-ink">지급 일정·금액 문의는 근무한 사업장에 해 주세요</p>
-      <p className="mt-1 text-[12px] leading-5 text-sub">잇닿은 근무시간과 지급 상태를 보여드리며, 임금은 채용 사업장이 직접 지급해요. 금액이나 입금에 문제가 있으면 아래에서 확인 요청을 남길 수 있어요.</p>
-    </section>
+      <p className="mt-1 text-[12px] leading-5 text-sub">금액이나 입금에 문제가 있으면 아래 내역에서 확인 요청을 남길 수 있어요.</p>
+    </section>}
 
     {actionError && <p role="alert" className="mx-5 mb-3 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-bold text-red-600">{actionError}</p>}
     <section className="px-5">
       {loading ? <div className="bg-white rounded-2xl p-8 text-center text-[13px] text-sub">지급 내역을 불러오는 중...</div>
       : loadError ? <div role="alert" className="bg-white rounded-2xl border border-red-200 p-8 text-center"><p className="font-bold text-red-600">지급 현황을 불러오지 못했어요</p><p className="text-[12px] text-sub mt-2">{loadError}</p><button type="button" onClick={() => void load()} className="mt-4 h-10 px-4 rounded-xl bg-ink text-white text-[13px] font-bold">다시 불러오기</button></div>
-      : rows.length === 0 ? <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2 leading-5">근무 체크아웃이 완료된 뒤 사업장이 지급 요청을 만들면 여기에 표시돼요. 지급 일정은 근무한 사업장에 문의해 주세요.</p></div>
+      : rows.length === 0 ? <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2 leading-5">근무를 마치고 퇴근하기를 누르면, 사업장이 지급 내역을 만들어 여기에 보여 줘요.</p><Link href="/applications" className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-[13px] font-extrabold text-white">내 근무 보기</Link></div>
       : <div className="space-y-3">{rows.map((row) => {
         const shift = row.shifts; const state = STATUS[row.status] ?? STATUS.draft;
         const applicationId = attendanceApplicationId(row.shift_attendances);

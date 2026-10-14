@@ -5,7 +5,8 @@
 
 @layer base {
   html { background-color: #F2F4F6; }
-  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; }
+  /* 한글은 어절 단위로만 줄바꿈 — '지났/어요' 같은 글자 단위 깨짐 방지(관리자 앱과 같은 규칙) */
+  body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif; word-break: keep-all; overflow-wrap: break-word; }
   * { -webkit-tap-highlight-color: transparent; }
 }
 

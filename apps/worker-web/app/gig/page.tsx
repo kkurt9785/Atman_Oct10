@@ -14,6 +14,7 @@ import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { InstallAppButton } from '@/components/InstallAppButton';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { ModeSwitch } from '@/components/worker/ModeSwitch';
+import { GigInviteAction } from '@/components/invite/GigInviteAction';
 
 const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
@@ -35,7 +36,7 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
     const value = inviteLink.trim();
     let token: string | null = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value) ? value : null;
     if (!token) { try { token = new URL(value).searchParams.get('token'); } catch { token = null; } }
-    if (!token) { setInviteError('관리자가 보낸 초대 링크 전체를 붙여 넣어 주세요.'); return; }
+    if (!token) { setInviteError('사장님이 보낸 초대 링크 전체를 붙여 넣어 주세요.'); return; }
     rememberWorkerShell('gig');
     router.push(`/gig/join?token=${encodeURIComponent(token)}`);
   }
@@ -48,10 +49,10 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
       </div>
 
       <h1 className="mt-14 text-[32px] font-extrabold leading-[1.2] tracking-[-1px]">근무부터 지급 확인까지<br />한 번에.</h1>
-      <p className="mt-4 text-[15px] leading-6 text-sub">초대받은 근무를 확인하고, 관리자와 대화하고,<br /><b className="text-ink">출근하기</b> 버튼으로 출퇴근을 기록해요.</p>
+      <p className="mt-4 text-[15px] leading-6 text-sub">초대받은 근무를 확인하고, 사장님과 대화하고,<br /><b className="text-ink">출근하기</b> 버튼으로 출퇴근을 기록해요.</p>
 
       <ol className="mt-8 grid grid-cols-3 gap-2 text-center text-[12px] leading-4 text-sub">
-        <li className="rounded-2xl bg-bg px-2 py-4"><b className="mb-2 block text-[18px] text-primary">1</b>잇기<br /><span className="text-tertiary">초대 수락·계좌 전달</span></li>
+        <li className="rounded-2xl bg-bg px-2 py-4"><b className="mb-2 block text-[18px] text-primary">1</b>초대 수락<br /><span className="text-tertiary">계좌 전달</span></li>
         <li className="rounded-2xl bg-bg px-2 py-4"><b className="mb-2 block text-[18px] text-primary">2</b>출근하기<br /><span className="text-tertiary">출퇴근 기록·대화</span></li>
         <li className="rounded-2xl bg-bg px-2 py-4"><b className="mb-2 block text-[18px] text-primary">3</b>지급 현황<br />확인</li>
       </ol>
@@ -160,7 +161,7 @@ function GigTodayContent() {
       for (const row of rows) if (!map[row.staff_id] && row.check_in_at && !row.check_out_at) map[row.staff_id] = row;
       setAttendance(map);
     }
-    if (legacyToken) setMessage('이전 정적 QR은 운영 종료됐어요. 관리자 화면의 동적 QR을 다시 스캔해 주세요.');
+    if (legacyToken) setMessage('이전 정적 QR은 운영 종료됐어요. 사장님 화면의 동적 QR을 다시 스캔해 주세요.');
     setLoading(false);
   })(); }, [attendanceToken, legacyToken]);
 
@@ -201,7 +202,8 @@ function GigTodayContent() {
         </section>
       : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center shadow-sm">
           <b className="text-[16px] text-ink">아직 연결된 근무가 없어요</b>
-          <p className="mt-2 text-[13px] leading-5 text-sub">관리자가 보낸 초대 링크나 QR을 열어 '잇기'하면 근무·대화·지급이 한 번에 연결돼요.</p>
+          <p className="mt-2 text-[13px] leading-5 text-sub">사장님이 보낸 초대 링크나 QR을 열어 초대를 수락하면 근무·대화·지급이 한 번에 연결돼요.</p>
+          <GigInviteAction />
         </section>
       : <>
         {staffList.length > 1 && <label className="mt-3 block rounded-2xl bg-white p-4 text-[12px] font-bold text-sub shadow-sm">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-line bg-white px-3 text-ink">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
@@ -215,7 +217,7 @@ function GigTodayContent() {
           {(current?.check_in_at || current?.check_out_at) && <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-bg p-3 text-center"><div><p className="text-[10px] text-sub">출근</p><p className="mt-0.5 text-[15px] font-extrabold text-ink">{timeLabel(current.check_in_at)}</p></div><div><p className="text-[10px] text-sub">퇴근</p><p className="mt-0.5 text-[15px] font-extrabold text-ink">{timeLabel(current.check_out_at)}</p></div></div>}
 
           {done ? <div className="mt-4 rounded-2xl bg-emerald-50 p-4 text-center"><p className="text-[14px] font-extrabold text-emerald-700">오늘 근무를 완료했어요</p><Link href="/gig/settlement" className="mt-2 inline-flex text-[12px] font-extrabold text-primary">근태·지급 현황 확인 →</Link></div>
-            : pending ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간이 확정돼요.</p>
+            : pending ? <p className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 사장님이 승인하면 근무시간이 확정돼요.</p>
             : canRecord ? <div className="mt-4">
                 <TouchToCheckButton
                   key={current?.check_in_at ? 'check_out' : 'check_in'} dark targetType="staff" targetId={staff.id}
@@ -231,13 +233,13 @@ function GigTodayContent() {
                     } }));
                   }}
                 />
-                <p className="mt-1 text-center text-[12px] leading-5 text-sub">근무지에서 1초간 누르면 기록돼요.<br />필요하면 관리자의 동적 QR로 인증해요.</p>
+                <p className="mt-1 text-center text-[12px] leading-5 text-sub">근무지에서 1초간 누르면 기록돼요.<br />필요하면 사장님 화면의 동적 QR로 인증해요.</p>
               </div>
             : <p className="mt-4 rounded-xl bg-bg p-3 text-center text-[13px] text-sub">오늘은 초대받은 근무일이 아니에요.</p>}
         </section>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <Link href={`/gig/workroom${facility?.id ? `?facility=${encodeURIComponent(facility.id)}` : ''}`} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">💬</span><b className="mt-3 block text-[15px] text-ink">관리자와 대화</b><span className="mt-1 block text-[11px] leading-4 text-sub">공지·출석 확인·근무 대화</span></Link>
+          <Link href={`/gig/workroom${facility?.id ? `?facility=${encodeURIComponent(facility.id)}` : ''}`} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">💬</span><b className="mt-3 block text-[15px] text-ink">사장님과 대화</b><span className="mt-1 block text-[11px] leading-4 text-sub">공지·출석 확인·근무 대화</span></Link>
           <Link href="/gig/settlement" className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">✓</span><b className="mt-3 block text-[15px] text-ink">근태·지급</b><span className="mt-1 block text-[11px] leading-4 text-sub">기록 확인·지급 계좌·지급 현황</span></Link>
         </div>
       </>}

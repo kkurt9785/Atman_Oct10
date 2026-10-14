@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { GigInviteAction } from '@/components/invite/GigInviteAction';
 import { isGigLink } from '@/lib/worker-mode';
 import { BankAccount, type BankAccountValue } from '@/components/onboarding/BankAccount';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
@@ -100,7 +101,7 @@ export default function GigSettlementPage() {
     </header>
 
     {loading ? <div className="mt-3 rounded-2xl bg-white p-8 text-center text-[13px] text-sub">근태와 정산을 불러오고 있어요...</div>
-      : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center"><b className="text-ink">연결된 초대 근무가 없어요</b><p className="mt-2 text-[13px] text-sub">관리자의 초대를 먼저 수락해 주세요.</p></section>
+      : !staff ? <section className="mt-3 rounded-2xl bg-white p-8 text-center"><b className="text-ink">연결된 초대 근무가 없어요</b><p className="mt-2 text-[13px] text-sub">사장님이 보낸 초대를 먼저 수락해 주세요.</p><GigInviteAction /></section>
       : <>
         {staffList.length > 1 && <label className="mt-3 block rounded-2xl bg-white p-4 text-[12px] font-bold text-sub shadow-sm">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-line bg-white px-3 text-ink">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
 
@@ -109,13 +110,13 @@ export default function GigSettlementPage() {
             <div><p className="text-[11px] font-extrabold text-primary">지급 계좌</p><h2 className="mt-1 text-[18px] font-extrabold text-ink">{bank?.bank_name && bank.account_number_last4 ? `${bank.bank_name} · ****${bank.account_number_last4}` : '계좌를 먼저 등록해 주세요'}</h2></div>
             {bank && <button type="button" onClick={() => setBankOpen((open) => !open)} className="shrink-0 rounded-lg bg-bg px-3 py-2 text-[11px] font-extrabold text-sub">{bankOpen ? '닫기' : '변경'}</button>}
           </div>
-          <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] leading-5 text-sub"><b className="text-primary">등록과 전달은 달라요.</b> 저장한 계좌는 내가 전달한 근무지의 지급 담당 관리자만 볼 수 있어요. 근무 시작 전에 전달해 두면 지급이 늦어지지 않아요.</p>
+          <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] leading-5 text-sub"><b className="text-primary">등록과 전달은 달라요.</b> 저장한 계좌는 내가 전달한 근무지의 지급 담당자만 볼 수 있어요. 근무 시작 전에 전달해 두면 지급이 늦어지지 않아요.</p>
 
           {bankOpen && <div className="mt-3 rounded-xl bg-bg p-3"><BankAccount compact onNext={(value) => void saveBank(value)} submitting={bankSaving} submitError={bankError} /></div>}
 
           {bank && !bankOpen && (currentShare
-            ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-[13px] font-extrabold text-emerald-700">{facility?.name} 관리자에게 전달됨 ✓</p><p className="mt-1 text-[11px] leading-4 text-emerald-700/80">이 근무지의 지급 권한이 있는 관리자만 계좌를 확인할 수 있어요.</p></div>
-            : <button type="button" onClick={() => void shareBank()} disabled={sharing} className="mt-4 h-12 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{sharing ? '안전하게 전달 중...' : `${facility?.name} 관리자에게 계좌 전달`}</button>)}
+            ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-[13px] font-extrabold text-emerald-700">{facility?.name}에 전달됨 ✓</p><p className="mt-1 text-[11px] leading-4 text-emerald-700/80">이 근무지의 지급 권한이 있는 담당자만 계좌를 확인할 수 있어요.</p></div>
+            : <button type="button" onClick={() => void shareBank()} disabled={sharing} className="mt-4 h-12 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{sharing ? '안전하게 전달 중...' : `${facility?.name}에 계좌 전달`}</button>)}
           {shareError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{shareError}</p>}
         </section>
 
@@ -123,13 +124,13 @@ export default function GigSettlementPage() {
           <h2 className="text-[18px] font-extrabold text-ink">내 근태</h2>
           <p className="mt-1 text-[12px] text-sub">{facility?.name}에서 기록된 출퇴근만 보여요.</p>
           <div className="mt-3"><MyAttendanceCalendar staffId={staff.id} includeShiftAttendance={false} staffSourceLabel="초대 근무" /></div>
-          <p className="mt-3 text-[11px] leading-5 text-sub">수정이 필요한 기록은 대화 탭에서 관리자에게 요청하세요.</p>
+          <p className="mt-3 text-[11px] leading-5 text-sub">수정이 필요한 기록은 대화 탭에서 사장님께 요청해 주세요.</p>
         </section>
 
         <section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-[18px] font-extrabold text-ink">지급 현황</h2>
           {selectedPayouts.length === 0
-            ? <p className="mt-3 text-[13px] leading-5 text-sub">아직 지급 기록이 없어요. 관리자가 지급을 기록하면 여기에 바로 남아요.</p>
+            ? <p className="mt-3 text-[13px] leading-5 text-sub">아직 지급 기록이 없어요. 사장님이 지급을 기록하면 여기에 바로 남아요.</p>
             : <div className="mt-3 divide-y divide-line">{selectedPayouts.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 py-3"><div><p className="text-[15px] font-extrabold text-ink">{won(item.net_amount ?? item.amount)}</p><p className="mt-0.5 text-[11px] text-sub">{item.period_start}{item.period_end !== item.period_start ? ` ~ ${item.period_end}` : ''} · {item.worked_days}일{item.withholding_amount ? ` · 공제 ${won(item.withholding_amount)}` : ''}</p></div><span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-extrabold ${item.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-700'}`}>{item.status === 'paid' ? '지급 완료' : `${item.pay_at ?? ''} 지급 예정`}</span></div>)}</div>}
         </section>
       </>}

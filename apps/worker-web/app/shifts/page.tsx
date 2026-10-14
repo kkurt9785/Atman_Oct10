@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { FacilitySheet } from '@/components/shifts/FacilitySheet';
 import { dateKST } from '@/lib/date';
-import { areaLabel, dateLabel, facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
+import { areaLabel, dateLabel, distanceKm, facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { SHIFT_ROLE_LABEL, type ShiftRole } from '@/lib/roles';
 
 export type Shift = {
@@ -102,7 +102,7 @@ function groupShifts(shifts: Shift[]) {
   return Array.from(groups.values());
 }
 
-function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () => void; onFacility: () => void }) {
+function ShiftCard({ shift, onApply, onFacility, showRole = false }: { shift: Shift; onApply: () => void; onFacility: () => void; showRole?: boolean }) {
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
   const area = areaLabel(shift);
   const facility = Array.isArray(shift.facilities) ? shift.facilities[0] : shift.facilities;
@@ -114,16 +114,19 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
     <div className="bg-white rounded-card shadow-card p-4 mb-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[13px] font-bold text-primary">{dateLabel(shift.shift_date)}</span>
-        <span className="text-[12px] font-bold text-primary bg-primary-light px-2.5 py-1 rounded-full">
-          {SHIFT_ROLE_LABEL[shift.required_role]}
-        </span>
+        {/* 로그인하면 목록이 이미 내 직군 공고만 — 직군 배지는 둘러보기이거나 직군을 가리지 않는 공고에만 */}
+        {(showRole || shift.required_role === 'any') && (
+          <span className="text-[12px] font-bold text-primary bg-primary-light px-2.5 py-1 rounded-full">
+            {SHIFT_ROLE_LABEL[shift.required_role]}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center justify-between mb-1.5">
         <p className="text-[16px] font-extrabold text-ink truncate">{facilityName(shift)}</p>
         <button
           onClick={(e) => { e.stopPropagation(); onFacility(); }}
-          className="shrink-0 ml-2 text-[12px] font-semibold text-primary"
+          className="shrink-0 ml-2 -my-3 -mr-2 min-h-11 px-2 text-[12px] font-semibold text-primary"
         >
           정보 ›
         </button>
@@ -132,7 +135,7 @@ function ShiftCard({ shift, onApply, onFacility }: { shift: Shift; onApply: () =
       <p className="text-[20px] font-extrabold text-ink leading-tight">{timeLabel(shift)}</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {area&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">📍 {area}</span>}
-        <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>
+        {distanceKm(shift) != null && <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>}
         {shift.department&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{shift.department}</span>}
         {shift.is_overnight&&<span className="rounded-full bg-kakao px-2.5 py-1 text-[11px] font-bold text-ink">야간</span>}
       </div>
@@ -193,7 +196,7 @@ export default function ShiftsPage() {
             facilities: { name: String(row.facility_name ?? ''), address_text: (row.region as string | null) ?? null, facility_type: (row.facility_type as string | null) ?? null },
           } as unknown as Shift;
         });
-        setShifts(rows);
+        setShifts(rows.filter((shift) => !hasStarted(shift)));
         if (highlightedShiftId) {
           const highlighted = rows.find((shift) => shift.id === highlightedShiftId);
           if (highlighted) {
@@ -235,7 +238,7 @@ export default function ShiftsPage() {
         facilities: { name: row.facility_name as string, address_text: row.address_text as string | null },
         distance_km: typeof row.distance_m === 'number' ? row.distance_m / 1000 : null,
       })) as unknown as Shift[];
-      let visibleShifts = mapped.filter((shift) => !appliedShiftIds.has(shift.id));
+      let visibleShifts = mapped.filter((shift) => !appliedShiftIds.has(shift.id) && !hasStarted(shift));
 
       if (highlightedShiftId && !appliedShiftIds.has(highlightedShiftId)) {
         let highlighted = visibleShifts.find((shift) => shift.id === highlightedShiftId);
@@ -248,7 +251,7 @@ export default function ShiftsPage() {
             .eq('audience', 'public')
             .gte('shift_date', dateKST())
             .maybeSingle();
-          highlighted = directShift as unknown as Shift | undefined;
+          highlighted = directShift && !hasStarted(directShift as unknown as Shift) ? directShift as unknown as Shift : undefined;
           if (highlighted) visibleShifts = [highlighted, ...visibleShifts];
         }
         if (highlighted) {
@@ -311,7 +314,7 @@ export default function ShiftsPage() {
         {isGuest && (
           <>
             <p className="text-[13px] text-sub mt-2">
-              둘러보기는 바로 가능해요. 지원할 때 1분 가입을 진행합니다.
+              둘러보기는 바로 할 수 있어요. 지원할 때 1분이면 가입돼요.
             </p>
             <a href="https://itdot.co.kr/intro" className="mt-1 inline-block text-[12px] font-bold text-primary">
               병원·약국 관리자이신가요? 사업장 안내 보기 →
@@ -360,7 +363,7 @@ export default function ShiftsPage() {
                 <span className="text-[12px] text-tertiary">상위 {recommended.length}건</span>
               </div>
               {recommended.map((s) => (
-                <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} />
+                <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} showRole={isGuest} />
               ))}
             </section>
           )}
@@ -378,7 +381,7 @@ export default function ShiftsPage() {
                 <div key={group.title} className="mb-5">
                   <p className="text-[13px] font-bold text-sub mb-2 px-1">{group.title}</p>
                   {group.shifts.map((s) => (
-                    <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} />
+                    <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} showRole={isGuest} />
                   ))}
                 </div>
               ))}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { BackButton } from '@/components/BackButton';
 import { setGigworkerModePreference } from '@/lib/worker-mode';
 
 // 회원 탈퇴 — 무엇이 지워지고 무엇이 남는지 먼저 보여 주고, 확인 한 번으로 끝낸다
@@ -49,7 +50,7 @@ export default function WithdrawPage() {
 
   return (
     <main className="min-h-screen bg-bg px-5 pb-28 pt-6">
-      <button type="button" onClick={() => router.back()} className="inline-flex h-9 items-center gap-1 text-[14px] font-bold text-sub"><span aria-hidden="true">←</span> 내 정보</button>
+      <BackButton href="/settings" label="내 정보" />
       <h1 className="mt-3 text-[24px] font-extrabold text-ink">회원 탈퇴</h1>
       <p className="mt-2 text-[14px] leading-6 text-sub">탈퇴하면 바로 처리되고 되돌릴 수 없어요.</p>
 
@@ -78,7 +79,7 @@ export default function WithdrawPage() {
       <button type="button" onClick={withdraw} disabled={!agreed || busy} className="mt-4 h-12 w-full rounded-btn border border-red-200 bg-white text-[15px] font-bold text-red-600 disabled:opacity-50">
         {busy ? '처리 중…' : '탈퇴하기'}
       </button>
-      <button type="button" onClick={() => router.back()} className="mt-2 flex h-12 w-full items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">계속 이용할게요</button>
+      <button type="button" onClick={() => router.replace('/settings')} className="mt-2 flex h-12 w-full items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">계속 이용할게요</button>
     </main>
   );
 }

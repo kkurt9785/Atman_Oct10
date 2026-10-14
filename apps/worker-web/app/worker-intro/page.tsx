@@ -36,9 +36,8 @@ export default function WorkerIntroPage() {
       <div className="mt-5 flex flex-wrap gap-2">{ROLES.map((role) => <span key={role} className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">{role}</span>)}</div>
       <div className="mt-7 grid grid-cols-2 gap-2">
         <Link href="/onboarding" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">워커 시작하기</Link>
-        <Link href="/jobs" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[15px] font-extrabold text-primary">공고 먼저 보기</Link>
+        <Link href="/demo" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[15px] font-extrabold text-primary">시연 먼저 보기</Link>
       </div>
-      <Link href="/demo" className="mt-2 flex h-11 items-center justify-center rounded-xl bg-white text-[13px] font-bold text-ink shadow-card">가입 없이 시연 계정으로 둘러보기 →</Link>
     </header>
 
     <section className="px-6 py-9">
@@ -54,7 +53,7 @@ export default function WorkerIntroPage() {
       <div className="mt-5 overflow-hidden rounded-card border border-line bg-black shadow-card">
         <video className="block aspect-[9/16] w-full bg-black" controls playsInline preload="metadata" poster="/demo/itdot-worker-demo-poster.jpg" aria-label="잇닿 워커 서비스 시연 영상">
           <source src="/demo/itdot-worker-demo.mp4" type="video/mp4" />
-          브라우저가 동영상 재생을 지원하지 않습니다.
+          이 브라우저에서는 영상을 재생할 수 없어요.
         </video>
       </div>
       <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 15초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
@@ -82,7 +81,7 @@ export default function WorkerIntroPage() {
       </ul>
     </section>
 
-    <section className="px-6"><div className="rounded-card bg-ink px-5 py-7 text-center"><p className="text-[17px] font-extrabold text-white">내 지역 근무를 받아볼까요?</p><p className="mt-2 text-[13px] leading-5 text-white/70">프로필을 등록하면 조건에 맞는 새 공고와 근무 상태를 한 곳에서 확인할 수 있어요.</p><div className="mt-5"><InstallAppButton label="잇닿 워커 앱 설치" dark /></div><Link href="/onboarding" className="mt-2 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">설치 없이 워커로 시작하기</Link><Link href="/jobs" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-white/10 text-[14px] font-bold text-white">로그인 없이 공고 보기</Link></div></section>
+    <section className="px-6"><div className="rounded-card bg-ink px-5 py-7 text-center"><p className="text-[17px] font-extrabold text-white">내 지역 근무를 받아볼까요?</p><p className="mt-2 text-[13px] leading-5 text-white/70">프로필을 등록하면 조건에 맞는 새 공고와 근무 상태를 한 곳에서 확인할 수 있어요.</p><div className="mt-5"><InstallAppButton label="잇닿 워커 앱 설치" dark /></div><Link href="/onboarding" className="mt-2 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">설치 없이 워커로 시작하기</Link><Link href="/demo" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-white/10 text-[14px] font-bold text-white">가입 없이 시연으로 둘러보기</Link></div></section>
 
     <footer className="px-6 pb-4 pt-9 text-[11px] leading-5 text-tertiary">잇닿(itdot.co.kr) · 케셰르 · 대표 김기한 · 사업자등록번호 481-44-01177<br />경기도 수원시 권선구 경수대로 202<br />잇닿은 직업정보제공사업 형태로 구인·구직 정보를 제공합니다.</footer>
   </main>;

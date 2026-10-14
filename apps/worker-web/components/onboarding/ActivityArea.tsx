@@ -92,7 +92,8 @@ export function ActivityArea({
   }
 
   return (
-    <div className="flex flex-col min-h-screen px-6 pt-14 pb-10">
+    // 내 정보에서 열 때(showHeader=false)는 위에 뒤로가기 줄이 있다 — 화면 높이를 꽉 채우지 않아야 저장 버튼이 첫 화면에 든다
+    <div className={`flex flex-col px-6 pb-10 ${showHeader ? 'min-h-screen pt-14' : 'pt-4'}`}>
       {showHeader && <p className="text-[13px] font-medium text-tertiary mb-2">활동 지역 / 정보 입력</p>}
       <h1 className="text-[28px] font-bold text-ink letter-tight mb-1">
         근무 알림 받을<br />지역을 설정해요
@@ -101,14 +102,14 @@ export function ActivityArea({
         해당 지역에 새 근무가 열리면 바로 알려드려요
       </p>
 
-      {/* 지도 placeholder */}
-      <div className="w-full rounded-card overflow-hidden bg-[#E8EDF2] flex-shrink-0 mb-5 flex flex-col items-center justify-center gap-2"
+      {/* 지도 placeholder — 가입 화면에서만. 내 정보에서는 동작하지 않는 상자가 저장 버튼을 밀어내지 않게 뺀다 */}
+      {showHeader && <div className="w-full rounded-card overflow-hidden bg-[#E8EDF2] flex-shrink-0 mb-5 flex flex-col items-center justify-center gap-2"
         style={{ height: '40vw', maxHeight: 180 }}>
         <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
           <path d="M16 2C10.477 2 6 6.477 6 12c0 7.5 10 18 10 18s10-10.5 10-18c0-5.523-4.477-10-10-10zm0 13a3 3 0 110-6 3 3 0 010 6z" fill="#6B7684"/>
         </svg>
         <span className="text-[12px] text-tertiary">카카오맵</span>
-      </div>
+      </div>}
 
       {/* 1번 지역 */}
       <div className="bg-white rounded-card shadow-card p-4 mb-3 border-2 border-primary">
@@ -197,7 +198,7 @@ export function ActivityArea({
 
       {/* 안내 */}
       <p className="text-[13px] text-tertiary text-center mt-2 mb-6">
-        💡 두 지역 모두 새 근무가 열리면 즉시 알림이 가요
+        💡 설정한 지역에 새 근무가 올라오면 알림으로 알려드려요
       </p>
 
       <div className="mt-auto">

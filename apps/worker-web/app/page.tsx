@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getSignedInUser } from '@/lib/auth-user';
@@ -108,7 +109,7 @@ function RootInner() {
       <div className="mt-2 text-center">
         <InviteLinkPaste triggerClassName="h-11 w-full text-[13px] font-bold text-sub" trigger={<>초대 링크를 복사해 두셨나요? <span className="text-primary">붙여넣고 열기 →</span></>} />
       </div>
-      <p className="mt-4 [@media(max-height:700px)]:mt-2 text-center text-[11px] text-tertiary">계속하면 이용약관과 개인정보처리방침에 동의하게 됩니다</p>
+      <p className="mt-4 [@media(max-height:700px)]:mt-2 text-center text-[11px] text-tertiary">계속하면 <Link href="/legal/terms" className="underline">이용약관</Link>과 <Link href="/legal/privacy" className="underline">개인정보처리방침</Link>에 동의하게 돼요</p>
     </div>
   </main>;
 }

@@ -8,8 +8,8 @@ export type ShiftRole = WorkerRole | 'any';
 export const LICENSED_ROLES: readonly WorkerRole[] = ['pharmacist', 'pharmacy_staff'];
 
 export const WORKER_ROLE_LABEL: Record<WorkerRole, string> = {
-  rn: '간호사 (RN)',
-  na: '간호조무사 (NA)',
+  rn: '간호사',
+  na: '간호조무사',
   pharmacist: '약사',
   pharmacy_staff: '약국 전산·사무직',
   care_worker: '요양보호사',
@@ -18,5 +18,5 @@ export const WORKER_ROLE_LABEL: Record<WorkerRole, string> = {
 
 export const SHIFT_ROLE_LABEL: Record<ShiftRole, string> = {
   ...WORKER_ROLE_LABEL,
-  any: '자격 무관',
+  any: '직군 무관',
 };

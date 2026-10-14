@@ -1,3 +1,4 @@
+import { hasStarted } from '@/lib/shift-display';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 };
 
 export default async function PublicJobsPage() {
-  const shifts = await listPublicShifts(60);
+  const shifts = (await listPublicShifts(60)).filter((shift) => !hasStarted(shift));
   const regions = [...new Set(shifts.map((s) => s.region).filter(Boolean))] as string[];
 
   return (
@@ -31,8 +32,8 @@ export default async function PublicJobsPage() {
         병원·약국 단기 근무 공고
       </h1>
       <p className="mt-2 text-[14px] leading-6 text-sub">
-        간호사·간호조무사·약사·약국 사무직 공고입니다. 임금은 사업장이 직접 지급하고,
-        잇닿은 채용 수수료를 받지 않습니다.
+        간호사·간호조무사·약사·약국 사무직 공고예요. 임금은 사업장이 직접 지급하고,
+        채용 수수료는 0원이에요.
       </p>
       {regions.length > 0 && (
         <p className="mt-3 text-[12px] text-tertiary">모집 지역 · {regions.join(' · ')}</p>

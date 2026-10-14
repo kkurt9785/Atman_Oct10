@@ -47,14 +47,14 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
   }
 
   return (
-    <main className="px-5 pb-8 pt-4">
+    <main className={`px-5 pb-8 ${back ? 'pt-4' : 'pt-12'}`}>
       {back && <BackButton href={back.href} label={back.label} />}
       <div className="mb-5 mt-1 flex items-end justify-between">
         <div>
           <p className="text-[12px] font-bold text-primary">{eyebrow}</p>
           <h1 className="mt-1 text-[26px] font-extrabold text-ink">{title}</h1>
         </div>
-        <button onClick={() => void load()} className="text-[12px] font-bold text-primary">새로고침</button>
+        <button onClick={() => void load()} className="-mr-2 min-h-11 px-2 text-[12px] font-bold text-primary">새로고침</button>
       </div>
       {error && (
         <div className="mb-3 rounded-2xl border border-danger/20 bg-white p-4">

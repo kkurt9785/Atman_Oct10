@@ -70,7 +70,7 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
           const on = shell === current;
           return (
             <button key={shell} type="button" role="tab" aria-selected={on} onClick={() => choose(shell)}
-              className={`h-8 rounded-full px-3.5 text-[12px] font-extrabold transition-colors ${on ? 'bg-primary text-white' : 'text-sub active:bg-bg'}`}>
+              className={`h-8 whitespace-nowrap rounded-full px-3.5 text-[12px] font-extrabold transition-colors ${on ? 'bg-primary text-white' : 'text-sub active:bg-bg'}`}>
               {LABEL[shell]}
             </button>
           );

@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { BackButton } from '@/components/BackButton';
+import { facilityName } from '@/lib/shift-display';
+
+type ChatShift = { shift_date: string; start_time: string; facilities?: { name?: string | null } | Array<{ name?: string | null }> | null };
 
 type Message = {
   id: string;
@@ -24,6 +28,8 @@ export default function WorkerChatPage() {
   const [open, setOpen] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  // 헤더에 어느 사업장·어느 근무 대화인지 — 알림으로 바로 열려도 알 수 있게
+  const [shift, setShift] = useState<ChatShift | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const quickReplies=['확인했습니다. 감사합니다.','예정 시간에 도착하겠습니다.','준비물을 다시 알려주세요.'];
 
@@ -31,15 +37,21 @@ export default function WorkerChatPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.replace('/shifts'); return; }
 
-    const [{ data: rows }, { data: isOpen }] = await Promise.all([
+    const [{ data: rows }, { data: isOpen }, { data: application }] = await Promise.all([
       supabase.from('chat_messages')
         .select('id, sender_type, body, created_at')
         .eq('application_id', applicationId)
         .order('created_at'),
       supabase.rpc('chat_is_open', { p_application_id: applicationId }),
+      supabase.from('shift_applications')
+        .select('shifts(shift_date, start_time, facilities(name))')
+        .eq('id', applicationId)
+        .maybeSingle(),
     ]);
     setMessages((rows ?? []) as Message[]);
     setOpen(isOpen === true);
+    const shiftRow = (application as { shifts?: ChatShift | ChatShift[] | null } | null)?.shifts;
+    setShift((Array.isArray(shiftRow) ? shiftRow[0] : shiftRow) ?? null);
   }, [applicationId, router]);
 
   useEffect(() => {
@@ -97,15 +109,22 @@ export default function WorkerChatPage() {
     <div className="flex flex-col h-dvh bg-bg">
       {/* 헤더 */}
       <div className="bg-white px-5 pt-12 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
-        <button onClick={() => router.back()} className="text-ink text-[20px] leading-none -ml-1 p-1">←</button>
-        <div className="flex-1">
-          <h1 className="text-[16px] font-extrabold text-ink">사업장 채팅</h1>
-          <p className="text-[11px] text-tertiary">근무 종료 24시간 후 잠겨요 · 기록 보관</p>
+        {/* 채팅 화면엔 하단 탭이 없다 — 알림으로 바로 열려도 내 근무로 돌아갈 수 있게 */}
+        <BackButton href="/applications" />
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-[16px] font-extrabold text-ink">{shift ? facilityName(shift) : '사업장 채팅'}</h1>
+          <p className="text-[11px] text-tertiary">{shift ? `${Number(shift.shift_date.slice(5, 7))}월 ${Number(shift.shift_date.slice(8, 10))}일 ${shift.start_time.slice(0, 5)} 근무 · ` : ''}근무 종료 24시간 후 잠겨요</p>
         </div>
       </div>
 
       {/* 메시지 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
+        {messages.length === 0 && (
+          <div className="mt-10 text-center">
+            <p className="text-[15px] font-bold text-ink">아직 대화가 없어요</p>
+            <p className="mt-1 text-[13px] leading-5 text-sub">{open ? '궁금한 점을 남기면 사업장에 알림이 가요.' : '이 근무의 대화방은 닫혔어요.'}</p>
+          </div>
+        )}
         {messages.map((m) =>
           m.sender_type === 'system' ? (
             <div key={m.id} className="bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 text-[13px] text-ink whitespace-pre-line">
@@ -136,7 +155,7 @@ export default function WorkerChatPage() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send(); }}
-              placeholder="메시지 입력 (전화번호는 자동 마스킹돼요)"
+              placeholder="메시지 입력 (전화번호는 자동으로 가려져요)"
               className="flex-1 h-11 px-4 bg-bg rounded-xl text-[16px] text-ink outline-none"
             />
             <button
