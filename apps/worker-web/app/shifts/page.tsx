@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { FacilitySheet } from '@/components/shifts/FacilitySheet';
 import { compareShifts, type ShiftSort } from '@/lib/shift-discovery';
 import { slotLabel } from '@/lib/work-agenda';
+import { WeekRoster } from '@/components/roster/WeekRoster';
+import { PHARMACY_SLOT_NAME, addCount, slotOf, upcomingWeek, type RosterCells, type RosterSlot } from '@/lib/roster';
 import { dateKST } from '@/lib/date';
 import { areaLabel, dateLabel, distanceKm, facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { SHIFT_ROLE_LABEL, type ShiftRole } from '@/lib/roles';
@@ -169,6 +171,21 @@ export default function ShiftsPage() {
   const [applied, setApplied] = useState<Set<string>>(new Set());
   const [facilityInfo, setFacilityInfo] = useState<{ id: string; name: string } | null>(null);
   const [isGuest, setIsGuest] = useState(false);
+  // 앞으로 7일 D·E·N 근무표 — 칸을 누르면 그 날·그 시간대 공고만. 간호사가 매일 보는 근무표 문법을 근무 찾기 입구로 쓴다
+  const [rosterPick, setRosterPick] = useState<{ date: string; slot: RosterSlot } | null>(null);
+  const [workerRole, setWorkerRole] = useState<string | null>(null);
+  const week = useMemo(() => upcomingWeek(), []);
+  const rosterCells = useMemo(() => {
+    const cells: RosterCells = {};
+    for (const shift of shifts) if (shift.shift_date >= week[0].date && shift.shift_date <= week[6].date) addCount(cells, shift.shift_date, shift.start_time);
+    return cells;
+  }, [shifts, week]);
+  function pickCell(date: string, slot: RosterSlot) {
+    if (!(rosterCells[`${date}|${slot}`]?.count)) return;
+    const same = rosterPick?.date === date && rosterPick.slot === slot;
+    setRosterPick(same ? null : { date, slot });
+    setDateFilter('all'); setTimeFilter('all'); setVisibleLimit(10);
+  }
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [visibleLimit, setVisibleLimit] = useState(10);
@@ -229,6 +246,7 @@ export default function ShiftsPage() {
         .eq('auth_user_id', user.id)
         .maybeSingle();
       if(!active)return;
+      setWorkerRole((worker?.role as string | undefined) ?? null);
       if(workerError)throw new Error('프로필을 확인하지 못했어요. 다시 시도해 주세요.');
       setIsGuest(false);
       // 자격 확인은 채용 확정 전에 사업장이 직접 수행한다(잇닿은 심사기관이 아님).
@@ -298,18 +316,21 @@ export default function ShiftsPage() {
 
   function handleDateFilter(value: DateFilter) {
     setDateFilter(value);
+    setRosterPick(null);
     setVisibleLimit(10);
   }
 
   function handleTimeFilter(value: TimeFilter) {
     setTimeFilter(value);
+    setRosterPick(null);
     setVisibleLimit(10);
   }
 
   const invalidDates=dateFilter==='custom'&&(!fromDate||!toDate||toDate<fromDate);
   const filtered = shifts
     .filter(shift => matchesDate(shift,dateFilter)&&matchesTime(shift,timeFilter)
-      &&(dateFilter!=='custom'||(!invalidDates&&shift.shift_date>=fromDate&&shift.shift_date<=toDate)))
+      &&(dateFilter!=='custom'||(!invalidDates&&shift.shift_date>=fromDate&&shift.shift_date<=toDate))
+      &&(!rosterPick||(shift.shift_date===rosterPick.date&&slotOf(shift.start_time)===rosterPick.slot)))
     .sort((a,b)=>compareShifts(a,b,sort));
   const visible = filtered.slice(0,visibleLimit);
   const grouped = groupShifts(visible);
@@ -349,6 +370,10 @@ export default function ShiftsPage() {
       {!isGuest&&<div className="mb-4 rounded-xl bg-bg p-3">
         <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold text-ink">활동 지역</p><Link href="/settings/location" className="inline-flex min-h-11 items-center text-sm font-bold text-primary">지역 설정</Link></div>
         {areaLabels.length>0?<ChipRow options={[{value:'all',label:areaLabels.length>1?'두 지역 함께':'설정한 지역'},...areaLabels.map(label=>({value:label,label}))]} value={selectedArea} onChange={value=>{setSelectedArea(value);setVisibleLimit(10);}}/>:<p className="text-sm text-sub">원하는 근무 지역을 설정해 보세요.</p>}
+      </div>}
+      {shifts.length>0&&<div className="mb-4">
+        <div className="mb-2 flex items-center justify-between px-1"><p className="text-sm font-bold text-ink">앞으로 7일 근무표</p><p className="text-[11px] text-sub">{rosterPick?'같은 칸을 다시 누르면 전체로':'칸을 누르면 그 시간대만 봐요'}</p></div>
+        <WeekRoster week={week} cells={rosterCells} selected={rosterPick} onSelect={pickCell} slotNames={workerRole==='pharmacist'||workerRole==='pharmacy_staff'?PHARMACY_SLOT_NAME:undefined} />
       </div>}
       <div className="flex flex-col gap-2 mb-5">
         <ChipRow options={DATE_FILTERS} value={dateFilter} onChange={handleDateFilter} />

@@ -39,6 +39,18 @@ export function currentWeek(): RosterDay[] {
   });
 }
 
+// 오늘부터 7일 (KST) — 근무 찾기용. 지난 요일 칸을 비워 두는 대신 앞으로 갈 수 있는 날만 보여 준다
+export function upcomingWeek(days = 7): RosterDay[] {
+  const today = dateKST();
+  const start = new Date(`${today}T00:00:00Z`);
+  return Array.from({ length: days }, (_, index) => {
+    const d = new Date(start.getTime() + index * 86_400_000);
+    const date = d.toISOString().slice(0, 10);
+    const weekdayIndex = d.getUTCDay();
+    return { date, weekday: WEEKDAY[weekdayIndex], dayNumber: d.getUTCDate(), isToday: date === today, isWeekend: weekdayIndex === 6 ? 'sat' : weekdayIndex === 0 ? 'sun' : null };
+  });
+}
+
 export type RosterCellState = 'confirmed' | 'applied';
 export type RosterCell = { count: number; state?: RosterCellState };
 export type RosterCells = Record<string, RosterCell>;
