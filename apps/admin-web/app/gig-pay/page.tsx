@@ -48,7 +48,7 @@ export default async function GigPayPage({ searchParams }: { searchParams: Promi
 
     <form action="/gig-pay" className="mb-4 flex flex-wrap gap-2">
       <label className="w-full text-sm font-bold text-sub">{shop.name} · 근무자 검색
-        <input name="q" defaultValue={query} placeholder="이름 검색" maxLength={100} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-base" />
+        <input key={query} name="q" defaultValue={query} placeholder="이름 검색" maxLength={100} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-base" />
       </label>
       <button className="h-11 rounded-xl bg-ink px-4 text-sm font-bold text-white">검색</button>
       {(query || params.staff) && <Link href="/gig-pay" className="inline-flex h-11 items-center px-4 text-sm font-bold text-primary">전체 근무자 보기</Link>}
