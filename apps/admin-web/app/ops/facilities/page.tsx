@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import { getPlatformAdminSession } from '@/lib/platform-admin';
 import { listSelfRegisteredFacilities, listRegistrationRequests, listTrialFollowUps, runHealthCheckNowAction } from '@/lib/actions/platform';
 import { getLatestHealthRun } from '@/lib/ops-health';
@@ -31,6 +32,7 @@ export default async function PlatformFacilitiesPage() {
         <p className="mt-2 text-body text-sub">셀프 등록한 사업장은 사업자등록번호를 확인한 뒤 승인해야 공고를 올릴 수 있어요. 운영자 {session.user.email ?? (session.user.user_metadata?.name as string | undefined) ?? '카카오 계정'}</p>
       </div>
 
+      <Link href="/ops/safety" className="mt-4 flex min-h-12 items-center rounded-xl bg-white px-4 font-bold text-primary">대화 신고 검토 →</Link>
       <section id="health" className="mt-6 scroll-mt-20">
         <div className="mb-2 flex items-end justify-between px-1">
           <p className="text-label font-bold text-sub">시스템 점검 · 매일 09:00</p>

@@ -1,0 +1,2 @@
+import Link from 'next/link';
+export default function NotFound(){return <main className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center"><h1 className="text-xl font-bold">페이지를 찾을 수 없어요</h1><p className="mt-3 text-sm text-sub">주소가 바뀌었거나 접근할 수 없는 페이지예요.</p><Link href="/" className="mt-6 inline-flex min-h-12 items-center rounded-xl bg-primary px-6 font-bold text-white">처음 화면으로</Link></main>;}

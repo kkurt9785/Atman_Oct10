@@ -57,6 +57,16 @@ export async function runHealthCheck(trigger: 'cron' | 'manual'): Promise<Health
     ? [{ key: 'db', label: 'DB 점검', level: 'error', count: null, detail: '점검 함수를 실행하지 못했어요' }]
     : ((dbResult.data ?? []) as HealthCheck[]);
   const checks = [...pages, ...dbChecks];
+  const [cleanup, reports] = await Promise.all([
+    sb.rpc('account_storage_cleanup_health'),
+    sb.from('chat_safety_reports').select('id', {count:'exact',head:true}).in('status',['open','reviewing']).lt('created_at',new Date(Date.now()-24*60*60*1000).toISOString()),
+  ]);
+  const cleanupReady = !cleanup.error && cleanup.data?.configured === true && cleanup.data?.scheduled === true;
+  const overdue = Number(cleanup.data?.overdue ?? 0);
+  checks.push({key:'withdrawal-storage',label:'탈퇴 파일 삭제',level:!cleanupReady||overdue>0?'error':'ok',count:overdue,
+    detail:!cleanupReady?'자동 삭제 설정·스케줄 확인 필요':overdue>0?'15분 이상 처리되지 않은 삭제 작업이 있어요':null});
+  checks.push({key:'safety-reports',label:'대화 신고 검토',level:reports.error?'error':(reports.count??0)>0?'error':'ok',count:reports.count,
+    detail:reports.error?'신고 목록 조회 실패':(reports.count??0)>0?'접수 후 24시간이 지난 미처리 신고 · 운영 관리에서 확인':null});
   const status: HealthRun['status'] = checks.some((c) => c.level === 'error') ? 'error' : checks.some((c) => c.level === 'warn') ? 'warn' : 'ok';
   const { data: saved } = await sb.from('ops_health_runs').insert({ status, checks, trigger }).select('id, ran_at').single();
 

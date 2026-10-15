@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ActivityArea, type AreaPref } from '@/components/onboarding/ActivityArea';
 import { BackButton } from '@/components/BackButton';
@@ -9,17 +9,23 @@ export default function LocationSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const pending=useRef(false);
+  const [loadError,setLoadError]=useState(''),[retry,setRetry]=useState(0);
   useEffect(() => {
-    supabase.from('worker_location_prefs').select('locations').single()
-      .then(({ data }) => setInitialLocations(data?.locations ?? []));
-  }, []);
+    let active=true;setLoadError('');
+    void Promise.resolve(supabase.from('worker_location_prefs').select('locations').maybeSingle())
+      .then(({data,error})=>{if(!active)return;if(error)throw new Error();setInitialLocations(data?.locations??[]);})
+      .catch(()=>{if(active)setLoadError('저장한 지역을 불러오지 못했어요. 다시 시도해 주세요.');});
+    return()=>{active=false;};
+  }, [retry]);
 
   async function handleSave(areas: AreaPref[]) {
-    if (saving) return;
+    if (pending.current) return;
+    pending.current=true;
     setSaving(true);
     setError('');
+    try {
     const { error: saveError } = await supabase.rpc('update_my_activity_areas', { p_areas: areas });
-    setSaving(false);
     if (saveError) {
       setError(saveError.message.replace(/^.*?: /, ''));
       return;
@@ -37,8 +43,11 @@ export default function LocationSettingsPage() {
       return;
     }
     window.location.replace('/settings?locationSaved=1');
+    }catch{setError('저장 결과를 확인하지 못했어요. 연결을 확인하고 다시 시도해 주세요.');}
+    finally{pending.current=false;setSaving(false);}
   }
 
+  if(loadError)return <main className="p-6"><BackButton href="/settings" label="내 정보"/><p role="alert" className="mt-6 text-sm text-red-600">{loadError}</p><button type="button" onClick={()=>setRetry(n=>n+1)} className="mt-3 min-h-12 rounded-xl bg-primary px-5 font-bold text-white">다시 불러오기</button></main>;
   if (initialLocations === undefined) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -53,6 +62,7 @@ export default function LocationSettingsPage() {
       {error && <p className="mx-6 mt-6 rounded-xl bg-red-50 px-4 py-3 text-[13px] font-bold text-red-600">{error}</p>}
       <ActivityArea
         onNext={handleSave}
+        disabled={saving}
         initialLocations={initialLocations}
         buttonLabel={saving ? '저장 중...' : '저장하기'}
         showHeader={false}

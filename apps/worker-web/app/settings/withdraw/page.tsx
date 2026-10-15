@@ -1,10 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/BackButton';
-import { setGigworkerModePreference } from '@/lib/worker-mode';
+import { getGigworkerModePreference, setGigworkerModePreference } from '@/lib/worker-mode';
+import { withdrawWorkerAccount } from '@/lib/withdraw-account';
 
 // 회원 탈퇴 — 무엇이 지워지고 무엇이 남는지 먼저 보여 주고, 확인 한 번으로 끝낸다
 export default function WithdrawPage() {
@@ -13,29 +13,24 @@ export default function WithdrawPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
+  const inFlight = useRef(false);
 
   async function withdraw() {
-    if (!agreed || busy) return;
+    if (!agreed || inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     setError('');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setBusy(false); setError('로그인이 만료됐어요. 다시 로그인한 뒤 탈퇴해 주세요.'); return; }
-    // 면허 사진 파일은 본인 권한으로 먼저 지운다(계정이 사라지면 지울 수 없다)
     try {
-      const { data: files } = await supabase.storage.from('license-photos').list(user.id);
-      const paths = (files ?? []).map((file) => `${user.id}/${file.name}`);
-      if (paths.length) await supabase.storage.from('license-photos').remove(paths);
-    } catch { /* 파일이 없거나 이미 지워진 경우 */ }
-    const { error: rpcError } = await supabase.rpc('withdraw_my_account');
-    if (rpcError) {
+      await withdrawWorkerAccount();
+      setGigworkerModePreference(false);
+      try { window.localStorage.clear(); } catch { /* 저장소 접근 불가 */ }
+      setDone(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : '처리 결과를 확인하지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      inFlight.current = false;
       setBusy(false);
-      setError(rpcError.message.replace(/^.*?: /, '') || '탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.');
-      return;
     }
-    await supabase.auth.signOut().catch(() => undefined);
-    setGigworkerModePreference(false);
-    try { window.localStorage.clear(); } catch { /* 저장소 접근 불가 */ }
-    setDone(true);
   }
 
   if (done) {
@@ -50,17 +45,18 @@ export default function WithdrawPage() {
 
   return (
     <main className="min-h-screen bg-bg px-5 pb-28 pt-6">
-      <BackButton href="/settings" label="내 정보" />
+      {!busy && <BackButton href="/" label="이전 화면" anyPrevious />}
       <h1 className="mt-3 text-[24px] font-extrabold text-ink">회원 탈퇴</h1>
       <p className="mt-2 text-[14px] leading-6 text-sub">탈퇴하면 바로 처리되고 되돌릴 수 없어요.</p>
 
       <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
-        <p className="text-[15px] font-bold text-ink">바로 지워져요</p>
+        <p className="text-[15px] font-bold text-ink">탈퇴하면 삭제돼요</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6 text-sub">
           <li>로그인 계정, 연락처, 생년월일, 면허번호·면허 사진, 프로필 사진</li>
           <li>활동 지역, 지급 계좌번호, 알림 설정</li>
           <li>답하지 않은 근무 요청·지원, 진행 중인 대타 요청</li>
         </ul>
+        <p className="mt-2 text-[12px] leading-5 text-sub">면허 사진 파일은 탈퇴가 승인된 뒤 서버에서 순차 삭제해요. 일시적으로 실패하면 자동으로 다시 처리해요.</p>
         <p className="mt-4 text-[15px] font-bold text-ink">3년 동안 보관돼요</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6 text-sub">
           <li>이미 한 근무의 출퇴근·지급 기록과 근무 관련 대화(이름·직군과 함께) — 사업장의 근로관계 기록이라 법에서 보관을 정하고 있어요. 3년이 지나면 이름 등을 지워 익명으로 바꿔요</li>
@@ -70,7 +66,7 @@ export default function WithdrawPage() {
       </section>
 
       <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-2xl bg-white p-4 shadow-sm">
-        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#1B64DA]" />
+        <input type="checkbox" checked={agreed} disabled={busy} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-[#1B64DA]" />
         <span className="text-[14px] font-semibold text-ink">위 내용을 확인했고 탈퇴할게요</span>
       </label>
 
@@ -79,7 +75,7 @@ export default function WithdrawPage() {
       <button type="button" onClick={withdraw} disabled={!agreed || busy} className="mt-4 h-12 w-full rounded-btn border border-red-200 bg-white text-[15px] font-bold text-red-600 disabled:opacity-50">
         {busy ? '처리 중…' : '탈퇴하기'}
       </button>
-      <button type="button" onClick={() => router.replace('/settings')} className="mt-2 flex h-12 w-full items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">계속 이용할게요</button>
+      <button type="button" disabled={busy} onClick={() => router.replace(getGigworkerModePreference() ? '/gig/settings' : '/settings')} className="mt-2 flex h-12 w-full items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white disabled:opacity-50">계속 이용할게요</button>
     </main>
   );
 }

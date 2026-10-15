@@ -3,58 +3,16 @@
 import { isGigworkerFacility } from '@/lib/facility-mode';
 import { useState } from 'react';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
+import { ContractRangePicker } from '@/components/ContractRangePicker';
 import { CopyInviteButton } from './CopyInviteButton';
 
 const inputClass='mt-2 w-full h-12 rounded-xl border border-line bg-white px-3 text-body text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/10';
-const toDateKey=(date:Date)=>`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
-const formatDate=(value:string)=>value?`${Number(value.slice(5,7))}월 ${Number(value.slice(8,10))}일`:'';
-
-function ContractRangePicker(){
-  const today=new Date();
-  const [open,setOpen]=useState(false);
-  const [month,setMonth]=useState(new Date(today.getFullYear(),today.getMonth(),1));
-  const [start,setStart]=useState('');
-  const [end,setEnd]=useState('');
-  const firstDay=new Date(month.getFullYear(),month.getMonth(),1);
-  const gridStart=new Date(month.getFullYear(),month.getMonth(),1-firstDay.getDay());
-  const days=Array.from({length:42},(_,index)=>new Date(gridStart.getFullYear(),gridStart.getMonth(),gridStart.getDate()+index));
-
-  function selectDate(value:string){
-    if(!start||end||value<start){setStart(value);setEnd('');return;}
-    setEnd(value);
-  }
-
-  return <div className="mt-4">
-    <label className="text-label font-medium text-sub">계약기간</label>
-    <input type="hidden" name="contract_start" value={start}/>
-    <input type="hidden" name="contract_end" value={end}/>
-    <button type="button" onClick={()=>setOpen(value=>!value)} className={`mt-2 flex min-h-14 w-full items-center justify-between rounded-xl border bg-white px-4 text-left ${open?'border-primary ring-2 ring-primary/10':'border-line'}`}>
-      <span><span className={`block text-[0.875rem] font-bold ${start?'text-ink':'text-tertiary'}`}>{start?(end?`${formatDate(start)}  →  ${formatDate(end)}`:`${formatDate(start)}  →  종료일 선택`):'시작일과 종료일을 선택해 주세요'}</span>{start&&end&&<span className="mt-0.5 block text-[0.6875rem] text-sub">{start} ~ {end}</span>}</span>
-      <span aria-hidden className="text-[1.125rem]">▣</span>
-    </button>
-    {open&&<div className="mt-3 rounded-2xl border border-line bg-white p-4 shadow-card">
-      <div className="flex items-center justify-between">
-        <button type="button" aria-label="이전 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()-1,1))} className="h-10 w-10 rounded-full text-[1.25rem] active:bg-bg">‹</button>
-        <b className="text-[0.9375rem]">{month.getFullYear()}년 {month.getMonth()+1}월</b>
-        <button type="button" aria-label="다음 달" onClick={()=>setMonth(new Date(month.getFullYear(),month.getMonth()+1,1))} className="h-10 w-10 rounded-full text-[1.25rem] active:bg-bg">›</button>
-      </div>
-      <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[0.75rem] font-bold text-primary">{!start?'계약 시작일을 선택하세요':!end?'이제 계약 종료일을 선택하세요':'계약기간 선택 완료'}</p>
-      <div className="mt-3 grid grid-cols-7 text-center text-[0.6875rem] font-bold text-sub">{['일','월','화','수','목','금','토'].map(day=><span key={day} className="py-2">{day}</span>)}</div>
-      <div className="grid grid-cols-7">{days.map(date=>{const key=toDateKey(date);const current=date.getMonth()===month.getMonth();const selected=key===start||key===end;const between=start&&end&&key>start&&key<end;return <button type="button" key={key} onClick={()=>selectDate(key)} className={`h-11 text-[0.8125rem] font-semibold ${!current?'text-tertiary/40':'text-ink'} ${between?'bg-primary/5 text-primary':''} ${selected?'rounded-xl bg-primary text-white':''}`}>{date.getDate()}</button>;})}</div>
-      <div className="mt-4 grid grid-cols-2 gap-2">
-        <button type="button" onClick={()=>{setStart('');setEnd('');}} className="h-11 rounded-xl bg-bg text-[0.8125rem] font-bold text-sub">다시 선택</button>
-        <button type="button" disabled={!start||!end} onClick={()=>setOpen(false)} className="h-11 rounded-xl bg-ink text-[0.8125rem] font-bold text-white disabled:opacity-30">기간 적용</button>
-      </div>
-    </div>}
-  </div>;
-}
-
 type CreatedStaff={inviteToken?:string|null};
 
 export function StaffRegistrationForm({facilityType='clinic',initialEngagementType,workerOrigin,workerKind='staff'}:{facilityType?:string;initialEngagementType?:string;workerOrigin?:string;workerKind?:'staff'|'gig'}){
   const [engagementType,setEngagementType]=useState(initialEngagementType??'');
   const [payBasis,setPayBasis]=useState(initialEngagementType?'hourly':'monthly');
-  const [scheduleMode,setScheduleMode]=useState<'single'|'repeat'>('single');
+  const [scheduleMode,setScheduleMode]=useState<'single'|'range'|'repeat'>('single');
   const [singleDate,setSingleDate]=useState('');
   const [inviteUrl,setInviteUrl]=useState('');
   const needsContract=engagementType&&engagementType!=='regular';
@@ -70,7 +28,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
     }} className="px-5 pb-6">
       <input type="hidden" name="role" value="other"/>
       <input type="hidden" name="worker_kind" value="gig"/>
-      <input type="hidden" name="engagement_type" value={scheduleMode==='single'?'daily':'temporary'}/>
+      <input type="hidden" name="engagement_type" value={scheduleMode==='repeat'?'temporary':'daily'}/><input type="hidden" name="schedule_mode" value={scheduleMode}/>
       <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
         <h3 className="col-span-2 text-[0.8125rem] font-extrabold text-ink">누가 근무하나요?</h3>
         <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
@@ -80,17 +38,19 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
 
       <section className="mt-7 rounded-2xl bg-bg p-4">
         <h3 className="text-[0.8125rem] font-extrabold text-ink">언제 근무하나요?</h3>
-        <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="근무 일정 방식">
+        <div className="mt-3 grid grid-cols-3 gap-2" role="group" aria-label="근무 일정 방식">
           <button type="button" onClick={()=>setScheduleMode('single')} aria-pressed={scheduleMode==='single'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode==='single'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>하루 근무</button>
-          <button type="button" onClick={()=>setScheduleMode('repeat')} aria-pressed={scheduleMode==='repeat'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode==='repeat'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>반복 근무</button>
+          <button type="button" onClick={()=>setScheduleMode('range')} aria-pressed={scheduleMode==='range'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode==='range'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>연속 며칠</button>
+          <button type="button" onClick={()=>setScheduleMode('repeat')} aria-pressed={scheduleMode==='repeat'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode==='repeat'?'bg-primary text-white':'border border-line bg-white text-sub'}`}>요일 반복</button>
         </div>
         {scheduleMode==='single'?<div className="mt-4">
           <label className="text-label font-medium text-sub">근무 날짜<input type="date" required value={singleDate} onChange={(event)=>setSingleDate(event.target.value)} className={inputClass}/></label>
           <input type="hidden" name="contract_start" value={singleDate}/><input type="hidden" name="contract_end" value={singleDate}/>
           <p className="mt-2 text-[0.6875rem] leading-4 text-sub">선택한 날짜의 요일이 자동 적용돼요.</p>
         </div>:<>
-          <ContractRangePicker/>
-          <fieldset className="mt-4"><legend className="mb-3 text-label font-medium text-sub">반복 요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-white text-[0.75rem] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
+          <ContractRangePicker label="근무 기간"/>
+          {scheduleMode==='range'&&<p className="mt-2 text-sm leading-5 text-sub">선택한 기간의 모든 날에 근무해요. 예: 19~21일은 주말을 포함한 3일 근무예요.</p>}
+          {scheduleMode==='repeat'&&<fieldset className="mt-4"><legend className="mb-3 text-label font-medium text-sub">반복 요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-white text-[0.75rem] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>}
         </>}
         <div className="mt-4 grid grid-cols-2 gap-3">
           <label className="text-label font-medium text-sub">출근시간<input name="default_start_time" type="time" defaultValue="09:00" required className={inputClass}/></label>

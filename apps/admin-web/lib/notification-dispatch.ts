@@ -29,6 +29,14 @@ export async function dispatchPendingNotifications(limit = 25) {
   }
 
   for (const row of rows) {
+    if (row.data.type === 'chat' || ['workroom.message','workroom.direct','workroom.announcement'].includes(String(row.data.kind))) {
+      const { data: allowed, error: safetyError } = await sb.rpc('is_safety_outbox_allowed', { p_id: row.id });
+      if (safetyError || typeof allowed !== 'boolean') {
+        await complete(row.id, 'failed', 'conversation safety status unavailable');
+        continue;
+      }
+      if (!allowed) { await complete(row.id, 'discarded', 'user blocked'); continue; }
+    }
     const { data: subscriptionRows, error: subscriptionError } = await sb
       .from('push_subscriptions').select('id,subscription')
       .eq('worker_id', row.worker_auth_user_id);

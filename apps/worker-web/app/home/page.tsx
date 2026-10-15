@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { isLocationAllowed } from '@/lib/consents';
@@ -8,13 +8,14 @@ import { supabase } from '@/lib/supabase';
 import { getSignedInUser } from '@/lib/auth-user';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import type { Shift } from '@/app/shifts/page';
+import { compareShifts } from '@/lib/shift-discovery';
 import { dateKST } from '@/lib/date';
 import { facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
 import { WeekRoster } from '@/components/roster/WeekRoster';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { ModeSwitch } from '@/components/worker/ModeSwitch';
-import { addCount, cellKey, currentWeek, defaultSelection, setState, slotOf, PHARMACY_SLOT_NAME, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
+import { addCount, cellKey, currentWeek, setState, slotOf, PHARMACY_SLOT_NAME, SLOT_NAME, type RosterCells, type RosterSlot } from '@/lib/roster';
 import { loadWorkerShellContext } from '@/lib/worker-mode';
 import { listClaimableCovers } from '@/lib/cover';
 import { enableShiftPush, isShiftPushEnabled } from '@/lib/push-subscribe';
@@ -115,13 +116,15 @@ export default function HomePage() {
 
   // 공고 탐색 기준 — 현재 위치 또는 등록 지역 중 하나
   const [pos, setPos] = useState<{ lat: number; lng: number } | null>(null);
-  const [basis, setBasis] = useState<'gps' | string>('gps');
+  const [basis, setBasis] = useState<'gps' | string>('all');
   const [locNotice, setLocNotice] = useState('');
   const [locationOk, setLocationOk] = useState(true);
 
   const week = useMemo(() => currentWeek(), []);
   const [cell, setCell] = useState<{ date: string; slot: RosterSlot } | null>(null);
-  const [cellTouched, setCellTouched] = useState(false);
+  const [discoveryError,setDiscoveryError]=useState('');
+  const [discoveryBusy,setDiscoveryBusy]=useState(false);
+  const discoveryRequest=useRef(0),basisRequest=useRef(0);
 
   // RPC 결과 → 화면 모델
   const mapRows = (rows: Record<string, unknown>[] | null) =>
@@ -143,31 +146,35 @@ export default function HomePage() {
 
   // 사용자 ID·직군을 클라이언트에서 넘기지 않고 DB가 auth.uid()로 결정한다.
   const fetchShifts = useCallback(async (position: { lat: number; lng: number } | null, selectedBasis: 'gps' | string) => {
+    const request=++discoveryRequest.current;
+    setDiscoveryBusy(true);setDiscoveryError('');
+    try {
     const useGps = selectedBasis === 'gps' && Boolean(position);
     const { data, error } = await supabase.rpc('get_nearby_open_shifts_secure', {
       p_lat: useGps ? position!.lat : null,
       p_lng: useGps ? position!.lng : null,
-      p_pref_labels: useGps ? [] : selectedBasis === 'gps' ? null : [selectedBasis],
+      p_pref_labels: useGps ? [] : ['gps','all'].includes(selectedBasis) ? null : [selectedBasis],
     });
-    if (error) {
-      console.error('[home] secure shift discovery failed', error);
-      setShifts([]);
-      return;
-    }
+    if(request!==discoveryRequest.current)return;
+    if(error)throw new Error();
     setShifts(mapRows((data ?? []) as Record<string, unknown>[]).filter((shift) => !hasStarted(shift)));
+    }catch{if(request===discoveryRequest.current)setDiscoveryError('공고를 불러오지 못했어요. 다시 시도해 주세요.');}
+    finally{if(request===discoveryRequest.current)setDiscoveryBusy(false);}
   }, []);
 
   async function selectBasis(b: 'gps' | string) {
     if (b === basis && b !== 'gps') return;
+    const selection=++basisRequest.current;
     const prev = basis;
     setBasis(b);
     if (b === 'gps') {
       const fresh = await getPosition();
+      if(selection!==basisRequest.current)return;
       if (fresh) setPos(fresh);
       const next = fresh ?? pos;
       if (!next) {
         setLocNotice('위치를 가져올 수 없어요. 브라우저 설정에서 위치 권한을 허용한 뒤 다시 눌러 주세요.');
-        setBasis(prev === 'gps' ? areas[0] ?? 'gps' : prev);
+        setBasis(prev === 'gps' ? 'all' : prev);
         return;
       }
       setLocNotice('');
@@ -265,7 +272,7 @@ export default function HomePage() {
       if ('PushManager' in window && typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
         void isShiftPushEnabled().then((enabled) => setPushOff(!enabled)).catch(() => undefined);
       }
-      const initialBasis: 'gps' | string = areaLabels[0] ?? 'gps';
+      const initialBasis = 'all';
       setBasis(initialBasis);
       await fetchShifts(null, initialBasis);
       setLoading(false);
@@ -297,20 +304,14 @@ export default function HomePage() {
     return next;
   }, [openShifts, activity, week]);
 
-  // 처음 한 번은 공고가 있는 첫 칸을 골라 둔다. 사용자가 칸을 누른 뒤에는 건드리지 않는다.
-  useEffect(() => {
-    if (loading || cellTouched) return;
-    setCell(defaultSelection(week, cells));
-  }, [loading, cellTouched, week, cells]);
-
   // 근무를 마친 사업장의 공고를 먼저 — 이미 아는 곳이라 지원 판단이 빠르다
   const workedFacilities = useMemo(() => new Set(activity
     .filter((a) => a.status === 'completed' || (a.status === 'accepted' && a.checked_out_at))
     .map((a) => shiftOfActivity(a)?.facility_id)
     .filter((id): id is string => Boolean(id))), [activity]);
   const isWorked = (s: ShiftWithFacility) => workedFacilities.has((s as { facility_id?: string }).facility_id ?? '');
-  const filtered = openShifts.filter((s) => matchesCell(s, cell))
-    .sort((a, b) => Number(isWorked(b)) - Number(isWorked(a)));
+  const filtered = openShifts.filter((s) => s.shift_date>=week[0].date&&s.shift_date<=week[6].date&&matchesCell(s, cell))
+    .sort((a, b) => compareShifts(a,b,'date'));
   const weekCount = openShifts.filter((s) => s.shift_date >= week[0].date && s.shift_date <= week[6].date).length;
   const selectedDay = week.find((day) => day.date === cell?.date);
   const selectedCount = cell ? cells[cellKey(cell.date, cell.slot)]?.count ?? 0 : 0;
@@ -383,18 +384,19 @@ export default function HomePage() {
 
         {(locationOk || areas.length > 0) && (
           <div className="mt-3 flex flex-wrap gap-1.5">
+            <button type="button" aria-pressed={basis==='all'} onClick={()=>void selectBasis('all')} className={`min-h-11 rounded-full px-3 text-xs font-bold ${basis==='all'?'bg-primary text-white':'bg-bg text-sub'}`}>설정 지역 함께</button>
             {locationOk && (
-              <button onClick={() => selectBasis('gps')} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${basis === 'gps' ? 'bg-primary text-white' : 'bg-bg text-sub'}`}>현재 위치</button>
+              <button onClick={() => selectBasis('gps')} className={`min-h-11 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${basis === 'gps' ? 'bg-primary text-white' : 'bg-bg text-sub'}`}>현재 위치</button>
             )}
             {areas.map((a) => (
-              <button key={a} onClick={() => selectBasis(a)} className={`rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${basis === a ? 'bg-primary text-white' : 'bg-bg text-sub'}`}>{a}</button>
+              <button key={a} onClick={() => selectBasis(a)} className={`min-h-11 rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors ${basis === a ? 'bg-primary text-white' : 'bg-bg text-sub'}`}>{a}</button>
             ))}
           </div>
         )}
         {locNotice && <p role="alert" className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[13px] font-bold text-amber-700">{locNotice}</p>}
 
         <div className="mt-3">
-          <WeekRoster week={week} cells={cells} selected={cell} slotNames={slotNames === SLOT_NAME ? undefined : slotNames} onSelect={(date, slot) => { setCellTouched(true); setCell(cell?.date === date && cell?.slot === slot ? null : { date, slot }); }} />
+          <WeekRoster week={week} cells={cells} selected={cell} slotNames={slotNames === SLOT_NAME ? undefined : slotNames} onSelect={(date, slot) => { setCell(cell?.date === date && cell?.slot === slot ? null : { date, slot }); }} />
           <p className="mt-2 truncate whitespace-nowrap px-1 text-[11px] text-tertiary">● 확정 · ○ 지원 중 · +숫자 갈 수 있는 근무</p>
         </div>
       </div>
@@ -404,15 +406,16 @@ export default function HomePage() {
           <h2 className="text-[16px] font-extrabold text-ink">{cell && selectedDay ? `${selectedDay.isToday ? '오늘' : `${selectedDay.weekday}요일 ${selectedDay.dayNumber}일`} · ${slotNames[cell.slot]} 근무` : '이번 주 전체'}</h2>
           <span className="flex shrink-0 items-center gap-2 text-[12px] font-bold text-sub">
             {cell ? selectedCount : filtered.length}건
-            {cell && filtered.length > 0 && <button type="button" onClick={() => { setCellTouched(true); setCell(null); }} className="min-h-9 px-1 text-primary">전체 보기</button>}
+            {cell && filtered.length > 0 && <button type="button" onClick={() => { setCell(null); }} className="min-h-9 px-1 text-primary">전체 보기</button>}
           </span>
         </div>
 
-        {filtered.length === 0 ? (
+        <Link href="/shifts" className="mb-3 flex min-h-11 items-center justify-between rounded-xl bg-primary/5 px-3 text-sm font-bold text-primary">다른 날짜·거리·시급으로 근무 찾기 <span>→</span></Link>
+        {discoveryBusy?<p role="status" className="py-8 text-center text-sm text-sub">선택한 지역의 공고를 불러오고 있어요…</p>:discoveryError?<div role="alert" className="rounded-xl bg-red-50 p-4 text-sm"><p>{discoveryError}</p><button type="button" onClick={()=>void fetchShifts(pos,basis)} className="mt-2 min-h-11 font-bold text-primary">다시 불러오기</button></div>:filtered.length === 0 ? (
           <div className="rounded-2xl bg-bg px-4 py-8 text-center">
             <p className="text-[15px] font-bold text-ink">{reviewPending ? '자격 심사 중이에요' : cell ? '이 칸엔 아직 근무가 없어요' : '이번 주 갈 수 있는 근무가 없어요'}</p>
             <p className="mt-1 text-[12px] text-sub">{reviewPending ? '심사가 끝나면 알림으로 알려드려요.' : '새 근무가 올라오면 알림으로 알려드려요.'}</p>
-            {!reviewPending && cell && <button onClick={() => { setCellTouched(true); setCell(null); }} className="mt-3 text-[13px] font-bold text-primary">이번 주 전체 보기</button>}
+            {!reviewPending && cell && <button onClick={() => { setCell(null); }} className="mt-3 text-[13px] font-bold text-primary">이번 주 전체 보기</button>}
           </div>
         ) : (
           filtered.map((s) => (

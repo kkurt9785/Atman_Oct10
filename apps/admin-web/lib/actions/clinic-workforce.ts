@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient, userClient } from '../supabase';
 import { todayKST, yesterdayKST } from '../date';
+import { normalizeGigSchedule, validDate } from '../staff-schedule';
 import { requireStaffCapacity } from '../billing-gates';
 import { nudgeNotificationDispatch } from '../notify-nudge';
 
@@ -98,10 +99,12 @@ export async function addClinicStaffAction(form: FormData) {
   }
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   if(!Number.isInteger(breakMinutes)||breakMinutes<0||breakMinutes>720)throw new Error('휴게시간을 확인해 주세요.');
-  if (engagementType !== 'regular' && (!contractStart || !contractEnd || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
+  if (engagementType !== 'regular' && (!contractStart || !contractEnd || !validDate(contractStart) || !validDate(contractEnd) || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
   if (phone && (isGigworker ? !/^010\d{8}$/.test(normalizedPhone) : normalizedPhone.length < 10)) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
   let workWeekdays = form.getAll('work_weekdays').map(Number).filter((day)=>day>=1&&day<=7);
-  if(isGigworker&&contractStart&&contractStart===contractEnd){
+  if(isGigworker&&text(form,'schedule_mode')){
+    workWeekdays=normalizeGigSchedule(text(form,'schedule_mode'),contractStart??'',contractEnd??'',workWeekdays);
+  }else if(isGigworker&&contractStart&&contractStart===contractEnd){
     workWeekdays=[new Date(`${contractStart}T00:00:00Z`).getUTCDay()||7];
   }
   if(isGigworker&&contractStart!==contractEnd&&workWeekdays.length===0)throw new Error('반복 근무 요일을 하나 이상 선택해 주세요.');

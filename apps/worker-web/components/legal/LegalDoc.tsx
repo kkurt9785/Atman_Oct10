@@ -15,13 +15,13 @@ export const COMPANY = {
 
 export type LegalSection = { title: string; body: ReactNode };
 
-export function LegalDoc({ title, intro, sections }: { title: string; intro?: ReactNode; sections: LegalSection[] }) {
+export function LegalDoc({ title, intro, sections, effectiveDate = LEGAL_EFFECTIVE_DATE }: { title: string; intro?: ReactNode; sections: LegalSection[]; effectiveDate?: string }) {
   return (
     <main className="min-h-screen bg-white px-6 pb-12 pt-4">
       {/* 설정·가입·시작 화면 어디서 왔든 그 화면으로, 새 탭으로 열렸으면 탭을 닫는다 */}
       <BackButton href="/" anyPrevious />
       <h1 className="mt-4 text-[24px] font-extrabold text-ink">{title}</h1>
-      <p className="mt-2 text-[13px] text-sub">시행일 {LEGAL_EFFECTIVE_DATE}</p>
+      <p className="mt-2 text-[13px] text-sub">시행일 {effectiveDate}</p>
       {intro && <div className="mt-5 text-[14px] leading-6 text-ink">{intro}</div>}
       <div className="mt-8 space-y-7">
         {sections.map((section, i) => (

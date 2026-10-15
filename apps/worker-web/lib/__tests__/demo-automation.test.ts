@@ -25,18 +25,21 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-describe('자동 준비와 수동 초기화 분리', () => {
-  it('일일 작업은 전체 재시드를 호출하지 않고 만료 처리 전에 안전한 준비를 한다', async () => {
+describe('일일 시연 재시드와 수동 초기화 권한', () => {
+  it('일일 만료 처리 후 시연을 재시드하고 근무 가능 시간을 갱신한다', async () => {
     const response = await expire(request());
     expect(response.status).toBe(200);
-    expect(mocks.revive).not.toHaveBeenCalled();
+    expect(mocks.revive).toHaveBeenCalledOnce();
     expect(mocks.rpc).toHaveBeenCalledWith('refresh_demo_worker_readiness');
-    expect(mocks.rpc.mock.invocationCallOrder[0]).toBeLessThan(mocks.from.mock.invocationCallOrder[0]);
+    expect(mocks.from.mock.invocationCallOrder[0]).toBeLessThan(mocks.revive.mock.invocationCallOrder[0]);
+    expect(mocks.revive.mock.invocationCallOrder[0]).toBeLessThan(mocks.rpc.mock.invocationCallOrder[0]);
   });
-  it('준비 RPC 실패 시 시연 공고를 먼저 만료시키지 않는다', async () => {
+  it('시연 준비 RPC 실패를 기록하되 일반 공고 만료 처리는 유지한다', async () => {
     mocks.rpc.mockResolvedValue({ error: { message: 'missing migration' } });
-    expect((await expire(request())).status).toBe(503);
-    expect(mocks.from).not.toHaveBeenCalled();expect(mocks.revive).not.toHaveBeenCalled();
+    const response = await expire(request());
+    expect(response.status).toBe(200);
+    expect((await response.json()).demo.readiness).toEqual({ok:false,error:'missing migration'});
+    expect(mocks.from).toHaveBeenCalled();expect(mocks.revive).toHaveBeenCalledOnce();
   });
   it('데모 비활성 상태에서는 일반 만료 처리만 실행한다', async () => {
     vi.stubEnv('DEMO_SHOWCASE_ENABLED', 'false');

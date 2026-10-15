@@ -1,177 +1,25 @@
 'use client';
-
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { BackButton } from '@/components/BackButton';
 import { facilityName } from '@/lib/shift-display';
-
-type ChatShift = { shift_date: string; start_time: string; facilities?: { name?: string | null } | Array<{ name?: string | null }> | null };
-
-type Message = {
-  id: string;
-  sender_type: 'worker' | 'facility' | 'system';
-  body: string;
-  created_at: string;
-};
-
-function timeLabel(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
+import { MatchChatView } from '@/components/safety/MatchChatView';
+type Header = { shift_date: string; start_time: string; facilities?: { name?: string | null } | Array<{ name?: string | null }> | null };
 export default function WorkerChatPage() {
-  const router = useRouter();
   const { applicationId } = useParams<{ applicationId: string }>();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [open, setOpen] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
-  // 헤더에 어느 사업장·어느 근무 대화인지 — 알림으로 바로 열려도 알 수 있게
-  const [shift, setShift] = useState<ChatShift | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const quickReplies=['확인했습니다. 감사합니다.','예정 시간에 도착하겠습니다.','준비물을 다시 알려주세요.'];
-
-  const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.replace('/shifts'); return; }
-
-    const [{ data: rows }, { data: isOpen }, { data: application }] = await Promise.all([
-      supabase.from('chat_messages')
-        .select('id, sender_type, body, created_at')
-        .eq('application_id', applicationId)
-        .order('created_at'),
-      supabase.rpc('chat_is_open', { p_application_id: applicationId }),
-      supabase.from('shift_applications')
-        .select('shifts(shift_date, start_time, facilities(name))')
-        .eq('id', applicationId)
-        .maybeSingle(),
-    ]);
-    setMessages((rows ?? []) as Message[]);
-    setOpen(isOpen === true);
-    const shiftRow = (application as { shifts?: ChatShift | ChatShift[] | null } | null)?.shifts;
-    setShift((Array.isArray(shiftRow) ? shiftRow[0] : shiftRow) ?? null);
-  }, [applicationId, router]);
-
+  const [shift, setShift] = useState<Header | null>(null);
   useEffect(() => {
-    load();
-    // 실시간 수신
-    const channel = supabase
-      .channel(`chat-${applicationId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `application_id=eq.${applicationId}`,
-      }, (payload) => {
-        setMessages((prev) =>
-          prev.some((m) => m.id === (payload.new as Message).id)
-            ? prev
-            : [...prev, payload.new as Message]
-        );
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [applicationId, load]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  async function send() {
-    const body = input.trim();
-    if (!body || sending) return;
-    setSending(true);
-    setError('');
-    const { data, error: err } = await supabase.rpc('send_chat_message', {
-      p_application_id: applicationId,
-      p_body: body,
-    });
-    setSending(false);
-    if (err) {
-      setError(err.message.replace(/^.*: /, ''));
-      return;
-    }
-    setInput('');
-    if (data) {
-      setMessages((prev) => prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message]);
-    }
-    const { data: { session } } = await supabase.auth.getSession();
-    const adminBase = process.env.NEXT_PUBLIC_ADMIN_WEB_URL
-      ?? (window.location.hostname === 'localhost' ? 'http://localhost:3002' : 'https://admin.itdot.co.kr');
-    if (session) fetch(`${adminBase}/api/attendance/nudge`, {
-      method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` }, keepalive: true,
-    }).catch(() => undefined);
-  }
-
-  return (
-    <div className="flex flex-col h-dvh bg-bg">
-      {/* 헤더 */}
-      <div className="bg-white px-5 pt-12 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
-        {/* 채팅 화면엔 하단 탭이 없다 — 알림으로 바로 열려도 내 근무로 돌아갈 수 있게 */}
-        <BackButton href="/applications" />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[16px] font-extrabold text-ink">{shift ? facilityName(shift) : '사업장 채팅'}</h1>
-          <p className="text-[11px] text-tertiary">{shift ? `${Number(shift.shift_date.slice(5, 7))}월 ${Number(shift.shift_date.slice(8, 10))}일 ${shift.start_time.slice(0, 5)} 근무 · ` : ''}근무 종료 24시간 후 잠겨요</p>
-        </div>
-      </div>
-
-      {/* 메시지 */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
-        {messages.length === 0 && (
-          <div className="mt-10 text-center">
-            <p className="text-[15px] font-bold text-ink">아직 대화가 없어요</p>
-            <p className="mt-1 text-[13px] leading-5 text-sub">{open ? '궁금한 점을 남기면 사업장에 알림이 가요.' : '이 근무의 대화방은 닫혔어요.'}</p>
-          </div>
-        )}
-        {messages.map((m) =>
-          m.sender_type === 'system' ? (
-            <div key={m.id} className="bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 text-[13px] text-ink whitespace-pre-line">
-              {m.body}
-            </div>
-          ) : (
-            <div key={m.id} className={`max-w-[78%] ${m.sender_type === 'worker' ? 'self-end' : 'self-start'}`}>
-              <div className={`rounded-2xl px-3.5 py-2.5 text-[14px] whitespace-pre-line ${
-                m.sender_type === 'worker' ? 'bg-primary text-white rounded-br-md' : 'bg-white text-ink border border-line rounded-bl-md'
-              }`}>
-                {m.body}
-              </div>
-              <p className={`text-[10px] text-tertiary mt-0.5 ${m.sender_type === 'worker' ? 'text-right' : ''}`}>
-                {timeLabel(m.created_at)}
-              </p>
-            </div>
-          )
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* 입력 */}
-      <div className="bg-white border-t border-line px-4 pt-3 pb-8 flex-shrink-0">
-        {error && <p className="text-[12px] font-bold text-red-500 mb-2">{error}</p>}
-        {open ? (
-          <><div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">{quickReplies.map(reply=><button key={reply} type="button" onClick={()=>setInput(reply)} className="h-8 shrink-0 rounded-full border border-line bg-white px-3 text-[11px] font-bold text-sub">{reply}</button>)}</div><div className="flex gap-2">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send(); }}
-              placeholder="메시지 입력 (전화번호는 자동으로 가려져요)"
-              className="flex-1 h-11 px-4 bg-bg rounded-xl text-[16px] text-ink outline-none"
-            />
-            <button
-              onClick={send}
-              disabled={!input.trim() || sending}
-              className="h-11 px-4 rounded-xl bg-primary text-white text-[14px] font-bold disabled:opacity-40 flex-shrink-0"
-            >
-              전송
-            </button>
-          </div></>
-        ) : (
-          <p className="text-[13px] text-tertiary text-center py-2">
-            🔒 종료된 채팅이에요 — 기록은 계속 확인할 수 있어요
-          </p>
-        )}
-      </div>
-    </div>
-  );
+    let active = true;
+    setShift(null);
+    void (async () => {
+      try {
+        const { data } = await supabase.from('shift_applications').select('shifts(shift_date,start_time,facilities(name))').eq('id', applicationId).maybeSingle();
+        const value = data?.shifts as Header | Header[] | null | undefined;
+        if (active) setShift((Array.isArray(value) ? value[0] : value) ?? null);
+      } catch { /* The conversation has its own visible retry state. */ }
+    })();
+    return () => { active = false; };
+  }, [applicationId]);
+  return <MatchChatView client={supabase} applicationId={applicationId} variant="worker" title={shift ? facilityName(shift) : '사업장 채팅'}
+    subtitle={`${shift ? `${Number(shift.shift_date.slice(5, 7))}월 ${Number(shift.shift_date.slice(8, 10))}일 ${shift.start_time.slice(0, 5)} 근무 · ` : ''}근무 종료 24시간 후 잠겨요`} />;
 }

@@ -91,6 +91,8 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <p className="mb-2 px-1 text-label font-bold text-sub">계정</p>
         <div className="overflow-hidden rounded-2xl bg-white shadow-card">
           <Row href="/settings?section=account" title="계정·사업장 종료" detail={`${facilityWord} 닫기 · 관리자 계정 탈퇴`} />
+          <Row href="/safety" title="대화 안전·차단 관리" detail="차단한 사용자 확인·차단 해제" />
+          <Row href="/privacy" title="개인정보 처리방침" detail="수집 항목·보관 기간·삭제 요청" />
         </div>
       </section>
     </div>

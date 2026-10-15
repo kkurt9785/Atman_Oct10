@@ -57,12 +57,14 @@ export function ActivityArea({
   initialLocations,
   buttonLabel = '다음 단계',
   showHeader = true,
+  disabled = false,
 }: {
   onNext: (areas: AreaPref[]) => void;
   onSkip?: () => void;
   initialLocations?: AreaPref[];
   buttonLabel?: string;
   showHeader?: boolean;
+  disabled?: boolean;
 }) {
   const [primary, setPrimary] = useState<Area>({
     label: initialLocations?.[0]?.label ?? '수원 팔달구',
@@ -202,7 +204,7 @@ export function ActivityArea({
       </p>
 
       <div className="mt-auto">
-        <Button onClick={() => {
+        <Button disabled={disabled} onClick={() => {
           const result: AreaPref[] = [{
             label: primary.label, radius_km: primaryRadius,
             lat: primary.lat, lng: primary.lng,

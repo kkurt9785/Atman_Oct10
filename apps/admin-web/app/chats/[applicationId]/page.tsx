@@ -1,161 +1,19 @@
 'use client';
-
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 import { formatDate } from '@/lib/format';
+import { MatchChatView } from '@/components/safety/MatchChatView';
 import { getChatHeader, type ChatHeader } from './actions';
-
-type Message = {
-  id: string;
-  sender_type: 'worker' | 'facility' | 'system';
-  body: string;
-  created_at: string;
-};
-
-function timeLabel(iso: string) {
-  const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
 export default function AdminChatPage() {
-  const router = useRouter();
   const { applicationId } = useParams<{ applicationId: string }>();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  const [open, setOpen] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState('');
   const [header, setHeader] = useState<ChatHeader | null>(null);
-  const [loaded, setLoaded] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const quickReplies=['채용이 확정됐어요.','예정 시간에 와주세요.','도착하면 채팅 남겨주세요.'];
-
-  const load = useCallback(async () => {
-    const [{ data: rows }, { data: isOpen }] = await Promise.all([
-      supabase.from('chat_messages')
-        .select('id, sender_type, body, created_at')
-        .eq('application_id', applicationId)
-        .order('created_at'),
-      supabase.rpc('chat_is_open', { p_application_id: applicationId }),
-    ]);
-    setMessages((rows ?? []) as Message[]);
-    setOpen(isOpen === true);
-    setLoaded(true);
+  useEffect(() => {
+    let active = true;
+    setHeader(null);
+    void getChatHeader(applicationId).then(value => { if (active) setHeader(value); }).catch(() => undefined);
+    return () => { active = false; };
   }, [applicationId]);
-
-  // 상단 제목용 — 실패해도 채팅은 그대로 쓴다
-  useEffect(() => {
-    getChatHeader(applicationId).then(setHeader).catch(() => setHeader(null));
-  }, [applicationId]);
-
-  useEffect(() => {
-    load();
-    const channel = supabase
-      .channel(`chat-${applicationId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'chat_messages',
-        filter: `application_id=eq.${applicationId}`,
-      }, (payload) => {
-        setMessages((prev) =>
-          prev.some((m) => m.id === (payload.new as Message).id)
-            ? prev
-            : [...prev, payload.new as Message]
-        );
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [applicationId, load]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  async function send() {
-    const body = input.trim();
-    if (!body || sending) return;
-    setSending(true);
-    setError('');
-    const { data, error: err } = await supabase.rpc('send_chat_message', {
-      p_application_id: applicationId,
-      p_body: body,
-    });
-    setSending(false);
-    if (err) {
-      setError(err.message.replace(/^.*: /, ''));
-      return;
-    }
-    setInput('');
-    if (data) {
-      setMessages((prev) => prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message]);
-    }
-    // 워커 푸시 즉시 발송 (Hobby cron 보완)
-    fetch('/api/chat/nudge', { method: 'POST' }).catch(() => undefined);
-  }
-
-  return (
-    <div className="flex flex-col h-dvh bg-bg">
-      <div className="bg-white px-5 pt-4 pb-3 flex items-center gap-3 border-b border-line flex-shrink-0">
-        <button onClick={() => router.back()} aria-label="뒤로 가기" className="text-ink text-[1.25rem] leading-none -ml-2 flex h-11 w-11 items-center justify-center">←</button>
-        <div className="flex-1">
-          <h1 className="text-[1rem] font-extrabold text-ink">{header ? `${header.workerName}님과 채팅` : '근무자 채팅'}</h1>
-          <p className="text-[0.6875rem] text-tertiary">{header?.shiftDate ? `${formatDate(header.shiftDate)} ${header.startTime} 근무 · ` : ''}개인 연락처 대신 채팅을 써 주세요</p>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-2">
-        {loaded && messages.length === 0 && (
-          <div className="m-auto max-w-[260px] text-center">
-            <p className="text-body font-bold text-ink">아직 대화가 없어요</p>
-            <p className="mt-1 text-label text-sub">{open ? '아래 문구를 누르면 바로 입력돼요. 근무 시간·위치 안내를 먼저 보내 보세요.' : '이 채팅은 종료됐어요.'}</p>
-          </div>
-        )}
-        {messages.map((m) =>
-          m.sender_type === 'system' ? (
-            <div key={m.id} className="bg-primary/5 border border-primary/15 rounded-2xl px-4 py-3 text-[0.8125rem] text-ink whitespace-pre-line">
-              {m.body}
-            </div>
-          ) : (
-            <div key={m.id} className={`max-w-[78%] ${m.sender_type === 'facility' ? 'self-end' : 'self-start'}`}>
-              <div className={`rounded-2xl px-3.5 py-2.5 text-[0.875rem] whitespace-pre-line ${
-                m.sender_type === 'facility' ? 'bg-primary text-white rounded-br-md' : 'bg-white text-ink border border-line rounded-bl-md'
-              }`}>
-                {m.body}
-              </div>
-              <p className={`text-[0.6875rem] text-tertiary mt-0.5 ${m.sender_type === 'facility' ? 'text-right' : ''}`}>
-                {m.sender_type === 'worker' ? '근무자 · ' : ''}{timeLabel(m.created_at)}
-              </p>
-            </div>
-          )
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      <div className="bg-white border-t border-line px-4 pt-3 pb-6 flex-shrink-0">
-        {error && <p className="text-[0.75rem] font-bold text-red-500 mb-2">{error}</p>}
-        {open ? (
-          <><div className="mb-2 flex gap-2 overflow-x-auto pb-0.5">{quickReplies.map(reply=><button key={reply} type="button" onClick={()=>setInput(reply)} className="h-8 shrink-0 rounded-full border border-line bg-white px-3 text-[0.6875rem] font-bold text-sub">{reply}</button>)}</div><div className="flex gap-2">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) send(); }}
-              placeholder="메시지 입력"
-              className="flex-1 h-11 px-4 bg-bg rounded-xl text-[0.875rem] text-ink outline-none"
-            />
-            <button
-              onClick={send}
-              disabled={!input.trim() || sending}
-              className="h-11 px-4 rounded-xl bg-primary text-white text-[0.875rem] font-bold disabled:opacity-40 flex-shrink-0"
-            >
-              전송
-            </button>
-          </div></>
-        ) : (
-          <p className="text-[0.8125rem] text-tertiary text-center py-2">🔒 종료된 채팅이에요 — 기록은 계속 확인할 수 있어요</p>
-        )}
-      </div>
-    </div>
-  );
+  return <MatchChatView client={supabase} applicationId={applicationId} variant="admin" title={header ? `${header.workerName}님과 채팅` : '근무자 채팅'}
+    subtitle={`${header?.shiftDate ? `${formatDate(header.shiftDate)} ${header.startTime} 근무 · ` : ''}개인 연락처 대신 채팅을 써 주세요`} />;
 }

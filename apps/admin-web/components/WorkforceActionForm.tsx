@@ -16,22 +16,27 @@ export function WorkforceActionForm({
   onSuccess?:(data:unknown)=>void;
 }){
   const formRef=useRef<HTMLFormElement>(null);
+  const pending=useRef(false);
   const router=useRouter();
   const [loading,setLoading]=useState(false);
   const [message,setMessage]=useState('');
   const [error,setError]=useState('');
   async function submit(event:React.FormEvent<HTMLFormElement>){
     event.preventDefault();
+    if(pending.current)return;
+    pending.current=true;
     setLoading(true);setError('');setMessage('');
     const data=new FormData(event.currentTarget);
     Object.entries(values??{}).forEach(([key,value])=>data.set(key,value));
+    try{
     const result=await runWorkforceAction(kind,data);
-    setLoading(false);
     if(!result.ok){setError(result.error??'처리하지 못했어요.');return;}
     if(resetOnSuccess)formRef.current?.reset();
     setMessage(successMessage??'처리됐어요.');
     onSuccess?.(result.data);
     router.refresh();
+    }catch{setError('처리 결과를 확인하지 못했어요. 목록을 확인한 뒤 다시 시도해 주세요.');}
+    finally{pending.current=false;setLoading(false);}
   }
   return <form ref={formRef} onSubmit={submit} className={className}>
     <fieldset disabled={loading} className="contents disabled:opacity-60">{children}</fieldset>

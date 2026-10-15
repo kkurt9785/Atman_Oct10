@@ -62,6 +62,7 @@ export function PrivacySection({ dark = false }: { dark?: boolean }) {
           <Link href="/legal/privacy" className="underline">개인정보 처리방침</Link>
           <Link href="/legal/location" className="underline">위치정보 이용약관</Link>
         </div>
+        <Link href="/safety" className={`flex min-h-12 items-center justify-between px-5 py-4 text-[14px] font-semibold ${dark ? 'text-white/70' : 'text-sub'}`}><span>대화 안전·차단 관리</span><span aria-hidden="true">›</span></Link>
         <Link href="/settings/withdraw" className={`flex items-center justify-between px-5 py-4 text-[14px] font-semibold ${dark ? 'text-white/70' : 'text-sub'}`}>
           <span>회원 탈퇴</span><span aria-hidden="true">›</span>
         </Link>

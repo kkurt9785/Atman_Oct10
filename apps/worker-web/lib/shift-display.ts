@@ -63,8 +63,7 @@ export function mobilityLabel(shift: ShiftDisplayLike) {
   }
 
   const roundedKm = km < 10 ? km.toFixed(1) : Math.round(km).toString();
-  const minutes = Math.max(8, Math.round((km / 22) * 60 + 8));
-  return `${roundedKm}km · 이동 약 ${minutes}분`;
+  return `직선거리 ${roundedKm}km`;
 }
 
 // 이미 시작한 근무는 지원할 수 없다 — 서버 조회가 오늘 공고를 시간과 상관없이 돌려줘서 화면에서 한 번 더 거른다

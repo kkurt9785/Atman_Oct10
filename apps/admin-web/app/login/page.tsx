@@ -215,6 +215,7 @@ function LoginInner() {
         >
           근무하러 오셨나요? <span className="font-bold text-primary">잇닿 워커 앱으로 →</span>
         </a>
+        <a href="/privacy" className="flex min-h-11 items-center justify-center text-sm text-sub underline">개인정보 처리방침</a>
       </div>
     </div>
   );

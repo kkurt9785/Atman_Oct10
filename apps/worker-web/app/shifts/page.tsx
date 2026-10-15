@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { FacilitySheet } from '@/components/shifts/FacilitySheet';
+import { compareShifts, type ShiftSort } from '@/lib/shift-discovery';
 import { dateKST } from '@/lib/date';
 import { areaLabel, dateLabel, distanceKm, facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { SHIFT_ROLE_LABEL, type ShiftRole } from '@/lib/roles';
@@ -28,13 +29,14 @@ export type Shift = {
   distance_meters?: number | null;
 };
 
-type DateFilter = 'today' | 'week' | 'all';
+type DateFilter = 'today' | 'week' | 'all' | 'custom';
 type TimeFilter = 'all' | 'day' | 'evening' | 'night';
 
 const DATE_FILTERS: Array<{ value: DateFilter; label: string }> = [
   { value: 'today', label: '오늘' },
-  { value: 'week', label: '이번주' },
-  { value: 'all', label: '전체' },
+  { value: 'week', label: '앞으로 7일' },
+  { value: 'all', label: '전체 날짜' },
+  { value: 'custom', label: '날짜 선택' },
 ];
 
 const TIME_FILTERS: Array<{ value: TimeFilter; label: string }> = [
@@ -54,7 +56,7 @@ function timeBucket(shift: Shift) {
 function matchesDate(shift: Shift, filter: DateFilter) {
   const today = dateKST();
   if (filter === 'today') return shift.shift_date === today;
-  if (filter === 'week') return shift.shift_date >= today && shift.shift_date <= dateKST(7);
+  if (filter === 'week') return shift.shift_date >= today && shift.shift_date <= dateKST(6);
   return true;
 }
 
@@ -77,8 +79,9 @@ function ChipRow<T extends string>({
       {options.map((option) => (
         <button
           key={option.value}
+          type="button" aria-pressed={value === option.value}
           onClick={() => onChange(option.value)}
-          className={`whitespace-nowrap px-3.5 py-2 rounded-full text-[13px] font-bold ${
+          className={`min-h-11 whitespace-nowrap px-3.5 py-2 rounded-full text-[13px] font-bold ${
             value === option.value ? 'bg-primary text-white' : 'bg-white text-sub border border-line'
           }`}
         >
@@ -92,9 +95,8 @@ function ChipRow<T extends string>({
 function groupShifts(shifts: Shift[]) {
   const groups = new Map<string, { title: string; shifts: Shift[] }>();
   for (const shift of shifts) {
-    const bucket = timeBucket(shift);
-    const key = `${shift.shift_date}-${bucket.key}`;
-    const title = `${dateLabel(shift.shift_date)} · ${bucket.label}`;
+    const key = shift.shift_date;
+    const title = dateLabel(shift.shift_date);
     const current = groups.get(key) ?? { title, shifts: [] };
     current.shifts.push(shift);
     groups.set(key, current);
@@ -169,11 +171,21 @@ export default function ShiftsPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [visibleLimit, setVisibleLimit] = useState(10);
+  const [sort,setSort]=useState<ShiftSort>('date');
+  const [selectedArea,setSelectedArea]=useState('all');
+  const [areaLabels,setAreaLabels]=useState<string[]>([]);
+  const [fromDate,setFromDate]=useState(dateKST()),[toDate,setToDate]=useState(dateKST(6));
+  const [loadError,setLoadError]=useState(''),[retry,setRetry]=useState(0);
 
   useEffect(() => {
+    let active=true;
     async function load() {
-      const highlightedShiftId = new URLSearchParams(window.location.search).get('highlight');
-      const { data: { user } } = await supabase.auth.getUser();
+      setLoading(true);setLoadError('');
+      try {
+      const highlightedShiftId = selectedArea==='all'?new URLSearchParams(window.location.search).get('highlight'):null;
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if(!active)return;
+      if(authError&&authError.name!=='AuthSessionMissingError')throw new Error('로그인 상태를 확인하지 못했어요. 다시 시도해 주세요.');
       let appliedShiftIds = new Set<string>();
 
       if (!user) {
@@ -181,7 +193,8 @@ export default function ShiftsPage() {
         // 비로그인 둘러보기는 공개 RPC(list_public_shifts)만 쓴다 — 데모 사업장·연락처·좌표 제외.
         // shifts 테이블 직접 조회는 데모 공고까지 그대로 노출됐다.
         const { data: publicRows, error } = await supabase.rpc('list_public_shifts', { p_limit: 100 });
-        if (error) console.error('[shifts] public browse failed', error);
+        if(!active)return;
+        if (error) throw new Error('공고를 불러오지 못했어요. 다시 시도해 주세요.');
         const rows = ((publicRows ?? []) as Array<Record<string, unknown>>).map((row) => {
           const start = String(row.start_time ?? ''); const end = String(row.end_time ?? '');
           const isOvernight = end !== '' && start !== '' && end <= start;
@@ -209,11 +222,14 @@ export default function ShiftsPage() {
         return;
       }
 
-      const { data: worker } = await supabase
+      const { data: worker, error: workerError } = await supabase
         .from('workers')
         .select('id, role, verification_status')
         .eq('auth_user_id', user.id)
         .maybeSingle();
+      if(!active)return;
+      if(workerError)throw new Error('프로필을 확인하지 못했어요. 다시 시도해 주세요.');
+      setIsGuest(false);
       // 자격 확인은 채용 확정 전에 사업장이 직접 수행한다(잇닿은 심사기관이 아님).
       // 약국 사무·전산직은 이력서 제출 후 자동 승인되므로 기존 경로를 그대로 둔다.
       const progressiveRole = worker?.role === 'rn' || worker?.role === 'na' || worker?.role === 'pharmacist';
@@ -226,13 +242,16 @@ export default function ShiftsPage() {
       }
       setReviewPending(false);
 
-      const [{ data: appData }, { data: secureRows, error: discoveryError }] = await Promise.all([
+      const [{ data: appData, error: applicationsError }, { data: secureRows, error: discoveryError }, { data: preferences, error: preferencesError }] = await Promise.all([
         supabase.from('shift_applications').select('shift_id').eq('worker_id', worker.id).in('status', ['applied', 'accepted']),
-        supabase.rpc('get_nearby_open_shifts_secure', { p_lat: null, p_lng: null, p_pref_labels: null }),
+        supabase.rpc('get_nearby_open_shifts_secure', { p_lat: null, p_lng: null, p_pref_labels: selectedArea==='all'?null:[selectedArea] }),
+        supabase.from('worker_location_prefs').select('locations').eq('worker_id',user.id).maybeSingle(),
       ]);
+      if(!active)return;
+      if(applicationsError||discoveryError||preferencesError)throw new Error('근무 조건과 공고를 불러오지 못했어요. 다시 시도해 주세요.');
+      setAreaLabels([...new Set(((preferences?.locations??[]) as {label:string}[]).map(area=>area.label).filter(Boolean))]);
       appliedShiftIds = new Set((appData ?? []).map((row: { shift_id: string }) => row.shift_id));
       setApplied(appliedShiftIds);
-      if (discoveryError) console.error('[shifts] secure discovery failed', discoveryError);
       const mapped = ((secureRows ?? []) as Record<string, unknown>[]).map((row) => ({
         ...row,
         facilities: { name: row.facility_name as string, address_text: row.address_text as string | null },
@@ -251,6 +270,7 @@ export default function ShiftsPage() {
             .eq('audience', 'public')
             .gte('shift_date', dateKST())
             .maybeSingle();
+          if(!active)return;
           highlighted = directShift && !hasStarted(directShift as unknown as Shift) ? directShift as unknown as Shift : undefined;
           if (highlighted) visibleShifts = [highlighted, ...visibleShifts];
         }
@@ -262,10 +282,12 @@ export default function ShiftsPage() {
       }
 
       setShifts(visibleShifts);
-      setLoading(false);
+      } catch(caught) { if(active)setLoadError(caught instanceof Error?caught.message:'연결을 확인하고 다시 시도해 주세요.'); }
+      finally { if(active)setLoading(false); }
     }
     void load();
-  }, []);
+    return()=>{active=false;};
+  }, [selectedArea,retry]);
 
   function handleApplied(shiftId: string) {
     setShifts((prev) => prev.filter((s) => s.id !== shiftId));
@@ -283,16 +305,14 @@ export default function ShiftsPage() {
     setVisibleLimit(10);
   }
 
+  const invalidDates=dateFilter==='custom'&&(!fromDate||!toDate||toDate<fromDate);
   const filtered = shifts
-    .filter((shift) => matchesDate(shift, dateFilter) && matchesTime(shift, timeFilter))
-    .sort((a, b) => {
-      const date = a.shift_date.localeCompare(b.shift_date);
-      if (date !== 0) return date;
-      return b.estimated_total_pay - a.estimated_total_pay;
-    });
-  const recommended = filtered.slice(0, 3);
-  const grouped = groupShifts(filtered.slice(3, visibleLimit));
-  const visibleCount = Math.min(filtered.length, visibleLimit);
+    .filter(shift => matchesDate(shift,dateFilter)&&matchesTime(shift,timeFilter)
+      &&(dateFilter!=='custom'||(!invalidDates&&shift.shift_date>=fromDate&&shift.shift_date<=toDate)))
+    .sort((a,b)=>compareShifts(a,b,sort));
+  const visible = filtered.slice(0,visibleLimit);
+  const grouped = groupShifts(visible);
+  const visibleCount = visible.length;
 
   if (loading) {
     return (
@@ -325,12 +345,22 @@ export default function ShiftsPage() {
         {!isGuest&&<Link href="/map" className="h-11 px-4 rounded-xl bg-primary/10 text-primary flex items-center text-[13px] font-bold whitespace-nowrap">🗺 지도 보기</Link>}
       </div>
 
+      {!isGuest&&<div className="mb-4 rounded-xl bg-bg p-3">
+        <div className="flex items-center justify-between gap-2"><p className="text-sm font-bold text-ink">활동 지역</p><Link href="/settings/location" className="inline-flex min-h-11 items-center text-sm font-bold text-primary">지역 설정</Link></div>
+        {areaLabels.length>0?<ChipRow options={[{value:'all',label:areaLabels.length>1?'두 지역 함께':'설정한 지역'},...areaLabels.map(label=>({value:label,label}))]} value={selectedArea} onChange={value=>{setSelectedArea(value);setVisibleLimit(10);}}/>:<p className="text-sm text-sub">원하는 근무 지역을 설정해 보세요.</p>}
+      </div>}
       <div className="flex flex-col gap-2 mb-5">
         <ChipRow options={DATE_FILTERS} value={dateFilter} onChange={handleDateFilter} />
+        {dateFilter==='custom'&&<div className="grid grid-cols-2 gap-2 rounded-xl bg-bg p-3">
+          <label className="min-w-0 text-sm font-bold text-sub">가능한 시작일<input aria-label="가능한 시작일" type="date" min={dateKST()} value={fromDate} onChange={e=>{setFromDate(e.target.value);setVisibleLimit(10);}} className="mt-1 h-12 min-w-0 w-full rounded-xl border border-line bg-white px-2 text-base"/></label>
+          <label className="min-w-0 text-sm font-bold text-sub">가능한 종료일<input aria-label="가능한 종료일" type="date" min={fromDate||dateKST()} value={toDate} onChange={e=>{setToDate(e.target.value);setVisibleLimit(10);}} className="mt-1 h-12 min-w-0 w-full rounded-xl border border-line bg-white px-2 text-base"/></label>
+          {invalidDates&&<p role="alert" className="col-span-2 text-sm text-red-600">시작일과 종료일을 확인해 주세요.</p>}
+        </div>}
         <ChipRow options={TIME_FILTERS} value={timeFilter} onChange={handleTimeFilter} />
       </div>
 
-      {filtered.length === 0 ? (
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-sub">{sort==='distance'?'선택한 지역 중심과의 직선거리 기준':sort==='wage'?'시간당 금액이 높은 순서':'근무 날짜·시작 시간이 빠른 순서'}</p><label className="text-sm font-bold text-sub">정렬 <select aria-label="공고 정렬" value={sort} onChange={e=>{setSort(e.target.value as ShiftSort);setVisibleLimit(10);}} className="min-h-11 rounded-xl border border-line bg-white px-2 text-base"><option value="date">날짜·시간순</option>{!isGuest&&<option value="distance">가까운 순</option>}<option value="wage">높은 시급순</option></select></label></div>
+      {loadError?<section role="alert" className="rounded-xl bg-red-50 p-5 text-center"><p className="text-sm font-bold text-red-600">{loadError}</p><button type="button" onClick={()=>setRetry(value=>value+1)} className="mt-3 min-h-12 rounded-xl bg-primary px-5 font-bold text-white">다시 불러오기</button></section>:invalidDates?null:filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 gap-3">
           <span className="text-5xl">🔍</span>
           <p className="text-[17px] font-bold text-ink">{reviewPending ? '프로필을 완성하면 공고가 열려요' : '조건에 맞는 근무가 없어요'}</p>
@@ -347,6 +377,7 @@ export default function ShiftsPage() {
             onClick={() => {
               setDateFilter('all');
               setTimeFilter('all');
+              setSelectedArea('all');
               setVisibleLimit(10);
             }}
             className="text-[14px] font-bold text-primary"
@@ -356,46 +387,11 @@ export default function ShiftsPage() {
         </div>
       ) : (
         <>
-          {recommended.length > 0 && (
-            <section className="mb-6">
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-[17px] font-extrabold text-ink">내 조건과 가까운 공고</h2>
-                <span className="text-[12px] text-tertiary">상위 {recommended.length}건</span>
-              </div>
-              {recommended.map((s) => (
-                <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} showRole={isGuest} />
-              ))}
-            </section>
-          )}
-
-          {grouped.length > 0 && (
-            <section>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <h2 className="text-[17px] font-extrabold text-ink">시간대별 공고</h2>
-                <span className="text-[12px] text-tertiary">
-                  {visibleCount}/{filtered.length}건 표시
-                </span>
-              </div>
-
-              {grouped.map((group) => (
-                <div key={group.title} className="mb-5">
-                  <p className="text-[13px] font-bold text-sub mb-2 px-1">{group.title}</p>
-                  {group.shifts.map((s) => (
-                    <ShiftCard key={s.id} shift={s} onApply={() => setSelected(s)} onFacility={() => setFacilityInfo({ id: s.facility_id, name: facilityName(s) })} showRole={isGuest} />
-                  ))}
-                </div>
-              ))}
-
-              {visibleLimit < filtered.length && (
-                <button
-                  onClick={() => setVisibleLimit((value) => value + 10)}
-                  className="w-full h-12 rounded-xl border border-line bg-white text-[15px] font-bold text-ink"
-                >
-                  10건 더 보기
-                </button>
-              )}
-            </section>
-          )}
+          <section aria-label="근무 공고">
+            <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold">{sort==='date'?'날짜별 근무':sort==='distance'?'가까운 근무':'시급이 높은 근무'}</h2><span className="text-xs text-sub">{visibleCount}/{filtered.length}건 표시</span></div>
+            {sort==='date'?grouped.map(group=><div key={group.title} className="mb-5"><h3 className="mb-2 px-1 text-sm font-bold text-sub">{group.title}</h3>{group.shifts.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s)})} showRole={isGuest}/>)}</div>):visible.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s)})} showRole={isGuest}/>)}
+            {visibleLimit<filtered.length&&<button type="button" onClick={()=>setVisibleLimit(value=>value+10)} className="h-12 w-full rounded-xl border border-line bg-white text-base font-bold">10건 더 보기</button>}
+          </section>
         </>
       )}
 

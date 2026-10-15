@@ -12,6 +12,20 @@ beforeEach(() => {
   mock.remove.mockResolvedValue({ error: null });
 });
 describe('알림 발송 결과 분류', () => {
+  it('발송 직전 차단을 다시 확인해 이미 처리 중이던 채팅 알림도 보내지 않는다', async () => {
+    mock.rpc.mockImplementation(async name => name === 'claim_notification_outbox'
+      ? { data: [{ ...row, data: { type: 'chat' } }], error: null }
+      : name === 'is_safety_outbox_allowed' ? { data: false, error: null } : { error: null });
+    expect(await dispatchPendingNotifications()).toMatchObject({ discarded: 1, sent: 0 });
+    expect(mock.send).not.toHaveBeenCalled();
+  });
+  it('차단 상태를 확인할 수 없는 채팅은 발송하지 않고 재시도한다', async () => {
+    mock.rpc.mockImplementation(async name => name === 'claim_notification_outbox'
+      ? { data: [{ ...row, data: { kind: 'workroom.direct' } }], error: null }
+      : name === 'is_safety_outbox_allowed' ? { data: null, error: { message: 'offline' } } : { error: null });
+    expect(await dispatchPendingNotifications()).toMatchObject({ failed: 1, sent: 0 });
+    expect(mock.send).not.toHaveBeenCalled();
+  });
   it('구독 조회 실패는 폐기하지 않고 재시도 대상으로 남긴다', async () => {
     mock.eq.mockResolvedValue({ data: null, error: { message: 'temporary db error' } });
     expect(await dispatchPendingNotifications()).toMatchObject({ failed: 1, discarded: 0, sent: 0 });
