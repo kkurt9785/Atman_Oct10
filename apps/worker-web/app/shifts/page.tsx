@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { ApplySheet } from '@/components/shifts/ApplySheet';
 import { FacilitySheet } from '@/components/shifts/FacilitySheet';
 import { compareShifts, type ShiftSort } from '@/lib/shift-discovery';
+import { slotLabel } from '@/lib/work-agenda';
 import { dateKST } from '@/lib/date';
 import { areaLabel, dateLabel, distanceKm, facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { SHIFT_ROLE_LABEL, type ShiftRole } from '@/lib/roles';
@@ -136,10 +137,10 @@ function ShiftCard({ shift, onApply, onFacility, showRole = false }: { shift: Sh
 
       <p className="text-[20px] font-extrabold text-ink leading-tight">{timeLabel(shift)}</p>
       <div className="mt-2 flex flex-wrap gap-1.5">
+        <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-bold text-primary">{slotLabel(shift.start_time, shift.required_role)}</span>
         {area&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">📍 {area}</span>}
         {distanceKm(shift) != null && <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>}
         {shift.department&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{shift.department}</span>}
-        {shift.is_overnight&&<span className="rounded-full bg-kakao px-2.5 py-1 text-[11px] font-bold text-ink">야간</span>}
       </div>
 
       {/* 시급 / 예상 지급액 + 지원 버튼 */}
