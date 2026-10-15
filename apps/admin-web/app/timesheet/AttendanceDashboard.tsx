@@ -36,7 +36,7 @@ const STATUS:Record<string,{label:string;style:string}>={
 const AUTH:Record<string,string>={GPS:'위치 인증',GPS_QR:'위치 + 동적 QR',QR:'동적 QR',QR_FALLBACK:'QR 보완 인증',WORKPLACE_NET:'사업장 네트워크',ADMIN:'관리자 처리',qr:'기존 QR',button:'원터치'};
 const FAIL:Record<string,string>={OUT_OF_RANGE:'사업장 반경 밖',GPS_ERROR:'위치 확인 실패',GPS_ACCURACY_LOW:'GPS 정확도 낮음',QR_EXPIRED:'QR 만료',QR_INVALID:'QR 무효',HOSPITAL_MISMATCH:'사업장 정보 불일치',TIME_NOT_ALLOWED:'인증 가능시간 아님',DUPLICATE_ATTENDANCE:'중복 요청',NOT_ASSIGNED:'배정 정보 없음',NOT_SCHEDULED:'오늘 근무 일정 없음',INVALID_STATE:'처리 순서 오류',ADMIN_REQUIRED:'관리자 승인 필요'};
 const ENGAGEMENT:Record<string,string>={regular:'상시 직원',fixed_term:'기간제',temporary:'임시 계약',daily:'단기 근무'};
-const fmt=(iso:string|null|undefined)=>iso?new Date(iso).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false}):'—';
+const fmt=(iso:string|null|undefined)=>iso?new Date(iso).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'}):'—';
 
 function group(status:string):Filter{
   // 지각은 이미 출근한 사람 — '확인 필요'에 가두지 않고 근무 중 목록에서 뱃지로 보여준다(수동 처리 버튼도 거기 있음)

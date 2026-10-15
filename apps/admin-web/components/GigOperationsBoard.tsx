@@ -1,11 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase-browser';
 import type { GigOperationStatus, GigOperationsBoard as Board, GigOperationWorker } from '@/lib/db/gig-operations';
 import { projectRunsOn, projectScheduleText, type GigProject } from '@/lib/db/gig-projects';
+
+import { attendanceTimeKST as time, checkDeadlineKST, standaloneWorkers } from '@/lib/operations-ui';
 
 type Filter = 'all'|'issue'|'working'|'invite'|'pay';
 type Compose = 'message'|'check'|null;
@@ -15,7 +17,6 @@ const STATUS_STYLE: Record<GigOperationStatus,string> = {
   working:'bg-emerald-50 text-emerald-700',review:'bg-amber-50 text-amber-700',completed:'bg-bg text-sub',
   bank:'bg-amber-50 text-amber-700',pay:'bg-primary/10 text-primary',paid:'bg-emerald-50 text-emerald-700',off:'bg-bg text-sub',
 };
-const time = (value:string|null) => value ? new Date(value).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false}) : '—';
 
 function belongs(row:GigOperationWorker,filter:Filter) {
   if(filter==='all') return true;
@@ -26,8 +27,8 @@ function belongs(row:GigOperationWorker,filter:Filter) {
 }
 function actionFor(row:GigOperationWorker) {
   if(row.status==='invite') return {href:'/staff?view=contract&entry=gigworker',label:'초대 확인'};
-  if(row.status==='review'||row.status==='late') return {href:'/timesheet',label:'근태 처리'};
-  if(row.status==='pay'||row.status==='bank'||row.status==='paid') return {href:'/gig-pay',label:'지급 확인'};
+  if(row.status==='review'||row.status==='late') return {href:`/timesheet?staff=${encodeURIComponent(row.staffId)}`,label:'근태 처리'};
+  if(row.status==='pay'||row.status==='bank'||row.status==='paid') return {href:`/gig-pay?staff=${encodeURIComponent(row.staffId)}`,label:'지급 확인'};
   return {href:`/workroom?staff=${row.staffId}`,label:'대화'};
 }
 
@@ -40,6 +41,22 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
   const [body,setBody]=useState('오늘 근무 일정을 확인해 주세요. 확인 버튼을 눌러 주세요.');
   const [dueAt,setDueAt]=useState('');
   const [sending,setSending]=useState(false);
+  const sendingRef=useRef(false);
+  const dialogRef=useRef<HTMLElement>(null);
+  useEffect(()=>{
+    if(!compose)return;
+    const previous=document.activeElement;
+    const onKey=(event:KeyboardEvent)=>{
+      if(event.key==='Escape') {event.preventDefault();if(!sendingRef.current)setCompose(null);}
+      if(event.key!=='Tab')return;
+      const controls=Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea:not(:disabled), input:not(:disabled), [tabindex="0"]')??[]);
+      const first=controls[0],last=controls[controls.length-1];
+      if(event.shiftKey&&(document.activeElement===first||!dialogRef.current?.contains(document.activeElement))) {event.preventDefault();last?.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||!dialogRef.current?.contains(document.activeElement))) {event.preventDefault();first?.focus();}
+    };
+    document.addEventListener('keydown',onKey);
+    return ()=>{document.removeEventListener('keydown',onKey);if(previous instanceof HTMLElement&&previous.isConnected)previous.focus();};
+  },[compose]);
   const [notice,setNotice]=useState('');
   const [error,setError]=useState('');
   const visible=useMemo(()=>board.workers.filter((row)=>belongs(row,filter)),[board.workers,filter]);
@@ -54,18 +71,29 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
     setBody(kind==='check'?'오늘 근무 일정을 확인해 주세요. 확인 버튼을 눌러 주세요.':'');
   }
   async function submitBulk() {
-    if(!compose||selected.size===0||!body.trim())return;
+    if(sendingRef.current||!compose||selected.size===0||!body.trim())return;
+    let deadline: string | null = null;
+    try { deadline = compose==='check' ? checkDeadlineKST(dueAt) : null; }
+    catch (error) { setError(error instanceof Error ? error.message : '확인 기한을 확인해 주세요.'); return; }
+    sendingRef.current=true;
     setSending(true);setError('');
     const ids=[...selected];
+    try {
     const result=compose==='message'
       ? await supabase.rpc('send_staff_workroom_messages',{p_facility_id:facilityId,p_staff_ids:ids,p_body:body.trim()})
-      : await supabase.rpc('create_staff_workroom_checks',{p_facility_id:facilityId,p_staff_ids:ids,p_body:body.trim(),p_due_at:dueAt?new Date(dueAt).toISOString():null});
-    setSending(false);
+      : await supabase.rpc('create_staff_workroom_checks',{p_facility_id:facilityId,p_staff_ids:ids,p_body:body.trim(),p_due_at:deadline});
     if(result.error){setError(result.error.message.replace(/^.*?: /,''));return;}
-    setNotice(`${Number(result.data??ids.length)}명에게 ${compose==='message'?'메시지를 보냈어요.':'출석 확인을 요청했어요.'}`);
+    if(typeof result.data!=='number'||!Number.isInteger(result.data)||result.data<0||result.data>ids.length) {
+      setError('발송 결과를 확인하지 못했어요. 다시 보내기 전에 대화방에서 전달 여부를 확인해 주세요.');return;
+    }
+    if(result.data===0){setError('전달된 대상이 없어요. 근무자의 앱 연결 상태를 확인해 주세요.');return;}
+    setNotice(`선택 ${ids.length}명 중 ${result.data}명에게 ${compose==='message'?'메시지를 전달했어요.':'출석 확인을 요청했어요.'}${result.data<ids.length?' 일부 대상은 앱 연결·근무 상태가 변경되어 제외됐어요.':''} 알림 수신 여부는 기기 설정에 따라 달라요.`);
     setCompose(null);setSelected(new Set());setDueAt('');
     fetch('/api/chat/nudge',{method:'POST'}).catch(()=>undefined);
     router.refresh();
+    } catch {
+      setError('연결이 끊겨 발송 결과를 확인하지 못했어요. 다시 보내기 전에 대화방에서 전달 여부를 확인해 주세요.');
+    } finally { sendingRef.current=false;setSending(false); }
   }
 
   const summary:[Filter,string,number,string][]=[
@@ -112,12 +140,12 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
 
     <section className="mt-6 rounded-3xl bg-white p-4 shadow-sm">
       <div className="flex items-end justify-between px-1"><div><p className="text-[0.6875rem] font-bold text-primary">다가오는 일정</p><h2 className="mt-0.5 text-[1.125rem] font-extrabold text-ink">7일 근무 일정</h2></div></div>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{board.days.map((item)=><button type="button" key={item.date} aria-label={`${item.date} ${item.dayLabel}`} aria-pressed={selectedDate===item.date} onClick={()=>setSelectedDate(item.date)} className={`min-w-[3.625rem] shrink-0 whitespace-nowrap rounded-2xl px-2 py-2.5 text-center ${selectedDate===item.date?'bg-ink text-white':'bg-bg text-sub'}`}><span className="block text-[0.6875rem] font-bold">{item.dayLabel}</span><b className="mt-0.5 block text-[0.8125rem]">{item.dateLabel}</b><span className={`mt-1 block text-[0.6875rem] ${selectedDate===item.date?'text-white/60':'text-tertiary'}`}>{(()=>{const n=projects.filter((project)=>projectRunsOn(project,item.date)).length;return n?`${n}건`:`${item.workers.length}명`;})()}</span></button>)}</div>
-      {(()=>{const dayProjects=day?projects.filter((project)=>projectRunsOn(project,day.date)):[];return <div className="mt-3 divide-y divide-line rounded-2xl bg-bg px-3">{dayProjects.length?dayProjects.map((project)=><Link key={`${day?.date}:${project.id}`} href={`/gig-work/${project.id}`} className="flex items-center justify-between gap-3 py-3 active:opacity-70"><div className="min-w-0"><b className="text-[0.8125rem] text-ink">{project.title}</b><span className="ml-2 text-[0.6875rem] text-sub">{project.participants.length}/{project.headcount}명 · {project.participants.map((p)=>p.name).join(', ')||'참여자 없음'}</span></div><span className="shrink-0 text-[0.75rem] font-bold text-primary">{project.startTime.slice(0,5)}~{project.endTime.slice(0,5)}</span></Link>):day?.workers.length?day.workers.map((row)=><div key={`${day.date}:${row.staffId}`} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><b className="text-[0.8125rem] text-ink">{row.name}</b><span className="ml-2 text-[0.6875rem] text-sub">{row.title}</span></div><span className="shrink-0 text-[0.75rem] font-bold text-primary">{row.startTime}~{row.endTime}</span></div>):<p className="py-5 text-center text-[0.75rem] text-sub">등록된 근무가 없어요.</p>}</div>;})()}
+      <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{board.days.map((item)=><button type="button" key={item.date} aria-label={`${item.date} ${item.dayLabel}`} aria-pressed={selectedDate===item.date} onClick={()=>setSelectedDate(item.date)} className={`min-w-[3.625rem] shrink-0 whitespace-nowrap rounded-2xl px-2 py-2.5 text-center ${selectedDate===item.date?'bg-ink text-white':'bg-bg text-sub'}`}><span className="block text-[0.6875rem] font-bold">{item.dayLabel}</span><b className="mt-0.5 block text-[0.8125rem]">{item.dateLabel}</b><span className={`mt-1 block text-[0.6875rem] ${selectedDate===item.date?'text-white/60':'text-tertiary'}`}>{(()=>{const n=projects.filter((project)=>projectRunsOn(project,item.date)).length;const extra=standaloneWorkers(item.workers,projects.filter(project=>projectRunsOn(project,item.date))).length;return n?`${n}건${extra?` + ${extra}명`:''}`:`${item.workers.length}명`;})()}</span></button>)}</div>
+      {(()=>{const dayProjects=day?projects.filter((project)=>projectRunsOn(project,day.date)):[];const individuals=standaloneWorkers(day?.workers??[],dayProjects);return <div className="mt-3 divide-y divide-line rounded-2xl bg-bg px-3">{dayProjects.map((project)=><Link key={`${day?.date}:${project.id}`} href={`/gig-work/${project.id}`} className="flex items-center justify-between gap-3 py-3 active:opacity-70"><div className="min-w-0"><b className="text-[0.8125rem] text-ink">{project.title}</b><span className="ml-2 text-[0.6875rem] text-sub">{project.participants.length}/{project.headcount}명 · {project.participants.map((p)=>p.name).join(', ')||'참여자 없음'}</span></div><span className="shrink-0 text-[0.75rem] font-bold text-primary">{project.startTime.slice(0,5)}~{project.endTime.slice(0,5)}</span></Link>)}{individuals.map((row)=><div key={`${day?.date}:${row.staffId}`} className="flex items-center justify-between gap-3 py-3"><div className="min-w-0"><b className="text-[0.8125rem] text-ink">{row.name}</b><span className="ml-2 text-[0.6875rem] text-sub">{row.title}</span></div><span className="shrink-0 text-[0.75rem] font-bold text-primary">{row.startTime}~{row.endTime}</span></div>)}{!dayProjects.length&&!individuals.length&&<p className="py-5 text-center text-[0.75rem] text-sub">등록된 근무가 없어요.</p>}</div>;})()}
     </section>
 
     {selected.size>0&&<div className="fixed inset-x-3 bottom-[calc(var(--bottom-nav-height)+10px+var(--demo-bar,0px)+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-xl items-center gap-2 rounded-2xl bg-ink p-3 text-white shadow-2xl"><button type="button" onClick={()=>setSelected(new Set())} aria-label="근무자 선택 해제" className="min-h-[44px] shrink-0 px-2 text-[0.75rem] font-extrabold">{selected.size}명 ×</button><button type="button" onClick={()=>openCompose('check')} className="h-11 flex-1 rounded-xl bg-white/10 text-[0.75rem] font-extrabold">출석 확인</button><button type="button" onClick={()=>openCompose('message')} className="h-11 flex-1 rounded-xl bg-primary text-[0.75rem] font-extrabold">메시지</button></div>}
 
-    {compose&&<div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35" onClick={()=>setCompose(null)}><section role="dialog" aria-modal="true" aria-label={compose==='message'?'선택 근무자 메시지':'선택 근무자 출석 확인'} onClick={(event)=>event.stopPropagation()} className="w-full max-w-xl rounded-t-3xl bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-[0.6875rem] font-extrabold text-primary">선택 {selected.size}명</p><h2 className="mt-1 text-[1.25rem] font-extrabold text-ink">{compose==='message'?'개인 메시지 보내기':'출석 확인 요청'}</h2><p className="mt-1 text-[0.75rem] text-sub">각 근무자의 비공개 대화로 따로 전달돼요.</p></div><button type="button" onClick={()=>setCompose(null)} aria-label="닫기" className="h-11 w-11 shrink-0 text-[1.375rem] text-sub">×</button></div><textarea aria-label="전달할 내용" autoFocus value={body} onChange={(event)=>setBody(event.target.value)} maxLength={compose==='check'?500:2000} rows={4} className="mt-4 w-full resize-none rounded-2xl border border-line bg-bg px-4 py-3 text-[0.875rem] text-ink outline-none" placeholder="전달할 내용을 입력하세요"/>{compose==='check'&&<label className="mt-3 block text-[0.6875rem] font-bold text-sub">확인 기한 · 선택<input type="datetime-local" value={dueAt} onChange={(event)=>setDueAt(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line bg-white px-3 text-[0.8125rem]"/></label>}{error&&<p role="alert" className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-[0.75rem] font-bold text-red-600">{error}</p>}<button type="button" onClick={()=>void submitBulk()} disabled={sending||!body.trim()} className="mt-4 h-12 w-full rounded-xl bg-primary text-[0.875rem] font-extrabold text-white disabled:opacity-40">{sending?'보내는 중...':`${selected.size}명에게 보내기`}</button></section></div>}
+    {compose&&<div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35" onClick={()=>{if(!sendingRef.current)setCompose(null);}}><section ref={dialogRef} role="dialog" aria-modal="true" aria-label={compose==='message'?'선택 근무자 메시지':'선택 근무자 출석 확인'} onClick={(event)=>event.stopPropagation()} className="max-h-[90dvh] overflow-y-auto w-full max-w-xl rounded-t-3xl bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-2xl"><div className="flex items-start justify-between"><div><p className="text-[0.6875rem] font-extrabold text-primary">선택 {selected.size}명</p><h2 className="mt-1 text-[1.25rem] font-extrabold text-ink">{compose==='message'?'개인 메시지 보내기':'출석 확인 요청'}</h2><p className="mt-1 text-[0.75rem] text-sub">{facilityName} · 각 근무자의 비공개 대화로 따로 전달돼요.</p></div><button type="button" onClick={()=>{if(!sendingRef.current)setCompose(null);}} aria-label="닫기" className="h-11 w-11 shrink-0 text-[1.375rem] text-sub">×</button></div><p className="mt-3 rounded-xl bg-bg p-3 text-sm text-sub">받는 사람: {board.workers.filter(row=>selected.has(row.staffId)).map(row=>row.name).join(', ')}</p><textarea disabled={sending} aria-label="전달할 내용" autoFocus value={body} onChange={(event)=>setBody(event.target.value)} maxLength={compose==='check'?500:2000} rows={4} className="mt-4 w-full resize-none rounded-2xl border border-line bg-bg px-4 py-3 text-base text-ink outline-none" placeholder="전달할 내용을 입력하세요"/>{compose==='check'&&<label className="mt-3 block text-[0.6875rem] font-bold text-sub">확인 기한 · 한국 시간 · 선택<input disabled={sending} type="datetime-local" value={dueAt} onChange={(event)=>setDueAt(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line bg-white px-3 text-[0.8125rem]"/></label>}{error&&<p role="alert" className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-[0.75rem] font-bold text-red-600">{error}</p>}<button type="button" onClick={()=>void submitBulk()} disabled={sending||!body.trim()} className="mt-4 h-12 w-full rounded-xl bg-primary text-[0.875rem] font-extrabold text-white disabled:opacity-40">{sending?'보내는 중...':`${selected.size}명에게 보내기`}</button></section></div>}
   </>;
 }
