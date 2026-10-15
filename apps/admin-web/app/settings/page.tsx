@@ -11,7 +11,7 @@ import { facilityTypeLabel } from '@/lib/facility-label';
 import { AccountClosureSection } from './AccountClosureSection';
 import { adminClient } from '@/lib/supabase';
 
-const MODE_LABEL: Record<string, string> = { gps_or_qr: '앱에서 버튼만 누르기', gps: '위치(GPS) 우선', gps_qr: '위치 + 동적 QR', qr: '동적 QR만', network: '사업장 Wi-Fi만', admin: '관리자 승인만' };
+const MODE_LABEL: Record<string, string> = { gps_or_qr: '간편 인증', gps: '기존 GPS 우선', gps_qr: '강화 인증 · 위치 + QR', qr: '고급 · 동적 QR만', network: '고급 · 등록 네트워크만', admin: '관리자 처리' };
 type Section = 'location' | 'profile' | 'attendance' | 'brn' | 'admins' | 'account';
 const SECTIONS: Section[] = ['location', 'profile', 'attendance', 'brn', 'admins', 'account'];
 
@@ -74,6 +74,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <section className="px-4 pt-5">
         <p className="mb-2 px-1 text-label font-bold text-sub">서비스 이용</p>
         <div className="overflow-hidden rounded-2xl bg-white shadow-card">
+          <Row href="/sites" title="사업장·현장 관리" detail="여러 행사장·작업장 추가 및 전환" />
           <Row href="/membership" title="잇닿 요금제·결제" detail="이용 중인 요금제와 서비스 청구 내역" />
         </div>
       </section>

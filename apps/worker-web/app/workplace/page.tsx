@@ -59,6 +59,7 @@ function WorkplaceContent() {
     if(!user){
       const query=new URLSearchParams();
       if(attendanceToken)query.set('attendanceToken',attendanceToken);
+      if(params.get('facility'))query.set('facility',params.get('facility')!);
       // 로그인 후 복귀는 atman_auth_next(localStorage) 패턴 — ?next= 파라미터는 읽는 곳이 없다
       window.localStorage.setItem('atman_auth_next',`/workplace${query.size?`?${query}`:''}`);
       window.location.href='/';
@@ -67,7 +68,7 @@ function WorkplaceContent() {
     const {data}=await supabase.from('facility_staff').select('id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)').neq('status','ended').order('created_at',{ascending:false});
     const linked=((data??[]) as Staff[]).filter(item=>!isGigLink(item));
     setStaffList(linked);
-    setSelectedStaffId(linked.find(item=>item.id===params.get('staffId'))?.id??linked[0]?.id??'');
+    setSelectedStaffId(linked.find(item=>facilityOf(item)?.id===params.get('facility'))?.id??linked.find(item=>item.id===params.get('staffId'))?.id??linked[0]?.id??'');
     if(linked.length){
       const facilityIds=[...new Set(linked.map(item=>facilityOf(item)?.id).filter(Boolean))] as string[];
       const {data:settings}=await supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_after_minutes').in('facility_id',facilityIds);
@@ -167,7 +168,7 @@ function WorkplaceContent() {
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
           {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=facilityOf(item)?.name;return <option key={item.id} value={item.id}>{name??'사업장'} · {item.name}</option>;})}</select></label>}
           <div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[12px] font-bold text-primary">{currentAttendance?.check_in_at?'현재 근무 중':'출근 전'}</p><p className="mt-1 text-[13px] text-sub">버튼 한 번으로 사업장 위치를 확인해요. 실내에서 위치가 불안정하면 사업장의 동적 QR로 인증할 수 있어요.</p></div>
-          {!currentAttendance?.check_out_at&&currentAttendance?.status!=='checkout_pending'&&<TouchToCheckButton key={currentAttendance?.check_in_at?'check_out':'check_in'} targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken} mode={staffAttendanceMode} onSuccess={(response:AttendanceResult)=>{const now=new Date().toISOString();const checkingOut=Boolean(currentAttendance?.check_in_at);setAttendance(current=>({...current,[staff.id]:{...(current[staff.id]??{staff_id:staff.id,work_date:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10),check_in_at:null,check_out_at:null}),...(checkingOut?(response.status==='pending'?{status:'checkout_pending'}:{check_out_at:response.checkOutAt??now,status:'completed'}):{check_in_at:response.checkInAt??now,status:'working'})}}));setRefreshKey(k=>k+1);}}/>}
+          {!currentAttendance?.check_out_at&&currentAttendance?.status!=='checkout_pending'&&<TouchToCheckButton key={staff.id+':'+(currentAttendance?.check_in_at?'check_out':'check_in')} targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken} mode={staffAttendanceMode} onSuccess={(response:AttendanceResult)=>{const now=new Date().toISOString();const checkingOut=Boolean(currentAttendance?.check_in_at);setAttendance(current=>({...current,[staff.id]:{...(current[staff.id]??{staff_id:staff.id,work_date:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10),check_in_at:null,check_out_at:null}),...(checkingOut?(response.status==='pending'?{status:'checkout_pending'}:{check_out_at:response.checkOutAt??now,status:'completed'}):{check_in_at:response.checkInAt??now,status:'working'})}}));setRefreshKey(k=>k+1);}}/>}
           {currentAttendance?.status==='checkout_pending'&&<p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간이 확정돼요.</p>}
           {currentAttendance?.check_out_at&&<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">오늘 출퇴근이 완료됐어요.</p>}
           {attendanceToken&&<p className="mt-2 text-center text-[11px] font-bold text-primary">동적 QR을 확인했어요. 위치 확인 후 사업장 정책에 맞게 인증해요.</p>}

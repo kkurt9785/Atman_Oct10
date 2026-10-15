@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { createGigworkerWorkspace } from '@/lib/facility';
 import { CurrentLocationButton, FacilityPinMap } from '@/components/FacilityPinMap';
@@ -19,6 +19,8 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
+  const requestId = useRef<string | null>(null);
+  const submitting = useRef(false);
 
   const naverMapUrl = useMemo(() => {
     const keyword = address || name;
@@ -62,6 +64,7 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
   }
 
   function submit() {
+    if (submitting.current) return;
     if (!name.trim()) {
       setError('근무지 이름을 입력해 주세요.');
       return;
@@ -71,18 +74,24 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
       return;
     }
     setError('');
+    requestId.current ??= crypto.randomUUID();
+    submitting.current = true;
     startTransition(async () => {
+      try {
       const result = await createGigworkerWorkspace({
         name: name.trim(),
         addressText: address.trim() || null,
         lng: point.lng,
         lat: point.lat,
+        requestId: requestId.current!,
       });
       if (!result.ok) {
         setError(result.error ?? '긱워커 근태를 시작하지 못했어요.');
         return;
       }
-      router.replace('/staff?view=contract&entry=gigworker');
+      window.location.assign('/staff?view=contract&entry=gigworker');
+      } catch { setError('등록 결과를 확인하지 못했어요. 다시 시도하면 같은 요청을 확인해요.'); }
+      finally { submitting.current = false; }
     });
   }
 
@@ -92,7 +101,7 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
         <button type="button" onClick={onBack} className="mb-7 text-[0.875rem] font-bold text-sub">← 시작 방식 다시 선택</button>
         <div className="rounded-3xl bg-white p-5 shadow-card">
           <p className="text-[0.8125rem] font-bold text-primary">긱워커 근태 무료 베타</p>
-          <h1 className="mt-1 text-[1.5rem] font-extrabold text-ink">근무지와 출퇴근 기준을 정해요</h1>
+          <h1 className="mt-1 text-[1.5rem] font-extrabold text-ink">현장과 출퇴근 기준을 정해요</h1>
           <p className="mt-2 text-[0.8125rem] leading-5 text-sub">사업자등록이나 병원·약국 인증 없이, 단기근로자를 초대해 바로 근태를 시작할 수 있어요.</p>
 
           <label className="mt-6 block text-[0.8125rem] font-bold text-ink">
@@ -114,11 +123,13 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
             {results.length > 0 && <ul className="mt-3 max-h-52 space-y-2 overflow-y-auto">{results.map((place) => <li key={place.id}><button type="button" onClick={() => choosePlace(place)} className="w-full rounded-xl border border-line bg-white px-3 py-3 text-left"><p className="text-[0.8125rem] font-bold text-ink">{place.name}</p><p className="mt-1 text-[0.6875rem] text-sub">{place.address}</p></button></li>)}</ul>}
           </section>
 
-          {point && <section className="mt-5">
+          <section className="mt-5">
             <div className="mb-2 flex items-center justify-between gap-3"><h2 className="text-[0.875rem] font-extrabold text-ink">핀과 인증 반경 확인</h2>{naverMapUrl && <a href={naverMapUrl} target="_blank" rel="noreferrer" className="text-[0.75rem] font-bold text-primary underline">네이버 지도에서 보기</a>}</div>
             {address && <p className="mb-2 text-[0.75rem] text-sub">{address}</p>}
-            <FacilityPinMap lng={point.lng} lat={point.lat} radiusMeters={100} onChange={setPoint} />
-          </section>}
+            {!point && <p className="mb-2 rounded-xl bg-amber-50 p-3 text-sm">아직 위치를 선택하지 않았어요. 지도를 이동한 뒤 실제 근무지를 눌러 주세요. 처음 보이는 핀은 저장되지 않아요.</p>}
+            <FacilityPinMap lng={point?.lng ?? 126.978} lat={point?.lat ?? 37.5665} radiusMeters={100} onChange={setPoint} />
+            {point && <p className="mt-2 text-xs text-sub">선택한 위치: {point.lat.toFixed(6)}, {point.lng.toFixed(6)}</p>}
+          </section>
 
           {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-3 py-3 text-[0.75rem] font-bold text-red-600">{error}</p>}
           <button type="button" onClick={submit} disabled={isPending} className="mt-6 h-12 w-full rounded-xl bg-ink text-[0.9375rem] font-extrabold text-white disabled:opacity-50">{isPending ? '근태 공간을 만드는 중…' : '긱워커 근태 시작하기'}</button>

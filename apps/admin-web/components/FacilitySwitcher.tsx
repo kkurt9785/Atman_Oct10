@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { facilityKindBadge } from '@/lib/facility-mode';
 
@@ -18,6 +18,9 @@ export function FacilitySwitcher() {
   const router = useRouter();
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [selected, setSelected] = useState('');
+  const [busy,setBusy]=useState(false);
+  const switching=useRef(false);
+  const [error,setError]=useState('');
   const current=facilities.find(facility=>facility.id===selected);
   const badge=facilityKindBadge(current);
 
@@ -42,9 +45,12 @@ export function FacilitySwitcher() {
   }, []);
 
   async function handleChange(facilityId: string) {
+    if(switching.current||facilityId===selected)return;
+    if(!window.confirm('현장을 전환할까요? 저장하지 않은 입력은 사라져요.'))return;
+    switching.current=true;setBusy(true);setError('');
     const previous = selected;
     setSelected(facilityId);
-
+    try {
     const res = await fetch('/api/facilities', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -52,11 +58,12 @@ export function FacilitySwitcher() {
     });
 
     if (!res.ok) {
-      setSelected(previous);
-      return;
+      throw new Error();
     }
     window.dispatchEvent(new Event('atman:facility-changed'));
-    router.refresh();
+    // Remount all facility-scoped inputs, caches and dialogs after the signed cookie changes.
+    window.location.assign('/');
+    } catch {setSelected(previous);setError('현장을 바꾸지 못했어요. 다시 선택해 주세요.');switching.current=false;setBusy(false);}
   }
 
   if (!current) return null;
@@ -72,9 +79,10 @@ export function FacilitySwitcher() {
       <span aria-hidden>{badge.icon}</span>
       <select
         value={selected}
+        disabled={busy}
         onChange={(event) => void handleChange(event.target.value)}
         className="min-w-0 flex-1 appearance-none bg-transparent pr-4 text-[0.6875rem] font-extrabold text-ink outline-none"
-        aria-label="사업장 선택"
+        aria-label="사업장·현장 선택"
       >
         {facilities.map((facility) => {
           const kind=facilityKindBadge(facility);
@@ -82,6 +90,7 @@ export function FacilitySwitcher() {
         })}
       </select>
       <span className="pointer-events-none absolute right-2 text-[0.6875rem] text-sub">⌄</span>
+      {error&&<span role="alert" className="absolute left-0 top-full z-20 rounded-xl bg-red-50 p-3 text-xs text-red-700">{error}</span>}
     </label>
   );
 }

@@ -181,16 +181,18 @@ export async function createGigworkerWorkspace(input: {
   addressText?: string | null;
   lng: number;
   lat: number;
+  requestId: string;
 }): Promise<{ ok: boolean; facilityId?: string; error?: string }> {
   try {
     const session = await requireAdminSession();
     const sb = userClient(session.accessToken);
     if (!sb) return { ok: false, error: '서버 설정 오류' };
-    const { data, error } = await sb.rpc('register_gigworker_workspace', {
+    const { data, error } = await sb.rpc('register_gigworker_site', {
       p_name: input.name,
       p_address_text: input.addressText ?? null,
       p_lng: input.lng,
       p_lat: input.lat,
+      p_request_id: input.requestId,
     });
     if (error || !data) return { ok: false, error: (error?.message ?? '긱워커 근태를 시작하지 못했어요.').replace(/^.*?: /, '') };
     await setFacilityContextCookie(data as string, session.user.id);

@@ -20,7 +20,7 @@ import { currentGigAttendances, type GigAttendanceRecord } from '@/lib/attendanc
 const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
 // 로그인 전 /gig = 잇닿 워커 안의 긱워커 간편모드 랜딩.
-function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
+function GigLanding({ attendanceToken, facility }: { attendanceToken: string | null; facility: string | null }) {
   const router = useRouter();
   const [inviteLink, setInviteLink] = useState('');
   const [inviteError, setInviteError] = useState('');
@@ -28,6 +28,7 @@ function GigLanding({ attendanceToken }: { attendanceToken: string | null }) {
   function login() {
     const query = new URLSearchParams();
     if (attendanceToken) query.set('attendanceToken', attendanceToken);
+    if (facility) query.set('facility', facility);
     window.localStorage.setItem('atman_auth_next', `/gig${query.size ? `?${query}` : ''}`);
     rememberWorkerShell('gig');
     startKakaoLogin();
@@ -118,6 +119,7 @@ function timeLabel(value: string | null | undefined) {
 function GigTodayContent() {
   const params = useSearchParams();
   const attendanceToken = params.get('attendanceToken');
+  const qrFacility = params.get('facility');
   const legacyToken = params.get('token');
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState('');
@@ -149,7 +151,9 @@ function GigTodayContent() {
     const all = (data ?? []) as Staff[];
     const linked = all.filter(isGigLink);
     setStaffList(linked);
-    setSelectedStaffId(linked[0]?.id ?? '');
+    const requested = linked.find(item=>facilityOf(item)?.id===qrFacility);
+    setSelectedStaffId(requested?.id ?? linked[0]?.id ?? '');
+    if(qrFacility&&!requested)setMessage('이 QR 현장에 연결된 근무가 없어요. 현장 이름과 초대 수락 여부를 확인해 주세요.');
     const { data: workerRow, error: workerError } = await supabase.from('workers').select('role').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle();
     if(workerError)throw workerError;
     setHasMedicalLink(hasMedicalContext(getLinkKinds(all), workerRow?.role));
@@ -163,12 +167,14 @@ function GigTodayContent() {
       if(settingsError||recordsError)throw settingsError??recordsError;
       setAttendanceModes(Object.fromEntries((settings ?? []).map((row) => [row.facility_id, row.authentication_mode as AttendanceMode])));
       const today = kstDate();
-      setAttendance(currentGigAttendances((records ?? []) as AttendanceState[], today));
+      const currentRecords=currentGigAttendances((records ?? []) as AttendanceState[], today);
+      setAttendance(currentRecords);
+      if(!qrFacility){const next=linked.find(item=>currentRecords[item.id]?.check_in_at&&!currentRecords[item.id]?.check_out_at)??linked.find(item=>isScheduledToday(item));if(next)setSelectedStaffId(next.id);}
     }
     if (legacyToken) setMessage('이전 정적 QR은 운영 종료됐어요. 사장님 화면의 동적 QR을 다시 스캔해 주세요.');
     } catch { setLoadError(true); }
     finally { setLoading(false); }
-  })(); }, [attendanceToken, legacyToken, loadAttempt]);
+  })(); }, [attendanceToken, qrFacility, legacyToken, loadAttempt]);
 
   const staff = staffList.find((item) => item.id === selectedStaffId) ?? staffList[0] ?? null;
   const facility = staff ? facilityOf(staff) : null;
@@ -180,7 +186,7 @@ function GigTodayContent() {
   const done = Boolean(current?.check_out_at);
   const pending = current?.status === 'checkout_pending';
 
-  if (signedOut) return <GigLanding attendanceToken={attendanceToken} />;
+  if (signedOut) return <GigLanding attendanceToken={attendanceToken} facility={qrFacility} />;
 
   return <main className="min-h-screen bg-bg px-4 pb-8 pt-5">
     <header className="flex items-start justify-between gap-3">

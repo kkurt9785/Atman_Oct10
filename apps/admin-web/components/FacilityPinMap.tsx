@@ -6,15 +6,17 @@ declare global { interface Window { kakao?: any } }
 
 // 사업장 위치 핀 조정 지도. 심평원/카카오 좌표는 건물 대표점이라 입구 기준으로 드래그해 맞춘다.
 // radiusMeters는 출퇴근 인증 반경 미리보기(원)로만 쓰고, 값 자체는 시설 프로필에서 관리한다.
-export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, className }: {
+export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, className, readOnly = false }: {
   lng: number; lat: number; radiusMeters?: number;
-  onChange: (next: { lng: number; lat: number }) => void; className?: string;
+  onChange: (next: { lng: number; lat: number }) => void; className?: string; readOnly?: boolean;
 }) {
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
   const circleRef = useRef<any>(null);
   const [error, setError] = useState('');
+  const changeRef = useRef(onChange); changeRef.current = onChange;
+  const readOnlyRef = useRef(readOnly); readOnlyRef.current = readOnly;
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
@@ -26,17 +28,18 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
         if (!mapEl.current || mapRef.current) return;
         const center = new window.kakao.maps.LatLng(lat, lng);
         const map = new window.kakao.maps.Map(mapEl.current, { center, level: 2 }); // 30m 원이 보이도록 확대
-        const marker = new window.kakao.maps.Marker({ map, position: center, draggable: true });
+        const marker = new window.kakao.maps.Marker({ map, position: center, draggable: !readOnlyRef.current });
         const circle = new window.kakao.maps.Circle({ map, center, radius: radiusMeters, strokeWeight: 1, strokeColor: '#1B64DA', strokeOpacity: 0.8, fillColor: '#1B64DA', fillOpacity: 0.12 });
         window.kakao.maps.event.addListener(marker, 'dragend', () => {
           const p = marker.getPosition();
           circle.setPosition(p);
-          onChange({ lng: p.getLng(), lat: p.getLat() });
+          if (!readOnlyRef.current) changeRef.current({ lng: p.getLng(), lat: p.getLat() });
         });
         // 지도를 탭해도 핀이 옮겨지게 — 드래그가 어려운 모바일 배려
         window.kakao.maps.event.addListener(map, 'click', (e: any) => {
+          if (readOnlyRef.current) return;
           const p = e.latLng; marker.setPosition(p); circle.setPosition(p);
-          onChange({ lng: p.getLng(), lat: p.getLat() });
+          changeRef.current({ lng: p.getLng(), lat: p.getLat() });
         });
         mapRef.current = map; markerRef.current = marker; circleRef.current = circle;
         } catch (e) { console.error('[FacilityPinMap]', e); setError('지도를 불러오지 못했어요. 검색된 위치로 등록되고, 위치는 나중에 설정에서 옮길 수 있어요.'); }
@@ -65,7 +68,7 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
   return (
     <div className={className}>
       <div ref={mapEl} className="h-56 w-full rounded-xl bg-[#E8EDF2]" aria-label="사업장 위치 지도" />
-      <CurrentLocationButton className="mt-2" radiusMeters={radiusMeters} onChange={onChange} />
+      {!readOnly && <CurrentLocationButton className="mt-2" radiusMeters={radiusMeters} onChange={onChange} />}
       {error ? <p role="alert" className="mt-2 text-[0.75rem] text-warn">{error}</p>
         : <p className="mt-2 text-[0.75rem] text-sub">사업장 안에서 위 버튼을 누르면 가장 정확해요. 핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰도 돼요. 원은 출퇴근 인증 반경 미리보기예요.</p>}
     </div>

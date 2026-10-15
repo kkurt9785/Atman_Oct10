@@ -11,7 +11,7 @@ export async function issueDynamicAttendanceQr(){
     if(error)throw error;
     const row=Array.isArray(data)?data[0]:data;
     if(!row?.token)return {ok:false,error:'동적 QR을 만들지 못했어요.'} as const;
-    return {ok:true,token:String(row.token),expiresAt:String(row.expires_at)} as const;
+    return {ok:true,token:String(row.token),expiresAt:String(row.expires_at),facilityId:context.facilityId} as const;
   }catch(error){
     return {ok:false,error:error instanceof Error?error.message:'동적 QR을 만들지 못했어요.'} as const;
   }

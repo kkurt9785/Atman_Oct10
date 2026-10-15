@@ -6,17 +6,17 @@ import { ManageBackLink } from '@/components/ManageBackLink';
 import { workerShellPaths } from '@/lib/facility-mode';
 
 const MODE_LABEL:Record<string,string>={
-  gps_or_qr:'앱에서 버튼만 누르기 · 필요할 때 QR 보완',
+  gps_or_qr:'간편 인증 · 위치/등록 네트워크 · QR 보완',
   gps:'위치(GPS) 우선 · QR/Wi-Fi 보완',
-  gps_qr:'위치 + 동적 QR 모두 필수',
-  qr:'동적 QR만',network:'사업장 Wi-Fi만',admin:'관리자 승인만',
+  gps_qr:'강화 인증 · 위치 + 동적 QR 모두 필수',
+  qr:'고급 · 동적 QR만',network:'고급 · 등록 네트워크만',admin:'관리자 처리',
 };
 
 export default async function AttendanceQrPage(){
   const [profile,shop]=await Promise.all([getFacilityProfile(),getShop()]);
   const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL
     ?? (process.env.NODE_ENV === 'production' ? 'https://itdot.co.kr' : 'http://localhost:3003');
-  const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':'병원';
+  const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':shop?.mode==='gig'?'현장':'병원';
   // 긱워커 근무지의 QR 은 워커 앱의 긱 셸(/gig)로 연다. 의료 셸(/workplace)로 열면 긱워커는 다시 /gig 로 튕긴다.
   const workerPath=workerShellPaths(shop?.mode??'medical').attendance;
   const mode=profile?.attendance_mode??'gps_or_qr';

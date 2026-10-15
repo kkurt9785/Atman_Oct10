@@ -8,6 +8,7 @@ const ROTATION_SECONDS=60;
 // workerPath: 스캔 후 열리는 워커 화면. 병원·약국 직원은 /workplace, 긱워커 근무지는 /gig (워커 앱의 두 셸이 분리돼 있다)
 export function DynamicQrPanel({workerOrigin,workerPath='/workplace'}:{workerOrigin:string;workerPath?:'/workplace'|'/gig'}){
   const [token,setToken]=useState('');
+  const [facilityId,setFacilityId]=useState('');
   const [seconds,setSeconds]=useState(0);
   const [error,setError]=useState('');
   const refresh=useCallback(async()=>{
@@ -15,7 +16,7 @@ export function DynamicQrPanel({workerOrigin,workerPath='/workplace'}:{workerOri
     if(!result.ok){setError(result.error);setSeconds(60);return;} // 실패해도 마지막 QR 유지(토큰 5분 유효)
     // 화면의 QR은 60초마다 교체한다. 서버 토큰은 전송 지연을 흡수하도록
     // 교체 뒤 30초만 더 유효하며, 그 만료시간을 카운트다운으로 노출하지 않는다.
-    setToken(result.token);setSeconds(60);setError(''); // 화면 60초 회전, 서버 토큰 5분
+    setToken(result.token);setFacilityId(result.facilityId);setSeconds(60);setError('');
   },[]);
   useEffect(()=>{void refresh();},[refresh]);
   useEffect(()=>{
@@ -25,7 +26,7 @@ export function DynamicQrPanel({workerOrigin,workerPath='/workplace'}:{workerOri
     return ()=>window.clearInterval(timer);
   },[refresh]);
   // 워커 앱이 스캔 후 여는 주소 그대로를 QR에 담는다
-  const src=token?`${workerOrigin}${workerPath}?attendanceToken=${encodeURIComponent(token)}`:'';
+  const src=token?`${workerOrigin}${workerPath}?attendanceToken=${encodeURIComponent(token)}&facility=${encodeURIComponent(facilityId)}`:'';
   return <section className="mt-5 rounded-3xl bg-white p-5 text-center shadow-card">
     <div className="flex items-center justify-between text-left"><div><p className="text-title font-extrabold">동적 출퇴근 QR</p><p className="mt-1 text-[0.75rem] text-sub">직원이 휴대폰 카메라로 스캔해요.</p></div><span className="rounded-full bg-primary/10 px-3 py-1 text-[0.75rem] font-bold text-primary">{seconds}초</span></div>
     {src?<div className="mt-4 flex h-[310px] items-center justify-center"><QrCanvas value={src} size={280} label="동적 출퇴근 QR"/></div>:<div className="py-20 text-sub">{error||'QR 생성 중...'}</div>}
