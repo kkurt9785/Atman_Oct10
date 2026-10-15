@@ -67,7 +67,7 @@ function WorkplaceContent() {
     const {data}=await supabase.from('facility_staff').select('id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)').neq('status','ended').order('created_at',{ascending:false});
     const linked=((data??[]) as Staff[]).filter(item=>!isGigLink(item));
     setStaffList(linked);
-    setSelectedStaffId(linked[0]?.id??'');
+    setSelectedStaffId(linked.find(item=>item.id===params.get('staffId'))?.id??linked[0]?.id??'');
     if(linked.length){
       const facilityIds=[...new Set(linked.map(item=>facilityOf(item)?.id).filter(Boolean))] as string[];
       const {data:settings}=await supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_after_minutes').in('facility_id',facilityIds);

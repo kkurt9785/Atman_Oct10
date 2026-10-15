@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { BankNudge } from '@/components/settings/BankAccountRow';
+import { WorkAgenda } from '@/components/worker/WorkAgenda';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -276,7 +277,7 @@ function ApplicationCard({
     dDiff === 0 ? '오늘' : dDiff === 1 ? '내일' : dDiff > 0 ? `D-${dDiff}` : null;
 
   return (
-    <div className="bg-white rounded-card shadow-card p-4 mb-3">
+    <div id={`application-${app.id}`} tabIndex={-1} className="scroll-mt-4 bg-white rounded-card shadow-card p-4 mb-3">
       <div className="flex items-center justify-between mb-3">
         <span className="text-[13px] font-semibold text-sub">{app.shift.shift_date}</span>
         <span className={`text-[12px] font-bold px-2.5 py-1 rounded-full ${className}`}>{label}</span>
@@ -375,6 +376,24 @@ export default function ApplicationsPage() {
   const [actionNotice, setActionNotice] = useState('');
   const [activityFilter,setActivityFilter]=useState<ActivityFilter>('active');
   const [covers, setCovers] = useState<MyCover[]>([]);
+  const [loadError, setLoadError] = useState('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  useEffect(() => {
+    const reveal = (id = window.location.hash.slice(1)) => {
+      if (!id.startsWith('application-')) return;
+      setDetailsOpen(true); setActivityFilter('all');
+      window.setTimeout(() => { const target = document.getElementById(id); target?.scrollIntoView({ block: 'start' }); target?.focus({ preventScroll: true }); }, 100);
+    };
+    const onHash = () => reveal();
+    const onClick = (event: MouseEvent) => {
+      const anchor = (event.target as Element)?.closest('a');
+      if (anchor?.pathname === '/applications' && anchor.hash.startsWith('#application-')) reveal(anchor.hash.slice(1));
+    };
+    if (!loading) reveal();
+    window.addEventListener('hashchange', onHash);
+    document.addEventListener('click', onClick);
+    return () => { window.removeEventListener('hashchange', onHash); document.removeEventListener('click', onClick); };
+  }, [loading]);
 
   // 워커 ID + 지원 현황 초기 로드
   useEffect(() => {
@@ -398,7 +417,7 @@ export default function ApplicationsPage() {
       setWorkerId(worker.id);
 
       void listMyCovers().then(setCovers);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('shift_applications')
         .select(`
           id, status, confirm_on_accept, applied_at, checked_in_at, checked_out_at,
@@ -411,12 +430,13 @@ export default function ApplicationsPage() {
         .eq('worker_id', worker.id)
         .order('applied_at', { ascending: false });
 
-      const loadedApps=(data as unknown as Application[]) ?? [];
+      if (error) throw error;
+      const loadedApps=((data as unknown as Application[]) ?? []).filter(app => app.shift);
       setApps(loadedApps);
       setActivityFilter(loadedApps.some(isActive)?'active':loadedApps.some(app=>app.status==='accepted')?'accepted':loadedApps.some(app=>app.status==='completed')?'completed':'all');
       setLoading(false);
     }
-    load();
+    void load().catch(() => { setLoadError('지원 내역을 불러오지 못했어요. 다시 시도해 주세요.'); setLoading(false); });
   }, []);
 
   async function handleCancel(applicationId: string) {
@@ -471,7 +491,7 @@ export default function ApplicationsPage() {
     accepted:apps.filter(app=>app.status==='accepted').length,
     completed:apps.filter(app=>app.status==='completed').length,
   };
-  const visibleApps=activityFilter==='all'?apps:apps.filter(app=>activityFilter==='active'?isActive(app):app.status===activityFilter);
+  const visibleApps=(activityFilter==='all'?[...apps]:apps.filter(app=>activityFilter==='active'?isActive(app):app.status===activityFilter)).sort((a,b)=>`${a.shift.shift_date} ${a.shift.start_time}`.localeCompare(`${b.shift.shift_date} ${b.shift.start_time}`));
 
   if (loading) {
     return (
@@ -481,6 +501,7 @@ export default function ApplicationsPage() {
     );
   }
 
+  if (loadError && !workerId) return <div role="alert" className="p-6"><p>{loadError}</p><button className="min-h-11 text-primary" onClick={() => window.location.reload()}>다시 불러오기</button></div>;
   if (!workerId) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-3 px-8 text-center">
@@ -499,6 +520,10 @@ export default function ApplicationsPage() {
         <h1 className="text-[28px] font-extrabold text-ink">내 근무</h1>
       </div>
 
+      <WorkAgenda revision={apps.map(app => `${app.id}:${app.status}:${app.checked_in_at}:${app.checked_out_at}`).join('|')} />
+      <details open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)} className="mt-6">
+      <summary className="min-h-12 cursor-pointer rounded-xl bg-white p-4 font-bold">지원·근무 상세 내역 ({apps.length})</summary>
+      {loadError && <div role="alert" className="my-3 rounded-xl bg-amber-50 p-4"><p>{loadError}</p><button onClick={() => window.location.reload()} className="min-h-11 font-bold text-primary">다시 불러오기</button></div>}
       <div className="flex items-center justify-between mb-5">
         <p className="text-[14px] font-bold text-ink">지원 현황 {apps.length > 0 ? `(${apps.length})` : ''}</p>
         <button onClick={() => router.push('/earnings')} className="text-[13px] font-bold text-primary bg-primary/8 px-3 py-2 rounded-xl">
@@ -516,7 +541,7 @@ export default function ApplicationsPage() {
         <p role="alert" className="mb-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{actionNotice}</p>
       )}
 
-      {apps.length === 0 ? (
+      {!loadError && (apps.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <span className="text-5xl">📋</span>
             <p className="text-[17px] font-bold text-ink">아직 지원한 공고가 없어요</p>
@@ -526,7 +551,8 @@ export default function ApplicationsPage() {
           visibleApps.map((a) => (
             <ApplicationCard key={a.id} app={a} cover={coverByApp.get(a.id)} onCancel={handleCancel} onInvitation={handleInvitation} onAttendanceSuccess={handleAttendanceSuccess} onRequestCover={handleRequestCover} onCancelCover={handleCancelCover} />
           ))
-        )}
+        ))}
+      </details>
 
     </div>
   );

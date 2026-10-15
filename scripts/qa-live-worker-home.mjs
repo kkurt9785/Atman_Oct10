@@ -13,12 +13,17 @@ try{
  await page.goto('https://itdot.co.kr/demo');
  await page.getByRole('button',{name:/간호사/}).first().click();
  await page.waitForURL('**/home',{timeout:45000});
- await page.getByRole('button',{name:'설정 지역 함께',exact:true}).waitFor();
- assert.equal(await page.getByRole('button',{name:'설정 지역 함께',exact:true}).getAttribute('aria-pressed'),'true');
+ await page.getByRole('heading',{name:'다음 내 근무',exact:true}).waitFor();
+ assert.equal(await page.getByText('이번 주 내 근무표',{exact:true}).count(),0);
  await page.screenshot({path:path.join(directory,'worker-home-390.png'),fullPage:true});
+ await page.goto('https://itdot.co.kr/applications');await page.getByRole('button',{name:'달력',exact:true}).click();
+ await page.getByRole('button',{name:/근무 \d+건/}).first().waitFor();
+ await page.screenshot({path:path.join(directory,'worker-agenda-390.png'),fullPage:true});
+ const detail=page.locator('section[aria-label="내 근무 일정"] a[href*="#application-"]').first();
+ if(await detail.count()) { await detail.click(); await page.waitForFunction(()=>document.querySelector('details')?.open===true); }
  await page.goto('https://itdot.co.kr/shifts');await page.getByLabel('공고 정렬').waitFor();
  await page.screenshot({path:path.join(directory,'worker-discovery-390.png'),fullPage:true});
  await page.goto('https://itdot.co.kr/safety');await page.getByText('차단한 사용자가 없어요.',{exact:true}).waitFor();
  assert.deepEqual(errors,[]);
- console.log(`PASS live demo: combined areas selected, discovery sorting controls, safety RLS read; screenshots ${directory}`);
+ console.log(`PASS live demo: next work, calendar, discovery sorting controls, safety RLS read; screenshots ${directory}`);
 }finally{await browser.close();}
