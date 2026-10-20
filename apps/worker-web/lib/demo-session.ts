@@ -40,10 +40,20 @@ export function useDemoSession() {
 }
 
 // 근무 찾기 시연은 고른 직군 계정으로, 초대 근무 시연은 초대 수락부터 시작한다. 이동할 주소를 돌려준다.
-export async function openDemoSession(target: { email: string } | 'gig'): Promise<string> {
+let openingDemo:Promise<string>|null=null;
+export function openDemoSession(target: { email: string } | 'gig'): Promise<string> {
+  if(openingDemo)return openingDemo;
+  openingDemo=prepareDemoSession(target).finally(()=>{openingDemo=null;});
+  return openingDemo;
+}
+async function prepareDemoSession(target: { email: string } | 'gig'): Promise<string> {
   const gig = target === 'gig';
-  // 다른 계정으로 로그인돼 있어도 시연 계정으로 바꿔 탄다
-  await supabase.auth.signOut().catch(() => undefined);
+  const {data:{session},error:sessionError}=await supabase.auth.getSession();
+  if(sessionError)throw new Error('현재 로그인 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  if(session&&!isDemoEmail(session.user.email)&&!window.confirm('현재 내 계정에서 시연 계정으로 전환할까요? 시연을 끝낸 뒤 내 계정으로 다시 로그인해야 해요.')) {
+    throw new Error('시연 전환을 취소했어요. 현재 계정은 그대로 유지돼요.');
+  }
+  // 준비 실패로 실제 사용자를 로그아웃시키지 않는다. 준비된 세션만 setSession으로 교체한다.
   const response = await fetch('/api/demo-login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

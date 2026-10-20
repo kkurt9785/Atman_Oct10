@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { facilityKindBadge } from '@/lib/facility-mode';
 
-type Facility = {
+export type SwitcherFacility = {
   id: string;
   name: string;
   facility_type: string;
@@ -14,23 +13,24 @@ type Facility = {
 };
 
 // 사업장 전환기. 병원·약국과 긱워커 근무지를 오갈 수 있고, 바꾸면 서버 레이아웃이 다시 렌더되어 탭·가드가 그 사업장의 모드로 바뀐다.
-export function FacilitySwitcher() {
-  const router = useRouter();
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [selected, setSelected] = useState('');
+export function FacilitySwitcher({ initialFacility }: { initialFacility?: SwitcherFacility | null }) {
+  const [facilities, setFacilities] = useState<SwitcherFacility[]>(initialFacility?[initialFacility]:[]);
+  const [selected, setSelected] = useState(initialFacility?.id??'');
   const [busy,setBusy]=useState(false);
   const switching=useRef(false);
   const [error,setError]=useState('');
   const current=facilities.find(facility=>facility.id===selected);
   const badge=facilityKindBadge(current);
 
-  useEffect(() => {
-    async function load() {
+  const load=useCallback(async () => {
+    setError('');
+    try {
       const res = await fetch('/api/facilities', { cache: 'no-store' });
-      if (!res.ok) return;
+      if (!res.ok) throw new Error();
 
       const data = await res.json();
-      const rows = (data.facilities ?? []) as Facility[];
+      const rows = (data.facilities ?? []) as SwitcherFacility[];
+      if(!rows.length)throw new Error();
       setFacilities(rows);
       const currentFacilityId = typeof data.currentFacilityId === 'string'
         ? data.currentFacilityId
@@ -40,9 +40,9 @@ export function FacilitySwitcher() {
           ? currentFacilityId
           : rows[0]?.id ?? '',
       );
-    }
-    void load();
-  }, []);
+    } catch {setError('현장 목록을 불러오지 못했어요.');}
+  },[]);
+  useEffect(() => {void load();}, [load]);
 
   async function handleChange(facilityId: string) {
     if(switching.current||facilityId===selected)return;
@@ -66,11 +66,10 @@ export function FacilitySwitcher() {
     } catch {setSelected(previous);setError('현장을 바꾸지 못했어요. 다시 선택해 주세요.');switching.current=false;setBusy(false);}
   }
 
-  if (!current) return null;
-  if (facilities.length === 1) return (
+  if (!current || facilities.length === 1) return (
     <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-white px-2.5 py-1.5">
       <span aria-hidden className="text-[1rem]">{badge.icon}</span>
-      <div className="min-w-0"><p className="truncate text-[0.6875rem] font-extrabold text-ink">{current.name}</p><p className="text-[0.5625rem] font-bold text-sub">{badge.label}</p></div>
+      <div className="min-w-0"><p className="truncate text-[0.6875rem] font-extrabold text-ink">{current?.name??'현장 확인 중'}</p><p className="text-[0.5625rem] font-bold text-sub">{badge.label}</p>{error&&<button type="button" onClick={()=>void load()} className="min-h-11 text-xs font-bold text-red-700" aria-label="현장 목록 다시 불러오기">목록 재시도</button>}</div>
     </div>
   );
 

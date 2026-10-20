@@ -25,7 +25,12 @@ function safeNotificationPath(value) {
 }
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = new URL(safeNotificationPath(event.notification.data?.url) ?? '/timesheet', self.location.origin).href;
+  const data = event.notification.data ?? {};
+  const next = safeNotificationPath(data.url) ?? '/timesheet';
+  const facility = data.facilityId ?? data.facility_id;
+  const path = typeof facility === 'string' && facility
+    ? '/notifications/open?' + new URLSearchParams({ facility, next }).toString() : next;
+  const url = new URL(path, self.location.origin).href;
   event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
     const existing = windows.find((client) => new URL(client.url).origin === self.location.origin);
     return existing ? existing.focus().then(() => existing.navigate(url)) : clients.openWindow(url);

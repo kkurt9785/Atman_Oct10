@@ -410,7 +410,7 @@ export async function setStaffPayAction(form:FormData){
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   const {error}=await sb.from('facility_staff').update({pay_basis:payBasis,pay_rate:payRate,bank_name:bankName,account_last4:accountLast4,updated_at:new Date().toISOString()})
     .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
-  if(error)throw new Error('급여 기준을 저장하지 못했어요.');
+  if(error)throw new Error(error.code==='P0001'?error.message:'급여 기준을 저장하지 못했어요.');
   revalidatePath('/staff');revalidatePath('/payroll');
 }
 

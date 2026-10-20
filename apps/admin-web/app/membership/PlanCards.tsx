@@ -21,6 +21,7 @@ const UNLIMITED = 999999;
 const cap = (n: number) => (n >= UNLIMITED ? '무제한' : `${n}`);
 
 const PLAN_PERKS: Record<string, string[]> = {
+  gigworker_trial: ['현장별 관리 대상 3명', '초대 대기·미래 계약 포함', '근태·메시지·지급 기록', '베타 기간 무료'],
   free: ['공고 월 1건', '직원 근태 3명', '관리자 1명', '기본 자격 확인·채팅'],
   clinic: ['직원 최대 10명', '간편 출퇴근·휴가', '공고 월 3건', '함께한 근무자 5명 재요청'],
   pharmacy: ['약사·전산직 최대 5명', '간편 출퇴근·휴가·급여 검토', '공고 월 3건', '추가 공고 1건 9,900원(VAT 포함)', '함께한 약사 반복근무 요청', '옵션: 관리자 1명 추가 +월 20,000원'],
@@ -60,7 +61,7 @@ export function PlanCards({ plans, currentPlanCode }: { plans: (PlanCardData & P
           <p className="text-[0.6875rem] leading-4 text-sub">
             {meta.months}개월 선결제 · 부가세 별도 · 중도해지 시 이용 개월은 할인 전 정상가로 정산 후 잔액 환불
           </p>
-          <a href="#invoices" className="mt-1 inline-block text-[0.75rem] font-bold text-primary">전환을 원하시면 다음 청구서에 반영을 요청하세요 →</a>
+          <a href="#plan-contact" className="mt-1 inline-block text-[0.75rem] font-bold text-primary">운영팀에 전환 문의하기 →</a>
         </div>
       )}
       <div className="space-y-3 mb-4">

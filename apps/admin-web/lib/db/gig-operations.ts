@@ -1,6 +1,7 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST } from '../date';
+import { readAllRows } from './read-all-rows';
 import { isAttendanceCovered, type PayoutCoverage } from '../shared/gig-pay/calculation';
 
 export type GigOperationStatus = 'invite'|'scheduled'|'late'|'working'|'review'|'completed'|'bank'|'pay'|'paid'|'off';
@@ -65,21 +66,21 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   if (!sb || !facilityId) return empty;
   const until = addDays(today, 6);
 
-  const { data: staffRows, error: staffError } = await sb.from('facility_staff')
+  const { data: staffRows, error: staffError } = await readAllRows(() => sb.from('facility_staff')
     .select('id,name,worker_id,department,default_start_time,default_end_time,contract_start')
-    .eq('facility_id', facilityId).neq('status', 'ended').order('name');
+    .eq('facility_id', facilityId).neq('status', 'ended'));
   if (staffError) throw new Error('긱워커 운영 현황을 불러오지 못했어요.');
   const staffIds = (staffRows ?? []).map((row) => row.id as string);
   if (staffIds.length === 0) return empty;
 
   const [assignmentResult,attendanceResult,inviteResult,bankResult,payoutResult,messageResult,readResult,graceResult] = await Promise.all([
-    sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source')
-      .eq('facility_id', facilityId).lte('starts_on', until).gte('ends_on', today).in('status', ['planned','active']).order('starts_on'),
-    sb.from('staff_attendances').select('staff_id,work_date,status,check_in_at,check_out_at')
-      .eq('facility_id', facilityId).in('staff_id', staffIds).gte('work_date', addDays(today, -31)).lte('work_date', today),
+    readAllRows(() => sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source')
+      .eq('facility_id', facilityId).lte('starts_on', until).gte('ends_on', addDays(today, -1)).in('status', ['planned','active'])),
+    readAllRows(() => sb.from('staff_attendances').select('id,staff_id,work_date,status,check_in_at,check_out_at')
+      .eq('facility_id', facilityId).lte('work_date', today).or(`work_date.eq.${today},status.in.(working,late,checkout_pending)`)),
     sb.from('facility_staff_invites').select('staff_id').eq('facility_id', facilityId).eq('status', 'pending').gt('expires_at', new Date().toISOString()).in('staff_id', staffIds),
     sb.from('gig_bank_account_shares').select('staff_id').eq('facility_id', facilityId).in('staff_id', staffIds),
-    sb.from('gig_payouts').select('staff_id,period_start,period_end,covered_until,attendance_ids,status').eq('facility_id', facilityId).neq('status', 'cancelled').in('staff_id', staffIds).order('period_end', { ascending: false }).limit(1000),
+    readAllRows(() => sb.from('gig_payouts').select('id,staff_id,period_start,period_end,covered_until,attendance_ids,status').eq('facility_id', facilityId).neq('status', 'cancelled')),
     sb.from('facility_workroom_messages').select('staff_id,created_at,sender_user_id').eq('facility_id', facilityId).in('staff_id', staffIds).order('created_at', { ascending: false }).limit(500),
     adminUserId ? sb.from('facility_workroom_thread_reads').select('staff_id,last_read_at').eq('facility_id', facilityId).eq('user_id', adminUserId) : Promise.resolve({ data: [] }),
     // '미출근 확인'은 시설의 지각 유예를 지난 뒤에만 띄운다 — 정각에 바로 빨간 표시가 뜨면 사장님이 매번 헛걸음한다
@@ -88,23 +89,27 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   const failed = [assignmentResult.error, attendanceResult.error, inviteResult.error, bankResult.error, payoutResult.error, messageResult.error, 'error' in readResult ? readResult.error : null, graceResult.error].find(Boolean);
   if (failed) throw new Error('긱워커 운영 데이터를 한 번에 불러오지 못했어요.');
 
-  const assignments = (assignmentResult.data ?? []) as AssignmentRow[];
+  const assignments = ((assignmentResult.data ?? []) as AssignmentRow[]).sort((a,b) => a.starts_on.localeCompare(b.starts_on));
   const assignmentsByStaff = new Map<string, AssignmentRow[]>();
   for (const row of assignments) (assignmentsByStaff.get(row.staff_id) ?? assignmentsByStaff.set(row.staff_id, []).get(row.staff_id)!).push(row);
   const attendances = (attendanceResult.data ?? []) as Array<{ staff_id:string;work_date:string;status:string;check_in_at:string|null;check_out_at:string|null }>;
-  const todayAttendance = new Map(attendances.filter((row) => row.work_date === today).map((row) => [row.staff_id, row]));
+  // Keep yesterday's overnight work and unresolved checkout visible after midnight.
+  const todayAttendance = new Map<string, typeof attendances[number]>();
+  const attendancePriority = (row: typeof attendances[number]) => row.status === 'checkout_pending' ? 0 : ['working','late'].includes(row.status) && !row.check_out_at ? 1 : 2;
+  for (const row of [...attendances].sort((a,b) => attendancePriority(a)-attendancePriority(b) || b.work_date.localeCompare(a.work_date))) {
+    if ((row.work_date === today || attendancePriority(row) < 2) && !todayAttendance.has(row.staff_id)) todayAttendance.set(row.staff_id, row);
+  }
   const inviteSet = new Set((inviteResult.data ?? []).map((row) => row.staff_id as string));
   const bankSet = new Set((bankResult.data ?? []).map((row) => row.staff_id as string));
   const payouts = (payoutResult.data ?? []) as Array<PayoutCoverage & { staff_id: string }>;
-  if (payouts.length >= 1000) throw new Error('전체 지급 내역을 확인할 수 없어요. 운영자에게 문의해 주세요.');
   const scheduledPayout = new Set<string>();
   for (const row of payouts) {
     if (row.status === 'scheduled') scheduledPayout.add(row.staff_id);
   }
   // 지급 화면과 같은 근태 ID 기준. 같은 날 추가 근무와 취소된 과거 지급도 포함한다.
-  const { data: completedRows, error: completedError } = await sb.from('staff_attendances').select('id,staff_id,work_date,check_out_at')
-    .eq('facility_id', facilityId).in('staff_id', staffIds).eq('status', 'completed').not('check_in_at', 'is', null).not('check_out_at', 'is', null).gte('work_date', '2020-01-01').lte('work_date', today).limit(1000);
-  if (completedError || (completedRows?.length ?? 0) >= 1000) throw new Error('긱워커 미정산 근무를 모두 불러오지 못했어요.');
+  const { data: completedRows, error: completedError } = await readAllRows(() => sb.from('staff_attendances').select('id,staff_id,work_date,check_out_at')
+    .eq('facility_id', facilityId).eq('status', 'completed').not('check_in_at', 'is', null).not('check_out_at', 'is', null).gte('work_date', '2020-01-01').lte('work_date', today));
+  if (completedError) throw new Error('긱워커 미정산 근무를 모두 불러오지 못했어요.');
   const unpaidDays = new Map<string,Set<string>>();
   for (const row of (completedRows ?? []) as Array<{ id: string; staff_id: string; work_date: string; check_out_at: string | null }>) {
     if (isAttendanceCovered(row, payouts.filter((p) => p.staff_id === row.staff_id))) continue;
@@ -123,9 +128,9 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   const toMinutes = (hhmm: string) => Number(hhmm.slice(0,2)) * 60 + Number(hhmm.slice(3,5));
   const workers: GigOperationWorker[] = (staffRows ?? []).map((staff) => {
     const rows = assignmentsByStaff.get(staff.id) ?? [];
-    const assignment = assignmentOn(rows,today);
-    const next = rows.flatMap((row) => Array.from({length:7},(_,index)=>addDays(today,index)).filter((date)=>assignmentOn([row],date)).map((date)=>({date,row}))).sort((a,b)=>a.date.localeCompare(b.date))[0] ?? null;
     const attendance = todayAttendance.get(staff.id);
+    const assignment = assignmentOn(rows, attendance?.work_date ?? today);
+    const next = rows.flatMap((row) => Array.from({length:7},(_,index)=>addDays(today,index)).filter((date)=>assignmentOn([row],date)).map((date)=>({date,row}))).sort((a,b)=>a.date.localeCompare(b.date))[0] ?? null;
     const linked = Boolean(staff.worker_id);
     const bankShared = bankSet.has(staff.id);
     const due = unpaidDays.get(staff.id)?.size ?? 0;
@@ -143,6 +148,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
       const late = toMinutes(nowKst) > toMinutes(assignment.start_time.slice(0,5)) + lateGraceMinutes && !attendance?.check_in_at;
       status=late?'late':'scheduled';statusLabel=late?'미출근 확인':'출근 예정';
     }
+    else if (due > 0) { status=bankShared?'pay':'bank';statusLabel=bankShared?'지급 확인 필요':'계좌 전달 대기'; }
     return {
       staffId: staff.id,assignmentId: assignment?.id ?? next?.row.id ?? null,name: staff.name,
       title: assignment?.title ?? next?.row.title ?? staff.department ?? '단기 근무',workerLinked:linked,invitePending:inviteSet.has(staff.id),
@@ -169,6 +175,6 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
     invite:workers.filter((row)=>row.status==='invite').length,
     working:workers.filter((row)=>['scheduled','working','completed'].includes(row.status)).length,
     issue:workers.filter((row)=>row.status==='review'||row.status==='late').length,
-    pay:workers.filter((row)=>row.status==='pay'||row.status==='bank').length,
+    pay:workers.filter((row)=>row.unpaidDays>0).length,
   }};
 }

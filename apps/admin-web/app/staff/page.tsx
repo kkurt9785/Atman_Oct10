@@ -14,6 +14,7 @@ import { getShop } from '@/lib/db/shop';
 import { workerShellPathsForKind } from '@/lib/facility-mode';
 import { formatShortDate } from '@/lib/format';
 import { OpenOnHash } from '@/components/OpenOnHash';
+import { StaffCapacitySummary } from '@/components/StaffCapacitySummary';
 
 const ROLE: Record<string,string> = { rn:'간호사', na:'간호조무사', pharmacist:'약사', pharmacy_staff:'약국 전산·사무직', coordinator:'코디네이터', admin:'행정', other:'기타' };
 const TYPE: Record<string,string> = { regular:'상시 직원', fixed_term:'기간제', temporary:'임시 계약', daily:'단기 근무' };
@@ -71,6 +72,8 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
       {!gigworkerMode&&clinicStaff.some((s)=>s.workerKind==='gig')&&<Link href="/gig-pay" className="col-span-2 min-h-tap rounded-xl bg-ink flex items-center justify-center text-body font-bold text-white">단기·긱 근무자 지급 관리 →</Link>}
     </div>
 
+    {context&&<StaffCapacitySummary facilityId={context.facilityId}/>}
+    {(gigworkerMode||isGigworkerEntry)&&<p className="mt-3 text-sm text-sub">근태가 기록된 계약의 단가는 보존돼요. 단가 변경은 기존 근무를 정산한 뒤 새 계약으로 등록해 주세요.</p>}
     <details id="staff-register" open={gigworkerMode||isGigworkerEntry} className="mt-5 scroll-mt-20 bg-white rounded-2xl shadow-card group">
       <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between">
         <span className="font-bold text-body">＋ {gigworkerMode||isGigworkerEntry?'긱워커 등록·잇기(초대)':'기존 직원 직접 등록'}</span><span className="text-sub group-open:rotate-180">⌄</span>

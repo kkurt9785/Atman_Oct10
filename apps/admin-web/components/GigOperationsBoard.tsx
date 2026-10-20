@@ -23,7 +23,7 @@ function belongs(row:GigOperationWorker,filter:Filter) {
   if(filter==='issue') return row.status==='review'||row.status==='late';
   if(filter==='working') return row.status==='working'||row.status==='scheduled'||row.status==='completed';
   if(filter==='invite') return row.status==='invite';
-  return row.status==='pay'||row.status==='bank'||row.status==='paid';
+  return row.unpaidDays>0;
 }
 function actionFor(row:GigOperationWorker) {
   if(row.status==='invite') return {href:'/staff?view=contract&entry=gigworker',label:'초대 확인'};
@@ -32,7 +32,7 @@ function actionFor(row:GigOperationWorker) {
   return {href:`/workroom?staff=${row.staffId}`,label:'대화'};
 }
 
-export function GigOperationsBoard({ board, projects, facilityId, facilityName }: { board: Board; projects: GigProject[]; facilityId: string; facilityName: string }) {
+export function GigOperationsBoard({ board, projects, facilityId, facilityName, canViewPayroll=true }: { board: Board; projects: GigProject[]; facilityId: string; facilityName: string; canViewPayroll?:boolean }) {
   const router=useRouter();
   const [filter,setFilter]=useState<Filter>('all');
   const [selectedDate,setSelectedDate]=useState(board.today);
@@ -111,7 +111,7 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
 
     <div className="mt-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {summary.map(([key,label,count,color])=><button key={key} type="button" aria-pressed={filter===key} aria-controls="operation-workers" onClick={()=>setFilter(filter===key?'all':key)} className={`rounded-2xl border p-3 text-left ${filter===key?'border-primary bg-primary/5':'border-transparent bg-white shadow-sm'}`}><p className="text-[0.6875rem] text-sub">{label}</p><p className={`mt-1 text-[1.3125rem] font-extrabold ${color}`}>{count}<span className="ml-0.5 text-[0.6875rem] font-bold">{key==='issue'?'건':'명'}</span></p></button>)}
+        {summary.filter(([key])=>canViewPayroll||key!=='pay').map(([key,label,count,color])=><button key={key} type="button" aria-pressed={filter===key} aria-controls="operation-workers" onClick={()=>setFilter(filter===key?'all':key)} className={`rounded-2xl border p-3 text-left ${filter===key?'border-primary bg-primary/5':'border-transparent bg-white shadow-sm'}`}><p className="text-[0.6875rem] text-sub">{label}</p><p className={`mt-1 text-[1.3125rem] font-extrabold ${color}`}>{count}<span className="ml-0.5 text-[0.6875rem] font-bold">{key==='issue'?'건':'명'}</span></p></button>)}
       </div>
     </div>
 
@@ -125,6 +125,7 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName }
             <button type="button" disabled={!row.workerLinked} onClick={()=>toggle(row.staffId)} aria-label={`${row.name} 선택`} aria-pressed={checked} className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border text-[0.8125rem] font-bold ${checked?'border-primary bg-primary text-white':row.workerLinked?'border-line bg-bg text-transparent':'border-line bg-bg text-tertiary opacity-40'}`}>{checked?'✓':'·'}</button>
             <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><b className="text-[1rem] text-ink">{row.name}</b><span className={`rounded-full px-2.5 py-1 text-[0.6875rem] font-extrabold ${STATUS_STYLE[row.status]}`}>{row.statusLabel}</span>{row.unreadMessages>0&&<span className="rounded-full bg-red-500 px-2 py-0.5 text-[0.6875rem] font-extrabold text-white">새 대화 {row.unreadMessages}</span>}</div><p className="mt-1 truncate text-[0.75rem] text-sub">{row.title}</p><p className="mt-0.5 text-[0.75rem] font-semibold text-sub">{row.startTime}~{row.endTime}</p><p className="mt-1 text-[0.6875rem] text-tertiary">출근 {time(row.checkInAt)} → 퇴근 {time(row.checkOutAt)}{row.unpaidDays>0?` · 미정산 ${row.unpaidDays}일`:''}</p></div>
             <Link href={action.href} className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-bg px-3 py-2 text-[0.75rem] font-extrabold text-primary">{action.label}</Link>
+            {row.unpaidDays>0&&!['pay','bank','paid'].includes(row.status)&&<Link href={`/gig-pay?staff=${encodeURIComponent(row.staffId)}`} className="flex min-h-[44px] w-full items-center justify-center rounded-xl bg-amber-50 px-3 text-[0.75rem] font-extrabold text-amber-800">미정산 {row.unpaidDays}일 · 지급 확인</Link>}
           </div>
         </article>;})}</div>}
     </section>

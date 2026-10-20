@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
 import { amountFor, summarizeWork } from '@/lib/db/gig-payouts';
+import { readAllRows } from '@/lib/db/read-all-rows';
 import { isGigStaff } from '@/lib/facility-mode';
 import { withholding } from '@/lib/withholding';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
@@ -37,11 +38,11 @@ export async function createGigPayoutAction(form: FormData) {
   const [{ data: staff, error: staffError }, , { data: payouts, error: payoutError }, { data: bankShare, error: bankError }] = await Promise.all([
     sb.from('facility_staff').select('id,name,worker_id,worker_kind,pay_basis,pay_rate,contract_start,default_break_minutes').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
     requireFacility(sb, context.facilityId),
-    sb.from('gig_payouts').select('period_start,period_end,covered_until,attendance_ids,status').eq('facility_id', context.facilityId).eq('staff_id', staffId)
-      .neq('status', 'cancelled').limit(1000),
+    readAllRows(() => sb.from('gig_payouts').select('id,period_start,period_end,covered_until,attendance_ids,status').eq('facility_id', context.facilityId).eq('staff_id', staffId)
+      .neq('status', 'cancelled')),
     sb.from('gig_bank_account_shares').select('bank_account_id').eq('facility_id', context.facilityId).eq('staff_id', staffId).maybeSingle(),
   ]);
-  if (staffError || payoutError || bankError || (payouts?.length ?? 0) >= 1000) throw new Error('지급 정보를 모두 확인하지 못했어요. 새로고침 후 다시 시도해 주세요.');
+  if (staffError || payoutError || bankError) throw new Error('지급 정보를 모두 확인하지 못했어요. 새로고침 후 다시 시도해 주세요.');
   if (!staff) throw new Error('근무자를 찾을 수 없어요.');
   if (!isGigStaff(staff)) throw new Error('직원 급여는 급여 관리(/payroll)에서 처리해 주세요. 지급 관리는 단기·긱 근무자 전용이에요.');
   if (!bankShare?.bank_account_id || !staff.worker_id) throw new Error('근무자가 지급 계좌를 전달한 뒤 지급할 수 있어요.');

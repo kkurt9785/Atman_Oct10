@@ -10,10 +10,15 @@ import { amountFor, summarizeWork } from '../../../admin-web/lib/db/gig-payouts'
 const row = { id: 'a', work_date: '2026-10-13', check_in_at: '2026-10-13T20:00:00+09:00', check_out_at: '2026-10-14T04:00:00+09:00', break_minutes: 0 };
 const payout = (ids: string[] | null, status = 'paid'): PayoutCoverage => ({ attendance_ids: ids, status, period_start: row.work_date, period_end: row.work_date, covered_until: row.check_out_at });
 function client(data: unknown, error: unknown = null) {
-  const query: Record<string, unknown> = {};
-  for (const name of ['select', 'eq', 'gte', 'lte', 'order']) query[name] = () => query;
-  query.limit = async () => ({ data, error });
-  return { from: () => query } as unknown as Parameters<typeof summarizeWork>[0];
+  return { from: () => {
+    let cursor = '', size = 500;
+    const query: Record<string, unknown> = {};
+    for (const name of ['select', 'eq', 'gte', 'lte', 'order']) query[name] = () => query;
+    query.gt = (_column: string, value: string) => { cursor = value; return query; };
+    query.limit = (value: number) => { size = value; return query; };
+    query.then = (resolve: (result: unknown) => void) => resolve({ data: Array.isArray(data) ? data.filter(row => !cursor || row.id > cursor).slice(0, size) : data, error });
+    return query;
+  }} as unknown as Parameters<typeof summarizeWork>[0];
 }
 
 describe('지급 계산 회귀', () => {
@@ -46,9 +51,9 @@ describe('지급 계산 회귀', () => {
     expect(result.minutes).toBe(0);
     expect(result.attendanceIds).toEqual([]);
   });
-  it('조회 오류와 잘린 결과는 0원 또는 일부 지급으로 처리하지 않는다', async () => {
-    await expect(summarizeWork(client(null, { message: 'offline' }), 'f', 's', '', '')).rejects.toThrow('중단');
-    await expect(summarizeWork(client(Array(1000).fill(row)), 'f', 's', '', '')).rejects.toThrow('전체 지급 범위');
+  it('조회 오류와 잘못된 중복 페이지는 0원 또는 일부 지급으로 처리하지 않는다', async () => {
+    await expect(summarizeWork(client(null, { message: 'offline' }), 'f', 's', '', '')).rejects.toThrow('전체 운영 데이터');
+    await expect(summarizeWork(client(Array(1000).fill(row)), 'f', 's', '', '')).rejects.toThrow('조회 순서');
   });
   it('월급을 매 근무마다 반복 지급하거나 근무 없는 날 일급을 만들지 않는다', () => {
     expect(amountFor('monthly', 3000000, 60, 1)).toBe(0);

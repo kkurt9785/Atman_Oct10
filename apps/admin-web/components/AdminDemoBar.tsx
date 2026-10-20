@@ -31,7 +31,7 @@ export function AdminDemoBar() {
   async function leave(next: 'signup' | 'start') {
     setLeaving(next);
     await fetch('/api/admin-session', { method: 'DELETE' }).catch(() => undefined);
-    await supabase.auth.signOut().catch(() => undefined);
+    await supabase.auth.signOut({scope:'local'}).catch(() => undefined);
     // 가입은 로그인 화면이 ?start=1 을 받아 바로 카카오 로그인으로 잇는다(카카오톡 안이면 바깥 브라우저로)
     window.location.replace(next === 'signup' ? '/login?start=1' : '/login');
   }

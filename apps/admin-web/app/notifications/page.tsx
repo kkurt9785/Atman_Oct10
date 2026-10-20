@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase-browser';
 import { Card } from '@/components/ui';
-import { safeNotificationPath } from '../../lib/shared/notifications/navigation';
+import { adminNotificationDestination } from '@/lib/notification-destination';
 
 type Notice = { id: string; event_type: string; title: string; body: string; data: Record<string, unknown> | null; created_at: string; read_at: string | null };
 
@@ -34,8 +34,7 @@ export default function NotificationsPage() {
         else setRows((current) => current.map((item) => item.id === row.id ? { ...item, read_at: new Date().toISOString() } : item));
       } catch { setError('읽음 표시를 저장하지 못했어요. 연결 상태를 확인해 주세요.'); }
     }
-    const href = safeNotificationPath(row.data?.url);
-    if (href) window.location.href = href;
+    window.location.href = adminNotificationDestination(row.data);
   }
   return <main className="px-4">
     <div className="mt-3 mb-4 flex items-end justify-between px-1"><div><p className="text-label font-bold text-primary">놓친 알림도 한곳에서</p><h1 className="text-display font-extrabold text-ink mt-1">알림</h1></div><button onClick={() => void load()} className="min-h-11 px-2 text-label font-bold text-primary">새로고침</button></div>

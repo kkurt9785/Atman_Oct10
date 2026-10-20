@@ -1,15 +1,17 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { DemoLaunchPanel } from './DemoLaunchPanel';
+import { DemoSelectionProvider, SelectedDemoActions } from './DemoSelection';
 
 // QR 카드·카톡 링크의 목적지. 로그인 없이 열려야 하므로 정적 페이지로 유지한다.
 export const metadata: Metadata = {
-  title: '잇닿 — 병원·약국 인력, 앱에서 바로 구하세요',
+  title: '잇닿 시연 — 사장님·근무자, 설치 없이 먼저 사용해 보세요',
   description:
-    '병원·약국·요양병원의 빈 근무를 앱에서 바로 채우세요. 채용 수수료 0원, 사업장 직접 지급. 결원 대응부터 출퇴근·급여 검토까지 버튼 몇 번으로.',
+    '병원·약국·단기·행사 근무까지. 사장님과 근무자 화면을 가입·설치 없이 시연하고, 필요한 앱만 홈 화면에 추가하세요.',
   alternates: { canonical: 'https://itdot.co.kr/intro' },
   openGraph: {
-    title: '잇닿 — 병원·약국 인력, 앱에서 바로 구하세요',
-    description: '채용 수수료 0원. 공고 등록부터 실시간 알림·출퇴근 인증·월 근태·급여 검토까지 한 번에.',
+    title: '잇닿 — 설치 없이 먼저 시연해 보세요',
+    description: '병원·약국·단기·행사 근무 관리. 사장님·근무자 화면 선택부터 설치 안내까지 한 링크로.',
     url: 'https://itdot.co.kr/intro',
     type: 'website',
   },
@@ -41,56 +43,16 @@ const POINTS = [
 
 export default function IntroPage() {
   return (
-    <main className="min-h-screen bg-white">
-      <header className="px-6 pt-14 pb-10 bg-gradient-to-b from-primary-light to-white">
-        <p className="text-[13px] font-bold text-primary">병원·의원·요양병원·약국</p>
-        <h1 className="mt-2 text-[28px] font-extrabold leading-[1.3] text-ink letter-tight">
-          갑자기 빈 자리,
-          <br />
-          앱에서 바로 구해요
-        </h1>
-        <p className="mt-3 text-[15px] leading-6 text-sub">
-          간호사·간호조무사·약사 대타 인력을 등록된 워커에게 즉시 알리고,
-          출퇴근 인증과 급여 자료까지 한 번에 정리하세요.
-        </p>
-        <div className="mt-6 grid grid-cols-2 gap-2">
-          <a href="https://admin.itdot.co.kr/login?demo=hospital" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[14px] font-extrabold text-white">
-            관리자 화면 시연
-          </a>
-          <a href="tel:01090455699" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[14px] font-extrabold text-primary">
-            도입 상담
-          </a>
-        </div>
-        <div className="mt-2 grid grid-cols-4 gap-1.5">
-          <a href="https://admin.itdot.co.kr/login?demo=hospital" className="flex h-10 items-center justify-center rounded-xl bg-white text-[12px] font-bold text-ink shadow-card">병원</a>
-          <a href="https://admin.itdot.co.kr/login?demo=pharmacy" className="flex h-10 items-center justify-center rounded-xl bg-white text-[12px] font-bold text-ink shadow-card">약국</a>
-          <a href="https://admin.itdot.co.kr/login?demo=care" className="flex h-10 items-center justify-center rounded-xl bg-white text-[12px] font-bold text-ink shadow-card">요양병원</a>
-          <a href="https://admin.itdot.co.kr/login?demo=gigworker" className="flex h-10 items-center justify-center rounded-xl bg-ink text-[12px] font-bold text-white shadow-card">긱워커</a>
-        </div>
-        <p className="mt-2 text-[11px] text-sub">누르면 시연 계정으로 바로 관리자 화면이 열려요. 실제 데이터에는 반영되지 않아요.</p>
-        <div className="mt-3 rounded-xl bg-white px-4 py-3 shadow-card" aria-label="시연에서 눌러볼 것">
-          <p className="text-[12px] font-extrabold text-ink">시연에서 이것만 눌러보세요</p>
-          <ol className="mt-1.5 space-y-1 text-[12px] leading-5 text-sub">
-            <li><b className="text-primary">①</b> 모집 탭 → <b className="text-ink">새 공고</b></li>
-            <li><b className="text-primary">②</b> 지원 현황 → <b className="text-ink">수락</b></li>
-            <li><b className="text-primary">③</b> 근태 탭 → <b className="text-ink">출퇴근 인증</b></li>
-          </ol>
-        </div>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            채용 수수료 0원
-          </span>
-          <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            임금은 사업장 직접 지급
-          </span>
-          <span className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">
-            가입 즉시 30일 무료
-          </span>
-        </div>
+    <DemoSelectionProvider><main className="min-h-screen bg-white">
+      <header className="px-6 pt-8 pb-8 bg-gradient-to-b from-primary-light to-white">
+        <p className="text-[13px] font-bold text-primary">잇닿 · 병원·약국부터 단기·행사 근무까지</p>
+        <h1 className="mt-2 text-[28px] font-extrabold leading-[1.3] text-ink">우리 근무 관리,<br />먼저 써보고 결정하세요</h1>
+        <p className="mt-3 text-[14px] leading-6 text-sub">가입·설치 없이 준비된 시연으로 확인해요.<br />사장님과 근무자 화면을 각각 볼 수 있어요.</p>
+        <DemoLaunchPanel />
+        <a href="#admin-demo" className="mt-4 block text-center text-[13px] font-bold text-sub">먼저 1분 소개 영상 보기 ↓</a>
       </header>
-
       <section id="admin-demo" className="border-y border-line bg-bg px-6 py-10 scroll-mt-4" aria-labelledby="admin-demo-title">
-        <p className="text-[13px] font-bold text-primary">1분 시연</p>
+        <p className="text-[13px] font-bold text-primary">의료 사업장 관리자 · 참고 영상</p>
         <h2 id="admin-demo-title" className="mt-1 text-[20px] font-extrabold text-ink">
           공고부터 지급 확인까지,
           <br />
@@ -115,10 +77,8 @@ export default function IntroPage() {
         <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 10초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
         <div className="mt-5 rounded-card bg-white p-5 shadow-card">
           <p className="text-[12px] font-extrabold text-primary">시연이 마음에 드셨나요?</p>
-          <h3 className="mt-1 text-[18px] font-extrabold text-ink">관리자 앱을 홈 화면에 바로 추가하세요</h3>
-          <p className="mt-2 text-[12px] leading-5 text-sub">앱스토어를 찾을 필요 없이 설치 안내를 따라 추가하고, 카카오로 바로 시작할 수 있어요.</p>
-          <a href="https://admin.itdot.co.kr/login?install=1" className="mt-4 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">관리자 앱 설치하기 →</a>
-          <a href="https://admin.itdot.co.kr/login?demo=hospital" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-bg text-[13px] font-bold text-sub">먼저 시연 화면 더 보기</a>
+          <h3 className="mt-1 text-[18px] font-extrabold text-ink">선택한 화면으로 이어서 확인하세요</h3>
+          <SelectedDemoActions />
         </div>
       </section>
 
@@ -142,7 +102,7 @@ export default function IntroPage() {
         <h2 className="text-[20px] font-extrabold text-ink">지금은 함께 만드는 단계예요</h2>
         <div className="mt-4 rounded-card border border-line p-5">
           <ul className="space-y-2.5 text-[13px] leading-5 text-sub">
-            <li>· 가입하면 <b className="text-ink">30일 무료 체험</b>이 시작되며, 자동으로 유료 전환되지 않아요</li>
+            <li>· 의료 사업장 관리자 가입 시 <b className="text-ink">30일 무료 체험</b>을 제공하며, 자동으로 유료 전환되지 않아요. 단기근무 요금·제공 범위는 해당 앱의 이용 안내를 확인해 주세요.</li>
             <li>· 도입을 함께하는 <b className="text-ink">시범 사업장</b>은 초기 세팅과 3개월 이용을 지원해요</li>
             <li>· 채용이 성사돼도 <b className="text-ink">채용 수수료는 0원</b>입니다</li>
             <li>· 임금은 사업장이 근무자에게 직접 지급해요 (잇닿은 임금을 보관하지 않아요)</li>
@@ -154,9 +114,9 @@ export default function IntroPage() {
         <div className="rounded-card bg-ink px-5 py-7 text-center">
           <p className="text-[15px] font-bold text-white">내 사업장 흐름으로 직접 설명해드릴게요</p>
           <p className="mt-2 text-[13px] leading-5 text-white/70">
-            병원·약국·요양병원 중 어떤 곳인지 알려주시면, 실제 운영 흐름에 맞춰 초기 세팅과 시연을 도와드립니다.
+            병원·약국·요양병원·단기·행사 등 운영 형태를 알려주시면, 초기 세팅과 시연을 도와드립니다.
           </p>
-          <a href="https://admin.itdot.co.kr/login?install=1" className="mt-5 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">관리자 앱 설치하고 시작하기</a>
+          <SelectedDemoActions dark />
           <a
             href="tel:01090455699"
             className="mt-2 flex h-12 items-center justify-center rounded-btn bg-white/10 text-[15px] font-bold text-white"
@@ -197,6 +157,6 @@ export default function IntroPage() {
           직접 연결·추천하지 않으며 채용 성사에 연동된 수수료를 받지 않습니다.
         </p>
       </footer>
-    </main>
+    </main></DemoSelectionProvider>
   );
 }

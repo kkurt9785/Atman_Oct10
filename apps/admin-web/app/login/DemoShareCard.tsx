@@ -23,8 +23,8 @@ export function DemoShareCard() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: '잇닿 관리자 데모',
-          text: '병원·약국·요양병원의 모집·근태·급여 연결 방식을 1분 안에 확인해 보세요.',
+          title: '잇닿 시연',
+          text: '병원·약국·단기·행사 근무 관리. 사장님과 근무자 화면을 가입·설치 없이 먼저 사용해 보세요.',
           url: DEMO_URL,
         });
         return;
@@ -52,7 +52,7 @@ export function DemoShareCard() {
         <div className="min-w-0">
           <p className="text-[0.9375rem] font-extrabold text-ink">휴대폰으로 시연해 보세요</p>
           <p className="mt-1 text-[0.8125rem] leading-5 text-sub">
-            카메라로 찍으면 서비스 설명이 먼저 열리고, 바로 관리자 데모를 선택할 수 있어요.
+            카메라로 찍으면 사장님·근무자 화면을 골라 설치 없이 시연할 수 있어요.
           </p>
           <button
             type="button"
@@ -66,7 +66,7 @@ export function DemoShareCard() {
 
       <div className="md:hidden">
         <p className="text-[0.875rem] font-extrabold text-ink">다른 분과 함께 볼까요?</p>
-        <p className="mt-1 text-[0.75rem] leading-5 text-sub">간단한 소개와 관리자 데모가 연결된 링크예요.</p>
+        <p className="mt-1 text-[0.75rem] leading-5 text-sub">병원·단기근무 시연과 앱 설치 안내를 한 링크로 보내요.</p>
         <button
           type="button"
           onClick={shareDemo}

@@ -38,15 +38,20 @@ async function getFacilityPlan(sb: SupabaseClient, facilityId: string): Promise<
   return { code: free.code, name: free.name, features: free.features ?? {}, includedAttendanceSlots: free.included_attendance_slots ?? 0 };
 }
 
-export async function requireStaffCapacity(sb: SupabaseClient, facilityId: string): Promise<void> {
+export async function getStaffCapacity(sb: SupabaseClient, facilityId: string) {
   const plan = await getFacilityPlan(sb, facilityId);
   const { count, error } = await sb.from('facility_staff').select('id', { count: 'exact', head: true })
     .eq('facility_id', facilityId).neq('status', 'ended')
     // 종료일이 지난 단기 계약은 동시 관리 인원에서 제외한다. 기록과 정산은 그대로 남는다.
     .or(`contract_end.is.null,contract_end.gte.${todayKST()}`);
   if (error) throw new Error('직원 사용량을 확인하지 못했어요.');
-  if ((count ?? 0) < plan.includedAttendanceSlots) return;
-  throw new Error(`${plan.name} 요금제는 직원 ${plan.includedAttendanceSlots}명까지 관리할 수 있어요.`);
+  return {used:count??0,limit:plan.includedAttendanceSlots,remaining:Math.max(0,plan.includedAttendanceSlots-(count??0)),planName:plan.name};
+}
+
+export async function requireStaffCapacity(sb: SupabaseClient, facilityId: string): Promise<void> {
+  const capacity=await getStaffCapacity(sb,facilityId);
+  if(capacity.remaining>0)return;
+  throw new Error(`${capacity.planName}은 관리 대상 ${capacity.limit}명까지 등록할 수 있어요. 초대 대기·미래 계약도 포함돼요. 종료된 계약을 확인하거나 이용 현황에서 문의해 주세요.`);
 }
 
 // 렌더 게이트용 — throw 없이 boolean만. CTA 노출 여부 판단에 사용.

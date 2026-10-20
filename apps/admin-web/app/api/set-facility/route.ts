@@ -39,6 +39,9 @@ export async function POST(req: NextRequest) {
   const gigworkerDemoTarget = wantsGigworkerDemo
     ? facilities.find((facility) => isGigworkerFacility(facility) && facility.is_demo === true)
     : undefined;
+  if(wantsGigworkerDemo&&!gigworkerDemoTarget) {
+    return NextResponse.json({error:'단기근무 시연 현장을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.'},{status:503});
+  }
   const demoTarget = gigworkerDemoTarget ?? (session.user.email==='sales-demo-1@demo.atman.co.kr'
     ? facilities.find((facility)=>facility.name==='W여성병원'&&facility.is_demo===true)
     : session.user.email==='sales-demo-2@demo.atman.co.kr'
@@ -46,6 +49,9 @@ export async function POST(req: NextRequest) {
       : session.user.email==='sales-demo-3@demo.atman.co.kr'
         ? facilities.find((facility)=>facility.facility_type==='care_hospital'&&facility.is_demo===true)
         : undefined);
+  if(session.user.email?.endsWith('@demo.atman.co.kr')&&!body.facilityId&&!demoTarget) {
+    return NextResponse.json({error:'선택한 시연 현장을 찾지 못했어요.'},{status:503});
+  }
   const facilityId = body.facilityId
     ?? (demoTarget?.id as string | undefined)
     ?? (facilities[0]?.id as string | undefined)

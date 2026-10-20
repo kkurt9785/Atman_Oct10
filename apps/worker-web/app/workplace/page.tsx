@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
 import { isGigLink } from '@/lib/worker-mode';
+import { selectWorkplaceShift, selectWorkplaceStaff, currentStaffAttendance, staffAttendanceLabel, attendancePolicyHelp } from '@/lib/workplace-selection';
 
 // 병원·약국 직원·단기 근무의 출퇴근·휴가. 긱 근무 연결(facility_staff.worker_kind='gig')은 /gig 가 맡는다.
 // 긱워커만 쓰는 사람이 여기(QR 스캔 /workplace?attendanceToken= 포함)로 오면 ClientLayout 의 WorkerShellGuard 가 쿼리째 /gig 로 보낸다.
@@ -39,6 +40,8 @@ function WorkplaceContent() {
   const params = useSearchParams();
   const legacyToken = params.get('token');
   const attendanceToken=params.get('attendanceToken');
+  const requestedFacility=params.get('facility'), requestedStaff=params.get('staffId'), requestedApplication=params.get('applicationId');
+  const [loadError,setLoadError]=useState(''), [retry,setRetry]=useState(0);
   const [staffList,setStaffList]=useState<Staff[]>([]);
   const [selectedStaffId,setSelectedStaffId]=useState('');
   const [loading,setLoading]=useState(true);
@@ -54,68 +57,94 @@ function WorkplaceContent() {
   const [tab,setTab]=useState<'history'|'leave'>('history');
   const [refreshKey,setRefreshKey]=useState(0);
 
-  useEffect(()=>{ void (async()=>{
-    const {data:{user}}=await supabase.auth.getUser();
+  useEffect(()=>{ let active=true; void (async()=>{
+    setLoading(true);setLoadError('');setShiftTarget(null);setAttendance({});
+    try {
+    const {data:{user},error:authError}=await supabase.auth.getUser();
+    if(!active)return;
+    if(authError&&authError.name!=='AuthSessionMissingError')throw authError;
     if(!user){
       const query=new URLSearchParams();
       if(attendanceToken)query.set('attendanceToken',attendanceToken);
       if(params.get('facility'))query.set('facility',params.get('facility')!);
+      if(requestedStaff)query.set('staffId',requestedStaff);
+      if(requestedApplication)query.set('applicationId',requestedApplication);
       // 로그인 후 복귀는 atman_auth_next(localStorage) 패턴 — ?next= 파라미터는 읽는 곳이 없다
       window.localStorage.setItem('atman_auth_next',`/workplace${query.size?`?${query}`:''}`);
       window.location.href='/';
       return;
     }
-    const {data}=await supabase.from('facility_staff').select('id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)').neq('status','ended').order('created_at',{ascending:false});
+    const {data,error:staffError}=await supabase.from('facility_staff').select('id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)').neq('status','ended').order('created_at',{ascending:false});
+    if(!active)return;
+    if(staffError)throw staffError;
     const linked=((data??[]) as Staff[]).filter(item=>!isGigLink(item));
+    const selectedStaff=selectWorkplaceStaff(linked,requestedFacility,requestedStaff);
+    if(requestedStaff&&!selectedStaff)throw new Error('staff unavailable');
     setStaffList(linked);
-    setSelectedStaffId(linked.find(item=>facilityOf(item)?.id===params.get('facility'))?.id??linked.find(item=>item.id===params.get('staffId'))?.id??linked[0]?.id??'');
+    setSelectedStaffId(selectedStaff?.id??'');
     if(linked.length){
       const facilityIds=[...new Set(linked.map(item=>facilityOf(item)?.id).filter(Boolean))] as string[];
-      const {data:settings}=await supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_after_minutes').in('facility_id',facilityIds);
+      const {data:settings,error:settingsError}=await supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_after_minutes').in('facility_id',facilityIds);
+      if(!active)return;
+    if(settingsError)throw settingsError;
       setAttendanceModes(Object.fromEntries((settings??[]).map(row=>[row.facility_id,row.authentication_mode as AttendanceMode])));
       setLateLimits(current=>({...current,...Object.fromEntries((settings??[]).filter(row=>typeof row.check_in_after_minutes==='number').map(row=>[row.facility_id,row.check_in_after_minutes as number]))}));
       const kstNow=new Date(Date.now()+9*60*60*1000);
       const since=new Date(Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),1)).toISOString().slice(0,10);
       const todayStr=kstNow.toISOString().slice(0,10);
-      const {data:records}=await supabase.from('staff_attendances').select('staff_id,check_in_at,check_out_at,work_date,status,break_minutes').in('staff_id',linked.map(item=>item.id)).gte('work_date',since).order('work_date',{ascending:false});
-      const map:Record<string,AttendanceState>={};
-      // "오늘" 상태는 오늘 기록 우선 — 어제 퇴근 완료 기록이 오늘 출근 버튼을 가리면 안 된다.
-      // 단, 야간 근무는 서버가 어제 날짜(work_date)로 적재하므로 '출근했고 아직 퇴근 전'인 어제 행은 오늘 상태로 본다.
-      const rows=(records??[]) as AttendanceState[];
-      for(const row of rows)if(!map[row.staff_id]&&row.work_date===todayStr)map[row.staff_id]=row;
-      for(const row of rows)if(!map[row.staff_id]&&row.check_in_at&&!row.check_out_at)map[row.staff_id]=row;
-      setAttendance(map);
+      const fields='staff_id,check_in_at,check_out_at,work_date,status,break_minutes';
+      const [monthly,open]=await Promise.all([
+        supabase.from('staff_attendances').select(fields).in('staff_id',linked.map(item=>item.id)).gte('work_date',since).order('work_date',{ascending:false}),
+        supabase.from('staff_attendances').select(fields).in('staff_id',linked.map(item=>item.id)).not('check_in_at','is',null).is('check_out_at',null).order('work_date',{ascending:false}),
+      ]);
+      if(!active)return;
+    if(monthly.error||open.error)throw monthly.error??open.error;
+      setAttendance(currentStaffAttendance((monthly.data??[]) as AttendanceState[],(open.data??[]) as AttendanceState[],todayStr));
     }
     // 단기 근무도 QR 진입 여부와 관계없이 오늘 배정을 불러온다.
     // 그래야 워커가 앱을 직접 열어 GPS/Wi-Fi로 출퇴근할 수 있다.
     const today=new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10);
-    const {data:worker}=await supabase.from('workers').select('id').eq('auth_user_id',user.id).maybeSingle();
+    const {data:worker,error:workerError}=await supabase.from('workers').select('id').eq('auth_user_id',user.id).maybeSingle();
+    if(!active)return;
+    if(workerError)throw workerError;
     if(worker){
       // 오늘 확정 근무 + 어제 시작한 야간 근무(아직 퇴근 전) + 오늘 완료한 근무(완료 문구용)
       const yesterday=new Date(Date.now()+9*60*60*1000-24*60*60*1000).toISOString().slice(0,10);
-      const {data:applications}=await supabase.from('shift_applications')
+      const {data:applications,error:applicationsError}=await supabase.from('shift_applications')
         .select('id,checked_in_at,checked_out_at,status,shift_attendances(checkout_requested_at),shifts!inner(shift_date,start_time,end_time,facilities!facility_id(id,name))')
-        .eq('worker_id',worker.id).in('status',['accepted','completed']).in('shifts.shift_date',[yesterday,today]).limit(10);
-      const list=((applications??[]) as unknown as Array<ShiftTarget&{status:string}>);
-      const dateOf=(t:ShiftTarget)=>(Array.isArray(t.shifts)?t.shifts[0]:t.shifts).shift_date;
-      const application=list.find(t=>t.status==='accepted'&&!t.checked_out_at&&dateOf(t)===today)
-        ??list.find(t=>t.status==='accepted'&&t.checked_in_at&&!t.checked_out_at)
-        ??list.find(t=>t.status==='completed'&&dateOf(t)===today)??null;
+        .eq('worker_id',worker.id).in('status',['accepted','completed']).in('shifts.shift_date',[yesterday,today]);
+      if(!active)return;
+    if(applicationsError)throw applicationsError;
+      const {data:ongoing,error:ongoingError}=await supabase.from('shift_applications')
+        .select('id,checked_in_at,checked_out_at,status,shift_attendances(checkout_requested_at),shifts!inner(shift_date,start_time,end_time,facilities!facility_id(id,name))')
+        .eq('worker_id',worker.id).eq('status','accepted').not('checked_in_at','is',null).is('checked_out_at',null);
+      if(!active)return;
+    if(ongoingError)throw ongoingError;
+      const list=Array.from(new Map([...(applications??[]),...(ongoing??[])].map(row=>[row.id,row])).values()) as unknown as Array<ShiftTarget&{status:string}>;
+      const application=selectWorkplaceShift(list,today,requestedFacility,requestedApplication);
+      if(requestedApplication&&!application)throw new Error('선택한 근무를 확인하지 못했어요. 근무 목록에서 상태를 확인해 주세요.');
       if(application){
         const target=application as unknown as ShiftTarget;
         setShiftTarget(target);
         const shift=Array.isArray(target.shifts)?target.shifts[0]:target.shifts;
         const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;
         if(facility?.id){
-          const {data:setting}=await supabase.from('facility_attendance_settings').select('authentication_mode,check_in_after_minutes').eq('facility_id',facility.id).maybeSingle();
+          const {data:setting,error:settingError}=await supabase.from('facility_attendance_settings').select('authentication_mode,check_in_after_minutes').eq('facility_id',facility.id).maybeSingle();
+          if(!active)return;
+    if(settingError)throw settingError;
           if(setting)setAttendanceModes(current=>({...current,[facility.id]:setting.authentication_mode as AttendanceMode}));
           if(typeof setting?.check_in_after_minutes==='number')setLateLimits(current=>({...current,[facility.id]:setting.check_in_after_minutes as number}));
         }
       }
     }
     if(legacyToken) setMessage('이전 정적 QR은 운영 종료됐어요. 사업장 관리자 화면의 동적 QR을 다시 스캔해 주세요.');
-    setLoading(false);
-  })();},[legacyToken,attendanceToken]);
+    if(requestedFacility&&!linked.some(item=>facilityOf(item)?.id===requestedFacility)) {
+      // QR 정책 검증도 버튼에서 수행한다. 다른 현장을 기본 선택한 채 진행하지 않는다.
+      setSelectedStaffId('');
+    }
+    } catch {if(active)setLoadError('근태 정보를 확인하지 못했어요. 연결 상태를 확인하고 다시 불러와 주세요.');}
+    finally {if(active)setLoading(false);}
+  })();return()=>{active=false;};},[legacyToken,attendanceToken,requestedFacility,requestedStaff,requestedApplication,retry]);
 
   async function requestLeave(formData:FormData){
     setMessage('');
@@ -150,7 +179,7 @@ function WorkplaceContent() {
     setLeaves((requests??[]) as Leave[]);
   })();},[selectedStaffId]);
 
-  const staff=staffList.find(item=>item.id===selectedStaffId)??staffList[0]??null;
+  const staff=staffList.find(item=>item.id===selectedStaffId)??null;
   const staffFacility=staff ? facilityOf(staff) : null;
   const facility=staffFacility?.name??'';
   const staffAttendanceMode=staffFacility?.id?attendanceModes[staffFacility.id]??'gps_or_qr':'gps_or_qr';
@@ -161,13 +190,13 @@ function WorkplaceContent() {
     <p className="mt-2 text-[13px] font-bold text-primary">{staffList.length?'내 직장':'단기 근무'}</p><h1 className="text-[26px] font-extrabold text-ink mt-1">{staffList.length?'출퇴근·휴가':'출퇴근'}</h1>
     <LinkedNotice />
     {!loading&&staffList.length>0&&<Link href="/workroom" className="mt-4 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm active:bg-bg"><span><b className="block text-[15px] text-ink">사업장 워크룸</b><span className="mt-1 block text-[12px] text-sub">공지와 근무 대화를 한곳에서 확인해요</span></span><span className="text-[20px] font-bold text-primary">→</span></Link>}
-    {loading?<div className="mt-6 bg-white rounded-2xl p-8 text-center text-sub">근태를 확인하고 있어요...</div>:
-      <>{shiftTarget&&(()=>{const shift=Array.isArray(shiftTarget.shifts)?shiftTarget.shifts[0]:shiftTarget.shifts;const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;const mode=attendanceModes[facility?.id]??'gps_or_qr';const action=shiftTarget.checked_in_at?'check_out':'check_in';const checkoutPending=Boolean(shiftCheckoutRequested(shiftTarget)&&!shiftTarget.checked_out_at);const {toStart,toEnd}=minutesUntilShift(shift);const missed=!shiftTarget.checked_in_at&&!shiftTarget.checked_out_at&&toEnd<=0;const lateLimit=lateLimits[facility?.id??'']??60;const windowClosed=!shiftTarget.checked_in_at&&!missed&&toStart<-lateLimit;return <><section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><p className="text-[13px] font-bold text-primary">오늘 확정된 단기 근무</p><h2 className="mt-1 text-[18px] font-extrabold">{facility?.name}</h2><p className="mt-1 text-[13px] text-sub">{shift.shift_date} · {shift.start_time.slice(0,5)}~{shift.end_time.slice(0,5)}</p>{!shiftTarget.checked_in_at&&!missed&&!windowClosed&&toStart<0&&<p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-center text-[13px] font-bold text-amber-700">시작 {-toStart}분 지났어요 · 지금 출근하기를 눌러 주세요</p>}{missed?<div className="mt-4 rounded-xl bg-amber-50 p-4 text-center"><p className="text-[14px] font-extrabold text-amber-800">출근 기록 없이 근무 시간이 지났어요</p><p className="mt-1 text-[12px] leading-5 text-amber-700">실제로 일했다면 사업장에 알려 근무 기록을 고쳐 달라고 해 주세요.</p><Link href={`/chat/${shiftTarget.id}`} className="mt-3 inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white">사업장 채팅으로 알리기</Link></div>:windowClosed?<div className="mt-4 rounded-xl bg-amber-50 p-4 text-center"><p className="text-[14px] font-extrabold text-amber-800">출근 가능 시간이 지났어요</p><p className="mt-1 text-[12px] leading-5 text-amber-700">앱 출근은 시작 후 {lateLimit}분까지만 돼요. 출근했다면 사업장에 알려 수동 기록을 요청해 주세요.</p><Link href={`/chat/${shiftTarget.id}`} className="mt-3 inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white">사업장 채팅으로 알리기</Link></div>:checkoutPending?<p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간과 지급 자료가 확정돼요.</p>:!shiftTarget.checked_out_at?<TouchToCheckButton key={action} targetType="shift" targetId={shiftTarget.id} action={action} qrToken={attendanceToken} mode={mode} onSuccess={(response)=>{setShiftTarget(current=>current?response.status==='pending'?{...current,shift_attendances:{checkout_requested_at:new Date().toISOString()}}:{...current,[action==='check_in'?'checked_in_at':'checked_out_at']:new Date().toISOString()}:current);setRefreshKey(k=>k+1);}}/>:<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">근무가 완료됐어요.</p>}</section>{!staff&&<section className="mt-5 rounded-2xl bg-white p-5 shadow-sm"><h2 className="text-[18px] font-extrabold">내 근태 내역</h2><div className="mt-3"><MyAttendanceCalendar staffId={null} refreshKey={refreshKey}/></div></section>}</>})()}
+    {loadError?<div role="alert" className="mt-6 rounded-2xl bg-amber-50 p-5"><p>{loadError}</p><button type="button" onClick={()=>setRetry(value=>value+1)} className="mt-3 min-h-11 font-bold text-primary">다시 불러오기</button><Link href="/applications" className="ml-4 font-bold text-primary">근무 목록 확인</Link></div>:loading?<div className="mt-6 bg-white rounded-2xl p-8 text-center text-sub">근태를 확인하고 있어요...</div>:
+      <>{shiftTarget&&(()=>{const shift=Array.isArray(shiftTarget.shifts)?shiftTarget.shifts[0]:shiftTarget.shifts;const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;const mode=attendanceModes[facility?.id]??'gps_or_qr';const action=shiftTarget.checked_in_at?'check_out':'check_in';const checkoutPending=Boolean(shiftCheckoutRequested(shiftTarget)&&!shiftTarget.checked_out_at);const {toStart,toEnd}=minutesUntilShift(shift);const missed=!shiftTarget.checked_in_at&&!shiftTarget.checked_out_at&&toEnd<=0;const lateLimit=lateLimits[facility?.id??'']??60;const windowClosed=!shiftTarget.checked_in_at&&!missed&&toStart<-lateLimit;return <><section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><p className="text-[13px] font-bold text-primary">오늘 확정된 단기 근무</p><h2 className="mt-1 text-[18px] font-extrabold">{facility?.name}</h2><p className="mt-1 text-[13px] text-sub">{shift.shift_date} · {shift.start_time.slice(0,5)}~{shift.end_time.slice(0,5)}</p>{!shiftTarget.checked_in_at&&!missed&&!windowClosed&&toStart<0&&<p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-center text-[13px] font-bold text-amber-700">시작 {-toStart}분 지났어요 · 지금 출근하기를 눌러 주세요</p>}{missed?<div className="mt-4 rounded-xl bg-amber-50 p-4 text-center"><p className="text-[14px] font-extrabold text-amber-800">출근 기록 없이 근무 시간이 지났어요</p><p className="mt-1 text-[12px] leading-5 text-amber-700">실제로 일했다면 사업장에 알려 근무 기록을 고쳐 달라고 해 주세요.</p><Link href={`/chat/${shiftTarget.id}`} className="mt-3 inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white">사업장 채팅으로 알리기</Link></div>:windowClosed?<div className="mt-4 rounded-xl bg-amber-50 p-4 text-center"><p className="text-[14px] font-extrabold text-amber-800">출근 가능 시간이 지났어요</p><p className="mt-1 text-[12px] leading-5 text-amber-700">앱 출근은 시작 후 {lateLimit}분까지만 돼요. 출근했다면 사업장에 알려 수동 기록을 요청해 주세요.</p><Link href={`/chat/${shiftTarget.id}`} className="mt-3 inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white">사업장 채팅으로 알리기</Link></div>:checkoutPending?<p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간과 지급 자료가 확정돼요.</p>:!shiftTarget.checked_out_at?<TouchToCheckButton key={shiftTarget.id+':'+action} helpHref={`/chat/${shiftTarget.id}`} targetType="shift" targetId={shiftTarget.id} action={action} qrToken={attendanceToken} mode={mode} onSuccess={(response)=>{setShiftTarget(current=>current?response.status==='pending'?{...current,shift_attendances:{checkout_requested_at:new Date().toISOString()}}:{...current,[action==='check_in'?'checked_in_at':'checked_out_at']:new Date().toISOString()}:current);setRefreshKey(k=>k+1);}}/>:<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">근무가 완료됐어요.</p>}</section>{!staff&&<section className="mt-5 rounded-2xl bg-white p-5 shadow-sm"><h2 className="text-[18px] font-extrabold">내 근태 내역</h2><div className="mt-3"><MyAttendanceCalendar staffId={null} refreshKey={refreshKey}/></div></section>}</>})()}
       {      !staff?(!shiftTarget&&<div className="mt-6 bg-white rounded-2xl p-8 text-center"><b>오늘 배정된 근무가 없어요</b><p className="text-[13px] text-sub mt-2">단기 근무는 지원이 확정되면 여기에 출근 버튼이 생겨요. 사업장 직원이라면 관리자에게 잇닿 계정 연결을 요청해 주세요.</p></div>):
       <>
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
           {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=facilityOf(item)?.name;return <option key={item.id} value={item.id}>{name??'사업장'} · {item.name}</option>;})}</select></label>}
-          <div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[12px] font-bold text-primary">{currentAttendance?.check_in_at?'현재 근무 중':'출근 전'}</p><p className="mt-1 text-[13px] text-sub">버튼 한 번으로 사업장 위치를 확인해요. 실내에서 위치가 불안정하면 사업장의 동적 QR로 인증할 수 있어요.</p></div>
+          <div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[12px] font-bold text-primary">{staffAttendanceLabel(currentAttendance)}</p><p className="mt-1 text-[13px] text-sub">{attendancePolicyHelp(staffAttendanceMode)}</p></div>
           {!currentAttendance?.check_out_at&&currentAttendance?.status!=='checkout_pending'&&<TouchToCheckButton key={staff.id+':'+(currentAttendance?.check_in_at?'check_out':'check_in')} targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken} mode={staffAttendanceMode} onSuccess={(response:AttendanceResult)=>{const now=new Date().toISOString();const checkingOut=Boolean(currentAttendance?.check_in_at);setAttendance(current=>({...current,[staff.id]:{...(current[staff.id]??{staff_id:staff.id,work_date:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10),check_in_at:null,check_out_at:null}),...(checkingOut?(response.status==='pending'?{status:'checkout_pending'}:{check_out_at:response.checkOutAt??now,status:'completed'}):{check_in_at:response.checkInAt??now,status:'working'})}}));setRefreshKey(k=>k+1);}}/>}
           {currentAttendance?.status==='checkout_pending'&&<p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간이 확정돼요.</p>}
           {currentAttendance?.check_out_at&&<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">오늘 출퇴근이 완료됐어요.</p>}

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { rememberWorkerShell } from '@/lib/worker-mode';
@@ -11,6 +11,7 @@ import { BackButton } from '@/components/BackButton';
 import { demoKindOf, leaveDemo, type DemoKind } from '@/lib/demo-session';
 import { DemoEndSheet } from '@/components/DemoSignup';
 import { LINKED_NOTICE_KEY } from '@/components/invite/LinkedNotice';
+import { LINKED_INSTALL_KEY } from '@/lib/linked-install';
 import { startKakaoLogin } from '@/lib/kakao-login';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
@@ -85,24 +86,31 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   const [hasWorker, setHasWorker] = useState(false);
   // 긱 초대: 수락하면 등록된 지급 계좌가 이 근무지에 전달된다 — 시작할 때 이미 전달돼 있어야 워커가 안심한다
   const [bankLabel, setBankLabel] = useState<string | null>(null);
+  const [retry,setRetry]=useState(0);
+  const [canRetry,setCanRetry]=useState(false);
+  const claiming=useRef(false);
 
   useEffect(() => {
     let active = true;
     void (async () => {
+      setStatus('loading');setCanRetry(false);setDemoBlocked(false);setDemoOnly(false);setMessage('근무 초대를 확인하고 있어요...');
+      try {
       if (!token) {
         setStatus('error');
         setMessage('초대 링크가 올바르지 않아요. 관리자에게 새 링크를 요청해 주세요.');
         return;
       }
 
-      const [{ data: previewData, error: previewError }, { data: { user } }] = await Promise.all([
+      const [{ data: previewData, error: previewError }, { data: { user },error:authError }] = await Promise.all([
         supabase.rpc('get_facility_staff_invite_preview', { p_token: token }),
         supabase.auth.getUser(),
       ]);
       if (!active) return;
 
       const invite = previewData as InvitePreview | null;
-      if (previewError || !invite?.ok) {
+      if(previewError)throw previewError;
+      if(authError&&authError.name!=='AuthSessionMissingError')throw authError;
+      if (!invite?.ok) {
         setDemoOnly(invite?.reason === 'DEMO_ONLY');
         setStatus('error');
         setMessage(invite?.message ?? '초대 정보를 불러오지 못했어요. 사장님께 새 링크를 요청해 주세요.');
@@ -118,10 +126,11 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
 
       let workerExists = false;
       if (user) {
-        const [{ data: worker }, { data: bank }] = await Promise.all([
+        const [{ data: worker,error:workerError }, { data: bank,error:bankError }] = await Promise.all([
           supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
-          invite.isGigworker ? supabase.from('worker_bank_accounts').select('bank_name,account_number_last4').eq('is_primary', true).is('deleted_at', null).maybeSingle() : Promise.resolve({ data: null }),
+          invite.isGigworker ? supabase.from('worker_bank_accounts').select('bank_name,account_number_last4').eq('is_primary', true).is('deleted_at', null).maybeSingle() : Promise.resolve({ data: null,error:null }),
         ]);
+        if(workerError||bankError)throw workerError??bankError;
         workerExists = Boolean(worker?.id);
         if (active) setBankLabel(bank?.bank_name && bank.account_number_last4 ? `${bank.bank_name} ****${bank.account_number_last4}` : null);
       }
@@ -133,9 +142,10 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       setHasWorker(workerExists);
       setStatus('preview');
       setMessage('아래 근무 조건을 확인한 뒤 초대를 수락해 주세요. 전화번호나 카카오 친구 추가는 필요 없어요.');
+      } catch {if(active){setStatus('error');setCanRetry(true);setMessage('초대 정보를 확인하지 못했어요. 연결 상태를 확인하고 다시 불러와 주세요.');}}
     })();
     return () => { active = false; };
-  }, [token, variant, isGig]);
+  }, [token, variant, isGig, retry]);
 
   function startRegistration() {
     if (!token) return;
@@ -147,17 +157,21 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   }
 
   async function claimInvite() {
-    if (!token || status === 'claiming') return;
+    if (!token || claiming.current) return;
     if (!signedIn || !hasWorker) {
       startRegistration();
       return;
     }
+    claiming.current=true;
+    setCanRetry(false);
     setStatus('claiming');
     setMessage('근무 초대를 연결하고 있어요...');
+    try {
     const { data: staffId, error } = await supabase.rpc('claim_facility_staff_invite', { p_token: token });
     if (error) {
       setStatus('error');
       setMessage(friendlyInviteError(error.message));
+      setCanRetry(true);
       // 시연 계정으로 실제 초대를 열었으면 시연을 끝내고 같은 초대를 내 계정으로 받게 한다
       setDemoBlocked(error.message.includes('시연 계정으로는 실제 초대'));
       return;
@@ -173,10 +187,15 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     rememberWorkerShell(variant);
     window.dispatchEvent(new Event('atman:workplace-linked'));
     // 완료 화면을 거치지 않고 바로 근무 화면(출근하기)으로 — 연결 안내는 거기서 한 번 보여 준다
-    try { window.sessionStorage.setItem(LINKED_NOTICE_KEY, JSON.stringify({ facility: preview?.facilityName ?? '근무지', bank, bankLabel })); } catch { /* 안내 없이 진행 */ }
+    try {
+      window.sessionStorage.setItem(LINKED_NOTICE_KEY, JSON.stringify({ facility: preview?.facilityName ?? '근무지', bank, bankLabel }));
+      window.sessionStorage.setItem(LINKED_INSTALL_KEY, String(Date.now()));
+    } catch { /* 안내 없이 진행 */ }
     window.location.replace(routes.home);
     setStatus('success');
     setMessage(`${preview?.facilityName ?? '근무지'}와 이어졌어요. 출퇴근은 근무지에서 '출근하기'·'퇴근하기' 버튼으로 기록해요.`);
+    } catch {setStatus('error');setCanRetry(true);setMessage('연결 결과를 확인하지 못했어요. 이미 연결됐을 수 있으니 내 근무를 먼저 확인하거나 초대를 다시 불러와 주세요.');}
+    finally {claiming.current=false;}
   }
 
   // 초대 화면에서 나가기 — 시연 계정이면 로그아웃 대신 '시연을 끝낼까요?'(가입으로 잇기), 아니면 처음 화면(로그인돼 있으면 내 홈)으로
@@ -227,7 +246,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'success' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-80">근무 화면으로 이동 중...</button>}
       {status === 'error' && demoBlocked && <button type="button" onClick={async () => { await leaveDemo(); window.location.replace(window.location.href); }} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연 끝내고 이 초대 받기</button>}
       {status === 'error' && demoOnly && <Link href={isGig ? '/gig/demo' : '/demo'} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연으로 둘러보기</Link>}
-      {status === 'error' && !demoBlocked && !demoOnly && <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>}
+      {status === 'error' && !demoBlocked && !demoOnly && (canRetry ? <div className="mt-5 space-y-2"><button type="button" onClick={()=>setRetry(value=>value+1)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">초대 다시 불러오기</button><Link href={routes.home} className="flex min-h-11 items-center justify-center font-bold text-primary">내 근무에서 연결 결과 확인</Link></div> : <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>)}
     </section>
     {demoEnd && <DemoEndSheet kind={demoEnd} intent="leave" onClose={() => setDemoEnd(null)} />}
   </main>;

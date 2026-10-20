@@ -9,7 +9,7 @@ import { InstallAppButton } from '@/components/InstallAppButton';
 
 // 긱워커 시연 전용 입구: itdot.co.kr/gig/demo
 // 버튼 하나로 의료 이력이 없는 긱 전용 시연 계정에 로그인하고, 팝업스토어 데모 근무지의 초대를 초기화해 초대 확인 화면으로 간다.
-// 관리자 앱 '긱워커 근태 시연'과 같은 근무지·같은 초대라 두 기기 시연이 그대로 이어진다. 몇 번을 눌러도 처음 상태로 돌아온다.
+// 관리자 앱 '긱워커 근태 시연'과 같은 근무지·같은 초대라 두 기기 시연이 이어진다. 연결된 시연은 계속한다.
 // 노출은 NEXT_PUBLIC_ENABLE_DEMO_LOGIN 으로만 막는다 (주소를 아는 사람만 온다).
 
 export default function GigDemoPage() {
@@ -39,13 +39,13 @@ export default function GigDemoPage() {
         <div className="mt-14 flex flex-col items-center text-center">
           <BrandMark size={64} />
           <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">초대 근무 시연</h1>
-          <p className="mt-2 text-[14px] leading-6 text-sub">사장님이 보낸 초대 링크로 시작하는 근무예요.<br />시연용 근무자로 팝업스토어 초대부터 시작해요.</p>
+          <p className="mt-2 text-[14px] leading-6 text-sub">사장님이 보낸 초대 링크로 시작하는 근무예요.<br />처음에는 팝업스토어 초대를 확인하고, 연결된 시연은 이어서 볼 수 있어요.</p>
         </div>
 
         <ol className="mt-6 space-y-2 rounded-2xl bg-bg p-4 text-[13px] leading-5 text-sub">
           <li><b className="text-primary">1.</b> 아래 버튼 → 초대 확인 화면에서 <b className="text-ink">초대 수락</b></li>
           <li><b className="text-primary">2.</b> 오늘 근무 화면에서 <b className="text-ink">출근하기</b>를 길게 눌러 출근</li>
-          <li className="text-tertiary">다시 누르면 언제든 처음 상태(초대 대기)로 돌아와요.</li>
+          <li className="text-tertiary">공용 시연이에요. 이미 초대를 수락했다면 근무 화면으로 이어져요. 실제 개인정보는 입력하지 마세요.</li>
         </ol>
 
         {/* 시작 버튼은 영상보다 위 — 첫 화면에서 바로 누를 수 있게 */}

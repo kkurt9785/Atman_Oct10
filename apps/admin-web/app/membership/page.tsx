@@ -10,6 +10,9 @@ import { redirect } from 'next/navigation';
 import { todayKST } from '@/lib/date';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { JobPostingAddonButton } from './JobPostingAddonButton';
+import { PlanContact } from './PlanContact';
+import { StaffCapacitySummary } from '@/components/StaffCapacitySummary';
+import { UsagePricing } from './UsagePricing';
 
 type Plan={code:string;name:string;monthly_fee:number;included_facilities:number;included_admin_seats:number;included_active_workers:number;included_attendance_slots:number;included_job_posting_slots:number;features:Record<string,unknown>};
 
@@ -68,15 +71,18 @@ export default async function MembershipPage({searchParams}:{searchParams:Promis
   const trialDaysLeft = isTrial ? Math.max(1, Math.ceil((Date.parse(`${subscription.trial_ends_at}T23:59:59+09:00`)-Date.now())/86_400_000)) : 0;
   return <main className="px-4 pb-28">
     <ManageBackLink href="/settings" label="사업장 설정" />
-    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{isGigworker?'긱워커 근태 무료 베타':'임금과 완전히 분리된 요금'}</p><h1 className="text-display font-extrabold text-ink">{isGigworker?'이용 현황':'요금제·청구'}</h1><p className="text-label text-sub mt-2 leading-5">{isGigworker?'최대 3명의 단기근로자를 연결해 근태를 관리할 수 있어요. 근무지와 출퇴근 기록은 베타 중에도 계속 보관돼요.':'잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준이에요. 근무자 임금이나 채용 성공액과는 관계없어요.'}</p></div>
+    <div className="mt-3 mb-5 px-1"><p className="text-label font-bold text-primary">{isGigworker?'긱워커 근태 무료 베타':'임금과 완전히 분리된 요금'}</p><h1 className="text-display font-extrabold text-ink">{isGigworker?'이용 현황':'요금제·청구'}</h1><p className="text-label text-sub mt-2 leading-5">{isGigworker?'현장별 관리 대상 3명까지 등록할 수 있어요. 초대 대기·앱 미연결·미래 계약도 포함돼요. 근무지와 출퇴근 기록은 베타 중에도 계속 보관돼요.':'잇닿 이용료는 사업장 규모(공고·인력풀·관리자) 기준이에요. 근무자 임금이나 채용 성공액과는 관계없어요.'}</p></div>
     {error ? <div className="bg-white rounded-2xl p-8 text-center border border-red-200"><p role="alert" className="text-body font-bold text-red-600">청구 정보를 불러오지 못했어요</p><p className="text-label text-sub mt-2">{error}</p><a href="/membership" className="inline-flex mt-4 px-4 h-10 items-center rounded-xl bg-ink text-white text-label font-bold">다시 불러오기</a></div> : <>
-    <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[0.75rem] text-white/70">{isGigworker?'무료 베타 이용 중':isExpiredTrial?'체험 종료 · 데이터 보관 중':isTrial?'무료 체험 중':'현재 구독'}</p><div className="mt-1 flex items-end justify-between gap-3"><p className="text-[1.375rem] font-extrabold">{subscription?.service_plans?.name??'Free'}</p><p className="shrink-0 text-[0.875rem] font-extrabold">{Number(subscription?.service_plans?.monthly_fee??0)>0?`${won(Number(subscription.service_plans.monthly_fee))}/월`:'무료'}</p></div><p className="text-[0.75rem] text-white/70 mt-2">{isGigworker?'최대 3명 연결 · 별도 종료일 없음 · 근태 데이터 계속 보관':isExpiredTrial?'근무지·초대한 근무자·출퇴근 기록은 그대로 보관돼요. 다시 시작할 때 이어서 이용할 수 있어요.':isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 데이터는 보관돼요`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'} · 부가세 별도`:'공고 월 1건까지 무료'}</p></div>
+    <div className="bg-primary rounded-2xl p-5 text-white mb-5"><p className="text-[0.75rem] text-white/70">{isGigworker?'무료 베타 이용 중':isExpiredTrial?'체험 종료 · 데이터 보관 중':isTrial?'무료 체험 중':'현재 구독'}</p><div className="mt-1 flex items-end justify-between gap-3"><p className="text-[1.375rem] font-extrabold">{subscription?.service_plans?.name??'Free'}</p><p className="shrink-0 text-[0.875rem] font-extrabold">{Number(subscription?.service_plans?.monthly_fee??0)>0?`${won(Number(subscription.service_plans.monthly_fee))}/월`:'무료'}</p></div><p className="text-[0.75rem] text-white/70 mt-2">{isGigworker?'관리 대상 3명 · 별도 종료일 없음 · 근태 데이터 계속 보관':isExpiredTrial?'근무지·초대한 근무자·출퇴근 기록은 그대로 보관돼요. 다시 시작할 때 이어서 이용할 수 있어요.':isTrial?`${formatDate(subscription.trial_ends_at)}까지 · ${trialDaysLeft}일 남음 · 이후 데이터는 보관돼요`:subscription?.current_period_end?`${formatDate(subscription.current_period_end)}까지 · ${SUB_STATUS[subscription.status]??'이용 중'} · 부가세 별도`:'공고 월 1건까지 무료'}</p></div>
     {!canPay&&<div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5"><p className="text-body font-bold text-ink">조회 전용 권한</p><p className="text-label text-sub mt-1">청구서 결제는 사업장 소유자 또는 결제 승인 담당자에게 요청해 주세요.</p></div>}
     <SegmentTabs basePath="/membership" active={tab} tabs={isGigworker
       ? [{key:'plans',label:'이용 현황'},{key:'usage',label:'사용량'}]
       : [{key:'plans',label:'요금제'},{key:'usage',label:'사용량'},{key:'invoices',label:'청구서',count:unpaidInvoices,warn:true}]}/>
     {tab==='plans'&&<>
+    {isGigworker && <><UsagePricing/><h2 className="mb-3 px-1 text-title font-extrabold">현재 적용되는 요금·이용 조건</h2></>}
     <PlanCards plans={plans} currentPlanCode={subscription?.plan_code}/>
+    <StaffCapacitySummary facilityId={context.facilityId}/>
+    {canPay&&<PlanContact plans={plans} facilityId={context.facilityId}/>}
     {!isGigworker && canPay && subscription?.plan_code && subscription.plan_code !== 'free' && <section className="mb-7 rounded-2xl border border-primary/20 bg-white p-4 shadow-card">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div><p className="text-body font-extrabold text-ink">이번 달 공고가 더 필요한가요?</p><p className="mt-1 text-[0.8125rem] leading-5 text-sub">요금제를 바로 바꾸지 않고 필요한 만큼 1건씩 추가할 수 있어요.</p></div>

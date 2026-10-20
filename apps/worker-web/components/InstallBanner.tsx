@@ -1,89 +1,35 @@
 'use client';
-
-import { useEffect, useState } from 'react';
-import { PwaInstallSheet } from './PwaInstallSheet';
-
-type BeforeInstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-};
-
-const DISMISS_KEY = 'installBannerDismissedAt';
-const DISMISS_DAYS = 14;
-
-function isStandalone() {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    // iOS Safari 전용 속성
-    (navigator as unknown as { standalone?: boolean }).standalone === true
-  );
-}
-
-function recentlyDismissed() {
-  try {
-    const at = Number(localStorage.getItem(DISMISS_KEY) ?? 0);
-    return Date.now() - at < DISMISS_DAYS * 24 * 60 * 60 * 1000;
-  } catch {
-    return false;
-  }
-}
-
-export function InstallBanner({ hint = '홈 화면에서 바로 새 근무를 확인해요' }: { hint?: string } = {}) {
-  const [mode, setMode] = useState<'hidden' | 'ios' | 'android'>('hidden');
-  const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [showIosGuide, setShowIosGuide] = useState(false);
-
+import {useEffect,useState} from 'react';
+import {PwaInstallSheet} from './PwaInstallSheet';
+import {usePwaInstall} from '@/lib/pwa-install';
+import {LINKED_INSTALL_KEY, LINKED_INSTALL_EVENT} from '@/lib/linked-install';
+const DISMISS_KEY='installBannerDismissedAt';
+export function InstallBanner({hint='홈 화면에서 바로 새 근무를 확인해요'}:{hint?:string}={}){
+  const install=usePwaInstall(),[dismissed,setDismissed]=useState(true),[guide,setGuide]=useState(false);
+  const [linkedInstall, setLinkedInstall] = useState(true);
   useEffect(() => {
-    if (isStandalone() || recentlyDismissed()) return;
-
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    if (isIos) {
-      setMode('ios');
-      return;
+    function update() {
+      try { setDismissed(Date.now()-Number(localStorage.getItem(DISMISS_KEY)??0)<14*86400000); } catch { /* optional */ }
+      try { setLinkedInstall(Date.now() - Number(sessionStorage.getItem(LINKED_INSTALL_KEY) ?? 0) < 30 * 60 * 1000); }
+      catch { setLinkedInstall(false); }
     }
-
-    function onPrompt(e: Event) {
-      e.preventDefault();
-      setDeferred(e as BeforeInstallPromptEvent);
-      setMode('android');
-    }
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
+    update();
+    window.addEventListener(LINKED_INSTALL_EVENT, update);
+    return () => window.removeEventListener(LINKED_INSTALL_EVENT, update);
   }, []);
-
-  function dismiss() {
-    try {
-      localStorage.setItem(DISMISS_KEY, String(Date.now()));
-    } catch {}
-    setMode('hidden');
-  }
-
-  async function install() {
-    if (!deferred) return;
-    await deferred.prompt();
-    const { outcome } = await deferred.userChoice;
-    if (outcome === 'accepted') setMode('hidden');
-    else dismiss();
-  }
-
-  if (mode === 'hidden') return null;
-
-  return (
-    <>
-      <div className="fixed bottom-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))] inset-x-3 z-40 max-w-app mx-auto bg-ink text-white rounded-2xl px-3 py-3 shadow-lg flex items-center gap-2 min-[360px]:gap-3 min-[360px]:px-4">
-        <img src="/icon-192.png" alt="" className="hidden h-9 w-9 flex-shrink-0 rounded-xl min-[320px]:block" />
-        <button type="button" onClick={mode === 'ios' ? () => setShowIosGuide(true) : install} className="min-w-0 flex-1 text-left">
-          <p className="text-[12px] font-bold min-[360px]:text-[13px]">앱처럼 설치하고 알림 받기</p>
-          <p className="mt-0.5 text-[11px] opacity-80">
-            {mode === 'ios' ? '3단계 설치 방법 보기' : hint}
-          </p>
-        </button>
-        <button type="button" onClick={mode === 'ios' ? () => setShowIosGuide(true) : install} className="flex-shrink-0 whitespace-nowrap rounded-xl bg-white px-2.5 py-2 text-[12px] font-bold text-ink min-[360px]:px-3">
-          {mode === 'ios' ? '방법 보기' : '설치'}
-        </button>
-        <button onClick={dismiss} aria-label="설치 안내 닫기" className="text-[16px] opacity-60 flex-shrink-0 px-1">✕</button>
+  useEffect(()=>{try{setDismissed(Date.now()-Number(localStorage.getItem(DISMISS_KEY)??0)<14*86400000);}catch{setDismissed(false);}},[]);
+  function dismiss(){try{localStorage.setItem(DISMISS_KEY,String(Date.now()));}catch{}setDismissed(true);setGuide(false);}
+  function start(){if(install.available&&!install.inApp)void install.install();else setGuide(true);}
+  if(!install.ready||install.installed||dismissed||linkedInstall||(!install.ios&&!install.inApp&&!install.available&&!install.pending&&!install.error))return null;
+  return <>
+    <div className="fixed bottom-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))] inset-x-3 z-40 mx-auto max-w-app rounded-2xl bg-ink p-3 text-white shadow-lg">
+      <div className="flex items-center gap-2">
+        <button type="button" disabled={install.busy} onClick={start} className="min-h-11 min-w-0 flex-1 text-left disabled:opacity-60"><p className="text-[13px] font-bold">홈 화면에 잇닿 추가</p><p className="mt-0.5 text-[11px] text-white/80">{install.pending?'설치 요청됨 · 브라우저에서 완료를 확인해 주세요':install.inApp?'외부 브라우저에서 추가할 수 있어요':install.ios?'Safari에서 홈 화면에 추가':hint}</p></button>
+        <button type="button" disabled={install.busy} onClick={start} className="min-h-11 shrink-0 rounded-xl bg-white px-3 text-xs font-bold text-ink disabled:opacity-60">{install.busy?'여는 중':install.available&&!install.inApp?'설치':'방법 보기'}</button>
+        <button type="button" onClick={dismiss} aria-label="설치 안내 닫기" className="h-11 w-11 shrink-0 text-lg">×</button>
       </div>
-      {showIosGuide && <PwaInstallSheet onClose={() => setShowIosGuide(false)} />}
-    </>
-  );
+      {install.error&&<p role="alert" className="mt-2 text-xs text-white">{install.error}</p>}
+    </div>
+    {guide&&<PwaInstallSheet ios={install.ios} inApp={install.inApp} onClose={()=>setGuide(false)}/>}
+  </>;
 }

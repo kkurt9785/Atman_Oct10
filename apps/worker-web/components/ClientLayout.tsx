@@ -9,6 +9,7 @@ import { isMedicalShellPath } from '@/lib/worker-mode';
 import { trackPath } from '@/lib/nav-history';
 import { useDemoSession } from '@/lib/demo-session';
 import { DemoBar } from './DemoBar';
+import { usePwaInstall } from '@/lib/pwa-install';
 
 // 시연 띠를 숨기는 경로 — 시연 입구 자체이거나, 화면 아래에 고정 버튼·카드가 있어 띠가 가리는 곳
 const DEMO_BAR_HIDDEN = ['/demo', '/gig/demo', '/map', '/store', '/earnings', '/jobs', '/chat', '/onboarding', '/auth', '/account-deletion', '/settings/withdraw', '/safety'];
@@ -20,6 +21,8 @@ const NAV_PREFIXES = ['/home', '/shifts', '/map', '/applications', '/cover', '/w
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
+  // Capture install availability even before a role-specific button is mounted.
+  usePwaInstall();
 
   // PWA: 설치 가능하려면 SW가 앱 로드 시점에 등록돼 있어야 함 (푸시 구독 시점 X)
   useEffect(() => {

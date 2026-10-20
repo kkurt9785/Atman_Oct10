@@ -72,7 +72,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
         <p className="mt-1 text-[0.75rem] leading-5 text-sub">전화번호 입력 여부와 관계없이 링크나 QR을 연 근무자가 카카오 로그인 후 수락해야 사업장·워크룸에 연결돼요.</p><div className="mt-3"><CopyInviteButton url={inviteUrl} primary/></div>
       </section>}
       <button className="mt-6 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">근무자 등록하고 일회용 초대 만들기</button>
-      {isGigworker&&<p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">무료 베타에서는 동시에 최대 3명을 관리할 수 있어요.</p>}
+      {isGigworker&&<p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">무료 베타는 현장별 관리 대상 3명까지예요. 초대 대기·미래 계약도 포함되며 종료 처리한 계약과 종료일이 지난 계약은 제외해요.</p>}
     </WorkforceActionForm>;
   }
 

@@ -1,6 +1,7 @@
 import { adminClient, userClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { currentWeekRangeKST } from '../pay';
+import { readAllRows } from './read-all-rows';
 import { effectiveBreakMinutes, isAttendanceCovered, type PayoutCoverage } from '../shared/gig-pay/calculation';
 export { effectiveBreakMinutes } from '../shared/gig-pay/calculation';
 
@@ -28,7 +29,7 @@ export type GigPayoutStaff = {
   unpaidBreakMinutes: number;
   /** 이번 주(월~일) 인정 근무 분 — 주휴수당 안내용 */
   weekMinutes: number;
-  /** 오늘 출근했고 아직 퇴근 전 — 지금 지급하면 오늘 근무가 다음 지급으로 넘어간다 */
+  /** 전날 시작한 야간근무 포함, 아직 퇴근 전인 근무가 있다 */
   openToday: boolean;
   payouts: GigPayout[];
 };
@@ -51,10 +52,9 @@ export async function summarizeWork(
   sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string, staffId: string, since: string, until: string,
   options: { payouts?: PayoutCoverage[]; defaultBreakMinutes?: number | null } = {},
 ): Promise<WorkSummary> {
-  const { data, error } = await sb.from('staff_attendances').select('id,work_date,check_in_at,check_out_at,break_minutes,status')
-    .eq('facility_id', facilityId).eq('staff_id', staffId).eq('status', 'completed').gte('work_date', since).lte('work_date', until).order('id').limit(1000);
+  const { data, error } = await readAllRows(() => sb.from('staff_attendances').select('id,work_date,check_in_at,check_out_at,break_minutes,status')
+    .eq('facility_id', facilityId).eq('staff_id', staffId).eq('status', 'completed').gte('work_date', since).lte('work_date', until));
   if (error) throw new Error('근태를 불러오지 못해 지급 계산을 중단했어요. 다시 시도해 주세요.');
-  if ((data?.length ?? 0) >= 1000) throw new Error('근태가 많아 전체 지급 범위를 확인할 수 없어요. 운영자에게 문의해 주세요.');
   const out: WorkSummary = { ...EMPTY_WORK, attendanceIds: [] }; const days = new Set<string>();
   for (const row of (data ?? []) as Array<{ id: string; work_date: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }>) {
     if (!row.check_in_at || !row.check_out_at) continue;
@@ -80,11 +80,13 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
   const today = todayKST();
   const [{ data: staff, error: staffError }, { data: payouts, error: payoutError }] = await Promise.all([
     // 병원·약국에서는 직원과 긱 근무자가 섞여 있다 — 지급 보드는 긱 근무자만 다룬다
-    sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start,status,default_break_minutes')
-      .eq('facility_id', facilityId).eq('worker_kind', 'gig').order('name'),
-    sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled').order('created_at', { ascending: false }),
+    readAllRows(() => sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start,status,default_break_minutes')
+      .eq('facility_id', facilityId).eq('worker_kind', 'gig')),
+    readAllRows(() => sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled')),
   ]);
-  if (staffError || payoutError || (payouts?.length ?? 0) >= 1000 || (staff?.length ?? 0) >= 1000) throw new Error('긱워커 지급 정보를 모두 불러오지 못했어요.');
+  if (staffError || payoutError) throw new Error('긱워커 지급 정보를 모두 불러오지 못했어요.');
+  staff.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
+  payouts.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   // 전체 계좌번호는 워커가 근무 완료 후 명시적으로 전달한 경우에만,
   // 현재 관리자 JWT로 권한 검증하는 RPC를 통해 가져온다.
   const scoped = accessToken ? userClient(accessToken) : null;
@@ -107,17 +109,17 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
     (byStaff.get(item.staffId) ?? byStaff.set(item.staffId, []).get(item.staffId)!).push(item);
   }
   const rows: GigPayoutStaff[] = [];
-  // 오늘 출근했고 아직 퇴근 전인 사람 — 지급 버튼 위에 '퇴근 뒤 지급'을 권한다
+  // 야간근무를 포함해 아직 퇴근 전인 사람 — 지급 버튼 위에 '퇴근 뒤 지급'을 권한다
   const staffIds = ((staff ?? []) as Array<{ id: string }>).map((item) => item.id);
   const { data: openRows } = staffIds.length
-    ? await sb.from('staff_attendances').select('staff_id').in('staff_id', staffIds).eq('work_date', today).not('check_in_at', 'is', null).is('check_out_at', null)
+    ? await readAllRows(() => sb.from('staff_attendances').select('id,staff_id').eq('facility_id', facilityId).lte('work_date', today).in('status', ['working', 'late', 'checkout_pending']).not('check_in_at', 'is', null).is('check_out_at', null))
     : { data: [] as Array<{ staff_id: string }> };
   const openTodayIds = new Set(((openRows ?? []) as Array<{ staff_id: string }>).map((item) => item.staff_id));
   // 이번 주 인정 근무(주휴수당 안내용) — 정산과 같은 휴게 규칙
   const week = currentWeekRangeKST();
   const defaultBreakByStaff = new Map(((staff ?? []) as Array<{ id: string; default_break_minutes: number | null }>).map((item) => [item.id, Number(item.default_break_minutes ?? 0)]));
   const { data: weekRows } = staffIds.length
-    ? await sb.from('staff_attendances').select('staff_id,check_in_at,check_out_at,break_minutes').in('staff_id', staffIds).eq('status', 'completed').gte('work_date', week.start).lte('work_date', week.end)
+    ? await readAllRows(() => sb.from('staff_attendances').select('id,staff_id,check_in_at,check_out_at,break_minutes').eq('facility_id', facilityId).eq('status', 'completed').gte('work_date', week.start).lte('work_date', week.end))
     : { data: [] as Array<{ staff_id: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }> };
   const weekMinutesByStaff = new Map<string, number>();
   for (const row of (weekRows ?? []) as Array<{ staff_id: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }>) {

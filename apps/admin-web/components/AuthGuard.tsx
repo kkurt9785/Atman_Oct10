@@ -16,18 +16,33 @@ async function syncServerSession(accessToken: string): Promise<boolean> {
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [error,setError]=useState(false);
+  const [retry,setRetry]=useState(0);
 
   useEffect(() => {
     let active = true;
 
     async function verify() {
+      setError(false);
+      try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !(await syncServerSession(session.access_token))) {
+        if(window.location.pathname==='/notifications/open') {
+          try {sessionStorage.setItem('itdot:pending-admin-notification',window.location.pathname+window.location.search);} catch {}
+        }
         await fetch('/api/admin-session', { method: 'DELETE' }).catch(() => undefined);
         if (active) router.replace('/login');
         return;
       }
-      if (active) setReady(true);
+      if (active) {
+        try {
+          const pending=sessionStorage.getItem('itdot:pending-admin-notification');
+          sessionStorage.removeItem('itdot:pending-admin-notification');
+          if(pending?.startsWith('/notifications/open?')&&window.location.pathname!=='/notifications/open') {window.location.replace(pending);return;}
+        } catch {}
+        setReady(true);
+      }
+      } catch {if(active)setError(true);}
     }
 
     void verify();
@@ -38,14 +53,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         router.replace('/login');
         return;
       }
-      void syncServerSession(session.access_token);
+      void syncServerSession(session.access_token).catch(()=>{if(active)setError(true);});
     });
 
     return () => {
       active = false;
       subscription.subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router,retry]);
+
+  if(error&&!ready)return <main className="mx-auto max-w-app px-5 py-10"><p role="alert" className="font-bold">로그인 상태를 확인하지 못했어요. 연결 상태를 확인해 주세요.</p><button onClick={()=>setRetry(value=>value+1)} className="mt-4 min-h-11 rounded-xl bg-primary px-4 font-bold text-white">다시 시도</button></main>;
 
   if (!ready) {
     return (
