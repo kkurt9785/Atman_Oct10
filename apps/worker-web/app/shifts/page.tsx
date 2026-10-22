@@ -10,6 +10,7 @@ import { slotLabel } from '@/lib/work-agenda';
 import { WeekRoster } from '@/components/roster/WeekRoster';
 import { PHARMACY_SLOT_NAME, addCount, slotOf, upcomingWeek, type RosterCells, type RosterSlot } from '@/lib/roster';
 import { dateKST } from '@/lib/date';
+import { estimatedShiftPay } from '@/lib/shared/gig-pay/shift-pay';
 import { areaLabel, dateLabel, distanceKm, facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { SHIFT_ROLE_LABEL, type ShiftRole } from '@/lib/roles';
 
@@ -222,7 +223,7 @@ export default function ShiftsPage() {
           return {
             id: String(row.id), facility_id: '', shift_date: String(row.shift_date), start_time: start, end_time: end,
             is_overnight: isOvernight, required_role: row.required_role, hourly_wage: wage,
-            estimated_total_pay: Number(row.estimated_total_pay ?? Math.round((minutes / 60) * wage)),
+            estimated_total_pay: Number(row.estimated_total_pay ?? estimatedShiftPay(start, end, wage) ?? Math.round((minutes / 60) * wage)),
             description: String(row.description ?? ''), department: (row.department as string | null) ?? null, notes: null,
             facilities: { name: String(row.facility_name ?? ''), address_text: (row.region as string | null) ?? null, facility_type: (row.facility_type as string | null) ?? null },
           } as unknown as Shift;

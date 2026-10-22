@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { estimatedShiftPay } from '@/lib/shared/gig-pay/shift-pay';
 import {
   getPublicShift, roleLabel, facilityLabel, formatDate, hhmm, shiftHours,
 } from '@/lib/public-jobs';
@@ -32,7 +33,8 @@ export default async function PublicJobDetail({ params }: Props) {
   if (!shift) notFound();
 
   const hours = shiftHours(shift.start_time, shift.end_time);
-  const pay = shift.estimated_total_pay ?? Math.round(shift.hourly_wage * hours);
+  // 사장님 앱과 같은 식(휴게 차감). DB 값이 있으면 그대로, 없을 때만 계산
+  const pay = shift.estimated_total_pay ?? estimatedShiftPay(shift.start_time, shift.end_time, shift.hourly_wage) ?? Math.round(shift.hourly_wage * hours);
   const datePosted = new Date(Date.parse(shift.created_at) + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   // 구글 구인정보 리치결과용 구조화 데이터

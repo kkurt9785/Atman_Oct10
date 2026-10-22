@@ -23,6 +23,8 @@ export type OperationsSummary = {
   pendingWageCount: number;
   /** 지급 대기가 있는 가장 이른 달(YYYY-MM) — 홈 카드가 그 달의 급여 화면으로 바로 연다 */
   pendingWageMonth: string | null;
+  /** 그 달의 대기 건이 공고 지원 인력(shift)인지 직원 급여(staff)인지 — 급여 화면을 그 탭으로 연다 */
+  pendingWageTab: 'shift' | 'staff' | null;
 };
 
 export type OperationsAlert = {
@@ -350,7 +352,7 @@ export async function getWorkforceRecommendations(days = 7): Promise<WorkforceRe
 export async function getOperationsSummary(): Promise<OperationsSummary> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
-  if (!sb || !facilityId) return { monthEstimatedCost: 0, openShiftCount: 0, urgentUnfilledCount: 0, expiringCredentialCount: 0, pendingWageCount: 0, pendingWageMonth: null };
+  if (!sb || !facilityId) return { monthEstimatedCost: 0, openShiftCount: 0, urgentUnfilledCount: 0, expiringCredentialCount: 0, pendingWageCount: 0, pendingWageMonth: null, pendingWageTab: null };
   const today = todayKST();
   const monthStart = `${today.slice(0, 7)}-01`;
   const monthEnd = lastDayOfMonth(today);
@@ -373,10 +375,11 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
   const pendingStaffWageRows = (pendingStaffWageResult.data ?? []) as any[];
   const pendingWageCount = pendingWageRows.length;
   const pendingStaffWageCount = pendingStaffWageRows.length;
-  const pendingWageMonth = [
-    ...pendingWageRows.map((row: any) => String((Array.isArray(row.shifts) ? row.shifts[0] : row.shifts)?.shift_date ?? '').slice(0, 7)),
-    ...pendingStaffWageRows.map((row: any) => String(row.period_month ?? '').slice(0, 7)),
-  ].filter((month) => /^\d{4}-\d{2}$/.test(month)).sort()[0] ?? null;
+  const shiftMonths = pendingWageRows.map((row: any) => String((Array.isArray(row.shifts) ? row.shifts[0] : row.shifts)?.shift_date ?? '').slice(0, 7)).filter((month) => /^\d{4}-\d{2}$/.test(month));
+  const staffMonths = pendingStaffWageRows.map((row: any) => String(row.period_month ?? '').slice(0, 7)).filter((month) => /^\d{4}-\d{2}$/.test(month));
+  const pendingWageMonth = [...shiftMonths, ...staffMonths].sort()[0] ?? null;
+  // 홈 '지급 대기 N건'이 여는 탭 — 저장된 대기 건이 실제로 있는 탭으로(직원 급여 탭의 '검토 전' 예상 행은 대기 건이 아니다)
+  const pendingWageTab: 'shift' | 'staff' | null = !pendingWageMonth ? null : shiftMonths.includes(pendingWageMonth) ? 'shift' : 'staff';
 
   const urgentIds = (urgent ?? []).map((row: any) => row.id);
   let urgentUnfilledCount = urgentIds.length;
@@ -404,5 +407,6 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
     expiringCredentialCount,
     pendingWageCount: pendingWageCount + pendingStaffWageCount,
     pendingWageMonth,
+    pendingWageTab,
   };
 }

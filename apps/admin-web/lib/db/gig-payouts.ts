@@ -1,3 +1,4 @@
+import { roundPay } from '../shared/gig-pay/shift-pay';
 import { adminClient, userClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { currentWeekRangeKST } from '../pay';
@@ -38,7 +39,7 @@ function todayKST() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOStri
 
 export function amountFor(basis: string | null, rate: number | null, minutes: number, days: number) {
   if (!basis || !rate || !Number.isFinite(rate) || rate <= 0 || days <= 0) return 0;
-  if (basis === 'hourly') return Math.round((minutes / 60) * rate);
+  if (basis === 'hourly') return roundPay(minutes, rate);
   if (basis === 'daily') return days * rate;
   return 0; // 월급은 근무 건마다 반복 지급할 수 없으므로 별도 급여 검토가 필요하다.
 }

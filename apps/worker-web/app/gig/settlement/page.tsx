@@ -1,5 +1,6 @@
 'use client';
 
+import { roundPay } from '@/lib/shared/gig-pay/shift-pay';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { GigInviteAction } from '@/components/invite/GigInviteAction';
@@ -128,7 +129,7 @@ export default function GigSettlementPage() {
   const month = useMemo(() => {
     const { minutes, days } = summarizeAttendancePeriod(monthRows, monthStart, monthEnd);
     const rate = Number(staff?.pay_rate ?? 0);
-    const expected = staff?.pay_basis === 'hourly' ? Math.round((minutes / 60) * rate) : staff?.pay_basis === 'daily' ? days * rate : 0;
+    const expected = staff?.pay_basis === 'hourly' ? roundPay(minutes, rate) : staff?.pay_basis === 'daily' ? days * rate : 0;
     const received = selectedPayouts.filter((p) => {
       const date = payoutDateKST(p.paid_at, p.pay_at);
       return p.status === 'paid' && date >= monthStart && date <= monthEnd;

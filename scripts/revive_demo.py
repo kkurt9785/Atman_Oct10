@@ -113,6 +113,15 @@ def times(rn, kind):
 
 iso = lambda dt: dt.astimezone(timezone.utc).isoformat()
 
+def est_pay(st, et, wage):
+    """관리자 공식과 같은 예상 지급액: 휴게(8h+ 60분, 4h+ 30분) 차감, round(분×시급/60) — DB round(half up)와 맞춘다"""
+    s_min = int(st[:2]) * 60 + int(st[3:5]); e_min = int(et[:2]) * 60 + int(et[3:5])
+    total = e_min - s_min
+    if total <= 0: total += 1440
+    brk = 60 if total >= 480 else 30 if total >= 240 else 0
+    return int((total - brk) * wage / 60 + 0.5)
+
+
 # ── 6. 확정(in_progress) 시프트 50 + accepted 지원 + 출근 기록 ──────────────
 matched_shifts = []
 for rn, f in enumerate(facilities, start=1):
@@ -123,7 +132,7 @@ for rn, f in enumerate(facilities, start=1):
     matched_shifts.append({
         "facility_id": f["id"], "required_role": w["role"], "shift_date": TODAY,
         "start_time": st, "end_time": et, "hourly_wage": wage,
-        "estimated_total_pay": wage * 8,
+        "estimated_total_pay": est_pay(st, et, wage),
         "description": "시연용 오늘 확정 근무입니다. 데모 워커가 배정되어 관리자 홈에 표시됩니다.",
         "department": dept, "notes": f"DEMO-SHOWCASE-MATCHED-{rn:04d}",
         "status": "in_progress", "matched_worker_id": w["id"],
@@ -155,7 +164,7 @@ for rn, f in enumerate(facilities, start=1):
     open_shifts.append({
         "facility_id": f["id"], "required_role": w["role"], "shift_date": TODAY,
         "start_time": st, "end_time": et, "hourly_wage": wage,
-        "estimated_total_pay": wage * 8,
+        "estimated_total_pay": est_pay(st, et, wage),
         "description": "시연용 오늘 모집 공고입니다. 데모 워커 지원자가 관리자 지원 현황에 표시됩니다.",
         "department": dept, "notes": f"DEMO-SHOWCASE-OPEN-{rn:04d}", "status": "open",
     })

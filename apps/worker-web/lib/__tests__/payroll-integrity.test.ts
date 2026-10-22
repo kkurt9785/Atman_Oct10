@@ -17,8 +17,14 @@ const attendance={staff_id:'staff',work_date:'2026-09-03',status:'completed',che
 function setData(data:Record<string,unknown[]>,failure='') {
   mocks.client.mockReturnValue({from:(table:string)=>{
     const q:Record<string,unknown>={};
-    for(const method of ['select','eq','gte','lte','order'])q[method]=()=>q;
-    q.limit=async()=>({data:data[table]??[],error:failure===table?{message:'offline'}:null});
+    const filters:Array<(row:Record<string,unknown>)=>boolean>=[];
+    for(const method of ['select','gte','lte','order'])q[method]=()=>q;
+    // eq 는 픽스처에 그 열이 있을 때만 거른다(status='completed' 등). facility_id 처럼 픽스처에 없는 열은 통과
+    q.eq=(col:string,val:unknown)=>{filters.push(row=>!(col in row)||row[col]===val);return q;};
+    // 급여 화면이 '완료 외' 기록 수를 세는 두 번째 조회(neq status · not check_out_at is null)만 걸러낸다
+    q.neq=(col:string,val:unknown)=>{filters.push(row=>row[col]!==val);return q;};
+    q.not=(col:string)=>{filters.push(row=>row[col]!=null);return q;};
+    q.limit=async()=>({data:((data[table]??[]) as Record<string,unknown>[]).filter(row=>filters.every(f=>f(row))),error:failure===table?{message:'offline'}:null});
     return q;
   }});
 }
@@ -39,6 +45,14 @@ describe('월 급여 집계 및 상태 전환 무결성',()=>{
   it('완료 근태에 시간 누락이 있으면 계산을 중단한다',async()=>{
     setData({facility_staff:[staff],staff_attendances:[{...attendance,check_out_at:null}]});
     await expect(getStaffWagePayments('2026-09')).rejects.toThrow('출퇴근');
+  });
+  it('지각 등 완료 외 기록은 급여에서 빼고 건수만 알려 준다(10/22 QA P1 #2)',async()=>{
+    setData({facility_staff:[staff],staff_attendances:[attendance,{...attendance,work_date:'2026-09-04',status:'late'},{...attendance,work_date:'2026-09-05',status:'pending_approval',check_out_at:null}]});
+    expect((await getStaffWagePayments('2026-09'))[0]).toMatchObject({workedMinutes:480,workedDays:1,excludedRecords:1,saved:false});
+  });
+  it('저장된 지급 행이 있으면 saved 로 표시한다(홈 지급 대기와 같은 기준)',async()=>{
+    setData({facility_staff:[staff],staff_attendances:[attendance],staff_wage_payments:[{staff_id:'staff',status:'draft',pay_basis:'hourly',pay_rate:12000,worked_minutes:480,worked_days:1,gross_amount:96000,net_amount:96000}]});
+    expect((await getStaffWagePayments('2026-09'))[0]).toMatchObject({saved:true,status:'draft',netAmount:96000});
   });
   it('현재 급여 설정을 지워도 승인 당시 기준·금액·상태를 보존한다',async()=>{
     setData({facility_staff:[{...staff,pay_basis:null,pay_rate:null}],staff_wage_payments:[{staff_id:'staff',status:'approved',pay_basis:'hourly',pay_rate:15000,worked_minutes:480,worked_days:1,gross_amount:120000,net_amount:120000}]});

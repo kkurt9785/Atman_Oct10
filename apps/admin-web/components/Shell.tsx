@@ -45,7 +45,9 @@ export function Shell({ children, facilityMode, initialFacility }: { children: R
   }
 
   if (isFullscreen) {
-    return <AuthGuard><FacilityModeGuard mode={facilityMode} />{children}</AuthGuard>;
+    // /checkin 은 카메라 화면이라 전폭, 채팅 상세는 다른 화면과 같은 앱 폭으로(PC에서 1440px로 퍼지던 문제)
+    const keepAppWidth = pathname.startsWith('/chats/');
+    return <AuthGuard><FacilityModeGuard mode={facilityMode} />{keepAppWidth ? <div className="mx-auto min-h-screen max-w-app bg-bg">{children}</div> : children}</AuthGuard>;
   }
 
   return (
