@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Shift } from '@/app/shifts/page';
 import { applyToShift } from '@/lib/shifts';
 import { facilityName, facilityOf, mobilityLabel, timeLabel } from '@/lib/shift-display';
@@ -16,25 +16,67 @@ type ApplyState = 'confirm' | 'loading' | 'success' | 'no_auth' | 'no_worker' | 
 export function ApplySheet({ shift, onClose, onApplied }: Props) {
   const [state, setState] = useState<ApplyState>('confirm');
   const [errorMsg, setErrorMsg] = useState('');
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(false);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    sheetRef.current?.focus();
+    function keydown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (!busyRef.current) closeRef.current();
+      }
+      if (event.key !== 'Tab') return;
+      const sheet = sheetRef.current;
+      if (!sheet) return;
+      const controls = Array.from(sheet.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), [tabindex="0"]'));
+      const first = controls[0], last = controls[controls.length - 1];
+      if (!first) { event.preventDefault(); sheet.focus(); }
+      else if (event.shiftKey && (document.activeElement === first || document.activeElement === sheet)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    }
+    document.addEventListener('keydown', keydown);
+    return () => {
+      document.removeEventListener('keydown', keydown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus?.isConnected) previousFocus.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    sheetRef.current?.scrollTo({ top: 0 });
+    sheetRef.current?.focus();
+  }, [state]);
 
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
   const hourlyWage = shift.hourly_wage.toLocaleString('ko-KR');
   const facility = facilityOf(shift);
 
   async function handleApply() {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setState('loading');
+    try {
+      const result = await applyToShift(shift.id);
+      if (result.ok) {
+        setState('success');
+        return;
+      }
 
-    const result = await applyToShift(shift.id);
-    if (result.ok) {
-      setState('success');
-      return;
-    }
+      if (result.reason === 'auth') { setState('no_auth'); return; }
+      if (result.reason === 'worker') { setState('no_worker'); return; }
 
-    if (result.reason === 'auth') { setState('no_auth'); return; }
-    if (result.reason === 'worker') { setState('no_worker'); return; }
-
-    setErrorMsg(result.message);
-    setState('error');
+      setErrorMsg(result.message);
+      setState('error');
+    } catch {
+      setErrorMsg('지원 결과를 확인하지 못했어요. 내 근무에서 지원 상태를 확인한 뒤 다시 시도해 주세요.');
+      setState('error');
+    } finally { busyRef.current = false; }
   }
 
   return (
@@ -46,7 +88,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
       />
 
       {/* 바텀시트 */}
-      <div className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white rounded-t-[24px] z-50 px-6 pt-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+      <div ref={sheetRef} role="dialog" aria-modal="true" aria-label="근무 지원" aria-busy={state === 'loading'} tabIndex={-1} className="fixed bottom-0 inset-x-0 mx-auto max-w-app max-h-[90dvh] overflow-y-auto overscroll-contain bg-white rounded-t-[24px] z-50 px-6 pt-5 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
         {/* 핸들 */}
         <div className="w-10 h-1 bg-line rounded-full mx-auto mb-6" />
 

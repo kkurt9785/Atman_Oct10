@@ -199,12 +199,13 @@ export default function GigSettlementPage() {
         {staffList.length > 1 && <label className="mt-3 block rounded-2xl bg-white p-4 text-[12px] font-bold text-sub shadow-sm">근무지 선택<select value={selectedStaffId} onChange={(event) => setSelectedStaffId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-line bg-white px-3 text-ink">{staffList.map((item) => <option key={item.id} value={item.id}>{facilityOf(item)?.name ?? '근무지'} · {item.name}</option>)}</select></label>}
 
         <section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
-          <p className="text-[11px] font-extrabold text-primary">내 근무 조건</p>
+          <p className="text-[11px] font-extrabold text-primary">기본 계약 조건</p>
           <div className="mt-2 flex items-end justify-between gap-3">
             <h2 className="text-[20px] font-extrabold text-ink">{staff.pay_basis === 'hourly' ? `시급 ${won(Number(staff.pay_rate ?? 0))}` : staff.pay_basis === 'daily' ? `일급 ${won(Number(staff.pay_rate ?? 0))}` : staff.pay_rate ? `월 ${won(Number(staff.pay_rate))}` : '급여 기준 미정'}</h2>
             {staff.default_break_minutes ? <span className="text-[12px] font-bold text-sub">예정 휴게 {staff.default_break_minutes}분</span> : null}
           </div>
           <p className="mt-1 text-[12px] text-sub">{[weekdayText(staff.work_weekdays), staff.default_start_time ? `${hhmm(staff.default_start_time)}–${hhmm(staff.default_end_time)}` : '', staff.contract_start ? `${staff.contract_start}${staff.contract_end ? ` ~ ${staff.contract_end}` : '~'}` : ''].filter(Boolean).join(' · ') || '사장님이 정한 일정이 여기에 보여요'}</p>
+          <p className="mt-2 text-[12px] text-sub">행사별 배정 날짜·시간은 기본 계약과 다를 수 있어요. <a href="/gig" className="font-bold text-primary underline">오늘·다음 근무 확인</a></p>
           {snap && (termsChanged
             ? <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-700"><b>수락할 때와 조건이 달라요.</b> 수락한 조건: {snap.payBasis === 'hourly' ? `시급 ${won(Number(snap.payRate ?? 0))}` : snap.payBasis === 'daily' ? `일급 ${won(Number(snap.payRate ?? 0))}` : ''}{snap.startTime ? ` · ${hhmm(snap.startTime)}–${hhmm(snap.endTime)}` : ''}{snap.breakMinutes ? ` · 휴게 ${snap.breakMinutes}분` : ''} ({(staff?.terms_snapshot_at ?? '').slice(0, 10)} 수락). 바뀐 이유는 사장님께 확인해 주세요.</p>
             : <p className="mt-2 text-[11px] text-sub">{(staff?.terms_snapshot_at ?? '').slice(0, 10)}에 수락한 조건 그대로예요.</p>)}

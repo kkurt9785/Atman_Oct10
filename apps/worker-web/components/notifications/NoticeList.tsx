@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/BackButton';
-import { classifyNotice, noticeBelongsTo, noticeHref, type Notice } from '@/lib/notification-scope';
+import { noticeHref, type Notice } from '@/lib/notification-scope';
+import { loadScopedNoticePage, type NoticeCursor } from '@/lib/notification-pages';
 import { loadWorkerShellContext, type WorkerShell } from '@/lib/worker-mode';
 
 // 알림함 목록. 계정 단위 알림(get_my_notifications)을 셸에 맞는 것만 남겨서 보여 준다.
@@ -17,27 +18,36 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
   const [rows, setRows] = useState<Notice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [hasMore, setHasMore] = useState(false);
+  const cursorRef = useRef<NoticeCursor | null>(null);
+  const requestRef = useRef(0);
+  const busyRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (append = false) => {
+    if (append && busyRef.current) return;
+    const request = ++requestRef.current;
+    busyRef.current = true;
     setLoading(true);
     setError('');
+    if (!append) { setRows([]); setHasMore(false); cursorRef.current = null; }
     try {
-    const [{ data, error: rpcError }, context] = await Promise.all([
-      supabase.rpc('get_my_notifications', { p_limit: 50 }),
-      loadWorkerShellContext().catch(() => null),
-    ]);
-    if (rpcError) {
-      setError('알림을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
-    } else {
-      const all = (data ?? []) as Notice[];
-      // 셸 판단 재료를 못 구하면(로그인 만료 등) 거르지 않고 다 보여 준다 — 알림을 숨기는 쪽이 더 위험하다
-      setRows(context ? all.filter((row) => noticeBelongsTo(classifyNotice(row, context), shell)) : all);
-    }
-    } catch { setError('알림을 불러오지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.'); }
-    finally { setLoading(false); }
+      const context = await loadWorkerShellContext().catch(() => null);
+      const result = await loadScopedNoticePage(async cursor => {
+        const { data, error: rpcError } = await supabase.rpc('get_my_notifications_page', {
+          p_limit: 50, p_before_created_at: cursor?.createdAt ?? null, p_before_id: cursor?.id ?? null,
+        });
+        if (rpcError) throw rpcError;
+        return (data ?? []) as Notice[];
+      }, context, shell, append ? cursorRef.current : null);
+      if (request !== requestRef.current) return;
+      cursorRef.current = result.cursor;
+      setHasMore(result.hasMore);
+      setRows(current => [...new Map([...(append ? current : []), ...result.rows].map(row => [row.id, row])).values()]);
+    } catch { if (request === requestRef.current) setError('알림을 불러오지 못했어요. 연결 상태를 확인하고 다시 시도해 주세요.'); }
+    finally { if (request === requestRef.current) { setLoading(false); busyRef.current = false; } }
   }, [shell]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); return () => { requestRef.current++; busyRef.current = false; }; }, [load]);
 
   async function openNotice(row: Notice) {
     setError('');
@@ -69,7 +79,7 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
           <button onClick={() => void load()} className="mt-2 min-h-11 px-2 text-[13px] font-bold text-primary">다시 시도</button>
         </div>
       )}
-      {!loading && !error && rows.length === 0 && (
+      {!loading && !error && rows.length === 0 && !hasMore && (
         <div className="rounded-2xl bg-bg py-12 text-center">
           <p className="text-[15px] font-bold text-ink">아직 알림이 없어요</p>
           <p className="mt-1 text-[12px] text-sub">{emptyHint}</p>
@@ -91,6 +101,10 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
           </button>
         ))}
       </div>
+      {hasMore && <div className="mt-4 text-center">
+        {rows.length === 0 && <p className="mb-2 text-sm text-sub">최근 확인한 알림에는 이 근무 유형의 소식이 없어요. 이전 알림을 더 확인해 보세요.</p>}
+        <button type="button" disabled={loading} onClick={() => void load(true)} className="min-h-11 w-full rounded-xl border border-line bg-white px-4 text-sm font-bold text-primary disabled:opacity-50">{loading ? '이전 알림 확인 중…' : '이전 알림 더 보기'}</button>
+      </div>}
     </main>
   );
 }

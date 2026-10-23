@@ -14,17 +14,20 @@ const CREDENTIAL_STYLE = {
   expiring: 'bg-amber-100 text-amber-700',
   expired: 'bg-red-50 text-red-600',
   missing: 'bg-line text-sub',
+  unknown: 'bg-amber-100 text-amber-700',
 } as const;
-const CREDENTIAL_LABEL = { valid: '자격 유효', expiring: '30일 내 만료', expired: '만료 확인', missing: '만료정보 없음' } as const;
+const CREDENTIAL_LABEL = { valid: '서류 유효', expiring: '30일 내 만료', expired: '만료 서류 확인', missing: '만료정보 없음', unknown: '서류 확인 불가' } as const;
 
 export default async function WorkforcePage() {
   const context = await getAdminContext();
   if (!context || context.accessRole === 'sales') {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">인력 운영 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
-  const [members,shop] = await Promise.all([getWorkforcePool(),getShop()]);
+  const [poolResult,shop] = await Promise.all([getWorkforcePool().then(members => ({ members, failed: false })).catch(() => ({ members: [], failed: true })),getShop()]);
+  if (poolResult.failed) return <main className="px-4 pb-28"><ManageBackLink href="/more/operations" label="근무 운영" /><Card className="mt-5 py-8 text-center"><h1 className="text-title font-bold">근무 이력을 불러오지 못했어요</h1><p role="alert" className="mt-2 text-label text-sub">기존 근무 이력은 변경되지 않았어요. 잠시 후 다시 확인해 주세요.</p><a href="/workforce" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white">다시 불러오기</a></Card></main>;
+  const members = poolResult.members;
   const facilityWord=facilityTypeLabel(shop?.facilityType);
-  const active = members.filter((member) => member.status === 'active');
+  const active = members.filter((member) => member.status === 'active' && !member.credentialBlocked);
   const needsAttention = members.filter((member) => member.credentialStatus === 'expired' || member.credentialStatus === 'expiring');
 
   return (
@@ -35,6 +38,8 @@ export default async function WorkforcePage() {
         <h1 className="text-display font-extrabold text-ink mt-1">함께한 근무자</h1>
         <p className="text-label text-sub mt-2 leading-5">근무를 마친 근무자가 자동으로 쌓여요. 공개 공고 없이 검증된 근무자에게 반복근무를 요청할 수 있어요.</p>
       </div>
+
+      {members.some(member => member.credentialStatus === 'unknown') && <p role="alert" className="mb-4 rounded-xl bg-amber-50 p-4 text-label text-amber-800">서류 상태를 확인하지 못해 반복근무 요청을 잠시 보류했어요. <a href="/workforce" className="font-bold underline">다시 확인하기</a></p>}
 
       <div className="grid grid-cols-3 gap-2 mb-5">
         <Card className="p-3"><p className="text-[0.6875rem] text-sub">전체</p><p className="text-title font-extrabold mt-1">{members.length}명</p></Card>
@@ -81,10 +86,11 @@ export default async function WorkforcePage() {
 
                 <Link
                   href={inviteHref}
-                  aria-disabled={member.status !== 'active' || member.credentialStatus === 'expired'}
-                  className={`mt-4 h-11 rounded-xl flex items-center justify-center text-label font-extrabold ${member.status === 'active' && member.credentialStatus !== 'expired' ? 'bg-primary text-white' : 'bg-line text-sub pointer-events-none'}`}
+                  tabIndex={member.status !== 'active' || member.credentialBlocked ? -1 : undefined}
+                  aria-disabled={member.status !== 'active' || member.credentialBlocked}
+                  className={`mt-4 h-11 rounded-xl flex items-center justify-center text-label font-extrabold ${member.status === 'active' && !member.credentialBlocked ? 'bg-primary text-white' : 'bg-line text-sub pointer-events-none'}`}
                 >
-                  {member.credentialStatus === 'expired' ? '자격 갱신 후 요청 가능' : '반복근무 요청하기'}
+                  {member.credentialStatus === 'unknown' ? '서류 확인 후 요청 가능' : member.credentialBlocked ? '자격 갱신 후 요청 가능' : '반복근무 요청하기'}
                 </Link>
               </Card>
             );

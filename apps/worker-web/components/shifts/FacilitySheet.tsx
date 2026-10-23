@@ -22,12 +22,6 @@ type FacilityDetail = {
 };
 type FacilityTrust = { approved_at: string | null; registration_source: string | null; business_status: string | null };
 
-type Stats = {
-  avgRating: number | null;
-  completedCount: number;
-  reapplyRate: number | null;
-};
-
 const FACILITY_TYPE_LABEL: Record<string, string> = {
   care_hospital:   '요양병원',
   general_hospital:'종합병원',
@@ -37,19 +31,6 @@ const FACILITY_TYPE_LABEL: Record<string, string> = {
   home_health:     '방문간호',
   pharmacy:        '약국',
 };
-
-function Stars({ rating }: { rating: number }) {
-  return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <svg key={i} width="14" height="14" viewBox="0 0 14 14" fill={i <= Math.round(rating) ? '#FFC800' : '#E5E8EB'}>
-          <path d="M7 1l1.545 3.09L12 4.635l-2.5 2.41.59 3.41L7 8.75l-3.09 1.705.59-3.41L2 4.635l3.455-.545z"/>
-        </svg>
-      ))}
-      <span className="text-[13px] font-bold text-ink ml-1">{rating.toFixed(1)}</span>
-    </span>
-  );
-}
 
 function AmenityChip({ icon, label, active }: { icon: string; label: string; active: boolean }) {
   if (!active) return null;
@@ -70,65 +51,31 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
   const [facility, setFacility] = useState<FacilityDetail | null>(null);
   // 사업자 확인 표시용(승인·국세청 상태). 별도 조회라 컬럼 권한이 없어도 본문은 그대로 뜬다
   const [trust, setTrust] = useState<FacilityTrust | null>(null);
-  const [stats, setStats] = useState<Stats>({ avgRating: null, completedCount: 0, reapplyRate: null });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
+    let active = true;
     async function load() {
-      const [{ data: fac }, { data: shiftIds }] = await Promise.all([
-        supabase
+      setLoading(true); setError(false); setFacility(null); setTrust(null);
+      try {
+        const { data: fac, error: detailError } = await supabase
           .from('facilities')
           .select('id, name, facility_type, address_text, bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro, pharmacy_type, pharmacy_system, average_daily_prescriptions, handover_minutes')
           .eq('id', facilityId)
-          .single(),
-        supabase
-          .from('shifts')
-          .select('id')
-          .eq('facility_id', facilityId),
-      ]);
-
+          .single();
+      if (detailError || !fac) throw new Error('facility unavailable');
+      if (!active) return;
       setFacility(fac);
       void supabase.from('facilities').select('approved_at, registration_source, business_status').eq('id', facilityId).maybeSingle()
-        .then(({ data }) => { if (data) setTrust(data as FacilityTrust); }, () => undefined);
-
-      const ids = (shiftIds ?? []).map((s: { id: string }) => s.id);
-      if (ids.length === 0) { setLoading(false); return; }
-
-      const [{ data: apps }, { data: reviews }] = await Promise.all([
-        supabase
-          .from('shift_applications')
-          .select('worker_id')
-          .in('shift_id', ids)
-          .in('status', ['accepted', 'completed']),
-        supabase
-          .from('shift_reviews')
-          .select('rating')
-          .in('shift_id', ids),
-      ]);
-
-      const completedCount = apps?.length ?? 0;
-      let reapplyRate: number | null = null;
-      if (completedCount >= 5) {
-        const counts: Record<string, number> = {};
-        (apps ?? []).forEach((a: { worker_id: string }) => {
-          counts[a.worker_id] = (counts[a.worker_id] ?? 0) + 1;
-        });
-        const total = Object.keys(counts).length;
-        const reapplied = Object.values(counts).filter((c) => c > 1).length;
-        reapplyRate = Math.round((reapplied / total) * 100);
-      }
-
-      let avgRating: number | null = null;
-      if (reviews && reviews.length >= 3) {
-        const sum = reviews.reduce((acc: number, r: { rating: number }) => acc + r.rating, 0);
-        avgRating = Math.round((sum / reviews.length) * 10) / 10;
-      }
-
-      setStats({ avgRating, completedCount, reapplyRate });
-      setLoading(false);
+        .then(({ data }) => { if (active && data) setTrust(data as FacilityTrust); }, () => undefined);
+      } catch { if (active) setError(true); }
+      finally { if (active) setLoading(false); }
     }
-    load();
-  }, [facilityId]);
+    void load();
+    return () => { active = false; };
+  }, [facilityId, retry]);
 
   return (
     <>
@@ -155,14 +102,13 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
             <div className="flex justify-center py-12">
               <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
             </div>
+          ) : error ? (
+            <div role="alert" className="rounded-card bg-bg p-4">
+              <p className="text-sm text-sub">사업장 정보를 불러오지 못했어요.</p>
+              <button onClick={() => setRetry(value => value + 1)} className="min-h-11 font-bold text-primary">다시 불러오기</button>
+            </div>
           ) : (
             <>
-              {/* 별점 */}
-              {stats.avgRating !== null && (
-                <div className="mb-4">
-                  <Stars rating={stats.avgRating} />
-                </div>
-              )}
 
               {facility?.facility_type==='pharmacy'&&(facility.pharmacy_type||facility.pharmacy_system||facility.average_daily_prescriptions||facility.handover_minutes)&&(
                 <div className="mb-4 grid grid-cols-2 gap-2 rounded-card bg-bg p-4">
@@ -222,29 +168,8 @@ export function FacilitySheet({ facilityId, facilityName, onClose }: Props) {
                 </div>
               )}
 
-              {/* 워커 통계 */}
-              {stats.completedCount >= 5 && (
-                <div className="border border-line rounded-card p-4">
-                  <p className="text-[13px] font-extrabold text-ink mb-3">최근 6개월</p>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 text-[13px] text-sub">
-                      <span className="text-success">✔</span>
-                      <span><strong className="text-ink">{stats.completedCount}명</strong> 근무 완료</span>
-                    </div>
-                    {stats.reapplyRate !== null && (
-                      <div className="flex items-center gap-2 text-[13px] text-sub">
-                        <span className="text-success">✔</span>
-                        <span>재지원율 <strong className="text-primary text-[15px]">{stats.reapplyRate}%</strong></span>
-                      </div>
-                    )}
-                  </div>
-                  {stats.reapplyRate !== null && stats.reapplyRate >= 60 && (
-                    <p className="mt-3 text-[12px] text-tertiary bg-primary-light rounded-lg px-3 py-2">
-                      이 사업장에서 근무한 워커의 {stats.reapplyRate}%가 다시 지원했어요
-                    </p>
-                  )}
-                </div>
-              )}
+              {/* 워커 권한의 일부 기록을 사업장 전체 통계로 표시하지 않는다. */}
+              <p className="mt-4 text-xs leading-relaxed text-sub">사업장 전체 근무 이력과 평점은 현재 제공하지 않아요. 지원 전 공고의 근무 조건을 확인해 주세요.</p>
             </>
           )}
         </div>

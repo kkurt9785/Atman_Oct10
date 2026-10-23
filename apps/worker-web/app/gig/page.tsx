@@ -16,6 +16,7 @@ import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { ModeSwitch } from '@/components/worker/ModeSwitch';
 import { GigInviteAction } from '@/components/invite/GigInviteAction';
 import { currentGigAttendances, type GigAttendanceRecord } from '@/lib/attendance-feedback';
+import { upcomingGigAssignments } from '@/lib/gig-upcoming';
 
 const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
@@ -185,6 +186,8 @@ function GigTodayContent() {
   const canRecord = Boolean(current?.check_in_at) || scheduledToday;
   const done = Boolean(current?.check_out_at);
   const pending = current?.status === 'checkout_pending';
+  const upcoming = staffList.flatMap(item => upcomingGigAssignments(item.gig_assignments ?? [], kstDate()).map(shift => ({ ...shift, staffId: item.id, facilityName: facilityOf(item)?.name ?? '근무지' })))
+    .sort((a, b) => a.nextDate.localeCompare(b.nextDate) || a.start_time.localeCompare(b.start_time));
 
   if (signedOut) return <GigLanding attendanceToken={attendanceToken} facility={qrFacility} />;
 
@@ -223,7 +226,7 @@ function GigTodayContent() {
 
         <section className="mt-3 rounded-3xl bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
-            <div><p className="text-[11px] font-extrabold tracking-[0.1em] text-primary">{scheduledToday || current?.check_in_at ? assignment?.title??'근무 예정' : '오늘 일정 없음'}</p><h2 className="mt-1 text-[20px] font-extrabold text-ink">{facility?.name ?? '근무지'}</h2><p className="mt-1 text-[13px] text-sub">{(assignment?.start_time??staff.default_start_time).slice(0, 5)} – {(assignment?.end_time??staff.default_end_time).slice(0, 5)}{assignment?.ends_on?` · ${assignment.ends_on}까지`:staff.contract_end?` · ${staff.contract_end}까지`:''}</p></div>
+            <div><p className="text-[11px] font-extrabold tracking-[0.1em] text-primary">{scheduledToday || current?.check_in_at ? assignment?.title??'근무 예정' : '오늘 일정 없음'}</p><h2 className="mt-1 text-[20px] font-extrabold text-ink">{facility?.name ?? '근무지'}</h2>{(scheduledToday || current?.check_in_at) && <p className="mt-1 text-[13px] text-sub">{(assignment?.start_time??staff.default_start_time).slice(0, 5)} – {(assignment?.end_time??staff.default_end_time).slice(0, 5)}{assignment?.ends_on?` · ${assignment.ends_on}까지`:staff.contract_end?` · ${staff.contract_end}까지`:''}</p>}</div>
             <span className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold ${done ? 'bg-emerald-50 text-emerald-600' : pending ? 'bg-amber-50 text-amber-700' : current?.check_in_at ? 'bg-primary/10 text-primary' : 'bg-bg text-sub'}`}>{done ? '근무 완료' : pending ? '승인 대기' : current?.check_in_at ? '근무 중' : '출근 전'}</span>
           </div>
 
@@ -252,6 +255,17 @@ function GigTodayContent() {
               </div>
             : <p className="mt-4 rounded-xl bg-bg p-3 text-center text-[13px] text-sub">오늘은 초대받은 근무일이 아니에요.</p>}
         </section>
+
+        {upcoming.length > 0 && <section aria-labelledby="upcoming-gig-title" className="mt-3 rounded-3xl bg-white p-5 shadow-sm">
+          <h2 id="upcoming-gig-title" className="text-[16px] font-extrabold text-ink">다음 근무</h2>
+          <p className="mt-1 text-[12px] text-sub">배정된 근무별 가장 가까운 날짜예요. 오늘 근무와 기본 계약 조건은 구분해요.</p>
+          <ol className="mt-3 divide-y divide-line">{upcoming.slice(0, 3).map((shift, index) => <li key={`${shift.staffId}:${shift.id}`} className="py-3">
+            <p className={`text-[14px] font-extrabold ${index === 0 ? 'text-primary' : 'text-ink'}`}>{shift.nextDate} ({['일','월','화','수','목','금','토'][new Date(`${shift.nextDate}T00:00:00Z`).getUTCDay()]}) · {shift.start_time.slice(0,5)}–{shift.end_time.slice(0,5)}{shift.end_time <= shift.start_time ? ' (다음 날 종료)' : ''}</p>
+            <p className="mt-1 text-[13px] font-bold text-ink">{shift.title} · {shift.facilityName}</p>
+            {shift.starts_on !== shift.ends_on && <p className="mt-1 text-[12px] text-sub">{shift.starts_on} ~ {shift.ends_on} · {shift.work_weekdays.map(day => ['','월','화','수','목','금','토','일'][day]).join('·')}</p>}
+          </li>)}</ol>
+          {upcoming.length > 3 && <details className="mt-2"><summary className="cursor-pointer py-3 text-[13px] font-bold text-primary">다른 배정 {upcoming.length - 3}건 보기</summary><ul className="space-y-3">{upcoming.slice(3).map(shift => <li key={`${shift.staffId}:${shift.id}`} className="text-[13px] text-sub"><b className="text-ink">{shift.nextDate} · {shift.start_time.slice(0,5)}–{shift.end_time.slice(0,5)}{shift.end_time <= shift.start_time ? ' (다음 날 종료)' : ''}</b><br />{shift.title} · {shift.facilityName}<br />{shift.starts_on} ~ {shift.ends_on} · {shift.work_weekdays.map(day => ['','월','화','수','목','금','토','일'][day]).join('·')}</li>)}</ul></details>}
+        </section>}
 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Link href={`/gig/workroom${facility?.id ? `?facility=${encodeURIComponent(facility.id)}` : ''}`} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><span className="text-[18px]">💬</span><b className="mt-3 block text-[15px] text-ink">사장님과 대화</b><span className="mt-1 block text-[11px] leading-4 text-sub">공지·출석 확인·근무 대화</span></Link>
