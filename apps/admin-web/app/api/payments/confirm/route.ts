@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { confirmPaymentOrder } from '@/lib/payment-service';
+import { DEMO_BLOCKED_MESSAGE } from '@/lib/demo-guard';
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({})) as {
@@ -17,9 +18,7 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(result);
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : '결제 승인에 실패했어요.' },
-      { status: 400 },
-    );
+    const message = error instanceof Error ? error.message : '결제 승인에 실패했어요.';
+    return NextResponse.json({ error: message }, { status: message === DEMO_BLOCKED_MESSAGE ? 403 : 400 });
   }
 }

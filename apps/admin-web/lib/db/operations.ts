@@ -1,6 +1,7 @@
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST } from '../date';
+import { readAllRows } from './read-all-rows';
 
 export type ShiftTemplateRow = {
   id: string;
@@ -359,15 +360,13 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
   const urgentEnd = addDays(today, 2);
 
   const [shiftResult, urgentResult, poolResult, pendingWageResult, pendingStaffWageResult] = await Promise.all([
-    sb.from('shifts').select('estimated_total_pay,status').eq('facility_id', facilityId).gte('shift_date', monthStart).lte('shift_date', monthEnd).neq('status', 'cancelled'),
-    sb.from('shifts').select('id').eq('facility_id', facilityId).eq('status', 'open').gte('shift_date', today).lte('shift_date', urgentEnd),
-    sb.from('facility_worker_pool').select('worker_id').eq('facility_id', facilityId).eq('status', 'active'),
+    readAllRows(() => sb.from('shifts').select('id,estimated_total_pay,status').eq('facility_id', facilityId).gte('shift_date', monthStart).lte('shift_date', monthEnd).neq('status', 'cancelled')),
+    readAllRows(() => sb.from('shifts').select('id').eq('facility_id', facilityId).eq('status', 'open').gte('shift_date', today).lte('shift_date', urgentEnd)),
+    readAllRows(() => sb.from('facility_worker_pool').select('id,worker_id').eq('facility_id', facilityId).eq('status', 'active')),
     // 대기 건은 월과 무관하게 세되, 어느 달인지 같이 가져온다 — 급여 화면은 달 단위라 홈 숫자와 어긋나지 않게 그 달로 연다
-    sb.from('wage_payment_instructions').select('id,shifts!inner(shift_date)').eq('facility_id', facilityId).in('status', ['draft','approved','exported','disputed']),
-    sb.from('staff_wage_payments').select('id,period_month').eq('facility_id',facilityId).in('status',['draft','approved','exported']),
+    readAllRows(() => sb.from('wage_payment_instructions').select('id,shifts!inner(shift_date)').eq('facility_id', facilityId).in('status', ['draft','approved','exported','disputed'])),
+    readAllRows(() => sb.from('staff_wage_payments').select('id,period_month').eq('facility_id',facilityId).in('status',['draft','approved','exported'])),
   ]);
-  const summaryError = [shiftResult.error, urgentResult.error, poolResult.error, pendingWageResult.error, pendingStaffWageResult.error].find(Boolean);
-  if (summaryError) throw new Error(`운영 현황을 불러오지 못했어요: ${summaryError.message}`);
   const shifts = shiftResult.data;
   const urgent = urgentResult.data;
   const pool = poolResult.data;
@@ -384,20 +383,25 @@ export async function getOperationsSummary(): Promise<OperationsSummary> {
   const urgentIds = (urgent ?? []).map((row: any) => row.id);
   let urgentUnfilledCount = urgentIds.length;
   if (urgentIds.length) {
-    const { data: apps, error } = await sb.from('shift_applications').select('shift_id').in('shift_id', urgentIds).eq('status', 'applied');
-    if (error) throw new Error(`긴급 미충원 현황을 불러오지 못했어요: ${error.message}`);
-    const withApplicant = new Set((apps ?? []).map((row: any) => row.shift_id));
+    const withApplicant = new Set<string>();
+    // Keep URL filters bounded as well as paginating returned rows.
+    for (let offset = 0; offset < urgentIds.length; offset += 100) {
+      const { data: apps } = await readAllRows(() => sb.from('shift_applications').select('id,shift_id').in('shift_id', urgentIds.slice(offset, offset + 100)).eq('status', 'applied'));
+      apps.forEach((row: any) => withApplicant.add(row.shift_id));
+    }
     urgentUnfilledCount = urgentIds.filter((id: string) => !withApplicant.has(id)).length;
   }
 
-  const workerIds = (pool ?? []).map((row: any) => row.worker_id);
+  const workerIds = [...new Set((pool ?? []).map((row: any) => row.worker_id))];
   let expiringCredentialCount = 0;
   if (workerIds.length) {
     const limit = addDays(today, 30);
-    const { count, error } = await sb.from('worker_credentials').select('id', { count: 'exact', head: true })
-      .in('worker_id', workerIds).lte('expires_at', limit).in('verification_status', ['approved','expired']);
-    if (error) throw new Error(`자격 만료 현황을 불러오지 못했어요: ${error.message}`);
-    expiringCredentialCount = count ?? 0;
+    for (let offset = 0; offset < workerIds.length; offset += 100) {
+      const { count, error } = await sb.from('worker_credentials').select('id', { count: 'exact', head: true })
+        .in('worker_id', workerIds.slice(offset, offset + 100)).lte('expires_at', limit).in('verification_status', ['approved','expired']);
+      if (error || count === null) throw new Error('자격 만료 현황을 불러오지 못했어요.');
+      expiringCredentialCount += count;
+    }
   }
 
   return {

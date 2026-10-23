@@ -1,6 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createPaymentOrder } from '@/lib/payment-service';
+import { DEMO_BLOCKED_MESSAGE } from '@/lib/demo-guard';
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({})) as { invoiceId?: unknown };
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : '주문 생성에 실패했어요.';
-    const status = /로그인|권한|계정/.test(message) ? 401 : 400;
+    const status = message === DEMO_BLOCKED_MESSAGE ? 403 : /로그인|권한|계정/.test(message) ? 401 : 400;
     return NextResponse.json({ error: message }, { status });
   }
 }

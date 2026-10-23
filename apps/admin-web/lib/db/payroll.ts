@@ -2,6 +2,7 @@ import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { summarizeAttendancePeriod, type RecordedAttendance } from '../shared/gig-pay/calculation';
 import { roundPay } from '../shared/gig-pay/shift-pay';
+import { readAllRows } from './read-all-rows';
 
 export type WagePaymentRow = {
   id: string; workerName: string; shiftDate: string; grossAmount: number; netAmount: number;
@@ -39,16 +40,21 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
   const nextMonth=new Date(`${periodMonth}T00:00:00Z`);
   nextMonth.setUTCMonth(nextMonth.getUTCMonth()+1);
   const endDate=new Date(nextMonth.getTime()-86_400_000).toISOString().slice(0,10);
-  const [{data:staff,error:staffError},{data:attendance,error:attendanceError},{data:payments,error:paymentError},{data:excluded,error:excludedError}]=await Promise.all([
-    sb.from('facility_staff').select('id,name,engagement_type,status,contract_start,contract_end,pay_basis,pay_rate,default_break_minutes,bank_name,account_last4').eq('facility_id',facilityId).order('name').limit(1000),
-    sb.from('staff_attendances').select('staff_id,work_date,check_in_at,check_out_at,break_minutes,status').eq('facility_id',facilityId).gte('work_date',periodMonth).lte('work_date',endDate).eq('status','completed').limit(1000),
-    sb.from('staff_wage_payments').select('staff_id,pay_basis,pay_rate,worked_minutes,worked_days,gross_amount,net_amount,status').eq('facility_id',facilityId).eq('period_month',periodMonth).limit(1000),
-    // 퇴근까지 찍혔는데 완료가 아닌 기록(지각·승인 대기) — 급여엔 안 들어가므로 건수만 세어 안내한다
-    sb.from('staff_attendances').select('staff_id').eq('facility_id',facilityId).gte('work_date',periodMonth).lte('work_date',endDate).neq('status','completed').not('check_out_at','is',null).limit(1000),
-  ]);
-  if(staffError||attendanceError||paymentError||excludedError||[staff,attendance,payments,excluded].some(rows=>(rows?.length??0)>=1000)) {
+  // 50명 × 20일이면 한 달 근태가 1,000건을 넘는다 — 상한에서 멈추지 않고 id 커서로 끝까지 읽는다. 하나라도 실패하면 일부 금액을 보여 주지 않고 중단
+  let staff:any[], attendance:any[], payments:any[], excluded:any[];
+  try {
+    [{data:staff},{data:attendance},{data:payments},{data:excluded}]=await Promise.all([
+      readAllRows(()=>sb.from('facility_staff').select('id,name,engagement_type,status,contract_start,contract_end,pay_basis,pay_rate,default_break_minutes,bank_name,account_last4').eq('facility_id',facilityId)),
+      readAllRows(()=>sb.from('staff_attendances').select('id,staff_id,work_date,check_in_at,check_out_at,break_minutes,status').eq('facility_id',facilityId).gte('work_date',periodMonth).lte('work_date',endDate).eq('status','completed')),
+      readAllRows(()=>sb.from('staff_wage_payments').select('id,staff_id,pay_basis,pay_rate,worked_minutes,worked_days,gross_amount,net_amount,status').eq('facility_id',facilityId).eq('period_month',periodMonth)),
+      // 퇴근까지 찍혔는데 완료가 아닌 기록(지각·승인 대기) — 급여엔 안 들어가므로 건수만 세어 안내한다
+      readAllRows(()=>sb.from('staff_attendances').select('id,staff_id').eq('facility_id',facilityId).gte('work_date',periodMonth).lte('work_date',endDate).neq('status','completed').not('check_out_at','is',null)),
+    ]);
+  } catch {
     throw new Error('급여 자료 전체를 확인하지 못했어요. 일부 금액으로 처리하지 않도록 계산을 중단했어요.');
   }
+  // 커서가 id 순이라 이름순은 여기서 맞춘다(기존 화면 순서 유지)
+  staff.sort((a,b)=>String(a.name??'').localeCompare(String(b.name??''),'ko'));
   const attendanceMap=new Map<string,RecordedAttendance[]>();
   for(const row of (attendance??[]) as Array<RecordedAttendance & {staff_id:string}>) {
     if(!row.check_in_at||!row.check_out_at||!Number.isFinite(Date.parse(row.check_in_at))||!Number.isFinite(Date.parse(row.check_out_at))||Date.parse(row.check_out_at)<Date.parse(row.check_in_at)) {
@@ -110,12 +116,16 @@ export async function getWagePayments(requestedMonth?:string): Promise<WagePayme
   const month=validMonth(requestedMonth)??new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7);
   const next=new Date(`${month}-01T00:00:00Z`);next.setUTCMonth(next.getUTCMonth()+1);
   const end=new Date(next.getTime()-86_400_000).toISOString().slice(0,10);
-  const { data, error } = await sb.from('wage_payment_instructions')
-    .select('id,gross_amount,net_amount,deduction_status,due_date,status,approved_at,paid_at,worker_confirmed_at,dispute_reason,bank_name_snapshot,account_last4_snapshot,workers(name),shifts!inner(shift_date)')
-    .eq('facility_id', facilityId).gte('shifts.shift_date',`${month}-01`).lte('shifts.shift_date',end)
-    .order('created_at', { ascending: false }).limit(1000);
-  if (error || (data?.length ?? 0) >= 1000) return { rows: [], error: '급여 지급 요청 전체를 확인하지 못했어요. 일부 합계로 처리할 수 없어요.' };
-  return { rows: ((data ?? []) as any[]).map((row) => ({
+  let data:any[];
+  try {
+    ({ data } = await readAllRows(() => sb.from('wage_payment_instructions')
+      .select('id,created_at,gross_amount,net_amount,deduction_status,due_date,status,approved_at,paid_at,worker_confirmed_at,dispute_reason,bank_name_snapshot,account_last4_snapshot,workers(name),shifts!inner(shift_date)')
+      .eq('facility_id', facilityId).gte('shifts.shift_date',`${month}-01`).lte('shifts.shift_date',end)));
+  } catch {
+    return { rows: [], error: '급여 지급 요청 전체를 확인하지 못했어요. 일부 합계로 처리할 수 없어요.' };
+  }
+  data.sort((a,b)=>String(b.created_at??'').localeCompare(String(a.created_at??'')));
+  return { rows: (data as any[]).map((row) => ({
     id: row.id, workerName: row.workers?.name ?? '근무자', shiftDate: row.shifts?.shift_date ?? '-',
     grossAmount: row.gross_amount, netAmount: row.net_amount, deductionStatus: row.deduction_status,
     dueDate: row.due_date, status: row.status, approvedAt: row.approved_at, paidAt: row.paid_at,

@@ -1,6 +1,8 @@
 import { getAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
 import { getStaffWagePayments } from '@/lib/db/payroll';
+import { readAllRows } from '@/lib/db/read-all-rows';
+import { staffExportAmounts } from '@/lib/payroll-export';
 
 function csvCell(value: unknown) {
   return `"${String(value ?? '').replaceAll('"', '""')}"`;
@@ -18,25 +20,31 @@ export async function GET(request:Request) {
   const month=/^\d{4}-(0[1-9]|1[0-2])$/.test(requested)?requested:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,7);
   const next=new Date(`${month}-01T00:00:00Z`);next.setUTCMonth(next.getUTCMonth()+1);
   const endDate=new Date(next.getTime()-86_400_000).toISOString().slice(0,10);
-  const { data, error } = await sb.from('wage_payment_instructions')
-    .select('id,status,due_date,gross_amount,net_amount,deduction_status,bank_name_snapshot,account_last4_snapshot,paid_at,workers(name),shifts!inner(shift_date,start_time,end_time)')
-    .eq('facility_id', context.facilityId).gte('shifts.shift_date',`${month}-01`).lte('shifts.shift_date',endDate)
-    .order('created_at', { ascending: false }).limit(1000);
-  if (error || (data?.length ?? 0) >= 1000) return new Response('지급 자료 전체를 확인하지 못해 내보내기를 중단했어요.', { status: 500 });
-  const header = ['구분','지급요청ID','급여기간·근무일','근무시간','대상자','세전예상액','지급예정액','공제확인','지급상태','지급예정일','은행','계좌끝4자리','지급완료일'];
+  let data: any[];
+  try {
+    ({ data } = await readAllRows(() => sb.from('wage_payment_instructions')
+      .select('id,created_at,status,due_date,gross_amount,net_amount,deduction_status,bank_name_snapshot,account_last4_snapshot,paid_at,workers(name),shifts!inner(shift_date,start_time,end_time)')
+      .eq('facility_id', context.facilityId).gte('shifts.shift_date',`${month}-01`).lte('shifts.shift_date',endDate)));
+  } catch {
+    return new Response('지급 자료 전체를 확인하지 못해 내보내기를 중단했어요.', { status: 500 });
+  }
+  data.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
+  const header = ['구분','지급요청ID','급여기간·근무일','근무시간','대상자','세전예상액','지급예정액','공제확인','지급상태','지급예정일','은행','계좌끝4자리','지급완료일','금액 검토 기준'];
   const rows = ((data ?? []) as any[]).map((row) => [
     '공고 지원 인력', row.id, row.shifts?.shift_date, `${row.shifts?.start_time?.slice(0,5) ?? ''}~${row.shifts?.end_time?.slice(0,5) ?? ''}`,
     row.workers?.name ?? '근무자', row.gross_amount, row.net_amount, row.deduction_status, row.status,
-    row.due_date, row.bank_name_snapshot, row.account_last4_snapshot, row.paid_at,
+    row.due_date, row.bank_name_snapshot, row.account_last4_snapshot, row.paid_at, '저장된 지급 요청 · 지급상태 확인',
   ]);
   let staffRows: Awaited<ReturnType<typeof getStaffWagePayments>>;
   try { staffRows=await getStaffWagePayments(month); }
   catch { return new Response('직원 급여 자료 전체를 확인하지 못해 내보내기를 중단했어요.', { status: 500 }); }
-  const managedRows=staffRows.map(row=>[
+  const managedRows=staffRows.map(row=> {
+    const amounts = staffExportAmounts(row);
+    return [
     '사업장 등록 직원',`${row.staffId}:${row.periodMonth}`,row.periodMonth.slice(0,7),
     `${Math.floor(row.workedMinutes/60)}시간 ${row.workedMinutes%60}분`,row.workerName,
-    row.grossAmount,row.netAmount,'미확정 · 사업장 확인 필요',row.status,'',row.bankName,row.accountLast4,'',
-  ]);
+    amounts.gross,amounts.net,'사업장 확인 필요',row.status,'',row.bankName,row.accountLast4,'',amounts.basis,
+  ]; });
   const csv = `\uFEFF${[header, ...managedRows,...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
   return new Response(csv, {
     headers: {

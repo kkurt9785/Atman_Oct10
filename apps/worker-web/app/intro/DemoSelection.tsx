@@ -1,30 +1,21 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { InstallAppButton } from '@/components/InstallAppButton';
 
-export const TYPES = [
-  { id: 'hospital', label: '병원·의원' },
-  { id: 'pharmacy', label: '약국' },
-  { id: 'care', label: '요양병원' },
-  { id: 'gigworker', label: '단기·행사' },
-] as const;
-type DemoKind = typeof TYPES[number]['id'];
-type Role = 'admin' | 'worker';
+// TYPES·파서는 서버 페이지도 써야 해서 'use client' 밖(demo-selection-params.ts)에 둔다
+import { TYPES, type DemoKind, type Role } from './demo-selection-params';
+export { TYPES };
+
 const Selection = createContext<{
   role: Role; kind: DemoKind; setRole: (role: Role) => void;
   setKind: (kind: DemoKind) => void; demoHref: string;
 } | null>(null);
 
-export function DemoSelectionProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<Role>('admin');
-  const [kind, setKind] = useState<DemoKind>('hospital');
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('role') === 'worker') setRole('worker');
-    const selected = params.get('kind');
-    if (TYPES.some(type => type.id === selected)) setKind(selected as DemoKind);
-  }, []);
+// 초기값은 서버가 넘긴다 — 하이드레이션 전(카톡 인앱·느린 망)에도 근무자 링크가 관리자 시연으로 열리지 않게
+export function DemoSelectionProvider({ children, initialRole = 'admin', initialKind = 'hospital' }: { children: React.ReactNode; initialRole?: Role; initialKind?: DemoKind }) {
+  const [role, setRole] = useState<Role>(initialRole);
+  const [kind, setKind] = useState<DemoKind>(initialKind);
   const demoHref = role === 'admin' ? `https://admin.itdot.co.kr/login?demo=${kind}` : kind === 'gigworker' ? '/gig/demo' : '/demo';
   return <Selection.Provider value={{ role, kind, setRole, setKind, demoHref }}>{children}</Selection.Provider>;
 }

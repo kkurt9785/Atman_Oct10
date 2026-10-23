@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from './admin-auth';
 import { adminClient } from './supabase';
+import { assertNotDemoFacility } from './demo-guard';
 import {
   assertTossPaymentMatches,
   confirmTossPayment,
@@ -42,6 +43,8 @@ function getServiceClient() {
 
 export async function createPaymentOrder(invoiceId: string) {
   const context = await requireAdminContext(['owner', 'super']);
+  // 시연 사업장은 화면 버튼과 별개로 서버에서도 결제 주문을 만들지 않는다
+  await assertNotDemoFacility(context.facilityId);
   const sb = getServiceClient();
   const { data: invoice, error: invoiceError } = await sb.from('service_invoices')
     .select('id,invoice_number,total_amount,status').eq('id', invoiceId)
@@ -202,6 +205,8 @@ export async function confirmPaymentOrder(input: {
   }
 
   const order = await getOwnedOrder(input.orderId);
+  // 토스 승인 요청 전에 막는다 — 시연 사업장 주문은 카드 승인까지 가지 않는다
+  await assertNotDemoFacility(order.facility_id);
   if (order.order_type !== 'service_invoice' || !order.service_invoice_id) throw new Error('레거시 크레딧 결제는 더 이상 처리하지 않아요.');
   if (order.amount !== input.amount) throw new Error('주문 금액과 결제 금액이 일치하지 않아요.');
   if (order.status === 'paid') {

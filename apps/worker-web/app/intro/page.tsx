@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DemoLaunchPanel } from './DemoLaunchPanel';
 import { DemoSelectionProvider, SelectedDemoActions } from './DemoSelection';
+import { parseDemoSelection } from './demo-selection-params';
 
-// QR 카드·카톡 링크의 목적지. 로그인 없이 열려야 하므로 정적 페이지로 유지한다.
+// QR 카드·카톡 링크의 목적지. 로그인 없이 열린다. ?role=&kind= 를 서버에서 읽어 첫 HTML 부터 선택·CTA 를 맞추므로 요청마다 렌더한다.
 export const metadata: Metadata = {
   title: '잇닿 시연 — 사장님·근무자, 설치 없이 먼저 사용해 보세요',
   description:
@@ -41,9 +42,13 @@ const POINTS = [
   },
 ];
 
-export default function IntroPage() {
+type IntroSearchParams = Promise<{ role?: string | string[]; kind?: string | string[] }>;
+
+export default async function IntroPage({ searchParams }: { searchParams: IntroSearchParams }) {
+  const params = await searchParams;
+  const initial = parseDemoSelection(params.role, params.kind);
   return (
-    <DemoSelectionProvider><main className="min-h-screen bg-white">
+    <DemoSelectionProvider key={`${initial.role}-${initial.kind}`} initialRole={initial.role} initialKind={initial.kind}><main className="min-h-screen bg-white">
       <header className="px-6 pt-8 pb-8 bg-gradient-to-b from-primary-light to-white">
         <p className="text-[13px] font-bold text-primary">잇닿 · 병원·약국부터 단기·행사 근무까지</p>
         <h1 className="mt-2 text-[28px] font-extrabold leading-[1.3] text-ink">우리 근무 관리,<br />먼저 써보고 결정하세요</h1>

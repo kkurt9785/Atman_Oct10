@@ -2,11 +2,13 @@ import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
+import { assertNotDemoFacility, DEMO_BLOCKED_MESSAGE } from '@/lib/demo-guard';
 import { todayKST } from '@/lib/date';
 
 export async function POST() {
   try {
     const context = await requireAdminContext(['owner', 'super']);
+    await assertNotDemoFacility(context.facilityId);
     const sb = adminClient();
     if (!sb) throw new Error('Supabase 서버 설정을 확인해 주세요.');
     const { data: subscription, error: subscriptionError } = await sb
@@ -49,6 +51,6 @@ export async function POST() {
     return NextResponse.json({ invoiceId: invoice.id, amount: invoice.total_amount }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : '추가 공고 구매를 준비하지 못했어요.';
-    return NextResponse.json({ error: message }, { status: /로그인|권한|계정/.test(message) ? 401 : 400 });
+    return NextResponse.json({ error: message }, { status: message === DEMO_BLOCKED_MESSAGE ? 403 : /로그인|권한|계정/.test(message) ? 401 : 400 });
   }
 }
