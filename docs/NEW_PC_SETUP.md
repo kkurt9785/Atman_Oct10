@@ -28,8 +28,8 @@ cd ~/atman
 vercel login
 
 # 앱 ↔ Vercel 프로젝트 연결
-(cd apps/worker-web && vercel link --yes --project itdot)      # itdot.co.kr
-(cd apps/admin-web  && vercel link --yes --project admin-web)  # admin.itdot.co.kr
+(cd apps/worker-web && vercel link --yes --team team_qclSkIYfTKm2eWzlDGLCv5Hd --project itdot)      # itdot.co.kr
+(cd apps/admin-web  && vercel link --yes --team team_qclSkIYfTKm2eWzlDGLCv5Hd --project admin-web)  # admin.itdot.co.kr
 
 # 환경변수 내려받기 → 각 앱 .env.local 생성(.gitignore 대상)
 (cd apps/worker-web && vercel env pull .env.local --environment=production --yes)
