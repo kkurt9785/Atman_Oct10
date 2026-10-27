@@ -48,7 +48,7 @@ export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessa
   const incoming = /입금/.test(text) && !/출금|승인|결제/.test(text);
   // Running totals and balances are not the transaction amount.
   const cleaned = text.replace(/(누적|잔액|잔여|한도|가용|포인트|적립)\s*[:：]?\s*[\d,]+\s*원?/g, ' ');
-  const amountMatch = cleaned.match(/(\d{1,3}(?:,\d{3})+|\d+)\s*원/);
+  const amountMatch = cleaned.match(/(\d{1,3}(?:,\d{3})+|\d+)\s*원/) ?? cleaned.match(/(?:₩|KRW)\s*(\d{1,3}(?:,\d{3})+|\d+)/); // 문자: 48,300원 · Apple Pay 거래: ₩48,300
   if (!amountMatch) return null;
   const amount = Number(amountMatch[1].replace(/,/g, ''));
   if (!Number.isSafeInteger(amount) || amount <= 0) return null;
@@ -79,7 +79,7 @@ export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessa
 
   // Whatever is left after removing the known tokens is the merchant; the last surviving fragment wins.
   const stripped = cleaned
-    .replace(amountMatch[0], ' ')
+    .replace(amountMatch[0], ' ').replace(/(?:₩|KRW)\s*[\d,]+/g, ' ')
     .replace(/(20\d{2})[.\-/]\s?\d{1,2}[.\-/]\s?\d{1,2}/g, ' ').replace(/(?:^|[^\d:])\d{1,2}[/.]\d{1,2}(?=\s|\(|일|$|[^\d/.:])/g, ' ').replace(/\d{1,2}월\s*\d{1,2}일/g, ' ')
     .replace(/\d{1,2}:\d{2}(?::\d{2})?/g, ' ')
     .replace(/\(\d{4}\)|\*+\d{4}|\d{4}(?=\s*(?:승인|사용|결제|취소))|끝\s*\d{4}/g, ' ')

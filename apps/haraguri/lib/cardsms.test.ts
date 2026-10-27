@@ -68,3 +68,10 @@ suite('channel rules and the shared copy', () => {
     expect(readFileSync(new URL('../supabase/functions/_shared/cardsms.core.ts', import.meta.url), 'utf8')).toBe(readFileSync(new URL('./cardsms.core.ts', import.meta.url), 'utf8'));
   });
 });
+
+suite('Apple Pay transaction trigger text', () => {
+  it('reads ₩ and KRW amounts without 원', () => {
+    expect(parseCardMessage('거래 ₩12,000 GS25 수원점 현대카드', now)).toMatchObject({ amount: 12000, merchant: 'GS25 수원점', issuer: '현대', category: '식비' });
+    expect(parseCardMessage('KRW 48,300 스타벅스 역삼점 10/26 09:10', now)).toMatchObject({ amount: 48300, merchant: '스타벅스 역삼점', date: '2026-10-26' });
+  });
+});
