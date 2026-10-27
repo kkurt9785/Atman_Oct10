@@ -24,7 +24,8 @@ export function monthlyReport(expenses: Expense[], members: Member[], month: str
   };
   const cats = group(rows, e => e.category), prevCats = group(prevRows, e => e.category);
   const byCategory = [...cats.entries()].map(([name, amount]) => ({ name, amount, share: total > 0 ? amount / total : 0, previous: prevCats.get(name) ?? 0 })).sort((a, b) => b.amount - a.amount);
-  const byMethod = [...group(rows, e => e.payment_method ?? 'other').entries()].map(([k, amount]) => ({ name: methodLabel[k] ?? k, amount })).sort((a, b) => b.amount - a.amount);
+  // Older rows without a method: a card id means a card payment.
+  const byMethod = [...group(rows, e => e.payment_method ?? (e.card_id ? 'card' : 'other')).entries()].map(([k, amount]) => ({ name: methodLabel[k] ?? k, amount })).sort((a, b) => b.amount - a.amount);
   const byMember = [...group(rows, e => e.created_by).entries()].map(([user_id, amount]) => ({ user_id, name: members.find(m => m.user_id === user_id)?.display_name ?? '가족', amount })).sort((a, b) => b.amount - a.amount);
   const merchants = new Map<string, { amount: number; count: number }>();
   for (const e of rows) { if (Number(e.amount) <= 0) continue; const m = merchants.get(e.title) ?? { amount: 0, count: 0 }; m.amount += Number(e.amount); m.count++; merchants.set(e.title, m); }
