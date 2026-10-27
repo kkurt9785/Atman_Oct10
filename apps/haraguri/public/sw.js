@@ -4,7 +4,7 @@ const SHARE_CACHE = 'haraguri-share';
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
 
-// Web Push from supabase/functions/push: { title, body, url, tag }
+// Web Push from supabase/functions/push: { title, body, url, tag, badgeCount }. badgeCount drives the home-screen icon badge (iOS 16.4+/Android).
 self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data && event.data.text() }; }
@@ -12,6 +12,8 @@ self.addEventListener('push', event => {
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || '', icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', tag: data.tag || 'haraguri', renotify: true,
     data: { url: data.url || '/' },
+  }).then(() => {
+    if (typeof data.badgeCount === 'number' && 'setAppBadge' in self.navigator) return (data.badgeCount > 0 ? self.navigator.setAppBadge(data.badgeCount) : self.navigator.clearAppBadge()).catch(() => undefined);
   }));
 });
 self.addEventListener('notificationclick', event => {

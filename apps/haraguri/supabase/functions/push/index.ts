@@ -1,9 +1,10 @@
-// HARAGURI push sender. Invoked by pg_net from DB triggers (new message/file) and by pg_cron (daily reminder).
+// HARAGURI push sender. Invoked by pg_net from DB triggers (new message/file) and by pg_cron (daily/eve/unread reminders).
 // Secrets: HOOK_SECRET, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (supabase secrets set). SUPABASE_* are injected.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
-type Prefs = { messages?: boolean; files?: boolean; daily?: boolean; eve?: boolean; ingest?: boolean };
+type Prefs = { messages?: boolean; files?: boolean; daily?: boolean; eve?: boolean; ingest?: boolean; unread?: boolean };
+type UnreadRow = { family_id: string; family_name: string; entry_id: string | null; occurrence: string | null; room_title: string; unread: number; latest_at: string; latest_body: string | null; latest_author: string | null };
 type Subscription = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; prefs: Prefs | null; quiet_start: number | null; quiet_end: number | null };
 type Kind = keyof Prefs;
 type Entry = { id: string; family_id: string; title: string; date: string; kind: string; repeat: 'none' | 'monthly' | 'yearly' };
@@ -52,6 +53,13 @@ async function send(allSubs: Subscription[], payload: Record<string, unknown>, k
   return { delivered, removed: gone.length };
 }
 
+// Unread rooms for one person (same RPC the app uses); the total rides along as the icon badge count.
+async function unreadFor(userId: string) {
+  const { data } = await admin.rpc('hg_unread_summary', { target: userId });
+  return (data ?? []) as UnreadRow[];
+}
+const unreadTotal = (rows: UnreadRow[]) => rows.reduce((s, r) => s + r.unread, 0);
+
 async function subscriptionsFor(userIds: string[]) {
   if (!userIds.length) return [] as Subscription[];
   const { data } = await admin.from('hg_push_subscriptions').select('id,user_id,endpoint,p256dh,auth,prefs,quiet_start,quiet_end').in('user_id', userIds);
@@ -69,7 +77,13 @@ async function onMessage(p: { kind: 'comment' | 'file'; family_id: string; entry
   if (p.entry_id) { const { data: entry } = await admin.from('hg_entries').select('title').eq('id', p.entry_id).single(); room = entry?.title ?? '우리집 일'; }
   const text = p.kind === 'file' ? `사진·문서를 올렸어요: ${p.name ?? ''}` : (p.body ?? '');
   const url = p.entry_id ? `/?open=${p.entry_id}:${p.occurrence}` : '/?tab=chat';
-  return send(await subscriptionsFor(recipients), { title: `${room} · ${family?.name ?? 'HARAGURI'}`, body: `${author}: ${text}`.slice(0, 180), url, tag: `room-${p.entry_id ?? 'general'}` }, p.kind === 'file' ? 'files' : 'messages');
+  const payload = { title: `${room} · ${family?.name ?? 'HARAGURI'}`, body: `${author}: ${text}`.slice(0, 180), url, tag: `room-${p.entry_id ?? 'general'}` };
+  let delivered = 0, removed = 0;
+  for (const uid of recipients) { // one payload per recipient so each device gets its own unread badge count
+    const r = await send(await subscriptionsFor([uid]), { ...payload, badgeCount: unreadTotal(await unreadFor(uid)) }, p.kind === 'file' ? 'files' : 'messages');
+    delivered += r.delivered; removed += r.removed;
+  }
+  return { delivered, removed };
 }
 
 // kind 'daily' (08:00): today's items + overdue. kind 'eve' (20:00): a look at tomorrow.
@@ -98,6 +112,30 @@ async function onDaily(kind: 'daily' | 'eve' = 'daily') {
   return { delivered: total };
 }
 
+// kind 'unread' (hourly): messages left unread for 2h+ get one more nudge, at most every 6h, only when something new arrived since the last nudge.
+async function onUnread() {
+  const { data: subs } = await admin.from('hg_push_subscriptions').select('user_id');
+  const users = [...new Set((subs ?? []).map(s => s.user_id as string))];
+  const { data: states } = await admin.from('hg_unread_reminders').select('user_id,reminded_at,latest_seen').in('user_id', users.length ? users : ['00000000-0000-0000-0000-000000000000']);
+  const now = Date.now(), twoHours = 2 * 3600 * 1000, sixHours = 6 * 3600 * 1000;
+  let delivered = 0, considered = 0;
+  for (const uid of users) {
+    const rows = await unreadFor(uid);
+    const pending = rows.filter(r => now - new Date(r.latest_at).getTime() >= twoHours);
+    if (!pending.length) continue;
+    const newest = pending.map(r => r.latest_at).sort().at(-1)!;
+    const state = states?.find(s => s.user_id === uid);
+    if (state && (new Date(state.latest_seen) >= new Date(newest) || now - new Date(state.reminded_at).getTime() < sixHours)) continue;
+    considered++;
+    const total = unreadTotal(pending), top = pending[0];
+    const url = top.entry_id ? `/?open=${top.entry_id}:${top.occurrence}` : '/?tab=chat';
+    const r = await send(await subscriptionsFor([uid]), { title: `안 읽은 메시지 ${total}개 · ${top.family_name}`, body: `${top.room_title} · ${top.latest_author ?? '가족'}: ${top.latest_body ?? ''}`.slice(0, 180), url, tag: 'unread', badgeCount: unreadTotal(rows) }, 'unread');
+    delivered += r.delivered;
+    await admin.from('hg_unread_reminders').upsert({ user_id: uid, reminded_at: new Date(now).toISOString(), latest_seen: newest });
+  }
+  return { delivered, considered };
+}
+
 Deno.serve(async req => {
   if (req.method !== 'POST') return new Response('method', { status: 405 });
   if (!configured()) return new Response('push not configured', { status: 503 });
@@ -107,6 +145,7 @@ Deno.serve(async req => {
   try {
     const result = payload.kind === 'daily' ? await onDaily('daily')
       : payload.kind === 'eve' ? await onDaily('eve')
+      : payload.kind === 'unread' ? await onUnread()
       : payload.kind === 'ingest' ? await send(await subscriptionsFor([String(payload.user_id)]), { title: String(payload.title ?? 'HARAGURI'), body: String(payload.body ?? ''), url: String(payload.url ?? '/'), tag: 'ingest' }, 'ingest')
       : (payload.kind === 'comment' || payload.kind === 'file') ? await onMessage(payload as Parameters<typeof onMessage>[0]) : { ignored: true };
     return Response.json(result);

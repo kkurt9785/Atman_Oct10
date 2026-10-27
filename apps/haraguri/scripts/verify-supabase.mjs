@@ -50,6 +50,14 @@ try {
   const forged=await owner.db.from('hg_receipts').insert({family_id:family,entry_id:entry.id,occurrence:'2026-10-26',state:'seen',user_id:member.id});
   assert.ok(forged.error,'Cannot acknowledge on behalf of another user');
   console.log('PASS: shared expenses/comments/completion; foreign-family reads/writes and forged acknowledgments blocked.');
+  // Unread tracking: the member's comment stays unread for the owner until that room is marked read; counts are private to the person.
+  const ownerUnread=check(await owner.db.rpc('hg_unread_summary',{target:owner.id}),'owner unread summary');
+  assert.ok(ownerUnread.some(r=>r.entry_id===entry.id&&r.unread>=1&&r.latest_author==='검증 가족'),'Owner sees the member comment as unread with the author name');
+  assert.deepEqual(check(await member.db.rpc('hg_unread_summary',{target:owner.id}),'peek at another person'),[]);
+  check(await owner.db.rpc('hg_mark_read',{family,entry:entry.id,occ:'2026-10-26'}),'mark room read');
+  assert.ok(!check(await owner.db.rpc('hg_unread_summary',{target:owner.id}),'after mark read').some(r=>r.entry_id===entry.id),'Marked room is no longer unread');
+  assert.ok((await outsider.db.rpc('hg_mark_read',{family,entry:null,occ:null})).error,'Outsider cannot mark rooms read');
+  console.log('PASS: unread counts per room, private to each person, cleared by mark-read; outsiders rejected.');
   check(await owner.db.from('hg_cards').update({owner_user_id:owner.id,performance_thresholds:[300000,500000],excluded_categories:['세금'],benefit_basis:'previous_month'}).eq('id',card.id),'set benefit rules');
   assert.equal(check(await outsider.db.from('hg_cards').update({budget:1}).eq('id',card.id).select(),'block outsider card update').length,0);
   assert.ok((await owner.db.from('hg_cards').update({owner_user_id:outsider.id}).eq('id',card.id)).error,'Card owner must belong to family');
