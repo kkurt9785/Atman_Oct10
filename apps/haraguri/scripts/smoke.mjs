@@ -8,7 +8,12 @@ try {
   const page = await browser.newPage({ viewport: {width:390,height:844} });
   page.on('pageerror', e => errors.push(e.message));
   page.on('dialog', d => d.accept()); // window.confirm for closing a room
-  await page.goto((process.env.BASE_URL || 'http://127.0.0.1:3004'));
+  const base = process.env.BASE_URL || 'http://127.0.0.1:3004';
+  await page.goto(base);
+  // Simulate an Android share-sheet hand-off: the service worker would have cached these items before redirecting to /?shared=1.
+  await page.evaluate(async () => { const c = await caches.open('haraguri-share'); await c.put('/share/meta', new Response(JSON.stringify({ count: 0, text: '신한카드(5678)승인 김*한 15,900원(일시불)10/26 09:10 스타벅스 역삼점', at: Date.now() }), { headers: { 'Content-Type': 'application/json' } })); });
+  await page.goto(`${base}/?shared=1`);
+  await page.waitForFunction(() => location.search === '');
   // Email fallback is reachable from the login screen without leaving the app.
   if (await page.getByRole('button',{name:'카카오가 안 될 때 · 이메일로 로그인'}).count()) {
     await page.getByRole('button',{name:'카카오가 안 될 때 · 이메일로 로그인'}).click();
@@ -18,8 +23,16 @@ try {
   }
   await page.getByRole('button',{name:'로그인 없이 미리보기'}).click();
   await page.getByRole('heading',{name:'우리의 하루를 함께.'}).waitFor();
-  await page.getByRole('button',{name:'＋ 일정·할 일',exact:true}).click();
   const dialog = page.getByRole('dialog');
+  // The shared card message is offered as an expense and pre-fills the form.
+  await dialog.getByRole('heading',{name:'공유받은 항목'}).waitFor();
+  await dialog.getByRole('button',{name:'₩ 카드 결제로 가계부에 기록'}).click();
+  await dialog.getByText('→ 아래에 채웠어요',{exact:false}).waitFor();
+  assert.equal(await dialog.getByLabel('사용처·내용').inputValue(),'스타벅스 역삼점');
+  assert.equal(await dialog.getByLabel('금액 (원)',{exact:true}).inputValue(),'15900');
+  assert.equal(await dialog.locator('select[name=category]').inputValue(),'식비');
+  await dialog.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.getByRole('button',{name:'＋ 일정·할 일',exact:true}).click();
   await dialog.getByLabel('제목',{exact:true}).fill('테스트 정기 납부');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-01-31');
   await dialog.locator('select[name=repeat]').selectOption('monthly');
@@ -112,6 +125,20 @@ try {
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'체크카드',exact:true}).click();
   await page.getByText('실적 테스트',{exact:true}).waitFor();
   assert.equal(await page.getByText('월세 이체',{exact:true}).count(),0);
+  // Pasting a card approval SMS fills merchant, amount, date and picks the only card.
+  await page.getByRole('button',{name:'＋ 지출 기록',exact:true}).click();
+  await dialog.getByRole('button',{name:'✉ 카드 승인 문자 붙여넣어 채우기'}).click();
+  await dialog.getByLabel('카드 승인 문자').fill('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\n동네마트\n누적1,234,567원');
+  await dialog.getByText('→ 아래에 채웠어요',{exact:false}).waitFor();
+  assert.equal(await dialog.getByLabel('사용처·내용').inputValue(),'동네마트');
+  assert.equal(await dialog.getByLabel('금액 (원)',{exact:true}).inputValue(),'48300');
+  assert.equal(await dialog.locator('select[name=card_id]').inputValue(),'c1');
+  const smsMonth = (await dialog.getByLabel('날짜',{exact:true}).inputValue()).slice(0,7);
+  await dialog.getByRole('button',{name:'저장하기'}).click();
+  await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'전체',exact:true}).click();
+  await page.getByLabel('가계부 조회 월').fill(smsMonth); // the list shows the month being viewed, not the month just saved
+  await page.getByText('동네마트',{exact:true}).waitFor();
+  await page.getByLabel('가계부 조회 월').fill('2026-03');
 
 
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);

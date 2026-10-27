@@ -90,6 +90,10 @@ try {
   const usage=check(await member.db.rpc('hg_storage_usage',{family}),'storage usage');
   const usageRow=Array.isArray(usage)?usage[0]:usage;
   assert.ok(Number(usageRow.files)>=1,'usage counts family attachments');
+  assert.equal(Number(usageRow.limit_bytes),524288000,'default family quota is 500MB');
+  check(await admin.from('hg_families').update({storage_limit:100}).eq('id',family),'shrink quota for the test');
+  assert.ok((await owner.db.from('hg_attachments').insert({family_id:family,entry_id:null,occurrence:null,path:`${family}/${owner.id}/${randomUUID()}.txt`,name:'quota.txt',size:1000})).error,'quota trigger blocks an oversized attachment');
+  check(await admin.from('hg_families').update({storage_limit:524288000}).eq('id',family),'restore quota');
   assert.equal(check(await outsider.db.rpc('hg_storage_usage',{family}),'foreign usage hidden').map?.(r=>Number(r.files))[0] ?? 0,0);
   check(await member.db.from('hg_entries').update({title:'실제 DB 반복 할 일 검증 (수정)',body:'edited by member'}).eq('id',entry.id),'member edits shared work');
   assert.ok((await member.db.from('hg_entries').update({date:'2026-10-27'}).eq('id',entry.id)).error,'date locked once records exist');

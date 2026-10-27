@@ -1,7 +1,28 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Expense, Entry, Member, money, total, today, daysInMonth } from '../lib/model';
 import { categories, cardProgress, qualifyingAmount, performanceMonth, shiftMonth } from '../lib/finance';
+import { ParsedCardMessage, describe, matchCard, parseCardMessage } from '../lib/cardsms';
+
+// Paste (or share) a card approval message and the expense form fills itself; the user only confirms.
+export function SmsPaste({cards,initial='',onParsed}:{cards:Card[];initial?:string;onParsed:(prefill:Partial<Expense>,parsed:ParsedCardMessage)=>void}) {
+  const [text,setText]=useState(initial);
+  const [status,setStatus]=useState<ParsedCardMessage|null|undefined>(undefined);
+  const [open,setOpen]=useState(!!initial);
+  function apply(value:string) {
+    setText(value);
+    const parsed=parseCardMessage(value);
+    setStatus(value.trim()?parsed:undefined);
+    if(parsed){const cardId=matchCard(parsed,cards);onParsed({title:parsed.merchant,amount:parsed.amount,date:parsed.date,category:parsed.category,card_id:cardId,payment_method:cardId?'card':'other'},parsed);}
+  }
+  useEffect(()=>{if(initial)apply(initial);},[initial]); // eslint-disable-line react-hooks/exhaustive-deps
+  if(!open) return <button type="button" className="text-button sms-toggle" onClick={()=>setOpen(true)}>✉ 카드 승인 문자 붙여넣어 채우기</button>;
+  return <div className="sms-paste">
+    <label>카드 승인 문자<textarea name="sms_text" rows={3} value={text} onChange={e=>apply(e.target.value)} placeholder="[Web발신] KB국민카드 1234승인 48,300원 10/27 11:21 동네마트 … 를 그대로 붙여넣으세요"/></label>
+    {status===null&&<p className="muted" role="status">금액을 찾지 못했어요. 문자 전체를 붙여넣어 주세요.</p>}
+    {status&&<p className="sms-summary" role="status">✓ {describe(status)} → 아래에 채웠어요. 맞는지 확인하고 저장하세요.{status.issuer&&!matchCard(status,cards)&&' 카드는 직접 골라 주세요.'}</p>}
+  </div>;
+}
 
 export function CardFields({ card, members }: { card?: Card | null; members: Member[] }) {
   const [cardType,setCardType]=useState(card?.card_type || 'credit');
@@ -17,7 +38,7 @@ export function CardFields({ card, members }: { card?: Card | null; members: Mem
     <p className="muted">예산과 실적 목표는 별개예요. 카드번호 전체·CVC는 입력하지 마세요.</p>
   </>;
 }
-export function ExpenseFields({ expense, cards }: { expense?: Expense | null; cards: Card[] }) {
+export function ExpenseFields({ expense, cards }: { expense?: Partial<Expense> | null; cards: Card[] }) {
   const [method,setMethod]=useState<string>(expense?.payment_method || (expense?.card_id?'card':expense?'other':cards.length?'card':'bank_transfer'));
   const [cardId,setCardId]=useState(expense?.card_id || '');
   const [category,setCategory]=useState(expense?.category || '식비');

@@ -7,11 +7,13 @@ import { KakaoGlyph } from '../components/KakaoGlyph';
 import { supabase } from '../lib/supabase';
 import { Attachment, Card, Expense, Data, Entry, Family, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
 
-import { CardFields, ExpenseFields, FinancePanel } from '../components/Finance';
+import { CardFields, ExpenseFields, FinancePanel, SmsPaste } from '../components/Finance';
+import { SharedItems, sharedFlag, takeSharedItems } from '../lib/share';
+import { parseCardMessage } from '../lib/cardsms';
 import { Planner } from '../components/Planner';
 import { Chat } from '../components/Chat';
 import { WorkBoard, WorkFields, ExpenseWorkFields } from '../components/Work';
-import { Room, inRoom, isClosed, looksFinished, purchaseStates, roomState, workExpenses } from '../lib/work';
+import { Room, inRoom, isClosed, looksFinished, purchaseStates, roomDate, roomState, workExpenses } from '../lib/work';
 import { occurrence } from '../lib/model';
 import { parseThresholds, validateQualifyingAmount } from '../lib/finance';
 import { DemoChat, listRoomFiles, useRoomMessages } from '../lib/chat';
@@ -62,9 +64,14 @@ export default function Home() {
   const [entryLocked,setEntryLocked]=useState(false);
   const [emailMode,setEmailMode]=useState(false);
   const [emailAddr,setEmailAddr]=useState('');
-  const [usage,setUsage]=useState<{files:number;bytes:number}|null>(null);
+  const [usage,setUsage]=useState<{files:number;bytes:number;limit:number}|null>(null);
+  const [expensePrefill,setExpensePrefill]=useState<Partial<Expense>|null>(null);
+  const [prefillText,setPrefillText]=useState('');
+  const [prefillKey,setPrefillKey]=useState(0);
+  const [shared,setShared]=useState<SharedItems|null>(null);
+  const [shareDest,setShareDest]=useState('general');
   const bumpChat=()=>setChatVersion(v=>v+1);
-  function openExpense(expense: Expense|null = null, room:Room=null) { setExpenseRoom(room); setSelected(null); setEditingExpense(expense); setError(''); setForm('expense'); }
+  function openExpense(expense: Expense|null = null, room:Room=null, text='') { setExpenseRoom(room); setSelected(null); setEditingExpense(expense); setExpensePrefill(null); setPrefillText(text); setPrefillKey(k=>k+1); setError(''); setForm('expense'); }
   function openCard(card: Card|null = null) { setEditingCard(card); setError(''); setForm('card'); }
   const [selectedRoom, setSelected] = useState<Room>(null);
   const selected = selectedRoom ? {entry:data.entries.find(e=>e.id===selectedRoom.entry.id) || selectedRoom.entry,date:selectedRoom.date} : null;
@@ -117,6 +124,14 @@ export default function Home() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    // Items handed over from the Android share sheet (service worker POST /share → cache → here).
+    const flag = sharedFlag(window.location.search);
+    if (flag) {
+      window.history.replaceState(null, '', '/');
+      if (flag === 'ok') takeSharedItems().then(items => { if (items && (items.files.length || items.text)) setShared(items); else setNotice('공유받은 항목을 찾지 못했어요. 다시 공유해 주세요.'); }).catch(() => setError('공유받은 항목을 읽지 못했어요.'));
+      else if (flag === 'unsupported') setNotice('공유 받기는 홈 화면에 설치한 HARAGURI(Android)에서 열렸을 때 동작해요. iPhone은 사진을 저장한 뒤 ＋ 사진·문서로 골라 주세요.');
+      else setError('공유받은 항목을 저장하지 못했어요. 다시 시도해 주세요.');
+    }
     if (!supabase) { setAuthReady(true); return; }
     let active = true;
     supabase.auth.getSession().then(({ data, error }) => {
@@ -153,10 +168,14 @@ export default function Home() {
     channel.subscribe(status=>{const ok=status==='SUBSCRIBED';setLive(ok);setSync(ok?'실시간 연결됨':'연결 중 · 30초마다 새로고침');if(ok){refresh();refreshChat();}});
     return()=>{clearTimeout(timer);clearTimeout(chatTimer);setLive(false);void supabase!.removeChannel(channel);};
   },[family?.id,user?.id,demo,load]);
+  // Usage is read on the settings tab and after uploads so the composer can warn before the quota trigger refuses a file.
   useEffect(()=>{
-    if(tab!=='settings'||demo||!supabase||!family?.id){setUsage(null);return;}
-    supabase.rpc('hg_storage_usage',{family:family.id}).then(r=>{const row=Array.isArray(r.data)?r.data[0]:r.data;if(!r.error&&row)setUsage({files:Number(row.files),bytes:Number(row.bytes)});});
+    if(demo||!supabase||!family?.id){setUsage(null);return;}
+    if(tab!=='settings'&&usage!==null&&chatVersion===0)return;
+    supabase.rpc('hg_storage_usage',{family:family.id}).then(r=>{const row=Array.isArray(r.data)?r.data[0]:r.data;if(!r.error&&row)setUsage({files:Number(row.files),bytes:Number(row.bytes),limit:Number(row.limit_bytes ?? FREE_STORAGE_BYTES)});});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[tab,demo,family?.id,chatVersion]);
+  const usagePercent=usage&&usage.limit?Math.min(100,Math.round(usage.bytes/usage.limit*100)):0;
 
   const general=useRoomMessages({familyId:family?.id ?? '',room:null,demo,demoChat:demoRooms,version:chatVersion,enabled:!!family&&tab==='chat'&&chatView==='general'});
   const detail=useRoomMessages({familyId:family?.id ?? '',room:selected,demo,demoChat:demoRooms,version:chatVersion,enabled:!!family&&!!selected});
@@ -244,9 +263,12 @@ export default function Home() {
       else { const r = await supabase!.from('hg_receipts').delete().eq('id', existing.id); if (r.error) throw r.error; await load(); }
     } else await insert('receipts', 'hg_receipts', { family_id: family!.id, entry_id: selected.entry.id, occurrence: selected.date, user_id: uid, state });
   }
-  async function upload(originals: File[]) {
+  // `target` undefined → the room currently open in the detail dialog; null → the family's general chat.
+  async function upload(originals: File[], target?: Room) {
+    const room: Room = target === undefined ? selected : target;
     if (demo) throw new Error('미리보기에서는 파일을 저장하지 않습니다. 로그인 후 이용해 주세요.');
-    if (selected && isClosed(data.rooms, selected)) throw new Error('종료된 대화예요. 다시 열면 올릴 수 있어요.');
+    if (room && isClosed(data.rooms, room)) throw new Error('종료된 대화예요. 다시 열면 올릴 수 있어요.');
+    if (usage && usage.limit && usage.bytes >= usage.limit) throw new Error(`가족 저장공간 ${formatBytes(usage.limit)}을 다 썼어요. 끝난 대화를 종료해 사진을 정리한 뒤 다시 올려 주세요.`);
     const allowed = ['image/jpeg','image/png','image/webp','application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
     const bucket = supabase!.storage.from('haraguri-files');
     let done = 0;
@@ -262,7 +284,7 @@ export default function Home() {
         // The thumbnail is best-effort: the chat falls back to the full photo when it is missing.
         const thumbOk = thumb ? !(await bucket.upload(thumbPath(path), thumb, { contentType: 'image/jpeg' })).error : false;
         const size = file.size + (thumbOk && thumb ? thumb.size : 0);
-        const r = await supabase!.from('hg_attachments').insert({ family_id: family!.id, entry_id: selected?.entry.id ?? null, occurrence: selected?.date ?? null, path, name: file.name, size, created_by: uid });
+        const r = await supabase!.from('hg_attachments').insert({ family_id: family!.id, entry_id: room?.entry.id ?? null, occurrence: room?.date ?? null, path, name: file.name, size, created_by: uid });
         if (r.error) { await bucket.remove(thumbOk ? [path, thumbPath(path)] : [path]); throw r.error; }
         done++;
       }
@@ -409,7 +431,7 @@ export default function Home() {
       }}/>}
       {tab === 'chat' && <>
         <div className="payment-tabs" role="group" aria-label="대화 종류"><button aria-pressed={chatView==='general'} onClick={()=>setChatView('general')}>가족 기본 채팅</button><button aria-pressed={chatView==='work'} onClick={()=>setChatView('work')}>일정·구매별 대화</button></div>
-        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key="general" room={null} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid}))} onUpload={files=>run(()=>upload(files))} onFile={file=>run(()=>openFile(file))}/></div>}
+        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key="general" room={null} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid}))} onUpload={files=>run(()=>upload(files,null))} onFile={file=>run(()=>openFile(file))}/></div>}
       </>}
       {tab === 'alerts' && <><div className="banner">앱 안에서 확인하는 알림 모음입니다. 앱을 닫았을 때의 예약 푸시는 아직 제공하지 않습니다.</div><section className="panel"><h2>이번 달 아직 확인하지 않았어요</h2>{unseen.map(({entry,date}) => renderEntry(entry,date))}{!unseen.length && <div className="empty">모든 일정을 확인했어요.</div>}<h2 className="list-title">오늘까지 미완료</h2>{due.map(({entry,date}) => renderEntry(entry,date))}{!due.length && <div className="empty">밀린 일이 없어요.</div>}</section></>}
       {tab === 'settings' && <section className="panel settings"><h2>모임 공간</h2><p>가족·친구·행사별로 독립된 공간을 만들어요. 대화, 일정, 카드와 지출은 선택한 모임 멤버끼리만 공유합니다.</p>
@@ -420,15 +442,25 @@ export default function Home() {
           if(r.error)throw r.error;
           requestVersion.current++;setSelected(null);setInvite('');setData(emptyData);setFamily(null);setLoading(true);setActiveSpace(r.data);localStorage.setItem(`haraguri-space-${uid}`,r.data);setTab('home');
         });}}><label>이 모임에서 사용할 이름<input name="member_name" required maxLength={40} defaultValue={name(uid)}/></label>{spaceAction==='create'?<label>모임 이름<input name="space_name" required maxLength={80} placeholder="우리 가족 / 부모님 생신 / 친구 여행"/></label>:<label>모임 초대 코드<input name="space_invite" required placeholder="초대 코드를 붙여넣으세요"/></label>}<button className="primary" disabled={busy}>{spaceAction==='create'?'모임 생성하기':'모임 참여하기'}</button></form>
-        <h2 className="list-title">{family.name}</h2>{data.members.map(m => <div className="member-row" key={m.user_id}><span className="avatar">{m.display_name.slice(0,1)}</span><strong>{m.display_name}</strong><small>{m.user_id === family.owner_id ? '가족 공간 소유자' : '가족 구성원'}</small></div>)}{family.owner_id === uid && <><h2 className="list-title">가족 초대</h2><p>새 코드를 발급하면 이전 코드는 만료됩니다. 코드는 7일 동안 유효해요.</p><button className="primary" disabled={busy} onClick={() => run(async () => { if(demo) throw new Error('실제 가족 초대는 로그인 후 사용할 수 있어요.'); const r = await supabase!.rpc('hg_invite',{family:family.id}); if(r.error) throw r.error; setInvite(r.data); })}>초대 코드 발급</button>{invite && <label>가족에게 전달할 코드<input readOnly value={invite} onFocus={e => e.target.select()}/></label>}</>}{!demo&&<><h2 className="list-title">사진·문서 사용량</h2>{usage?<p>{formatBytes(usage.bytes)} · {usage.files.toLocaleString('ko-KR')}개 · 무료 저장공간 1GB 기준 {Math.min(100,Math.round(usage.bytes/FREE_STORAGE_BYTES*100))}% 사용 중<br/><small className="muted">사진은 올릴 때 긴 변 1,600px으로 줄여요. 문서는 원본 크기 그대로예요.</small></p>:<p>사용량을 확인하고 있어요…</p>}<h2 className="list-title">로그인 계정</h2>{user?.email&&<p>{user.email}</p>}{user?.identities?.some(i=>i.provider==='kakao')?<p>카카오 계정이 연결되어 있어요.</p>:<><p>기존 기록을 유지하려면 현재 계정에 카카오 로그인을 연결하세요.</p><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin(true))}><KakaoGlyph/>카카오 계정 연결</button></>}</>}<h2 className="list-title">홈 화면에 설치</h2><p>iPhone은 Safari 공유 메뉴에서 ‘홈 화면에 추가’를, Android는 브라우저 메뉴의 ‘앱 설치’를 선택하세요.</p><h2 className="list-title">기록 공유</h2><p>가족 공간의 일정, 지출, 댓글과 첨부파일은 참여한 가족 모두에게 공유됩니다.</p><button className="secondary" disabled={busy} onClick={() => run(async () => { if(!demo) { const r = await supabase!.auth.signOut(); if(r.error) throw r.error; } setDemo(false); setFamily(null); setSpaces([]); setActiveSpace(''); setData(emptyData); setSelected(null); setInvite(''); })}>{demo ? '미리보기 나가기' : '로그아웃'}</button></section>}
+        <h2 className="list-title">{family.name}</h2>{data.members.map(m => <div className="member-row" key={m.user_id}><span className="avatar">{m.display_name.slice(0,1)}</span><strong>{m.display_name}</strong><small>{m.user_id === family.owner_id ? '가족 공간 소유자' : '가족 구성원'}</small></div>)}{family.owner_id === uid && <><h2 className="list-title">가족 초대</h2><p>새 코드를 발급하면 이전 코드는 만료됩니다. 코드는 7일 동안 유효해요.</p><button className="primary" disabled={busy} onClick={() => run(async () => { if(demo) throw new Error('실제 가족 초대는 로그인 후 사용할 수 있어요.'); const r = await supabase!.rpc('hg_invite',{family:family.id}); if(r.error) throw r.error; setInvite(r.data); })}>초대 코드 발급</button>{invite && <label>가족에게 전달할 코드<input readOnly value={invite} onFocus={e => e.target.select()}/></label>}</>}{!demo&&<><h2 className="list-title">사진·문서 사용량</h2>{usage?<div className="usage-block"><p><b>{formatBytes(usage.bytes)}</b> / {formatBytes(usage.limit)} · {usage.files.toLocaleString('ko-KR')}개 · <b className={usagePercent>=80?'usage-warn':''}>{usagePercent}%</b> 사용 중</p><progress aria-label="저장공간 사용률" value={usagePercent} max={100} className={usagePercent>=80?'warn':''}/>{usagePercent>=80&&<p className="usage-warn">한도에 가까워요. 끝난 일의 대화를 종료하면 그 방의 사진·문서가 정리돼요.</p>}<small className="muted">모임마다 {formatBytes(usage.limit)}까지 올릴 수 있어요. 사진은 긴 변 1,600px으로 줄여 올리고, 문서는 원본 그대로예요.</small></div>:<p>사용량을 확인하고 있어요…</p>}<h2 className="list-title">로그인 계정</h2>{user?.email&&<p>{user.email}</p>}{user?.identities?.some(i=>i.provider==='kakao')?<p>카카오 계정이 연결되어 있어요.</p>:<><p>기존 기록을 유지하려면 현재 계정에 카카오 로그인을 연결하세요.</p><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin(true))}><KakaoGlyph/>카카오 계정 연결</button></>}</>}<h2 className="list-title">홈 화면에 설치</h2><p>iPhone은 Safari 공유 메뉴에서 ‘홈 화면에 추가’를, Android는 브라우저 메뉴의 ‘앱 설치’를 선택하세요.</p><h2 className="list-title">기록 공유</h2><p>가족 공간의 일정, 지출, 댓글과 첨부파일은 참여한 가족 모두에게 공유됩니다.</p><button className="secondary" disabled={busy} onClick={() => run(async () => { if(!demo) { const r = await supabase!.auth.signOut(); if(r.error) throw r.error; } setDemo(false); setFamily(null); setSpaces([]); setActiveSpace(''); setData(emptyData); setSelected(null); setInvite(''); })}>{demo ? '미리보기 나가기' : '로그아웃'}</button></section>}
       <footer>HARAGURI <span>우리 가족의 작은 기록들</span></footer>
     </main>
     <nav className="bottom-nav" aria-label="모바일 메뉴">{tabs.map(([key,icon,title]) => <button key={key} aria-label={title} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={() => setTab(key)}><span>{icon}</span>{title}</button>)}</nav>
     {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?'지출 수정하기':'지출 기록하기'):(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
       <form onSubmit={submitForm}>{error&&<p role="alert" className="error banner">{error}</p>}
-        {form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<><ExpenseFields expense={editingExpense} cards={data.cards}/><ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
+        {form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards}/><ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
         <button className="primary" disabled={busy}>{busy?'저장 중…':'저장하기'}</button>
       </form>
+    </Modal>}
+    {shared && !form && <Modal title="공유받은 항목" close={()=>{if(!busy)setShared(null);}}>
+      <div className="detail">
+        {shared.files.length>0&&<><p className="muted">사진·문서 {shared.files.length}개를 어디에 올릴까요?</p><ul className="share-list">{shared.files.slice(0,10).map((f,i)=><li key={i}>{f.name} · {formatBytes(f.size)}</li>)}</ul>
+          <label>올릴 곳<select aria-label="올릴 곳" value={shareDest} onChange={e=>setShareDest(e.target.value)}><option value="general">가족 기본 채팅</option>{data.entries.filter(e=>!isClosed(data.rooms,{entry:e,date:roomDate(e,today().slice(0,7))})).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30).map(e=><option key={e.id} value={e.id}>{e.title} · {roomDate(e,today().slice(0,7))}</option>)}</select></label>
+          <div className="share-actions"><button className="primary" disabled={busy} onClick={()=>run(async()=>{const entry=data.entries.find(e=>e.id===shareDest);const room:Room=entry?{entry,date:roomDate(entry,today().slice(0,7))}:null;await upload(shared.files.slice(0,10),room);setShared(null);if(room){setSelected(room);}else{setTab('chat');setChatView('general');}})}>{busy?'올리는 중…':`${Math.min(10,shared.files.length)}개 올리기`}</button></div></>}
+        {shared.text&&<><p className="muted">{shared.files.length?'함께 온 글':'공유받은 글'}</p><div className="share-text">{shared.text}</div>
+          <div className="share-actions">{parseCardMessage(shared.text)&&<button className="primary" disabled={busy} onClick={()=>{const text=shared.text;setShared(null);openExpense(null,null,text);}}>₩ 카드 결제로 가계부에 기록</button>}<button className="secondary" disabled={busy} onClick={()=>run(async()=>{await sendComment({family_id:family.id,entry_id:null,occurrence:null,body:shared.text.slice(0,5000),created_by:uid});setShared(null);setTab('chat');setChatView('general');})}>가족 기본 채팅에 보내기</button></div></>}
+        <button className="text-button" onClick={()=>setShared(null)}>닫기</button>
+      </div>
     </Modal>}
     {selected && !form && <Modal title={selected.entry.title} close={()=>{if(!busy)setSelected(null);}}>
       <div className="detail work-detail">{error&&<p role="alert" className="error banner">{error}</p>}
