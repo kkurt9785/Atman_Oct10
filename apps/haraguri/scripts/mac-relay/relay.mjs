@@ -77,6 +77,10 @@ async function main() {
     log(`첫 실행: 기존 메시지는 건너뛰고 지금부터 감시해요 (기준 #${newest}).`);
     return;
   }
+  // Sync health for diagnosis without Full Disk Access: when did the last iPhone SMS / any message reach this Mac?
+  const toIso = d => d ? new Date(((d > 10000000000 ? d / 1e9 : d) + 978307200) * 1000).toISOString() : null;
+  const newest = read(`select max(case when service='SMS' then date end) as sms, max(date) as any from message where is_from_me=0`)[0] || {};
+  writeFileSync(join(DIR, 'status.json'), JSON.stringify({ at: new Date().toISOString(), lastRowId: state.lastRowId, newestSms: toIso(newest.sms), newestMessage: toIso(newest.any) }));
   // date is ns since 2001-01-01 on current macOS; older DBs used seconds.
   const rows = read(`select m.ROWID as rowid, m.text as text, hex(m.attributedBody) as body, m.is_from_me as from_me,
       case when m.date > 10000000000 then m.date/1000000000 else m.date end + 978307200 as unix, h.id as sender
