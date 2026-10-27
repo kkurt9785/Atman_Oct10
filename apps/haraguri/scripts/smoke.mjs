@@ -32,7 +32,15 @@ try {
   assert.equal(await dialog.getByLabel('금액 (원)',{exact:true}).inputValue(),'15900');
   assert.equal(await dialog.locator('select[name=category]').inputValue(),'식비');
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
-  await page.getByRole('button',{name:'＋ 일정·할 일',exact:true}).click();
+  // Home week strip → day view of that date → back home. Holiday names show in the month grid.
+  const todayStr = new Date().toLocaleDateString('sv-SE');
+  await page.getByRole('group',{name:'이번 주'}).getByRole('button',{name:new RegExp(`^${todayStr}`)}).click();
+  assert.equal(await page.getByLabel('조회 일',{exact:true}).inputValue(),todayStr);
+  await page.getByRole('group',{name:'일정 보기'}).getByRole('button',{name:'월간',exact:true}).click();
+  await page.getByLabel('조회 월').fill('2026-02');
+  await page.getByText('설날',{exact:true}).first().waitFor();
+  await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'우리집'}).click();
+  await page.getByRole('button',{name:'일정·할 일 추가',exact:true}).click();
   await dialog.getByLabel('제목',{exact:true}).fill('테스트 정기 납부');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-01-31');
   await dialog.locator('select[name=repeat]').selectOption('monthly');
@@ -60,7 +68,7 @@ try {
   await page.getByRole('button',{name:/테스트 정기 납부 \(수정\)/}).click();
   await dialog.getByText('2026-03-31 · 매월 · 함께',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
-  await page.getByRole('button',{name:'＋ 일정·할 일',exact:true}).click();
+  await page.getByRole('button',{name:'일정·할 일 추가',exact:true}).click();
   await dialog.getByLabel('제목',{exact:true}).fill('수정 가능한 약속');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-20');
   await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
@@ -82,7 +90,7 @@ try {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
   await page.getByRole('group',{name:'일정 보기'}).getByRole('button',{name:'월간',exact:true}).click();
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가계부'}).click();
-  await page.getByRole('button',{name:'＋ 지출 기록',exact:true}).click();
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
   await dialog.locator('select[name=payment_method]').selectOption('cash');
   await dialog.getByLabel('사용처·내용').fill('테스트 지출');
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('12345');
@@ -92,7 +100,7 @@ try {
   await page.getByRole('button',{name:'우리 생활비 카드 설정'}).click();
   await dialog.locator('input[name=performance_thresholds]').fill('300000, 500000');
   await dialog.getByRole('button',{name:'저장하기'}).click();
-  await page.getByRole('button',{name:'＋ 지출 기록',exact:true}).click();
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
   await dialog.getByLabel('사용처·내용').fill('실적 테스트');
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('310000');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-10');
@@ -109,7 +117,7 @@ try {
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.getByText('200,000원 남았어요',{exact:true}).waitFor();
   await page.screenshot({path:'/tmp/haraguri-finance-mobile.png',fullPage:true});
-  await page.getByRole('button',{name:'＋ 지출 기록',exact:true}).click();
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
   await dialog.locator('select[name=payment_method]').selectOption('bank_transfer');
   await dialog.getByLabel('사용처·내용').fill('월세 이체');
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('500000');
@@ -126,7 +134,7 @@ try {
   await page.getByText('실적 테스트',{exact:true}).waitFor();
   assert.equal(await page.getByText('월세 이체',{exact:true}).count(),0);
   // Pasting a card approval SMS fills merchant, amount, date and picks the only card.
-  await page.getByRole('button',{name:'＋ 지출 기록',exact:true}).click();
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
   await dialog.getByRole('button',{name:'✉ 카드 승인 문자 붙여넣어 채우기'}).click();
   await dialog.getByLabel('카드 승인 문자').fill('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\n동네마트\n누적1,234,567원');
   await dialog.getByText('→ 아래에 채웠어요',{exact:false}).waitFor();
