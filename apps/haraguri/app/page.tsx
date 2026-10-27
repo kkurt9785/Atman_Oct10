@@ -429,8 +429,8 @@ export default function Home() {
       {!emailMode && <><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin())}><KakaoGlyph/>{busy?'카카오로 연결 중…':'카카오 로그인'}</button><p className="login-note">이메일 입력 없이 카카오 계정으로 시작해요.<br/>처음이라면 로그인 후 모임을 만들거나 초대 코드로 참여하세요.</p><button className="text-button" onClick={()=>{setEmailMode(true);setError('');setNotice('');}}>카카오가 안 될 때 · 이메일로 로그인</button></>}
       {emailMode && (emailAddr
         ? <form className="email-login" onSubmit={e=>{e.preventDefault();const v=new FormData(e.currentTarget);run(()=>verifyEmailCode(String(v.get('token'))));}}>
-            <p className="login-note"><b>{emailAddr}</b>로 보낸 메일의 링크를 누르거나, 메일에 적힌 번호를 입력하세요.</p>
-            <label>인증번호<input name="token" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,10}" required placeholder="메일 속 8자리 번호"/></label>
+            <p className="login-note"><b>{emailAddr}</b>로 메일을 보냈어요. <b>지금 이 기기·브라우저에서</b> 메일의 링크를 누르면 바로 로그인돼요. 메일에 8자리 번호가 있으면 아래에 입력해도 돼요.</p>
+            <label>인증번호 (메일에 번호가 있을 때만)<input name="token" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,10}" required placeholder="메일 속 8자리 번호"/></label>
             <button className="primary" disabled={busy}>로그인</button>
             <div className="email-login-links"><button type="button" className="text-button" disabled={busy} onClick={()=>run(()=>requestEmailCode(emailAddr))}>메일 다시 받기</button><button type="button" className="text-button" onClick={()=>{setEmailAddr('');setNotice('');}}>다른 이메일</button></div>
           </form>

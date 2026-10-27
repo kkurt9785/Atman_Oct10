@@ -268,6 +268,16 @@ otp_expiry = 3600
 # admin_email = "wesconnectdev@gmail.com"
 # sender_name = "HARAGURI"
 
+
+# HARAGURI: login emails show the 8-digit code (and a same-device link) instead of the default English link-only template.
+# Free tier + default sender cannot override templates ("Email template modification is not available…"). Uncomment after SMTP is connected.
+# [auth.email.template.confirmation]
+# subject = "HARAGURI 로그인 인증번호 {{ .Token }}"
+# content_path = "./supabase/templates/login.html"
+# [auth.email.template.magic_link]
+# subject = "HARAGURI 로그인 인증번호 {{ .Token }}"
+# content_path = "./supabase/templates/login.html"
+
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
 enable_signup = false
