@@ -63,25 +63,31 @@ async function main() {
   if (!config.ingestUrl) { console.error('수집 주소가 없어요. install.sh "<수집 주소>" 로 설치하거나 --url 로 넘겨 주세요.'); process.exit(2); }
   if (!existsSync(config.db)) { console.error(`메시지 DB가 없어요: ${config.db}`); process.exit(2); }
   const state = readJson(STATE, { lastRowId: 0 });
-  let rows;
-  try {
-    // date is ns since 2001-01-01 on current macOS; older DBs used seconds.
-    rows = query(config.db, `select m.ROWID as rowid, m.text as text, hex(m.attributedBody) as body, m.is_from_me as from_me,
+  const read = sql => {
+    try { return query(config.db, sql); } catch (e) {
+      const msg = String(e.message || e);
+      log(`DB 읽기 실패: ${msg.includes('unable to open') || msg.includes('authorization') ? '전체 디스크 접근 권한이 필요해요 (시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 → HaraguriRelay 켜기)' : msg}`);
+      process.exit(1);
+    }
+  };
+  if (!state.lastRowId) {
+    // First run: start from the newest message instead of replaying the whole history 500 rows at a time.
+    const newest = Number(read('select coalesce(max(ROWID), 0) as m from message')[0]?.m) || 0;
+    if (!flag('--dry-run')) writeFileSync(STATE, JSON.stringify({ lastRowId: newest }));
+    log(`첫 실행: 기존 메시지는 건너뛰고 지금부터 감시해요 (기준 #${newest}).`);
+    return;
+  }
+  // date is ns since 2001-01-01 on current macOS; older DBs used seconds.
+  const rows = read(`select m.ROWID as rowid, m.text as text, hex(m.attributedBody) as body, m.is_from_me as from_me,
       case when m.date > 10000000000 then m.date/1000000000 else m.date end + 978307200 as unix, h.id as sender
       from message m left join handle h on h.ROWID = m.handle_id where m.ROWID > ${Number(state.lastRowId) || 0} order by m.ROWID asc limit 500`);
-  } catch (e) {
-    const msg = String(e.message || e);
-    log(`DB 읽기 실패: ${msg.includes('unable to open') || msg.includes('authorization') ? '전체 디스크 접근 권한이 필요해요 (시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 → HaraguriRelay 켜기)' : msg}`);
-    process.exit(1);
-  }
   if (!rows.length) { if (flag('--verbose')) log('새 메시지 없음'); return; }
-  const first = !state.lastRowId;
   const cutoff = Date.now() / 1000 - config.lookbackDays * 86400;
   let sent = 0, skipped = 0, last = Number(state.lastRowId) || 0;
   for (const row of rows) {
     const text = (row.text || decodeAttributedBody(row.body) || '').trim();
     const isPayment = !row.from_me && PAYMENT.test(text) && AMOUNT.test(text) && row.unix >= cutoff;
-    if (!first && isPayment) {
+    if (isPayment) {
       if (flag('--dry-run')) { log(`[dry-run] ${row.sender ?? '?'}: ${text.replace(/\s+/g, ' ').slice(0, 80)}`); sent++; }
       else {
         try {
@@ -94,7 +100,6 @@ async function main() {
     } else skipped++;
     last = row.rowid;
   }
-  if (first) log(`첫 실행: 기존 메시지 ${rows.length}건은 건너뛰고 지금부터 감시해요.`);
   if (!flag('--dry-run')) { state.lastRowId = last; writeFileSync(STATE, JSON.stringify(state)); }
   if (sent || flag('--verbose')) log(`처리: 전송 ${sent}건 · 건너뜀 ${skipped}건`);
 }
