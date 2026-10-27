@@ -249,6 +249,16 @@ try {
   await page.getByLabel('내역 검색').fill('스타벅스');
   assert.equal(await page.locator('.finance-expense').count(),1);
   await page.getByLabel('내역 검색').fill('');
+  // Screenshot import: QA injects OCR text through the test seam (no 10MB language download), then confirms the parsed rows.
+  await page.evaluate(() => { window.__haraguriOcr = async () => '이용내역\n이마트 성수점 32,400원\n03.14 18:02 일시불\n다이소 7,000원\n03.14 18:30 일시불'; });
+  await page.getByRole('button',{name:'📷 캡처 가져오기'}).click();
+  await dialog.getByRole('heading',{name:'카드앱 캡처로 가져오기'}).waitFor();
+  await dialog.getByLabel('이용내역 캡처 선택').setInputFiles({name:'capture.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKXcAAAAASUVORK5CYII=','base64')});
+  await dialog.getByText('2건 찾았어요',{exact:false}).waitFor();
+  await dialog.locator('select').first().selectOption('c1');
+  await dialog.getByRole('button',{name:/2건 가계부에 추가/}).click();
+  await page.locator('.finance-expense').filter({hasText:'이마트 성수점'}).waitFor();
+  await page.locator('.finance-expense').filter({hasText:'다이소'}).waitFor();
   // Envelopes: the demo envelope takes a deposit through the amount prompt (50,000).
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'반복·적립'}).click();
   await page.locator('.envelope').filter({hasText:'자동차세'}).getByRole('button',{name:'＋ 넣기'}).click();

@@ -8,6 +8,8 @@ import { supabase } from '../lib/supabase';
 import { Attachment, Card, Expense, Data, Entry, Envelope, Family, Pin, Reaction, Comment, RecurringExpense, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
 
 import { BudgetFields, CardFields, EnvelopeFields, ExpenseFields, FinancePanel, FinanceView, RecurringFields, SmsPaste } from '../components/Finance';
+import { CaptureImport, ImportRow } from '../components/CaptureImport';
+import type { OcrRow } from '../lib/ocr';
 import { budgetFor, budgetStatus } from '../lib/budget';
 import { PushPrefs } from '../components/PushPrefs';
 import { IngestSetup } from '../components/IngestSetup';
@@ -90,6 +92,7 @@ export default function Home() {
   const [targets,setTargets]=useState<TargetRow[]>([]);
   const [codeMode,setCodeMode]=useState(false); // login screen: paste an invite code/link before signing in
   const [recurringPrefill,setRecurringPrefill]=useState<{title:string;amount:number;day:number}|null>(null);
+  const [captureOpen,setCaptureOpen]=useState(false); // screenshot → transactions importer
   const [unread,setUnread]=useState<UnreadRow[]>([]); // rooms with messages this person has not opened yet (all spaces)
   const [focusTick,setFocusTick]=useState(0); // bumps when the app comes back to the foreground so the open room is marked read again
   const inviteLink=(code:string)=>`${window.location.origin}/?invite=${code}`;
@@ -115,6 +118,7 @@ export default function Home() {
   const requestVersion = useRef(0);
   useEffect(()=>{window.scrollTo({top:0});},[tab]);
   const uid = demo ? 'demo' : user?.id ?? '';
+  const common=()=>({ family_id: family!.id, created_by: uid });
   const lastPayKey=`haraguri-last-pay-${uid}`; // the expense form starts from the payment method/card used last time
   const readLastPay=()=>{ try{ return JSON.parse(localStorage.getItem(lastPayKey)||'null') as {payment_method?:string;card_id?:string}|null; }catch{ return null; } };
 
@@ -386,6 +390,31 @@ export default function Home() {
     if (e.created_by === uid) await supabase!.from('hg_expenses').update({ entry_id: ins.data.id, occurrence: e.date }).eq('id', e.id);
     await load(); setSelected({ entry: ins.data as Entry, date: e.date });
   }
+  // Rows the person confirmed from a screenshot. Same screenshot twice → the fingerprint index rejects the repeats and we just count them.
+  async function importRows(rows: ImportRow[], cardId: string | null) {
+    let added = 0, skipped = 0;
+    for (const r of rows) {
+      if (!r.merchant.trim() || !Number.isSafeInteger(r.amount) || r.amount === 0 || !r.date) { skipped++; continue; }
+      const value = { title: r.merchant.trim().slice(0, 200), amount: r.amount, date: r.date, category: r.category, payment_method: cardId ? 'card' : 'other', card_id: cardId, source: 'ocr', reviewed: true, kind: 'expense', fingerprint: `ocr:${r.date}:${r.amount}:${r.merchant.replace(/\s+/g, '').slice(0, 30)}` };
+      if (demo) { if (data.expenses.some(e => e.date === r.date && Number(e.amount) === r.amount && e.title === value.title)) { skipped++; continue; } setData(d => ({ ...d, expenses: [...d.expenses, { ...value, id: crypto.randomUUID(), family_id: 'demo', created_by: uid } as Expense] })); added++; continue; }
+      const ins = await supabase!.from('hg_expenses').insert({ ...common(), ...value });
+      if (ins.error) { if (ins.error.code === '23505') { skipped++; continue; } throw ins.error; }
+      added++;
+    }
+    if (!demo) await load();
+    setCaptureOpen(false); setTab('money'); setFinanceView('list');
+    setNotice(`캡처에서 ${added}건을 가계부에 넣었어요${skipped ? ` · ${skipped}건은 이미 있거나 비어 있어 건너뜀` : ''}.`);
+  }
+  async function aiRecognize(file: File): Promise<OcrRow[]> {
+    if (demo || !supabase) throw new Error('AI 인식은 로그인 후 사용할 수 있어요.');
+    const { data: { session } } = await supabase.auth.getSession();
+    const form = new FormData(); form.append('image', file);
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/vision`, { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token ?? ''}` }, body: form });
+    if (res.status === 503) throw new Error('AI 인식이 아직 켜져 있지 않아요. 관리자가 scripts/setup-vision-secret.sh 로 키를 넣으면 사용할 수 있어요.');
+    if (!res.ok) throw new Error(`AI 인식 실패 (${res.status})`);
+    const body = await res.json() as { rows?: OcrRow[] };
+    return body.rows ?? [];
+  }
   async function update(key: 'cards'|'expenses'|'entries'|'recurring', table: string, id: string, value: Record<string, unknown>) {
     if (demo) setData(d => ({...d, [key]: d[key].map(row => row.id === id ? {...row,...value} : row)}));
     else {
@@ -651,6 +680,7 @@ export default function Home() {
         onConfirmReview={e=>run(async()=>{await update('expenses','hg_expenses',e.id,{reviewed:true}); if(e.kind!=='income') await learnRule(e.title,e.category,e.scope||'shared');})}
         budgets={data.budgets} onEditBudget={()=>{setError('');setForm('budget');}} members={data.members} envelopes={data.envelopes} envelopeEntries={data.envelopeEntries} settlements={data.settlements}
         onAddEnvelope={()=>{setError('');setForm('envelope');}} onEnvelopeEntry={(e,amount)=>run(()=>envelopeEntry(e,amount))} onDeleteEnvelope={e=>run(()=>deleteEnvelope(e))} onMarkSettled={m=>run(()=>setSettled(m,true))} onUnsettle={m=>run(()=>setSettled(m,false))}
+        onCapture={()=>{setError('');setForm(null);setCaptureOpen(true);}}
         onToggleRegret={e=>run(()=>update('expenses','hg_expenses',e.id,{regret:!e.regret}))} onOpenChat={e=>run(()=>openExpenseChat(e))} onAddRecurringFrom={c=>{setRecurringPrefill(c);setError('');setForm('recurring');}}
         onDeleteExpense={expense=>{
         if(!window.confirm('이 지출 기록을 삭제할까요?')) return;
@@ -700,9 +730,10 @@ export default function Home() {
     {(tab==='home'||tab==='calendar')&&<button className="fab" aria-label="일정·할 일 추가" onClick={()=>{setEntryDate('');setForm('entry');}}>＋</button>}
     {tab==='money'&&<button className="fab" aria-label="지출 기록" onClick={()=>openExpense()}>₩</button>}
     <nav className="bottom-nav" aria-label="모바일 메뉴">{tabs.map(([key,icon,title]) => <button key={key} aria-label={title} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={() => setTab(key)}><span>{icon}</span>{title}{key==='chat'&&unreadFamilyTotal>0&&<b className="nav-badge" aria-label={`안 읽은 메시지 ${unreadFamilyTotal}개`}>{unreadFamilyTotal}</b>}</button>)}</nav>
+    {captureOpen && <Modal title="카드앱 캡처로 가져오기" close={()=>{if(!busy)setCaptureOpen(false);}}><CaptureImport cards={data.cards} expenses={data.expenses} rules={data.rules} busy={busy} onImport={(rows,cardId)=>run(()=>importRows(rows,cardId)).then(()=>undefined)} onAi={demo?undefined:aiRecognize}/></Modal>}
     {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='budget'?'예산 설정':form==='envelope'?'적립 봉투 만들기':form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
       <form onSubmit={submitForm}>{error&&<p role="alert" className="error banner">{error}</p>}
-        {form==='budget'?<BudgetFields budget={budgetFor(data.budgets,month)} month={month}/>:form==='envelope'?<EnvelopeFields/>:form==='recurring'?<RecurringFields cards={data.cards} initial={recurringPrefill}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} rules={data.rules} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
+        {form==='budget'?<BudgetFields budget={budgetFor(data.budgets,month)} month={month}/>:form==='envelope'?<EnvelopeFields/>:form==='recurring'?<RecurringFields cards={data.cards} initial={recurringPrefill}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<><SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/><button type="button" className="text-button sms-toggle" onClick={()=>{setForm(null);setCaptureOpen(true);}}>📷 카드앱 캡처로 여러 건 가져오기</button></>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} rules={data.rules} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
         <button className="primary" disabled={busy}>{busy?'저장 중…':'저장하기'}</button>
       </form>
     </Modal>}

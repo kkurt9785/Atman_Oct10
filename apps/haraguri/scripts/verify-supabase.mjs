@@ -87,6 +87,9 @@ try {
   console.log('PASS: card rules, payment methods and expense edits persist; family isolation and amount constraints enforced.');
   // Income rows, family budgets, and the one-time 80%/100% budget alert rows written by the trigger.
   assert.ok((await member.db.from('hg_expenses').insert({family_id:family,title:'bad kind',amount:1,date:'2026-10-02',category:'기타',kind:'gift'})).error,'kind is constrained');
+  check(await member.db.from('hg_expenses').insert({family_id:family,title:'OCR row',amount:4500,date:'2026-10-02',category:'식비',source:'ocr',fingerprint:'ocr:2026-10-02:4500:OCRrow'}),'screenshot import source');
+  assert.ok((await member.db.from('hg_expenses').insert({family_id:family,title:'OCR row again',amount:4500,date:'2026-10-02',category:'식비',source:'ocr',fingerprint:'ocr:2026-10-02:4500:OCRrow'})).error,'same screenshot twice is rejected by the fingerprint index');
+  assert.ok((await member.db.from('hg_expenses').insert({family_id:family,title:'bad source',amount:1,date:'2026-10-02',category:'기타',source:'scan'})).error,'source is constrained');
   check(await member.db.from('hg_expenses').insert({family_id:family,title:'QA income',amount:1000000,date:'2026-10-02',category:'월급',kind:'income',payment_method:'bank_transfer'}),'income row');
   check(await owner.db.from('hg_budgets').upsert({family_id:family,month:'2026-10-01',total:10,by_category:{'식비':5}},{onConflict:'family_id,month'}),'owner sets a tiny budget');
   assert.equal(check(await member.db.from('hg_budgets').select('total').eq('family_id',family),'member reads budget')[0].total,10);
