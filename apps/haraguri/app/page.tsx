@@ -109,6 +109,8 @@ export default function Home() {
   const requestVersion = useRef(0);
   useEffect(()=>{window.scrollTo({top:0});},[tab]);
   const uid = demo ? 'demo' : user?.id ?? '';
+  const lastPayKey=`haraguri-last-pay-${uid}`; // the expense form starts from the payment method/card used last time
+  const readLastPay=()=>{ try{ return JSON.parse(localStorage.getItem(lastPayKey)||'null') as {payment_method?:string;card_id?:string}|null; }catch{ return null; } };
 
   const load = useCallback(async () => {
     if (!supabase || !user || demo) return;
@@ -446,7 +448,7 @@ export default function Home() {
         if(entry && occurrence(entry,str('occurrence').slice(0,7))!==str('occurrence')) throw new Error('반복 일정의 실제 회차 날짜를 선택해 주세요.');
         const value = {entry_id: entry?.id || null, occurrence: entry?str('occurrence'):null, payment_method: str('payment_method'), title: str('title'), amount, date: str('date'), category: str('category'), card_id: str('card_id') || null, qualifying_amount: qualifying, performance_month: str('card_id') && str('performance_month') ? `${str('performance_month')}-01` : null};
         if (editingExpense) await update('expenses','hg_expenses',editingExpense.id,editingExpense.reviewed===false?{...value,reviewed:true}:value);
-        else await insert('expenses','hg_expenses',{...common,...value});
+        else { await insert('expenses','hg_expenses',{...common,...value}); try{localStorage.setItem(lastPayKey,JSON.stringify({payment_method:value.payment_method,card_id:value.card_id||''}));}catch{} }
       } else if (form === 'recurring') {
         const amount = Number(str('amount')); const day = Number(str('day_of_month'));
         if (!str('title') || !Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) throw new Error('이름과 올바른 원 단위 금액을 입력해 주세요.');
@@ -582,7 +584,7 @@ export default function Home() {
     <nav className="bottom-nav" aria-label="모바일 메뉴">{tabs.map(([key,icon,title]) => <button key={key} aria-label={title} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={() => setTab(key)}><span>{icon}</span>{title}</button>)}</nav>
     {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
       <form onSubmit={submitForm}>{error&&<p role="alert" className="error banner">{error}</p>}
-        {form==='recurring'?<RecurringFields cards={data.cards}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards}/><ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
+        {form==='recurring'?<RecurringFields cards={data.cards}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
         <button className="primary" disabled={busy}>{busy?'저장 중…':'저장하기'}</button>
       </form>
     </Modal>}

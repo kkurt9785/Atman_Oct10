@@ -40,14 +40,15 @@ try {
   await page.getByRole('button',{name:'로그인 없이 미리보기'}).click();
   await page.getByRole('heading',{name:'우리의 하루를 함께.'}).waitFor();
   const dialog = page.getByRole('dialog');
-  const openFold = async name => { const fold = page.locator('details.fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator('summary').click(); };
+  const moreFields = async () => { const b = dialog.getByRole('button',{name:/^자세히/}); if (await b.count()) await b.click(); }; // expense form hides date/method/card until asked
+  const openFold = async name => { const fold = page.locator('details.fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); };
   // The shared card message is offered as an expense and pre-fills the form.
   await dialog.getByRole('heading',{name:'공유받은 항목'}).waitFor();
   await dialog.getByRole('button',{name:'₩ 카드 결제로 가계부에 기록'}).click();
   await dialog.getByText('→ 아래에 채웠어요',{exact:false}).waitFor();
   assert.equal(await dialog.getByLabel('사용처·내용').inputValue(),'스타벅스 역삼점');
   assert.equal(await dialog.getByLabel('금액 (원)',{exact:true}).inputValue(),'15900');
-  assert.equal(await dialog.locator('select[name=category]').inputValue(),'식비');
+  assert.equal(await dialog.locator('input[name=category]').inputValue(),'식비');
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   // Home week strip → day view of that date → back home. Holiday names show in the month grid.
   const todayStr = new Date().toLocaleDateString('sv-SE');
@@ -108,6 +109,7 @@ try {
   await page.getByRole('group',{name:'일정 보기'}).getByRole('button',{name:'월간',exact:true}).click();
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가계부'}).click();
   await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await moreFields();
   await dialog.locator('select[name=payment_method]').selectOption('cash');
   await dialog.getByLabel('사용처·내용').fill('테스트 지출');
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('12345');
@@ -120,6 +122,9 @@ try {
   await dialog.locator('input[name=performance_thresholds]').fill('300000, 500000');
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await moreFields();
+  assert.equal(await dialog.locator('select[name=payment_method]').inputValue(),'cash'); // remembered from the previous entry
+  await dialog.locator('select[name=payment_method]').selectOption('card');
   await dialog.getByLabel('사용처·내용').fill('실적 테스트');
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('310000');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-10');
@@ -137,6 +142,7 @@ try {
   await page.getByText('200,000원 남았어요',{exact:true}).waitFor();
   await page.screenshot({path:'/tmp/haraguri-finance-mobile.png',fullPage:true});
   await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await moreFields();
   await dialog.locator('select[name=payment_method]').selectOption('bank_transfer');
   await dialog.getByLabel('사용처·내용').fill('월세 이체');
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('500000');
@@ -157,6 +163,7 @@ try {
   assert.equal(await page.getByText('월세 이체',{exact:true}).count(),0);
   // Pasting a card approval SMS fills merchant, amount, date and picks the only card.
   await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await moreFields();
   await dialog.getByRole('button',{name:'✉ 카드 승인 문자 붙여넣어 채우기'}).click();
   await dialog.getByLabel('카드 승인 문자').fill('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\n동네마트\n누적1,234,567원');
   await dialog.getByText('→ 아래에 채웠어요',{exact:false}).waitFor();
