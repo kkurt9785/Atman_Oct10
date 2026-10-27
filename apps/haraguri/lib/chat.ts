@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Attachment, Comment } from './model';
+import type { Attachment, Comment, Pin, Reaction, RoomRead } from './model';
 import { supabase } from './supabase';
 import { Room, inRoom } from './work';
 import { thumbPath } from './image';
@@ -109,7 +109,7 @@ export function useRoomMessages({ familyId, room, demo, demoChat, version, enabl
 
 // One signed-URL request per page of photos instead of one per image. Thumbnails first; full photos only where no thumbnail exists (older uploads).
 export function useSignedPhotos(files: Attachment[]) {
-  const paths = files.filter(f => /\.(png|jpe?g|webp)$/i.test(f.path)).map(f => f.path).sort();
+  const paths = files.filter(f => /\.(png|jpe?g|webp|webm|m4a|mp4|mp3|ogg|aac)$/i.test(f.path)).map(f => f.path).sort(); // photos get thumbnails; audio falls through to the full signed URL
   const keyOf = paths.join('\n');
   const [urls, setUrls] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -133,4 +133,35 @@ export function useSignedPhotos(files: Attachment[]) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keyOf]);
   return urls;
+}
+
+export type SearchHit = { id: string; body: string; created_by: string; created_at: string; entry_id: string | null; occurrence: string | null; room_title: string };
+export type SocialState = { reactions: Reaction[]; reads: RoomRead[]; pin: (Pin & { comment: Comment | null }) | null };
+export const emptySocial: SocialState = { reactions: [], reads: [], pin: null };
+// Reactions for the loaded page, everyone's last-read time in this room, and the room's pinned notice. Refetched on the same version bumps as messages.
+export function useRoomSocial({ familyId, room, commentIds, demo, version, enabled = true }: { familyId: string; room: Room; commentIds: string[]; demo: boolean; version: number; enabled?: boolean }) {
+  const key = roomKey(room);
+  const idsKey = commentIds.join(',');
+  const [state, setState] = useState<SocialState>(emptySocial);
+  useEffect(() => {
+    if (!enabled || demo || !supabase || !familyId) { setState(emptySocial); return; }
+    let active = true;
+    (async () => {
+      const ids = idsKey ? idsKey.split(',') : [];
+      const readsQ = supabase!.from('hg_room_reads').select('user_id,last_read_at').eq('family_id', familyId);
+      const pinsQ = supabase!.from('hg_pins').select('comment_id,pinned_by,pinned_at').eq('family_id', familyId);
+      const [reactions, reads, pins] = await Promise.all([
+        ids.length ? supabase!.from('hg_reactions').select('id,comment_id,user_id,emoji').in('comment_id', ids) : Promise.resolve({ data: [] as Reaction[], error: null }),
+        key.entry_id ? readsQ.eq('entry_id', key.entry_id).eq('occurrence', key.occurrence!) : readsQ.is('entry_id', null).is('occurrence', null),
+        key.entry_id ? pinsQ.eq('entry_id', key.entry_id).eq('occurrence', key.occurrence!) : pinsQ.is('entry_id', null).is('occurrence', null),
+      ]);
+      const pinRow = (pins.data as Pin[] | null)?.[0] ?? null;
+      let comment: Comment | null = null;
+      if (pinRow) { const r = await supabase!.from('hg_comments').select('*').eq('id', pinRow.comment_id).maybeSingle(); comment = (r.data as Comment | null) ?? null; }
+      if (!active) return;
+      setState({ reactions: (reactions.data as Reaction[] | null) ?? [], reads: (reads.data as RoomRead[] | null) ?? [], pin: pinRow ? { ...pinRow, comment } : null });
+    })().catch(() => { if (active) setState(emptySocial); });
+    return () => { active = false; };
+  }, [familyId, key.entry_id, key.occurrence, idsKey, version, demo, enabled]);
+  return state;
 }

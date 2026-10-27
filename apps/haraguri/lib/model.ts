@@ -19,7 +19,11 @@ export type RecurringExpense = {
   id: string; family_id: string; title: string; amount: number; day_of_month: number; category: string; payment_method: 'card' | 'bank_transfer' | 'cash' | 'other';
   card_id: string | null; start_month: string; end_month: string | null; active: boolean; created_by: string;
 };
-export type Comment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; shared_entry_id?: string | null; shared_occurrence?: string | null; body: string; created_by: string; created_at: string; edited_at?: string | null };
+export type Comment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; shared_entry_id?: string | null; shared_occurrence?: string | null; body: string; created_by: string; created_at: string; edited_at?: string | null; reply_to?: string | null };
+export type Reaction = { id: string; comment_id: string; user_id: string; emoji: string };
+export type Pin = { comment_id: string; pinned_by: string; pinned_at: string };
+export type RoomRead = { user_id: string; last_read_at: string };
+export const REACTION_EMOJI = ['❤️','👍','😂','😮','😢','🙏'];
 export type Attachment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; created_at?: string; path: string; name: string; size?: number; created_by: string };
 export type Family = { id: string; name: string; owner_id: string };
 // A closed room keeps its text but its files were removed; writes are blocked until reopened.

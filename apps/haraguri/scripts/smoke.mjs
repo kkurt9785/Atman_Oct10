@@ -225,6 +225,26 @@ try {
   await page.getByLabel('메시지',{exact:true}).fill('가족 기본방 테스트');
   await page.getByRole('button',{name:'보내기',exact:true}).click();
   await page.locator('.chat-bubble:not(.pending)').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  // Reply, reaction, pin and search from the message menu (chat rounds 2/3).
+  const baseMsg = page.locator('.chat-line.mine:not(:has(.quote))').filter({hasText:'가족 기본방 테스트'}).last(); // the reply quotes the same text, so exclude quoted lines
+  await baseMsg.locator('.chat-bubble:not(.pending)').click({button:'right'});
+  await baseMsg.getByRole('menuitem',{name:'답장',exact:true}).click();
+  await page.locator('.reply-preview').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  await page.getByLabel('메시지',{exact:true}).fill('답장이에요');
+  await page.getByRole('button',{name:'보내기',exact:true}).click();
+  await page.locator('.chat-line').filter({hasText:'답장이에요'}).locator('.quote').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  await baseMsg.locator('.chat-bubble:not(.pending)').click({button:'right'});
+  await baseMsg.getByRole('menuitem',{name:'👍 반응',exact:true}).click();
+  await baseMsg.locator('.reaction-chips button').filter({hasText:'👍 1'}).waitFor();
+  await baseMsg.locator('.chat-bubble:not(.pending)').click({button:'right'});
+  await baseMsg.getByRole('menuitem',{name:'고정',exact:true}).click();
+  await page.locator('.pin-banner').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  await page.getByRole('button',{name:'고정 해제',exact:true}).click();
+  assert.equal(await page.locator('.pin-banner').count(),0);
+  await page.getByRole('button',{name:'대화 검색',exact:true}).click();
+  await page.getByLabel('대화 검색어').fill('답장이에요');
+  await page.locator('.search-hits').getByRole('listitem').filter({hasText:'답장이에요'}).first().waitFor();
+  await page.getByRole('button',{name:'대화 검색',exact:true}).click();
   await page.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'일정·구매별 대화'}).click();
   await page.getByRole('button',{name:/아이 자전거 같이 고르기/}).click();
   assert.equal(await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'가족 기본방 테스트'}).count(),0);

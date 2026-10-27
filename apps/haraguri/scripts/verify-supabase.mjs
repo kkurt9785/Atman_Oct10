@@ -58,6 +58,22 @@ try {
   assert.ok(!check(await owner.db.rpc('hg_unread_summary',{target:owner.id}),'after mark read').some(r=>r.entry_id===entry.id),'Marked room is no longer unread');
   assert.ok((await outsider.db.rpc('hg_mark_read',{family,entry:null,occ:null})).error,'Outsider cannot mark rooms read');
   console.log('PASS: unread counts per room, private to each person, cleared by mark-read; outsiders rejected.');
+  // Replies stay in the family, reactions are members-only with a fixed emoji set, pins replace per room, read receipts are visible to the family.
+  const original=check(await member.db.from('hg_comments').select('id').eq('body','가족 댓글 동기화 검증').single(),'find original comment');
+  const reply=check(await owner.db.from('hg_comments').insert({family_id:family,entry_id:entry.id,occurrence:'2026-10-26',body:'답장 검증',reply_to:original.id}).select().single(),'reply');
+  assert.equal(reply.reply_to,original.id);
+  const foreignComment=check(await outsider.db.from('hg_comments').insert({family_id:outsiderFamily,entry_id:null,occurrence:null,body:'다른 가족 글'}).select().single(),'foreign comment');
+  assert.ok((await owner.db.from('hg_comments').insert({family_id:family,entry_id:null,occurrence:null,body:'cross reply',reply_to:foreignComment.id})).error,'Reply must target a message of the same family');
+  check(await member.db.from('hg_reactions').insert({family_id:family,comment_id:reply.id,emoji:'👍'}),'react');
+  assert.equal(check(await owner.db.from('hg_reactions').select('emoji,user_id').eq('comment_id',reply.id),'owner sees the reaction').length,1);
+  assert.ok((await outsider.db.from('hg_reactions').insert({family_id:family,comment_id:reply.id,emoji:'❤️'})).error,'Outsider cannot react');
+  assert.ok((await member.db.from('hg_reactions').insert({family_id:family,comment_id:reply.id,emoji:'🍕'})).error,'Only the fixed emoji set is accepted');
+  check(await member.db.rpc('hg_pin_message',{comment:reply.id}),'pin');
+  assert.equal(check(await owner.db.from('hg_pins').select('comment_id').eq('family_id',family),'pin visible to the family').length,1);
+  assert.ok((await outsider.db.rpc('hg_pin_message',{comment:reply.id})).error,'Outsider cannot pin');
+  check(await owner.db.from('hg_pins').delete().eq('family_id',family).eq('comment_id',reply.id),'unpin');
+  assert.ok(check(await member.db.from('hg_room_reads').select('user_id').eq('family_id',family),'family sees read receipts').some(r=>r.user_id===owner.id),'Member can see the owner read the room');
+  console.log('PASS: in-family replies, member-only reactions with fixed emoji, pin/unpin, read receipts visible to the family.');
   check(await owner.db.from('hg_cards').update({owner_user_id:owner.id,performance_thresholds:[300000,500000],excluded_categories:['세금'],benefit_basis:'previous_month'}).eq('id',card.id),'set benefit rules');
   assert.equal(check(await outsider.db.from('hg_cards').update({budget:1}).eq('id',card.id).select(),'block outsider card update').length,0);
   assert.ok((await owner.db.from('hg_cards').update({owner_user_id:outsider.id}).eq('id',card.id)).error,'Card owner must belong to family');
@@ -225,6 +241,11 @@ try {
     await page.getByLabel('메시지',{exact:true}).fill('실시간 기본방 전송');
     await page.getByRole('button',{name:'보내기',exact:true}).click();
     await second.locator('.chat-bubble:not(.pending)').filter({hasText:'실시간 기본방 전송'}).waitFor({timeout:8000});
+    // The open, visible general chat marks itself read on the second browser (UI path of hg_mark_read), so the member's unread count drops to 0.
+    await second.waitForFunction(()=>true);
+    for (let i=0;i<10;i++){ const rows=check(await admin.from('hg_room_reads').select('user_id').eq('family_id',family).eq('user_id',member.id).is('entry_id',null),'member read row'); if(rows.length) break; await new Promise(r=>setTimeout(r,500)); }
+    assert.equal(check(await admin.from('hg_room_reads').select('user_id').eq('family_id',family).eq('user_id',member.id).is('entry_id',null),'member read row after wait').length,1,'Visible general chat should be marked read automatically');
+    assert.equal(check(await member.db.rpc('hg_unread_summary',{target:member.id}),'member unread after reading').filter(r=>r.entry_id===null).length,0);
     for(const activePage of [page,second]) {
       await activePage.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'일정·구매별 대화'}).click();
       await activePage.getByRole('button',{name:/QA 구매 대화/}).click();

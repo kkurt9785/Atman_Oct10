@@ -5,7 +5,7 @@ import type { User } from '@supabase/supabase-js';
 import { startKakaoLogin } from '../lib/kakao';
 import { KakaoGlyph } from '../components/KakaoGlyph';
 import { supabase } from '../lib/supabase';
-import { Attachment, Card, Expense, Data, Entry, Family, RecurringExpense, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
+import { Attachment, Card, Expense, Data, Entry, Family, Pin, Reaction, Comment, RecurringExpense, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
 
 import { CardFields, ExpenseFields, FinancePanel, FinanceView, RecurringFields, SmsPaste } from '../components/Finance';
 import { PushPrefs } from '../components/PushPrefs';
@@ -22,7 +22,7 @@ import { WorkBoard, WorkFields, ExpenseWorkFields } from '../components/Work';
 import { Room, inRoom, isClosed, looksFinished, purchaseStates, roomDate, roomState, workExpenses } from '../lib/work';
 import { occurrence } from '../lib/model';
 import { parseThresholds, validateQualifyingAmount } from '../lib/finance';
-import { DemoChat, listRoomFiles, useRoomMessages } from '../lib/chat';
+import { DemoChat, SearchHit, emptySocial, listRoomFiles, useRoomMessages, useRoomSocial } from '../lib/chat';
 import { formatBytes, prepareUpload, thumbPath } from '../lib/image';
 
 type Tab = 'home' | 'calendar' | 'money' | 'chat' | 'alerts' | 'settings';
@@ -68,6 +68,7 @@ export default function Home() {
   const [chatView,setChatView]=useState<'general'|'work'>('general');
   const [chatVersion,setChatVersion]=useState(0);
   const [demoRooms,setDemoRooms]=useState<DemoChat>({comments:[],attachments:[]});
+  const [demoSocial,setDemoSocial]=useState<{reactions:Reaction[];pins:Record<string,Pin&{comment:Comment|null}>}>({reactions:[],pins:{}});
   const [truncated,setTruncated]=useState<(keyof Data)[]>([]);
   const [editingEntry,setEditingEntry]=useState<Entry|null>(null);
   const [entryLocked,setEntryLocked]=useState(false);
@@ -202,7 +203,7 @@ export default function Home() {
     const refresh=()=>{clearTimeout(timer);timer=setTimeout(()=>load().catch(e=>setError(e.message)),150);};
     const refreshChat=()=>{clearTimeout(chatTimer);chatTimer=setTimeout(bumpChat,150);};
     const channel=supabase.channel(`family-chat-${family.id}`);
-    for(const table of ['hg_comments','hg_attachments']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refreshChat);
+    for(const table of ['hg_comments','hg_attachments','hg_reactions','hg_pins','hg_room_reads']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refreshChat);
     for(const table of ['hg_entries','hg_expenses','hg_receipts','hg_rooms']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refresh);
     channel.subscribe(status=>{const ok=status==='SUBSCRIBED';setLive(ok);setSync(ok?'실시간 연결됨':'연결 중 · 30초마다 새로고침');if(ok){refresh();refreshChat();}});
     return()=>{clearTimeout(timer);clearTimeout(chatTimer);setLive(false);void supabase!.removeChannel(channel);};
@@ -252,6 +253,9 @@ export default function Home() {
   const unreadMap=Object.fromEntries(unread.filter(r=>r.family_id===family?.id).map(r=>[`${r.entry_id ?? 'general'}:${r.occurrence ?? ''}`,r.unread])) as Record<string,number>;
   const unreadFamilyTotal=Object.values(unreadMap).reduce((n,c)=>n+c,0);
   const unreadGeneral=unreadMap['general:']||0;
+  // Dismiss delivered push notifications by tag (KakaoTalk-style: reading the room clears its banners from the notification center).
+  const closeNotifications=(tags:string[]|null)=>{ try{ navigator.serviceWorker?.ready.then(reg=>reg.getNotifications().then(list=>list.forEach(n=>{ if(!tags||tags.includes(n.tag)) n.close(); }))).catch(()=>undefined); }catch{} };
+  useEffect(()=>{ if(!demo&&user&&unreadAll===0) closeNotifications(null); },[unreadAll,demo,user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{ // home-screen icon badge (iOS 16.4+/Android); the service worker sets it on push, the app corrects it when it is open
     const nav=navigator as Navigator&{setAppBadge?:(n:number)=>Promise<void>;clearAppBadge?:()=>Promise<void>};
     if(demo||!nav.setAppBadge) return; (unreadAll>0?nav.setAppBadge(unreadAll):nav.clearAppBadge?.())?.catch(()=>undefined);
@@ -270,14 +274,47 @@ export default function Home() {
   },[deepLink,family,loading,data.entries]);
 
   const general=useRoomMessages({familyId:family?.id ?? '',room:null,demo,demoChat:demoRooms,version:chatVersion,enabled:!!family&&tab==='chat'&&chatView==='general'});
+  const generalSocialLive=useRoomSocial({familyId:family?.id ?? '',room:null,commentIds:general.comments.map(c=>c.id),demo,version:chatVersion,enabled:!!family&&tab==='chat'&&chatView==='general'});
   const detail=useRoomMessages({familyId:family?.id ?? '',room:selected,demo,demoChat:demoRooms,version:chatVersion,enabled:!!family&&!!selected});
+  const detailSocialLive=useRoomSocial({familyId:family?.id ?? '',room:selected,commentIds:detail.comments.map(c=>c.id),demo,version:chatVersion,enabled:!!family&&!!selected});
+  const roomKeyOf=(room:Room)=>`${room?.entry.id ?? 'general'}:${room?.date ?? ''}`;
+  const socialFor=(room:Room,live:typeof generalSocialLive)=>demo?{reactions:demoSocial.reactions,reads:[],pin:demoSocial.pins[roomKeyOf(room)]??null}:live;
+  const [highlightId,setHighlightId]=useState<string|null>(null);
+  // Reactions toggle, pins replace per room, search is a plain ilike over the family's messages; demo keeps them in memory.
+  async function react(commentId:string,emoji:string){
+    if(demo){ setDemoSocial(d=>{ const hit=d.reactions.find(r=>r.comment_id===commentId&&r.user_id===uid&&r.emoji===emoji); return {...d,reactions:hit?d.reactions.filter(r=>r!==hit):[...d.reactions,{id:crypto.randomUUID(),comment_id:commentId,user_id:uid,emoji}]}; }); return; }
+    const mine=[...generalSocialLive.reactions,...detailSocialLive.reactions].find(r=>r.comment_id===commentId&&r.user_id===uid&&r.emoji===emoji);
+    const r=mine?await supabase!.from('hg_reactions').delete().eq('id',mine.id):await supabase!.from('hg_reactions').insert({family_id:family!.id,comment_id:commentId,emoji});
+    if(r.error) throw r.error; bumpChat();
+  }
+  async function pinMessage(room:Room,commentId:string){
+    if(demo){ const c=demoRooms.comments.find(x=>x.id===commentId)??null; setDemoSocial(d=>({...d,pins:{...d.pins,[roomKeyOf(room)]:{comment_id:commentId,pinned_by:uid,pinned_at:new Date().toISOString(),comment:c}}})); return; }
+    const r=await supabase!.rpc('hg_pin_message',{comment:commentId}); if(r.error) throw r.error; bumpChat();
+  }
+  async function unpin(room:Room){
+    if(demo){ setDemoSocial(d=>{ const pins={...d.pins}; delete pins[roomKeyOf(room)]; return {...d,pins}; }); return; }
+    let q=supabase!.from('hg_pins').delete().eq('family_id',family!.id); q=room?q.eq('entry_id',room.entry.id).eq('occurrence',room.date):q.is('entry_id',null).is('occurrence',null);
+    const r=await q; if(r.error) throw r.error; bumpChat();
+  }
+  async function photoUrl(file:Attachment){ if(demo||!supabase) return null; const r=await supabase.storage.from('haraguri-files').createSignedUrl(file.path,300); return r.data?.signedUrl ?? null; }
+  async function searchMessages(q:string):Promise<SearchHit[]>{
+    const title=(entryId:string|null)=>entryId?(data.entries.find(e=>e.id===entryId)?.title ?? '우리집 일'):'가족 기본 채팅';
+    if(demo) return demoRooms.comments.filter(c=>c.body.toLocaleLowerCase().includes(q.toLocaleLowerCase())).slice(0,50).map(c=>({id:c.id,body:c.body,created_by:c.created_by,created_at:c.created_at,entry_id:c.entry_id,occurrence:c.occurrence,room_title:title(c.entry_id)}));
+    const r=await supabase!.from('hg_comments').select('id,body,created_by,created_at,entry_id,occurrence').eq('family_id',family!.id).ilike('body',`%${q.replace(/[%_]/g,'')}%`).order('created_at',{ascending:false}).limit(50);
+    if(r.error) throw r.error; return (r.data as Comment[]).map(c=>({id:c.id,body:c.body,created_by:c.created_by,created_at:c.created_at,entry_id:c.entry_id,occurrence:c.occurrence,room_title:title(c.entry_id)}));
+  }
+  function jumpToHit(hit:SearchHit){
+    setHighlightId(hit.id); window.setTimeout(()=>setHighlightId(h=>h===hit.id?null:h),4000);
+    if(hit.entry_id){ const entry=data.entries.find(e=>e.id===hit.entry_id); if(entry) setSelected({entry,date:hit.occurrence||entry.date}); }
+    else { setSelected(null); setTab('chat'); setChatView('general'); }
+  }
   useEffect(()=>{
     if(!supabase||!family||demo||!user) return;
     const room=selected?{entry:selected.entry.id,occ:selected.date}:(tab==='chat'&&chatView==='general')?{entry:null,occ:null}:null;
     if(!room||document.visibilityState!=='visible') return;
     const key=`${room.entry ?? 'general'}:${room.occ ?? ''}`;
     if(!unreadMap[key]) return; // nothing unread here → no write
-    const t=setTimeout(()=>{ supabase!.rpc('hg_mark_read',{family:family.id,entry:room.entry,occ:room.occ}).then(r=>{ if(!r.error) setUnread(list=>list.filter(x=>!(x.family_id===family.id&&(x.entry_id ?? 'general')===(room.entry ?? 'general')&&(x.occurrence ?? '')===(room.occ ?? '')))); }); },600);
+    const t=setTimeout(()=>{ supabase!.rpc('hg_mark_read',{family:family.id,entry:room.entry,occ:room.occ}).then(r=>{ if(r.error){ console.warn('mark read failed', r.error.message); return; } setUnread(list=>list.filter(x=>!(x.family_id===family.id&&(x.entry_id ?? 'general')===(room.entry ?? 'general')&&(x.occurrence ?? '')===(room.occ ?? '')))); closeNotifications([`room-${room.entry ?? 'general'}`,'unread']); }); },600);
     return ()=>clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[family?.id,selected?.entry.id,selected?.date,tab,chatView,general.comments.length,general.attachments.length,detail.comments.length,detail.attachments.length,focusTick,unreadFamilyTotal]);
@@ -384,12 +421,12 @@ export default function Home() {
     if (demo) throw new Error('미리보기에서는 파일을 저장하지 않습니다. 로그인 후 이용해 주세요.');
     if (room && isClosed(data.rooms, room)) throw new Error('종료된 대화예요. 다시 열면 올릴 수 있어요.');
     if (usage && usage.limit && usage.bytes >= usage.limit) throw new Error(`가족 저장공간 ${formatBytes(usage.limit)}을 다 썼어요. 끝난 대화를 종료해 사진을 정리한 뒤 다시 올려 주세요.`);
-    const allowed = ['image/jpeg','image/png','image/webp','application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    const allowed = ['image/jpeg','image/png','image/webp','application/pdf','text/plain','audio/webm','audio/mp4','audio/mpeg','audio/ogg','audio/x-m4a','audio/aac','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
     const bucket = supabase!.storage.from('haraguri-files');
     let done = 0;
     try {
       for (const original of originals) {
-        if (!allowed.includes(original.type)) throw new Error(`${original.name}: JPG, PNG, WEBP, PDF, TXT, DOCX, XLSX 파일을 올려주세요.`);
+        if (!allowed.includes(original.type)) throw new Error(`${original.name}: JPG, PNG, WEBP, PDF, TXT, DOCX, XLSX 파일(또는 음성 메시지)을 올려주세요.`);
         const { file, thumb } = await prepareUpload(original);
         if (file.size > 10 * 1024 * 1024) throw new Error(`${original.name}: 파일은 10MB 이하로 올려주세요.`);
         const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '') || 'bin';
@@ -569,7 +606,7 @@ export default function Home() {
         {!demo&&push==='needs-install'&&<div role="status" className="banner">🔔 iPhone은 Safari 공유 → ‘홈 화면에 추가’로 설치한 앱에서 채팅 알림을 켤 수 있어요.</div>}
         {!demo&&push==='on'&&<p className="muted push-state">🔔 이 기기 알림 켜짐 · 내가 보낸 메시지는 나한테 안 와요 · <button className="text-button inline" onClick={()=>setTab('settings')}>종류·조용한 시간 바꾸기</button></p>}
         <div className="payment-tabs" role="group" aria-label="대화 종류"><button aria-pressed={chatView==='general'} onClick={()=>setChatView('general')}>가족 기본 채팅{unreadGeneral>0&&<b className="tab-badge">{unreadGeneral}</b>}</button><button aria-pressed={chatView==='work'} onClick={()=>setChatView('work')}>일정·구매별 대화{unreadFamilyTotal-unreadGeneral>0&&<b className="tab-badge">{unreadFamilyTotal-unreadGeneral}</b>}</button></div>
-        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} unread={unreadMap} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key={`general-${family.id}`} room={null} unreadCount={unreadGeneral} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid}))} onEdit={(id,body)=>run(()=>editComment(id,body))} onDelete={id=>run(()=>deleteComment(id))} onUpload={files=>run(()=>upload(files,null))} onFile={file=>run(()=>openFile(file))}/></div>}
+        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} unread={unreadMap} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key={`general-${family.id}`} room={null} unreadCount={unreadGeneral} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={(body,replyTo)=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid,reply_to:replyTo??null}))} {...socialFor(null,generalSocialLive)} othersCount={Math.max(0,data.members.length-1)} onReact={(id,e)=>run(()=>react(id,e))} onPin={id=>run(()=>pinMessage(null,id))} onUnpin={()=>run(()=>unpin(null))} onPhotoUrl={photoUrl} onSearch={searchMessages} onJump={jumpToHit} highlightId={highlightId} onEdit={(id,body)=>run(()=>editComment(id,body))} onDelete={id=>run(()=>deleteComment(id))} onUpload={files=>run(()=>upload(files,null))} onFile={file=>run(()=>openFile(file))}/></div>}
       </>}
       {tab === 'alerts' && <><div className="banner">앱 안에서 확인하는 알림 모음이에요. 푸시를 켠 기기는 앱을 닫아도 새 메시지·아침 요약·안 읽은 메시지 리마인드를 받아요.</div><section className="panel"><h2>이번 달 아직 확인하지 않았어요</h2>{unseen.map(({entry,date}) => renderEntry(entry,date))}{!unseen.length && <div className="empty">모든 일정을 확인했어요.</div>}<h2 className="list-title">오늘까지 미완료</h2>{due.map(({entry,date}) => renderEntry(entry,date))}{!due.length && <div className="empty">밀린 일이 없어요.</div>}</section></>}
       {tab === 'settings' && <section className="panel settings"><h2>모임 공간</h2><p>가족·친구·행사별로 독립된 공간을 만들어요. 대화, 일정, 카드와 지출은 선택한 모임 멤버끼리만 공유합니다.</p>
@@ -636,7 +673,7 @@ export default function Home() {
         <h3>관련 지출</h3>{workExpenses(data.expenses,selected).map(e=><div className="expense-row" key={e.id}><div><strong>{e.title}</strong><small>{e.date} · {e.category}</small></div><b>{money(e.amount)}</b>{e.created_by===uid&&<button className="text-button" onClick={()=>openExpense(e,selected)}>수정</button>}</div>)}
         <div className="work-expense-actions"><button className="secondary" onClick={()=>openExpense(null,selected)}>＋ 결제·환불 기록</button><label>기존 지출 연결<select aria-label="기존 지출 연결" value="" disabled={busy} onChange={e=>{const id=e.target.value;if(id)run(()=>update('expenses','hg_expenses',id,{entry_id:selected.entry.id,occurrence:selected.date}));}}><option value="">이미 입력한 지출 선택</option>{data.expenses.filter(e=>e.created_by===uid&&!e.entry_id).map(e=><option key={e.id} value={e.id}>{e.date} · {e.title} · {money(e.amount)}</option>)}</select></label></div>
         {!isClosed(data.rooms,selected)&&looksFinished(selected.entry,selected.date,data.receipts)&&!dismissedFinish.has(`${selected.entry.id}|${selected.date}`)&&<div className="finish-banner" role="status"><p>{selected.entry.kind==='purchase'?'구매가 마무리됐어요.':'이 일이 끝났어요.'} 대화를 종료하면 사진·문서는 정리되고 글은 남아요.</p><button className="primary" disabled={busy} onClick={()=>run(()=>closeRoom(selected))}>대화 종료</button><button className="text-button" onClick={()=>setDismissedFinish(d=>new Set(d).add(`${selected.entry.id}|${selected.date}`))}>나중에</button></div>}
-        <Chat key={`${selected.entry.id}-${selected.date}`} room={selected} unreadCount={unreadMap[`${selected.entry.id}:${selected.date}`]||0} state={roomState(data.rooms,selected)} comments={detail.comments} attachments={detail.attachments} hasMore={detail.hasMore} loadingOlder={detail.loading} loadError={detail.error} onOlder={detail.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:selected.entry.id,occurrence:selected.date,body,created_by:uid}))} onEdit={(id,body)=>run(()=>editComment(id,body))} onDelete={id=>run(()=>deleteComment(id))} onUpload={files=>run(()=>upload(files))} onFile={file=>run(()=>openFile(file))} onClose={()=>run(()=>closeRoom(selected))} onReopen={()=>run(()=>reopenRoom(selected))}/>
+        <Chat key={`${selected.entry.id}-${selected.date}`} room={selected} unreadCount={unreadMap[`${selected.entry.id}:${selected.date}`]||0} state={roomState(data.rooms,selected)} comments={detail.comments} attachments={detail.attachments} hasMore={detail.hasMore} loadingOlder={detail.loading} loadError={detail.error} onOlder={detail.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={(body,replyTo)=>run(()=>sendComment({family_id:family.id,entry_id:selected.entry.id,occurrence:selected.date,body,created_by:uid,reply_to:replyTo??null}))} {...socialFor(selected,detailSocialLive)} othersCount={Math.max(0,data.members.length-1)} onReact={(id,e)=>run(()=>react(id,e))} onPin={id=>run(()=>pinMessage(selected,id))} onUnpin={()=>run(()=>unpin(selected))} onPhotoUrl={photoUrl} onSearch={searchMessages} onJump={jumpToHit} highlightId={highlightId} onEdit={(id,body)=>run(()=>editComment(id,body))} onDelete={id=>run(()=>deleteComment(id))} onUpload={files=>run(()=>upload(files))} onFile={file=>run(()=>openFile(file))} onClose={()=>run(()=>closeRoom(selected))} onReopen={()=>run(()=>reopenRoom(selected))}/>
         {selected.entry.created_by===uid&&<button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm('이 일과 반복 회차의 대화·확인 기록을 모두 삭제할까요?'))return;run(async()=>{
           const links=await entryLinks(selected.entry.id);
           if(links.attachments||links.expenses||links.shared)throw new Error('사진·지출·공유 대화가 연결된 일은 삭제할 수 없어요.');
