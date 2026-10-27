@@ -8,13 +8,14 @@ export type Report = {
   byMethod: { name: string; amount: number }[];
   byMember: { user_id: string; name: string; amount: number }[];
   topMerchants: { title: string; amount: number; count: number }[];
-  refunds: number; count: number; pendingReview: number;
+  refunds: number; count: number; pendingReview: number; income: number;
 };
 const methodLabel: Record<string, string> = { card: '카드', bank_transfer: '계좌이체', cash: '현금', other: '기타' };
 
 export function monthlyReport(expenses: Expense[], members: Member[], month: string, today: string): Report {
-  const rows = expenses.filter(e => e.date.startsWith(month));
-  const prevRows = expenses.filter(e => e.date.startsWith(shiftMonth(month, -1)));
+  const rows = expenses.filter(e => e.date.startsWith(month) && e.kind !== 'income');
+  const prevRows = expenses.filter(e => e.date.startsWith(shiftMonth(month, -1)) && e.kind !== 'income');
+  const income = expenses.filter(e => e.date.startsWith(month) && e.kind === 'income').reduce((s, e) => s + Number(e.amount), 0);
   const sum = (list: Expense[]) => list.reduce((s, e) => s + Number(e.amount), 0);
   const total = sum(rows), previous = sum(prevRows);
   const group = <K extends string>(list: Expense[], key: (e: Expense) => K) => {
@@ -38,6 +39,6 @@ export function monthlyReport(expenses: Expense[], members: Member[], month: str
     month, total, previous, change: previous > 0 ? (total - previous) / previous : null, days, perDay: days ? Math.round(total / days) : 0,
     byCategory, byMethod, byMember, topMerchants,
     refunds: rows.filter(e => Number(e.amount) < 0).reduce((s, e) => s + Number(e.amount), 0), count: rows.length,
-    pendingReview: expenses.filter(e => e.reviewed === false).length,
+    pendingReview: expenses.filter(e => e.reviewed === false).length, income,
   };
 }

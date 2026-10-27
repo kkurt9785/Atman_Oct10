@@ -7,7 +7,8 @@ import { KakaoGlyph } from '../components/KakaoGlyph';
 import { supabase } from '../lib/supabase';
 import { Attachment, Card, Expense, Data, Entry, Family, Pin, Reaction, Comment, RecurringExpense, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
 
-import { CardFields, ExpenseFields, FinancePanel, FinanceView, RecurringFields, SmsPaste } from '../components/Finance';
+import { BudgetFields, CardFields, ExpenseFields, FinancePanel, FinanceView, RecurringFields, SmsPaste } from '../components/Finance';
+import { budgetFor, budgetStatus } from '../lib/budget';
 import { PushPrefs } from '../components/PushPrefs';
 import { IngestSetup } from '../components/IngestSetup';
 import { monthlyReport } from '../lib/report';
@@ -21,19 +22,19 @@ import { Chat } from '../components/Chat';
 import { WorkBoard, WorkFields, ExpenseWorkFields } from '../components/Work';
 import { Room, inRoom, isClosed, looksFinished, purchaseStates, roomDate, roomState, workExpenses } from '../lib/work';
 import { occurrence } from '../lib/model';
-import { parseThresholds, validateQualifyingAmount } from '../lib/finance';
+import { categories, parseThresholds, validateQualifyingAmount } from '../lib/finance';
 import { DemoChat, SearchHit, emptySocial, listRoomFiles, useRoomMessages, useRoomSocial } from '../lib/chat';
 import { formatBytes, prepareUpload, thumbPath } from '../lib/image';
 
 type Tab = 'home' | 'calendar' | 'money' | 'chat' | 'alerts' | 'settings';
-type FormKind = 'entry' | 'expense' | 'card' | 'recurring' | null;
+type FormKind = 'entry' | 'expense' | 'card' | 'recurring' | 'budget' | null;
 type InviteRow = { family_id: string; family_name: string; invited_by_name: string; matched: string };
 type TargetRow = { id: string; target: string; expires_at: string };
 type UnreadRow = { family_id: string; family_name: string; entry_id: string | null; occurrence: string | null; room_title: string; unread: number; latest_at: string; latest_body: string | null; latest_author: string | null };
 const tabs: [Tab, string, string][] = [['home', '⌂', '우리집'], ['calendar', '▦', '일정·할 일'], ['money', '₩', '가계부'], ['chat', '◌', '대화'], ['settings', '⚙', '가족 설정']];
 // Snapshot tables: [key, table, order column, ascending, tiebreak column for stable paging]. Newest first so the 2,000-row window keeps recent records.
-const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id'], ['recurring', 'hg_recurring_expenses', 'day_of_month', true, 'id']];
-const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태', recurring: '반복 지출' };
+const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id'], ['recurring', 'hg_recurring_expenses', 'day_of_month', true, 'id'], ['budgets', 'hg_budgets', 'month', false, null]];
+const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태', recurring: '반복 지출', budgets: '예산' };
 const ROW_CAP = 2000;
 const FREE_STORAGE_BYTES = 1024 ** 3;
 const repeatLabel = { none: '한 번', monthly: '매월', yearly: '매년' };
@@ -204,7 +205,7 @@ export default function Home() {
     const refreshChat=()=>{clearTimeout(chatTimer);chatTimer=setTimeout(bumpChat,150);};
     const channel=supabase.channel(`family-chat-${family.id}`);
     for(const table of ['hg_comments','hg_attachments','hg_reactions','hg_pins','hg_room_reads']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refreshChat);
-    for(const table of ['hg_entries','hg_expenses','hg_receipts','hg_rooms']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refresh);
+    for(const table of ['hg_entries','hg_expenses','hg_receipts','hg_rooms','hg_budgets']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refresh);
     channel.subscribe(status=>{const ok=status==='SUBSCRIBED';setLive(ok);setSync(ok?'실시간 연결됨':'연결 중 · 30초마다 새로고침');if(ok){refresh();refreshChat();}});
     return()=>{clearTimeout(timer);clearTimeout(chatTimer);setLive(false);void supabase!.removeChannel(channel);};
   },[family?.id,user?.id,demo,load]);
@@ -501,15 +502,26 @@ export default function Home() {
         else await insert('entries', 'hg_entries', { ...common, ...fields, ...schedule });
       } else if (form === 'expense') {
         const amount = Number(str('amount'));
+        const kind = str('kind') === 'income' ? 'income' : 'expense';
         if (!str('title') || !Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > 1000000000) throw new Error('사용처와 올바른 원 단위 금액을 입력해 주세요.');
+        if (kind === 'income' && amount <= 0) throw new Error('수입은 0보다 큰 금액으로 입력해 주세요.');
         const qualifying = !str('card_id') || str('qualifying_mode') === 'auto' ? null : str('qualifying_mode') === 'exclude' ? 0 : Number(str('qualifying_amount'));
         validateQualifyingAmount(amount, qualifying);
         if (str('payment_method')==='card' && !str('card_id')) throw new Error('카드를 선택해 주세요.');
         const entry=data.entries.find(e=>e.id===str('entry_id'));
         if(entry && occurrence(entry,str('occurrence').slice(0,7))!==str('occurrence')) throw new Error('반복 일정의 실제 회차 날짜를 선택해 주세요.');
-        const value = {entry_id: entry?.id || null, occurrence: entry?str('occurrence'):null, payment_method: str('payment_method'), title: str('title'), amount, date: str('date'), category: str('category'), card_id: str('card_id') || null, qualifying_amount: qualifying, performance_month: str('card_id') && str('performance_month') ? `${str('performance_month')}-01` : null};
+        const value = {entry_id: entry?.id || null, occurrence: entry?str('occurrence'):null, payment_method: str('payment_method'), title: str('title'), amount, date: str('date'), category: str('category'), card_id: str('card_id') || null, qualifying_amount: qualifying, performance_month: str('card_id') && str('performance_month') ? `${str('performance_month')}-01` : null, kind};
+        if (kind === 'income') { value.card_id = null; value.qualifying_amount = null; value.performance_month = null; if (value.payment_method === 'card' || !value.payment_method) value.payment_method = 'bank_transfer'; }
         if (editingExpense) await update('expenses','hg_expenses',editingExpense.id,editingExpense.reviewed===false?{...value,reviewed:true}:value);
         else { await insert('expenses','hg_expenses',{...common,...value}); try{localStorage.setItem(lastPayKey,JSON.stringify({payment_method:value.payment_method,card_id:value.card_id||''}));}catch{} }
+      } else if (form === 'budget') {
+        const totalBudget = Number(str('budget_total') || 0);
+        if (!Number.isSafeInteger(totalBudget) || totalBudget < 0 || totalBudget > 100000000000) throw new Error('예산은 0 이상의 원 단위 금액으로 입력해 주세요.');
+        const by_category: Record<string, number> = {};
+        for (const c of categories) { const v = Number(str(`budget_${c}`) || 0); if (Number.isSafeInteger(v) && v > 0) by_category[c] = v; }
+        const row = { family_id: family!.id, month: `${month}-01`, total: totalBudget, by_category };
+        if (demo) setData(d => ({ ...d, budgets: [...d.budgets.filter(b => b.month.slice(0, 10) !== row.month), row] }));
+        else { const r = await supabase!.from('hg_budgets').upsert({ ...row, updated_by: uid, updated_at: new Date().toISOString() }, { onConflict: 'family_id,month' }); if (r.error) throw r.error; await load(); }
       } else if (form === 'recurring') {
         const amount = Number(str('amount')); const day = Number(str('day_of_month'));
         if (!str('title') || !Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) throw new Error('이름과 올바른 원 단위 금액을 입력해 주세요.');
@@ -585,6 +597,7 @@ export default function Home() {
       {tab === 'home' && <>
         <div className="week-strip" role="group" aria-label="이번 주">{weekOf(today()).map(d=>{const items=monthEntries(data.entries,d.slice(0,7)).filter(r=>r.date===d);const overdue=d<today()&&items.some(r=>!done(r.entry.id,r.date));const holiday=holidayName(d);return <button key={d} className={`${dayTone(d)} ${d===today()?'today':''} ${overdue?'has-overdue':''}`} aria-label={`${d}${holiday?` ${holiday}`:''} 일정 ${items.length}개`} title={holiday||undefined} onClick={()=>{setPlannerFocus(d);setTab('calendar');}}><small>{holiday?holiday.slice(0,3):['일','월','화','수','목','금','토'][new Date(`${d}T12:00:00`).getDay()]}</small><strong>{Number(d.slice(8))}</strong><span className="year-dots">{[...new Set(items.map(r=>r.entry.kind))].map(k=><i key={k} className={k}/>)}</span></button>;})}</div>
         <div className="stats"><section className="stat peach"><span>오늘 쓴 돈</span><strong>{money(total(data.expenses, today()))}</strong><small>직접 기록한 결제·환불 기준</small></section><section className="stat mint"><span>이번 달 지출</span><strong>{money(total(data.expenses, today().slice(0, 7)))}</strong><small>가족이 함께 기록한 생활비</small></section><section className="stat lavender"><span>오늘까지 챙길 일</span><strong>{due.length}<em>개</em></strong><small>이번 달 미완료 일정·할 일</small></section></div>
+        {(()=>{const b=budgetStatus(data.budgets,data.expenses,today().slice(0,7),today());return <section className={`budget-gauge ${b.total>0&&b.percent>=80?'warn':''}`} aria-label="이번 달 예산">{b.total>0?<><div className="gauge-head"><span>이번 달 예산 {money(b.total)} · <b>{b.percent}%</b> 사용</span><button className="text-button" onClick={()=>{setError('');setMonth(today().slice(0,7));setForm('budget');}}>조정</button></div><progress value={Math.min(100,b.percent)} max={100} className={b.percent>=80?'warn':''}/><p>{b.remaining>=0?<>남은 <b>{money(b.remaining)}</b> · 오늘은 <b>{money(b.perDay)}</b>까지</>:<>예산보다 <b>{money(-b.remaining)}</b> 더 썼어요</>}</p></>:<div className="gauge-head"><span>예산을 정하면 “오늘 쓸 수 있는 돈”을 알려드려요.</span><button className="secondary" onClick={()=>{setError('');setMonth(today().slice(0,7));setForm('budget');}}>예산 정하기</button></div>}</section>;})()}
         <WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} unread={unreadMap} month={today().slice(0,7)} compact onMore={()=>{setTab('chat');setChatView('work');}} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>
         <div className="home-grid"><section className="panel"><div className="section-head"><h2>놓치지 말고 챙겨요 <span className="count">{due.length}</span></h2><button className="text-button" onClick={() => setTab('calendar')}>전체 보기 ↗</button></div>{due.length ? due.slice(0, 5).map(({ entry, date }) => renderEntry(entry, date)) : <div className="empty">오늘까지 할 일을 모두 챙겼어요 🌿</div>}<div className="gentle-note">확인과 완료는 따로 기록해요.<br/>반복되는 할 일도 매달 새롭게 체크할 수 있어요.</div></section>
         <section className="panel"><div className="section-head"><h2>최근 지출</h2><button className="text-button" onClick={() => setTab('money')}>가계부 ↗</button></div>{[...data.expenses].sort((a,b) => b.date.localeCompare(a.date)).slice(0,4).map(e => <div className="expense-row" key={e.id}><span className="expense-icon">₩</span><div><strong>{e.title}</strong><small>{e.date.slice(5)} · {e.category}</small></div><b>{money(e.amount)}</b></div>)}{!data.expenses.length && <div className="empty">첫 생활비를 기록해 보세요.</div>}<button className="wide-button" onClick={() => openExpense()}>＋ 지출 기록하기</button></section></div>
@@ -597,6 +610,7 @@ export default function Home() {
         onToggleRecurring={r=>run(()=>update('recurring','hg_recurring_expenses',r.id,{active:!r.active}))}
         onDeleteRecurring={r=>{if(!window.confirm(`'${r.title}' 반복 지출을 삭제할까요? 이미 기록된 지출은 남아요.`))return;run(async()=>{if(demo)setData(d=>({...d,recurring:d.recurring.filter(x=>x.id!==r.id)}));else{const d=await supabase!.from('hg_recurring_expenses').delete().eq('id',r.id);if(d.error)throw d.error;await load();}});}}
         onConfirmReview={e=>run(()=>update('expenses','hg_expenses',e.id,{reviewed:true}))}
+        budgets={data.budgets} onEditBudget={()=>{setError('');setForm('budget');}}
         onDeleteExpense={expense=>{
         if(!window.confirm('이 지출 기록을 삭제할까요?')) return;
         run(async()=>{if(demo) setData(d=>({...d,expenses:d.expenses.filter(e=>e.id!==expense.id)})); else {const r=await supabase!.from('hg_expenses').delete().eq('id',expense.id);if(r.error)throw r.error;await load();}});
@@ -645,9 +659,9 @@ export default function Home() {
     {(tab==='home'||tab==='calendar')&&<button className="fab" aria-label="일정·할 일 추가" onClick={()=>{setEntryDate('');setForm('entry');}}>＋</button>}
     {tab==='money'&&<button className="fab" aria-label="지출 기록" onClick={()=>openExpense()}>₩</button>}
     <nav className="bottom-nav" aria-label="모바일 메뉴">{tabs.map(([key,icon,title]) => <button key={key} aria-label={title} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={() => setTab(key)}><span>{icon}</span>{title}{key==='chat'&&unreadFamilyTotal>0&&<b className="nav-badge" aria-label={`안 읽은 메시지 ${unreadFamilyTotal}개`}>{unreadFamilyTotal}</b>}</button>)}</nav>
-    {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
+    {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='budget'?'예산 설정':form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
       <form onSubmit={submitForm}>{error&&<p role="alert" className="error banner">{error}</p>}
-        {form==='recurring'?<RecurringFields cards={data.cards}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
+        {form==='budget'?<BudgetFields budget={budgetFor(data.budgets,month)} month={month}/>:form==='recurring'?<RecurringFields cards={data.cards}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
         <button className="primary" disabled={busy}>{busy?'저장 중…':'저장하기'}</button>
       </form>
     </Modal>}

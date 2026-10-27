@@ -85,6 +85,19 @@ try {
   check(await owner.db.from('hg_expenses').insert({family_id:family,title:'QA transfer',amount:50000,date:'2026-10-26',category:'교육',payment_method:'bank_transfer'}),'record bank transfer');
   assert.ok((await owner.db.from('hg_expenses').insert({family_id:family,title:'invalid transfer',amount:50000,date:'2026-10-26',category:'교육',payment_method:'bank_transfer',card_id:card.id})).error,'Transfer must not carry a card');
   console.log('PASS: card rules, payment methods and expense edits persist; family isolation and amount constraints enforced.');
+  // Income rows, family budgets, and the one-time 80%/100% budget alert rows written by the trigger.
+  assert.ok((await member.db.from('hg_expenses').insert({family_id:family,title:'bad kind',amount:1,date:'2026-10-02',category:'기타',kind:'gift'})).error,'kind is constrained');
+  check(await member.db.from('hg_expenses').insert({family_id:family,title:'QA income',amount:1000000,date:'2026-10-02',category:'월급',kind:'income',payment_method:'bank_transfer'}),'income row');
+  check(await owner.db.from('hg_budgets').upsert({family_id:family,month:'2026-10-01',total:10,by_category:{'식비':5}},{onConflict:'family_id,month'}),'owner sets a tiny budget');
+  assert.equal(check(await member.db.from('hg_budgets').select('total').eq('family_id',family),'member reads budget')[0].total,10);
+  assert.ok((await outsider.db.from('hg_budgets').insert({family_id:family,month:'2026-11-01',total:1})).error,'Outsider cannot set budgets');
+  check(await member.db.from('hg_expenses').insert({family_id:family,title:'budget breaker',amount:50000,date:'2026-10-03',category:'기타'}),'expense over budget');
+  const alerts=check(await admin.from('hg_budget_alerts').select('level').eq('family_id',family).eq('month','2026-10-01'),'alert rows');
+  assert.ok(alerts.some(a=>a.level===100),'Crossing the budget writes a level-100 alert row');
+  check(await member.db.from('hg_expenses').insert({family_id:family,title:'budget breaker 2',amount:50000,date:'2026-10-04',category:'기타'}),'another expense');
+  assert.equal(check(await admin.from('hg_budget_alerts').select('level').eq('family_id',family).eq('month','2026-10-01').eq('level',100),'alert stays single').length,1);
+  check(await owner.db.from('hg_budgets').delete().eq('family_id',family).eq('month','2026-10-01'),'remove tiny budget');
+  console.log('PASS: income kind, family budgets (members only), one-time budget alert rows from the trigger.');
 
 
   const purchase=check(await owner.db.from('hg_entries').insert({family_id:family,title:'QA 구매 대화',date:'2026-10-28',kind:'purchase',expected_amount:200000}).select().single(),'create purchase');

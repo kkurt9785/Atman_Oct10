@@ -3,7 +3,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
-type Prefs = { messages?: boolean; files?: boolean; daily?: boolean; eve?: boolean; ingest?: boolean; unread?: boolean };
+type Prefs = { messages?: boolean; files?: boolean; daily?: boolean; eve?: boolean; ingest?: boolean; unread?: boolean; budget?: boolean };
 type UnreadRow = { family_id: string; family_name: string; entry_id: string | null; occurrence: string | null; room_title: string; unread: number; latest_at: string; latest_body: string | null; latest_author: string | null };
 type Subscription = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; prefs: Prefs | null; quiet_start: number | null; quiet_end: number | null };
 type Kind = keyof Prefs;
@@ -136,6 +136,15 @@ async function onUnread() {
   return { delivered, considered };
 }
 
+// kind 'budget': the DB trigger fires once per family/month/level (80, 100) when spending crosses the family budget.
+async function onBudget(p: { family_id: string; level: number; spent: number; budget: number; month: string }) {
+  const [{ data: members }, { data: family }] = await Promise.all([admin.from('hg_members').select('user_id').eq('family_id', p.family_id), admin.from('hg_families').select('name').eq('id', p.family_id).single()]);
+  const won = (n: number) => `${Number(n).toLocaleString('ko-KR')}원`;
+  const title = `${family?.name ?? 'HARAGURI'} · ${p.level >= 100 ? '이번 달 예산을 넘었어요' : '예산 80%에 왔어요'}`;
+  const body = `${p.month} 지출 ${won(p.spent)} / 예산 ${won(p.budget)}${p.level >= 100 ? '' : ` · 남은 ${won(p.budget - p.spent)}`}`;
+  return send(await subscriptionsFor((members ?? []).map(m => m.user_id)), { title, body, url: '/?tab=money', tag: `budget-${p.month}` }, 'budget');
+}
+
 Deno.serve(async req => {
   if (req.method !== 'POST') return new Response('method', { status: 405 });
   if (!configured()) return new Response('push not configured', { status: 503 });
@@ -146,6 +155,7 @@ Deno.serve(async req => {
     const result = payload.kind === 'daily' ? await onDaily('daily')
       : payload.kind === 'eve' ? await onDaily('eve')
       : payload.kind === 'unread' ? await onUnread()
+      : payload.kind === 'budget' ? await onBudget(payload as Parameters<typeof onBudget>[0])
       : payload.kind === 'ingest' ? await send(await subscriptionsFor([String(payload.user_id)]), { title: String(payload.title ?? 'HARAGURI'), body: String(payload.body ?? ''), url: String(payload.url ?? '/'), tag: 'ingest' }, 'ingest')
       : (payload.kind === 'comment' || payload.kind === 'file') ? await onMessage(payload as Parameters<typeof onMessage>[0]) : { ignored: true };
     return Response.json(result);

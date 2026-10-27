@@ -199,6 +199,29 @@ try {
   assert.equal(await page.getByLabel('가계부 조회 월').inputValue(),'2026-04');
   await page.getByRole('button',{name:'이전 달',exact:true}).click();
   assert.equal(await page.getByLabel('가계부 조회 월').inputValue(),'2026-03');
+  // Budget: set a monthly total from the summary cell; the cell then shows what is left and today's allowance.
+  await page.getByRole('button',{name:'예산 설정',exact:true}).click();
+  await dialog.getByRole('heading',{name:'예산 설정'}).waitFor();
+  await dialog.locator('input[name=budget_total]').fill('2000000');
+  await dialog.locator('input[name=budget_식비]').fill('300000');
+  await dialog.getByRole('button',{name:'저장하기'}).click();
+  await page.getByText('남은 예산',{exact:false}).first().waitFor();
+  await page.locator('.budget-cell').getByText(/오늘은 .*까지|이번 달 마감/).waitFor(); // a past month has no daily allowance
+  // Income: the form's 지출/수입 toggle; income shows as +amount and never counts as spending.
+  const spentBefore = await page.locator('.fin-figures > div').nth(0).locator('strong').innerText();
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await dialog.getByRole('group',{name:'종류'}).getByRole('button',{name:'수입',exact:true}).click();
+  await dialog.getByLabel('금액 (원)',{exact:true}).fill('500000');
+  await dialog.getByLabel('사용처·내용').fill('보너스');
+  await moreFields();
+  await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-15');
+  await dialog.getByRole('button',{name:'저장하기'}).click();
+  await page.locator('.finance-expense').filter({hasText:'보너스'}).getByText('+500,000원',{exact:true}).waitFor();
+  assert.equal(await page.locator('.fin-figures > div').nth(0).locator('strong').innerText(),spentBefore,'Income must not change the spending total');
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
+  await page.getByText('수입 · 남는 돈',{exact:true}).waitFor();
+  await page.getByText('예산 2,000,000원 중',{exact:false}).waitFor();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
 
 
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);

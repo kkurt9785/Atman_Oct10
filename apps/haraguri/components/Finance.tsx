@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Card, Expense, Entry, Member, RecurringExpense, money, total, today, daysInMonth } from '../lib/model';
+import { Budget, Card, Expense, Entry, INCOME_CATEGORIES, Member, RecurringExpense, incomeTotal, money, total, today, daysInMonth } from '../lib/model';
+import { BudgetStatus, budgetStatus } from '../lib/budget';
 import { categories, cardProgress, qualifyingAmount, performanceMonth, shiftMonth } from '../lib/finance';
 import { ParsedCardMessage, describe, matchCard, parseCardMessage } from '../lib/cardsms';
 import { Report } from '../lib/report';
@@ -41,15 +42,17 @@ export function RecurringPanel({ items, cards, busy, onAdd, onToggle, onDelete }
 }
 
 function Bar({ share, tone }: { share: number; tone?: string }) { return <span className="bar"><i style={{ width: `${Math.max(2, Math.round(share * 100))}%` }} className={tone}/></span>; }
-export function ReportPanel({ report, month, setMonth }: { report: Report; month: string; setMonth: (m: string) => void }) {
+export function ReportPanel({ report, month, setMonth, budget, onEditBudget }: { report: Report; month: string; setMonth: (m: string) => void; budget: BudgetStatus; onEditBudget: () => void }) {
   const r = report;
   const max = r.byCategory[0]?.amount || 1;
   const changeText = r.change == null ? '지난달 기록 없음' : `${r.change >= 0 ? '+' : ''}${Math.round(r.change * 100)}% · 지난달 ${money(r.previous)}`;
   return <>
     <div className="month-nav report-nav"><button className="icon-button" aria-label="이전 달" onClick={()=>setMonth(shiftMonth(month,-1))}>‹</button><label className="month-pick"><span>{month.slice(0,4)}년 {Number(month.slice(5))}월 리포트</span><input aria-label="리포트 월" type="month" value={month} onChange={e => e.target.value && setMonth(e.target.value)}/></label><button className="icon-button" aria-label="다음 달" onClick={()=>setMonth(shiftMonth(month,1))}>›</button></div>
-    <div className="stats"><section className="stat peach"><span>{month} 총지출</span><strong>{money(r.total)}</strong><small>{changeText}</small></section><section className="stat mint"><span>하루 평균</span><strong>{money(r.perDay)}</strong><small>{r.days}일 기준 · {r.count}건</small></section><section className="stat lavender"><span>환불·취소</span><strong>{money(Math.abs(r.refunds))}</strong><small>{r.pendingReview ? `확인 대기 ${r.pendingReview}건` : '확인 대기 없음'}</small></section></div>
-    <section className="panel"><h2>분류별</h2><p className="muted">막대는 이달 금액, 오른쪽은 지난달 대비예요.</p>
-      {r.byCategory.map(c => { const diff = c.amount - c.previous; return <div className="report-row" key={c.name}><span className="report-label">{c.name}</span><Bar share={c.amount / max}/><b>{money(c.amount)}</b><small className={!c.previous ? 'muted' : diff > 0 ? 'delta-up' : diff < 0 ? 'delta-down' : 'muted'}>{Math.round(c.share * 100)}% · {c.previous ? `${diff >= 0 ? '+' : ''}${money(diff)}` : '신규'}</small></div>; })}
+    <div className="stats"><section className="stat peach"><span>{month} 총지출</span><strong>{money(r.total)}</strong><small>{changeText}</small></section><section className="stat mint"><span>하루 평균</span><strong>{money(r.perDay)}</strong><small>{r.days}일 기준 · {r.count}건</small></section><section className="stat lavender"><span>수입 · 남는 돈</span><strong>{money(r.income)}</strong><small>{r.income > 0 ? `지출 빼면 ${money(r.income - r.total)}` : '수입 기록 없음'}{r.refunds ? ` · 환불 ${money(Math.abs(r.refunds))}` : ''}</small></section></div>
+    <section className="panel"><div className="section-head"><h2>분류별</h2><button className="text-button" onClick={onEditBudget}>{budget.total > 0 ? '예산 조정' : '예산 정하기'}</button></div>
+      {budget.total > 0 && <div className={`report-budget ${budget.percent >= 80 ? 'usage-warn' : ''}`}>예산 {money(budget.total)} 중 <b>{budget.percent}%</b> 사용 · {budget.remaining >= 0 ? `남은 ${money(budget.remaining)}` : `${money(-budget.remaining)} 초과`}<progress value={Math.min(100, budget.percent)} max={100} className={budget.percent >= 80 ? 'warn' : ''}/></div>}
+      <p className="muted">막대는 이달 금액{budget.byCategory.length ? '(분류 예산이 있으면 예산 대비)' : ''}, 오른쪽은 지난달 대비예요.</p>
+      {r.byCategory.map(c => { const diff = c.amount - c.previous; const b = budget.byCategory.find(x => x.name === c.name); return <div className="report-row" key={c.name}><span className="report-label">{c.name}</span><Bar share={b ? c.amount / b.budget : c.amount / max} tone={b && c.amount > b.budget ? 'over' : undefined}/><b>{money(c.amount)}{b && <small className="muted"> / {money(b.budget)}</small>}</b><small className={!c.previous ? 'muted' : diff > 0 ? 'delta-up' : diff < 0 ? 'delta-down' : 'muted'}>{b ? `${Math.round(c.amount / b.budget * 100)}% 예산` : `${Math.round(c.share * 100)}%`} · {c.previous ? `${diff >= 0 ? '+' : ''}${money(diff)}` : '신규'}</small></div>; })}
       {!r.byCategory.length && <div className="empty">이달 기록이 아직 없어요.</div>}</section>
     <div className="home-grid">
       <section className="panel"><h2>결제 수단</h2>{r.byMethod.map(m => <div className="report-row" key={m.name}><span className="report-label">{m.name}</span><Bar share={r.total > 0 ? m.amount / r.total : 0} tone="mint"/><b>{money(m.amount)}</b></div>)}{!r.byMethod.length && <div className="empty">—</div>}</section>
@@ -93,26 +96,37 @@ export function CardFields({ card, members }: { card?: Card | null; members: Mem
     <p className="muted">예산과 실적 목표는 별개예요. 카드번호 전체·CVC는 입력하지 마세요.</p>
   </>;
 }
+export function BudgetFields({ budget, month }: { budget: Budget | null; month: string }) {
+  return <>
+    <p className="muted">{month.slice(0,4)}년 {Number(month.slice(5))}월부터 적용돼요. 다음에 바꾸기 전까지 같은 예산이 매달 이어집니다. 0이면 예산 없음.</p>
+    <label>이번 달 총 예산 (원)<input name="budget_total" type="number" inputMode="numeric" min="0" step="1" defaultValue={budget?.total || ''} placeholder="예: 1500000" autoFocus/></label>
+    <fieldset className="budget-grid"><legend>분류별 예산 (선택)</legend>{categories.map(c=><label key={c}>{c}<input name={`budget_${c}`} type="number" inputMode="numeric" min="0" step="1" defaultValue={budget?.by_category?.[c] || ''} placeholder="0"/></label>)}</fieldset>
+  </>;
+}
 export function ExpenseFields({ expense, cards, remembered, openAdvanced=false, extra }: { expense?: Partial<Expense> | null; cards: Card[]; remembered?: { payment_method?: string; card_id?: string } | null; openAdvanced?: boolean; extra?: React.ReactNode }) {
   // New entries start from what was used last time; only amount · merchant · category are asked up front.
   const rememberedCard = remembered?.card_id && cards.some(c => c.id === remembered.card_id) ? remembered.card_id : '';
   const [method,setMethod]=useState<string>(expense?.payment_method || (expense?.card_id?'card':expense?'other':remembered?.payment_method||(cards.length?'card':'bank_transfer')));
   const [cardId,setCardId]=useState(expense?.card_id || (expense ? '' : rememberedCard || (cards.length===1 ? cards[0].id : '')));
   const [category,setCategory]=useState(expense?.category || '식비');
+  const [kind,setKind]=useState<'expense'|'income'>(expense?.kind || 'expense');
+  const cats=kind==='income'?INCOME_CATEGORIES:categories;
+  const switchKind=(k:'expense'|'income')=>{ setKind(k); setCategory(k==='income'?INCOME_CATEGORIES[0]:'식비'); if(k==='income'&&method==='card') setMethod('bank_transfer'); if(k==='expense'&&cards.length&&!expense) setMethod(remembered?.payment_method||'card'); };
   const [mode,setMode]=useState(expense?.qualifying_amount == null ? 'auto' : expense.qualifying_amount===0 ? 'exclude' : 'manual');
   const [more,setMore]=useState(!!expense || openAdvanced || (method==='card' && !cardId));
   const card=method==='card'?cards.find(c=>c.id===cardId):undefined;
   const dateDefault=expense?.date || today();
   const methodText=method==='card'?(card?.name ?? '카드 미선택'):method==='bank_transfer'?'계좌이체':method==='cash'?'현금':'기타';
   return <>
-    <div className="form-grid amount-first"><label>금액 (원)<input name="amount" type="number" inputMode="numeric" required step="1" min="-1000000000" max="1000000000" defaultValue={expense?.amount} placeholder="환불은 음수" autoFocus={!expense}/></label><label>사용처·내용<input name="title" required maxLength={200} defaultValue={expense?.title} placeholder="오늘 어디에 썼나요?"/></label></div>
-    <div className="chip-field"><span className="chip-label">분류</span><div className="chip-row" role="group" aria-label="분류">{categories.map(c=><button type="button" key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}</button>)}</div><input type="hidden" name="category" value={category}/></div>
+    <div className="payment-tabs kind-tabs" role="group" aria-label="종류"><button type="button" aria-pressed={kind==='expense'} onClick={()=>switchKind('expense')}>지출</button><button type="button" aria-pressed={kind==='income'} onClick={()=>switchKind('income')}>수입</button></div><input type="hidden" name="kind" value={kind}/>
+    <div className="form-grid amount-first"><label>금액 (원)<input name="amount" type="number" inputMode="numeric" required step="1" min="-1000000000" max="1000000000" defaultValue={expense?.amount} placeholder={kind==='income'?'받은 금액':'환불은 음수'} autoFocus={!expense}/></label><label>사용처·내용<input name="title" required maxLength={200} defaultValue={expense?.title} placeholder="오늘 어디에 썼나요?"/></label></div>
+    <div className="chip-field"><span className="chip-label">분류</span><div className="chip-row" role="group" aria-label="분류">{cats.map(c=><button type="button" key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}</button>)}</div><input type="hidden" name="category" value={category}/></div>
     <button type="button" className="more-toggle" aria-expanded={more} onClick={()=>setMore(o=>!o)}>{more?'간단히 ▴':'자세히 ▾'}<small>{dateDefault===today()?'오늘':dateDefault} · {methodText}{!more&&' · 날짜·결제수단·연결 바꾸기'}</small></button>
     <div className="more-fields" hidden={!more}>
       <label>날짜<input type="date" name="date" required defaultValue={dateDefault}/></label>
-      <label>결제 수단<select name="payment_method" value={method} onChange={e=>setMethod(e.target.value)}><option value="card">신용·체크카드</option><option value="bank_transfer">계좌이체 (지출)</option><option value="cash">현금</option><option value="other">기타</option></select></label>
+      <label>결제 수단<select name="payment_method" value={method} onChange={e=>setMethod(e.target.value)}>{kind!=='income'&&<option value="card">신용·체크카드</option>}<option value="bank_transfer">계좌이체 (지출)</option><option value="cash">현금</option><option value="other">기타</option></select></label>
       {method==='bank_transfer' && <p className="muted">월세·학원비 등 실제 지출만 기록하세요. 내 계좌 사이의 이동은 제외해 주세요.</p>}
-      {method==='card' && <label>카드<select name="card_id" value={cardId} onChange={e=>setCardId(e.target.value)}><option value="">카드를 선택하세요</option>{cards.map(c=><option key={c.id} value={c.id}>{c.name} · {c.card_type==='debit'?'체크':'신용'}</option>)}</select></label>}
+      {method==='card' && kind!=='income' && <label>카드<select name="card_id" value={cardId} onChange={e=>setCardId(e.target.value)}><option value="">카드를 선택하세요</option>{cards.map(c=><option key={c.id} value={c.id}>{c.name} · {c.card_type==='debit'?'체크':'신용'}</option>)}</select></label>}
       {card && <><label>실적 반영<select name="qualifying_mode" value={mode} onChange={e=>setMode(e.target.value)}><option value="auto">카드의 제외 분류로 자동 계산</option><option value="exclude">이 거래는 실적 제외</option><option value="manual">인정 금액 직접 입력</option></select></label>
       {mode==='manual' && <label>인정 실적 (원)<input name="qualifying_amount" type="number" step="1" required defaultValue={expense?.qualifying_amount ?? expense?.amount} placeholder="환불 실적도 음수로 입력"/></label>}
       <p className="muted">{mode==='auto' ? card.excluded_categories?.includes(category) ? '이 분류는 실적에서 제외됩니다.' : '결제·환불 금액 전액을 실적에 반영합니다.' : mode==='exclude' ? '지출에는 포함하고 실적에는 반영하지 않습니다.' : '거래 금액 범위 내에서 인정되는 금액만 입력하세요.'}</p>
@@ -121,10 +135,12 @@ export function ExpenseFields({ expense, cards, remembered, openAdvanced=false, 
     </div>
   </>;
 }
-export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onConfirmReview}: {
+export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onConfirmReview,budgets,onEditBudget}: {
   entries:Entry[];onOpenWork:(entry:Entry,date:string)=>void;cards:Card[];expenses:Expense[];uid:string;month:string;setMonth:(m:string)=>void;onAddCard:()=>void;onEditCard:(c:Card)=>void;onEditExpense:(e:Expense)=>void;onDeleteExpense:(e:Expense)=>void;busy:boolean;
   view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onConfirmReview:(e:Expense)=>void;
+  budgets:Budget[];onEditBudget:()=>void;
 }) {
+  const status=budgetStatus(budgets,expenses,month,today()); // family-level, independent of the list filters
   const [scope,setScope]=useState('all');
   const [methodFilter,setMethodFilter]=useState('all');
   const [cardId,setCardId]=useState('all');
@@ -134,7 +150,7 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
   useEffect(()=>{ if(window.matchMedia('(min-width:1101px)').matches){setShowCards(true);setShowChart(true);} },[]); // wide screens have room for the side column
   const pending=expenses.filter(e=>e.reviewed===false);
   const tabs=<div className="payment-tabs finance-views" role="group" aria-label="가계부 보기"><button aria-pressed={view==='list'} onClick={()=>setView('list')}>내역</button><button aria-pressed={view==='report'} onClick={()=>setView('report')}>리포트</button><button aria-pressed={view==='recurring'} onClick={()=>setView('recurring')}>반복 지출</button><button aria-pressed={view==='review'} onClick={()=>setView('review')}>확인 대기{pending.length>0&&<b className="tab-badge">{pending.length}</b>}</button></div>;
-  if(view==='report') return <>{tabs}<ReportPanel report={report} month={month} setMonth={setMonth}/></>;
+  if(view==='report') return <>{tabs}<ReportPanel report={report} month={month} setMonth={setMonth} budget={status} onEditBudget={onEditBudget}/></>;
   if(view==='recurring') return <>{tabs}<RecurringPanel items={recurring} cards={cards} busy={busy} onAdd={onAddRecurring} onToggle={onToggleRecurring} onDelete={onDeleteRecurring}/></>;
   if(view==='review') return <>{tabs}<ReviewQueue items={pending} cards={cards} busy={busy} onConfirm={onConfirmReview} onEdit={onEditExpense} onDelete={onDeleteExpense}/></>;
   const selectableCards=cards.filter(c=>(scope==='all'||c.owner_user_id===uid)&&(methodFilter==='all'||(c.card_type || 'credit')===methodFilter));
@@ -151,14 +167,15 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
   const diff=prevToDate>0?Math.round((selectedTotal-prevToDate)/prevToDate*100):null;
   const filterChips:[string,string][]=[['all','전체'],['credit','신용카드'],['debit','체크카드'],['bank_transfer','계좌이체'],['cash','현금'],['other','기타']];
   const activeFilters=[methodFilter!=='all'&&filterChips.find(c=>c[0]===methodFilter)?.[1],scope==='mine'&&'내 카드·내 지출',cardId!=='all'&&cards.find(c=>c.id===cardId)?.name].filter(Boolean) as string[];
-  const groups=rows.reduce<{date:string;rows:Expense[];sum:number}[]>((acc,e)=>{const g=acc.at(-1);if(g&&g.date===e.date){g.rows.push(e);g.sum+=e.amount;}else acc.push({date:e.date,rows:[e],sum:e.amount});return acc;},[]);
+  const groups=rows.reduce<{date:string;rows:Expense[];sum:number;income:number}[]>((acc,e)=>{const g=acc.at(-1);const spend=e.kind==='income'?0:e.amount;const inc=e.kind==='income'?e.amount:0;if(g&&g.date===e.date){g.rows.push(e);g.sum+=spend;g.income+=inc;}else acc.push({date:e.date,rows:[e],sum:spend,income:inc});return acc;},[]);
+  const monthIncome=incomeTotal(visibleExpenses,month);
   const dayLabel=(d:string)=>{const dt=new Date(`${d}T12:00:00`);return `${dt.getMonth()+1}월 ${dt.getDate()}일 (${'일월화수목금토'[dt.getDay()]})`;};
   const methodName=(e:Expense)=>e.payment_method==='bank_transfer'?'계좌이체':e.payment_method==='cash'?'현금':'기타';
   return <>
     {tabs}
     <section className="fin-summary" aria-label="이번 달 요약">
       <div className="month-nav"><button className="icon-button" aria-label="이전 달" onClick={()=>setMonth(shiftMonth(month,-1))}>‹</button><label className="month-pick"><span>{month.slice(0,4)}년 {Number(month.slice(5))}월</span><input aria-label="가계부 조회 월" type="month" value={month} onChange={e=>e.target.value&&setMonth(e.target.value)}/></label><button className="icon-button" aria-label="다음 달" onClick={()=>setMonth(shiftMonth(month,1))}>›</button></div>
-      <div className="fin-figures"><div><span>이번 달</span><strong>{money(selectedTotal)}</strong></div><div><span>오늘</span><strong>{money(total(visibleExpenses,today()))}</strong></div><div><span>지난달 같은 날까지</span><strong className={diff===null?'':diff>0?'up':diff<0?'down':''}>{diff===null?'기록 없음':diff===0?'같아요':`${diff>0?'▲':'▼'} ${Math.abs(diff)}%`}</strong>{prevToDate>0&&<small>{money(prevToDate)}</small>}</div></div>
+      <div className="fin-figures four"><button type="button" className={`budget-cell ${status.total>0&&status.percent>=80?'warn':''}`} onClick={onEditBudget} aria-label="예산 설정">{status.total>0?<><span>남은 예산 · {status.percent}% 사용</span><strong>{money(status.remaining)}</strong><small>{status.daysLeft>0?`오늘은 ${money(status.perDay)}까지`:'이번 달 마감'}</small></>:<><span>예산</span><strong className="cta">정하기 →</strong><small>오늘 쓸 수 있는 돈을 알려드려요</small></>}</button><div><span>이번 달 지출</span><strong>{money(selectedTotal)}</strong>{monthIncome>0&&<small className="income">수입 +{money(monthIncome)}</small>}</div><div><span>오늘</span><strong>{money(total(visibleExpenses,today()))}</strong></div><div><span>지난달 같은 날까지</span><strong className={diff===null?'':diff>0?'up':diff<0?'down':''}>{diff===null?'기록 없음':diff===0?'같아요':`${diff>0?'▲':'▼'} ${Math.abs(diff)}%`}</strong>{prevToDate>0&&<small>{money(prevToDate)}</small>}</div></div>
       <button className={`filter-toggle ${activeFilters.length?'active':''}`} aria-expanded={filtersOpen} onClick={()=>setFiltersOpen(o=>!o)}>필터{activeFilters.length?` (${activeFilters.length}) · ${activeFilters.join(' · ')}`:''} {filtersOpen?'▴':'▾'}</button>
     </section>
     {filtersOpen&&<div className="fin-filters">
@@ -168,8 +185,8 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
     <div className="fin-layout"><div className="fin-main">
     {pending.length>0&&<div role="status" className="banner pending-strip">자동 등록 {pending.length}건이 확인을 기다려요<button onClick={()=>setView('review')}>보기 →</button></div>}
     <section className="panel ledger"><div className="section-head"><h2>지출·환불 내역</h2><small className="muted">{rows.length}건</small></div>
-      {groups.map(g=><div className="day-group" key={g.date}><div className="day-head"><span>{dayLabel(g.date)}</span><b>{money(g.sum)}</b></div>
-        {g.rows.map(e=>{const card=cards.find(c=>c.id===e.card_id);return <div className={`finance-expense ${e.reviewed===false?'unreviewed':''}`} key={e.id}><div><strong>{e.title}{e.reviewed===false&&<span className="tab-badge inline">확인 대기</span>}{e.source==='recurring'&&<span className="room-closed-badge">반복</span>}</strong>{e.entry_id&&(()=>{const work=entries.find(w=>w.id===e.entry_id);return work?<button className="text-button linked-work" onClick={()=>onOpenWork(work,e.occurrence || work.date)}>↗ {work.title}</button>:null;})()}<small>{card?.name || methodName(e)} · {e.category}</small>{card&&<small>{qualifyingAmount(e,card)===0?'실적 제외':`인정 실적 ${money(qualifyingAmount(e,card))}`} · {performanceMonth(e)} 반영</small>}</div><div className="expense-actions"><b>{money(e.amount)}</b>{e.created_by===uid&&<span>{e.reviewed===false&&<button disabled={busy} className="primary small" onClick={()=>onConfirmReview(e)} aria-label={`${e.title} 확인`}>확인</button>}<button disabled={busy} className="text-button" onClick={()=>onEditExpense(e)} aria-label={`${e.title} 수정`}>수정</button><button disabled={busy} className="text-button" onClick={()=>onDeleteExpense(e)} aria-label={`${e.title} 삭제`}>삭제</button></span>}</div></div>;})}
+      {groups.map(g=><div className="day-group" key={g.date}><div className="day-head"><span>{dayLabel(g.date)}</span><b>{g.income>0&&<em className="income">+{money(g.income)} · </em>}{money(g.sum)}</b></div>
+        {g.rows.map(e=>{const card=cards.find(c=>c.id===e.card_id);return <div className={`finance-expense ${e.reviewed===false?'unreviewed':''}`} key={e.id}><div><strong>{e.title}{e.reviewed===false&&<span className="tab-badge inline">확인 대기</span>}{e.source==='recurring'&&<span className="room-closed-badge">반복</span>}</strong>{e.entry_id&&(()=>{const work=entries.find(w=>w.id===e.entry_id);return work?<button className="text-button linked-work" onClick={()=>onOpenWork(work,e.occurrence || work.date)}>↗ {work.title}</button>:null;})()}<small>{card?.name || methodName(e)} · {e.category}</small>{card&&<small>{qualifyingAmount(e,card)===0?'실적 제외':`인정 실적 ${money(qualifyingAmount(e,card))}`} · {performanceMonth(e)} 반영</small>}</div><div className="expense-actions">{e.kind==='income'?<b className="income">+{money(e.amount)}</b>:<b>{money(e.amount)}</b>}{e.created_by===uid&&<span>{e.reviewed===false&&<button disabled={busy} className="primary small" onClick={()=>onConfirmReview(e)} aria-label={`${e.title} 확인`}>확인</button>}<button disabled={busy} className="text-button" onClick={()=>onEditExpense(e)} aria-label={`${e.title} 수정`}>수정</button><button disabled={busy} className="text-button" onClick={()=>onDeleteExpense(e)} aria-label={`${e.title} 삭제`}>삭제</button></span>}</div></div>;})}
       </div>)}{!rows.length&&<div className="empty">이번 달 기록이 아직 없어요.</div>}</section>
     </div><aside className="fin-side">
     {['all','credit','debit'].includes(methodFilter) && <details className="panel fold" open={showCards} onToggle={e=>setShowCards(e.currentTarget.open)}><summary><h2>카드별 실적 챙기기</h2><small className="muted">{visibleCards.length?`${visibleCards.length}장${visibleCards.length===1?` · 인정 실적 ${money(cardProgress(visibleCards[0],expenses,month).amount)}`:''}`:'카드 없음'}</small></summary><div className="fold-body">
