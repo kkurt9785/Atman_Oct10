@@ -186,10 +186,10 @@ try {
     await page.getByLabel('조회 월').fill('2026-10');
     await page.getByRole('button',{name:/실제 DB 반복 할 일 검증/}).first().click();
     const dialog=page.getByRole('dialog');
-    await dialog.locator('.chat-bubble').filter({hasText:'가족 댓글 동기화 검증'}).waitFor();
+    await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'가족 댓글 동기화 검증'}).waitFor();
     await dialog.getByLabel('메시지',{exact:true}).fill('브라우저 실제 저장 검증');
     await dialog.getByRole('button',{name:'보내기',exact:true}).click();
-    await dialog.locator('.chat-bubble').filter({hasText:'브라우저 실제 저장 검증'}).waitFor();
+    await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'브라우저 실제 저장 검증'}).waitFor();
     assert.equal(check(await member.db.from('hg_comments').select('*').eq('body','브라우저 실제 저장 검증'),'read browser comment').length,1);
     const before=check(await owner.db.from('hg_attachments').select('id'),'attachments before browser upload').length;
     await dialog.locator('input[type=file]').setInputFiles({name:'browser-photo.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jKXcAAAAASUVORK5CYII=','base64')});
@@ -200,7 +200,7 @@ try {
     await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'일정·할 일'}).click();
     await page.getByLabel('조회 월').fill('2026-10');
     await page.getByRole('button',{name:/실제 DB 반복 할 일 검증/}).first().click();
-    await page.getByRole('dialog').locator('.chat-bubble').filter({hasText:'브라우저 실제 저장 검증'}).waitFor();
+    await page.getByRole('dialog').locator('.chat-bubble:not(.pending)').filter({hasText:'브라우저 실제 저장 검증'}).waitFor();
     await page.getByRole('dialog').getByRole('button',{name:'닫기',exact:true}).click();
     await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가계부'}).click();
     await page.locator('details.fold').filter({hasText:'카드별 실적'}).locator(':scope > summary').click(); // card section is folded by default
@@ -224,15 +224,15 @@ try {
     await second.getByText('실시간 연결됨',{exact:true}).waitFor();
     await page.getByLabel('메시지',{exact:true}).fill('실시간 기본방 전송');
     await page.getByRole('button',{name:'보내기',exact:true}).click();
-    await second.locator('.chat-bubble').filter({hasText:'실시간 기본방 전송'}).waitFor({timeout:8000});
+    await second.locator('.chat-bubble:not(.pending)').filter({hasText:'실시간 기본방 전송'}).waitFor({timeout:8000});
     for(const activePage of [page,second]) {
       await activePage.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'일정·구매별 대화'}).click();
       await activePage.getByRole('button',{name:/QA 구매 대화/}).click();
-      assert.equal(await activePage.getByRole('dialog').locator('.chat-bubble').filter({hasText:'실시간 기본방 전송'}).count(),0);
+      assert.equal(await activePage.getByRole('dialog').locator('.chat-bubble:not(.pending)').filter({hasText:'실시간 기본방 전송'}).count(),0);
     }
     await second.getByRole('dialog').getByLabel('메시지',{exact:true}).fill('구매방 실시간 답장');
     await second.getByRole('dialog').getByRole('button',{name:'보내기',exact:true}).click();
-    await page.getByRole('dialog').locator('.chat-bubble').filter({hasText:'구매방 실시간 답장'}).waitFor({timeout:8000});
+    await page.getByRole('dialog').locator('.chat-bubble:not(.pending)').filter({hasText:'구매방 실시간 답장'}).waitFor({timeout:8000});
     await page.getByRole('dialog').getByText('QA expense',{exact:true}).waitFor();
     await page.getByRole('dialog').getByRole('button',{name:'닫기',exact:true}).click();
     await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가족 설정'}).click();
@@ -245,14 +245,14 @@ try {
     assert.equal(check(await member.db.from('hg_families').select().eq('id',newFamily.id),'uninvited member denied').length,0);
     await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'대화',exact:true}).click();
     await page.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'가족 기본 채팅',exact:true}).click();
-    assert.equal(await page.locator('.chat-bubble').filter({hasText:'실시간 기본방 전송'}).count(),0);
+    assert.equal(await page.locator('.chat-bubble:not(.pending)').filter({hasText:'실시간 기본방 전송'}).count(),0);
     await page.getByLabel('메시지',{exact:true}).fill('친구 모임 전용');
     await page.getByRole('button',{name:'보내기',exact:true}).click();
-    await page.locator('.chat-bubble').filter({hasText:'친구 모임 전용'}).waitFor();
+    await page.locator('.chat-bubble:not(.pending)').filter({hasText:'친구 모임 전용'}).waitFor();
     assert.equal(check(await member.db.from('hg_comments').select().eq('family_id',newFamily.id),'group chat isolation').length,0);
     await page.getByLabel('현재 모임',{exact:true}).selectOption(family);
-    await page.locator('.chat-bubble').filter({hasText:'실시간 기본방 전송'}).waitFor();
-    assert.equal(await page.locator('.chat-bubble').filter({hasText:'친구 모임 전용'}).count(),0);
+    await page.locator('.chat-bubble:not(.pending)').filter({hasText:'실시간 기본방 전송'}).waitFor();
+    assert.equal(await page.locator('.chat-bubble:not(.pending)').filter({hasText:'친구 모임 전용'}).count(),0);
     await page.reload();
     await page.getByRole('heading',{name:'우리의 하루를 함께.'}).waitFor();
     assert.equal(await page.getByLabel('현재 모임',{exact:true}).inputValue(),family);

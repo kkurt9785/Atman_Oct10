@@ -70,12 +70,12 @@ try {
   await dialog.getByRole('button',{name:'완료했어요',exact:true}).click();
   await dialog.getByLabel('메시지',{exact:true}).fill('납부했어요');
   await dialog.getByRole('button',{name:'보내기',exact:true}).click();
-  await dialog.locator('.chat-bubble').filter({hasText:'납부했어요'}).waitFor();
+  await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'납부했어요'}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByLabel('조회 월').fill('2026-03');
   await page.getByRole('button',{name:/테스트 정기 납부/}).click();
   assert.equal(await dialog.getByRole('button',{name:'완료했어요',exact:true}).getAttribute('aria-pressed'),'false');
-  assert.equal(await dialog.locator('.chat-bubble').filter({hasText:'납부했어요'}).count(),0);
+  assert.equal(await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'납부했어요'}).count(),0);
   assert.equal(await dialog.getByRole('button',{name:'이전 대화 보기'}).count(),0);
   // Editing: records exist on this entry, so date/repeat are locked while the title still changes.
   await dialog.getByRole('button',{name:'✎ 수정',exact:true}).click();
@@ -205,30 +205,38 @@ try {
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'대화',exact:true}).click();
   await page.getByLabel('메시지',{exact:true}).fill('가족 기본방 테스트');
   await page.getByRole('button',{name:'보내기',exact:true}).click();
-  await page.locator('.chat-bubble').filter({hasText:'가족 기본방 테스트'}).waitFor();
-  // Own messages can be edited and deleted.
-  const mine = page.locator('.chat-line.mine').filter({hasText:'가족 기본방 테스트'});
-  await mine.getByRole('button',{name:'수정',exact:true}).click();
+  await page.locator('.chat-bubble:not(.pending)').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  await page.locator('.chat-date').filter({hasText:'오늘'}).first().waitFor(); // day separator
+  // Enter sends on a fine pointer (desktop); Shift+Enter would add a line.
+  await page.getByLabel('메시지',{exact:true}).fill('엔터로 전송');
+  await page.getByLabel('메시지',{exact:true}).press('Enter');
+  await page.locator('.chat-bubble:not(.pending)').filter({hasText:'엔터로 전송'}).waitFor();
+  // Own messages can be edited and deleted from the long-press / right-click menu.
+  const mine = page.locator('.chat-line.mine').filter({hasText:'가족 기본방 테스트'}).first();
+  await mine.locator('.chat-bubble:not(.pending)').click({button:'right'});
+  await mine.getByRole('menuitem',{name:'수정',exact:true}).click();
   await page.getByLabel('메시지 수정').fill('가족 기본방 테스트 (수정)');
   await page.getByRole('button',{name:'저장',exact:true}).click();
   await page.locator('.chat-line.mine').filter({hasText:'가족 기본방 테스트 (수정)'}).filter({hasText:'수정됨'}).waitFor();
-  await page.locator('.chat-line.mine').filter({hasText:'(수정)'}).getByRole('button',{name:'삭제',exact:true}).click();
+  const edited = page.locator('.chat-line.mine').filter({hasText:'(수정)'});
+  await edited.locator('.chat-bubble:not(.pending)').click({button:'right'});
+  await edited.getByRole('menuitem',{name:'삭제',exact:true}).click();
   await page.waitForFunction(()=>![...document.querySelectorAll('.chat-bubble')].some(b=>b.textContent?.includes('가족 기본방 테스트 (수정)')));
   await page.getByLabel('메시지',{exact:true}).fill('가족 기본방 테스트');
   await page.getByRole('button',{name:'보내기',exact:true}).click();
-  await page.locator('.chat-bubble').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  await page.locator('.chat-bubble:not(.pending)').filter({hasText:'가족 기본방 테스트'}).waitFor();
   await page.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'일정·구매별 대화'}).click();
   await page.getByRole('button',{name:/아이 자전거 같이 고르기/}).click();
-  assert.equal(await dialog.locator('.chat-bubble').filter({hasText:'가족 기본방 테스트'}).count(),0);
+  assert.equal(await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'가족 기본방 테스트'}).count(),0);
   await dialog.getByLabel('메시지',{exact:true}).fill('이 모델로 살까요?');
   await dialog.getByRole('button',{name:'보내기',exact:true}).click();
-  await dialog.locator('.chat-bubble').filter({hasText:'이 모델로 살까요?'}).waitFor();
+  await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'이 모델로 살까요?'}).waitFor();
   await dialog.getByLabel('구매 진행',{exact:true}).selectOption('decided');
   await dialog.getByLabel('기존 지출 연결',{exact:true}).selectOption({label:'2026-03-11 · 월세 이체 · 500,000원'});
   await dialog.getByText('월세 이체',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'가족 기본 채팅에 공유'}).click();
   await page.getByRole('button',{name:/아이 자전거 같이 고르기.*우리집 일 열기/}).click();
-  await dialog.locator('.chat-bubble').filter({hasText:'이 모델로 살까요?'}).waitFor();
+  await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'이 모델로 살까요?'}).waitFor();
   assert.equal(await dialog.getByLabel('구매 진행',{exact:true}).inputValue(),'decided');
   await dialog.getByRole('button',{name:'대화 바로가기 ↓'}).click();
   await page.screenshot({path:'/tmp/haraguri-work-mobile.png',fullPage:true});
@@ -238,7 +246,7 @@ try {
   await dialog.locator('.finish-banner').getByRole('button',{name:'대화 종료',exact:true}).click();
   await dialog.getByText('종료된 대화예요.',{exact:false}).first().waitFor();
   assert.equal(await dialog.getByLabel('메시지',{exact:true}).count(),0);
-  await dialog.locator('.chat-bubble').filter({hasText:'이 모델로 살까요?'}).waitFor();
+  await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'이 모델로 살까요?'}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'일정·구매별 대화'}).click();
   await page.getByRole('group',{name:'진행 상태'}).getByRole('button',{name:/종료됨 1/}).click();
