@@ -1,0 +1,8 @@
+.env*
+node_modules
+.next
+supabase
+scripts
+**/*.test.ts
+README.md
+*.tsbuildinfo
