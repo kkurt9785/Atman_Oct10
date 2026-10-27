@@ -40,6 +40,7 @@ try {
   await page.getByRole('button',{name:'로그인 없이 미리보기'}).click();
   await page.getByRole('heading',{name:'우리의 하루를 함께.'}).waitFor();
   const dialog = page.getByRole('dialog');
+  const openFold = async name => { const fold = page.locator('details.fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator('summary').click(); };
   // The shared card message is offered as an expense and pre-fills the form.
   await dialog.getByRole('heading',{name:'공유받은 항목'}).waitFor();
   await dialog.getByRole('button',{name:'₩ 카드 결제로 가계부에 기록'}).click();
@@ -113,6 +114,8 @@ try {
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-05');
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.getByText('테스트 지출',{exact:true}).waitFor();
+  await page.getByText('3월 5일 (목)',{exact:false}).waitFor(); // ledger rows are grouped by day
+  await openFold('카드별 실적');
   await page.getByRole('button',{name:'우리 생활비 카드 설정'}).click();
   await dialog.locator('input[name=performance_thresholds]').fill('300000, 500000');
   await dialog.getByRole('button',{name:'저장하기'}).click();
@@ -139,10 +142,13 @@ try {
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('500000');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-11');
   await dialog.getByRole('button',{name:'저장하기'}).click();
+  await page.getByRole('button',{name:/^필터/}).click(); // filters are folded away by default
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'계좌이체',exact:true}).click();
   await page.getByText('월세 이체',{exact:true}).waitFor();
   assert.equal(await page.getByText('실적 테스트',{exact:true}).count(),0);
+  await page.getByRole('button',{name:/^필터 \(1\)/}).waitFor(); // active filter count shows on the toggle
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'전체',exact:true}).click();
+  await openFold('카드별 실적');
   await page.getByRole('button',{name:'우리 생활비 카드 설정'}).click();
   await dialog.locator('select[name=card_type]').selectOption('debit');
   await dialog.getByRole('button',{name:'저장하기'}).click();
@@ -162,6 +168,8 @@ try {
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'전체',exact:true}).click();
   await page.getByLabel('가계부 조회 월').fill(smsMonth); // the list shows the month being viewed, not the month just saved
   await page.getByText('동네마트',{exact:true}).waitFor();
+  await page.getByText('확인을 기다려요',{exact:false}).waitFor(); // pending strip + inline confirm on the unreviewed row
+  await page.getByRole('button',{name:'편의점 CU 확인'}).waitFor();
   // Ledger views: report numbers, recurring add, review queue confirm.
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
   await page.getByText(`${smsMonth} 총지출`,{exact:true}).waitFor();
@@ -180,6 +188,10 @@ try {
   await page.getByText('확인할 자동 등록 건이 없어요',{exact:false}).waitFor();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
   await page.getByLabel('가계부 조회 월').fill('2026-03');
+  await page.getByRole('button',{name:'다음 달',exact:true}).click(); // one tap per month instead of opening the picker
+  assert.equal(await page.getByLabel('가계부 조회 월').inputValue(),'2026-04');
+  await page.getByRole('button',{name:'이전 달',exact:true}).click();
+  assert.equal(await page.getByLabel('가계부 조회 월').inputValue(),'2026-03');
 
 
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);

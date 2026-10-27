@@ -195,11 +195,13 @@ try {
     await page.getByRole('dialog').locator('.chat-bubble').filter({hasText:'브라우저 실제 저장 검증'}).waitFor();
     await page.getByRole('dialog').getByRole('button',{name:'닫기',exact:true}).click();
     await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가계부'}).click();
+    await page.locator('details.fold').filter({hasText:'카드별 실적'}).locator('summary').click(); // card section is folded by default
     await page.getByRole('button',{name:'QA card 설정'}).click();
     await page.getByRole('dialog').locator('select[name=card_type]').selectOption('debit');
     await page.getByRole('dialog').getByRole('button',{name:'저장하기'}).click();
     await page.getByRole('dialog').waitFor({state:'hidden'});
     assert.equal(check(await owner.db.from('hg_cards').select('card_type').eq('id',card.id).single(),'browser card edit').card_type,'debit');
+    await page.getByRole('button',{name:/^필터/}).click(); // filters are folded by default
     await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'계좌이체',exact:true}).click();
     await page.getByText('QA transfer',{exact:true}).waitFor();
     assert.equal(await page.getByText('QA expense',{exact:true}).count(),0);
