@@ -85,7 +85,14 @@ export default function Home() {
   const [pendingInvite,setPendingInvite]=useState<string>('');
   const [invites,setInvites]=useState<InviteRow[]>([]); // 모임 주인이 내 닉네임·이메일을 적어 둔 초대 — 로그인하면 바로 보인다
   const [targets,setTargets]=useState<TargetRow[]>([]);
+  const [codeMode,setCodeMode]=useState(false); // login screen: paste an invite code/link before signing in
   const inviteLink=(code:string)=>`${window.location.origin}/?invite=${code}`;
+  function rememberInvite(raw:string){ // accepts a bare code or a whole invite link
+    const code=raw.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)?.[0];
+    if(!code){ setError('초대 코드 형식이 아니에요. 가족이 보낸 링크나 코드를 그대로 붙여넣어 주세요.'); return; }
+    try{localStorage.setItem('haraguri-invite',code);}catch{}
+    setPendingInvite(code); setCodeMode(false); setError(''); setNotice('초대 코드를 기억했어요. 이제 로그인만 하면 바로 참여돼요.');
+  }
   const kakaoName=()=>String(user?.user_metadata?.name||user?.user_metadata?.nickname||user?.user_metadata?.full_name||'가족').slice(0,40);
   async function refreshPush(){const support=pushSupport();if(support!=='off'){setPush(support);return;}setPush((await currentSubscription())&&Notification.permission==='granted'?'on':'off');}
   const bumpChat=()=>setChatVersion(v=>v+1);
@@ -472,7 +479,11 @@ export default function Home() {
   if (!demo && !user) return <main className="auth"><div className="brand">HARAGURI<span>우리 가족의 하루</span></div><section className="auth-card">
     <div className="eyebrow">A LITTLE CLOSER, EVERY DAY</div>{pendingInvite&&<div className="banner invite-banner">초대받으셨네요! 로그인하면 모임에 바로 참여돼요.</div>}<h1>함께 챙기는 일상,<br/>차곡차곡 쌓이는 우리.</h1><p>이번 달 할 일부터 오늘 쓴 생활비까지.<br/>가족에게 필요한 이야기를 한곳에 모아요.</p>{banners}
     {supabase ? <>
-      {!emailMode && <><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin())}><KakaoGlyph/>{busy?'카카오로 연결 중…':'카카오 로그인'}</button><p className="login-note">이메일 입력 없이 카카오 계정으로 시작해요.<br/>처음이라면 로그인 후 모임을 만들거나, 가족이 보낸 초대 링크로 참여하세요.<br/>가족이 내 카카오 닉네임을 등록해 뒀다면 로그인만 하면 돼요.</p><button className="text-button" onClick={()=>{setEmailMode(true);setError('');setNotice('');}}>카카오가 안 될 때 · 이메일로 로그인</button></>}
+      {!emailMode && <><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin())}><KakaoGlyph/>{busy?'카카오로 연결 중…':'카카오 로그인'}</button><p className="login-note">이메일 입력 없이 카카오 계정으로 시작해요.<br/>처음이라면 로그인 후 모임을 만들거나, 가족이 보낸 초대 링크로 참여하세요.<br/>가족이 내 카카오 닉네임을 등록해 뒀다면 로그인만 하면 돼요.</p>
+      {!pendingInvite&&(codeMode
+        ? <form className="email-login" onSubmit={e=>{e.preventDefault();rememberInvite(String(new FormData(e.currentTarget).get('code')||''));}}><label>초대 코드 또는 링크<input name="code" required autoComplete="off" placeholder="가족이 보낸 코드·링크를 붙여넣으세요"/></label><button className="secondary">코드 기억하기</button><button type="button" className="text-button" onClick={()=>setCodeMode(false)}>취소</button></form>
+        : <button className="text-button" onClick={()=>{setCodeMode(true);setError('');}}>초대 코드를 받았어요</button>)}
+      <button className="text-button" onClick={()=>{setEmailMode(true);setError('');setNotice('');}}>카카오가 안 될 때 · 이메일로 로그인</button></>}
       {emailMode && (emailAddr
         ? <form className="email-login" onSubmit={e=>{e.preventDefault();const v=new FormData(e.currentTarget);run(()=>verifyEmailCode(String(v.get('token'))));}}>
             <p className="login-note"><b>{emailAddr}</b>로 메일을 보냈어요. <b>지금 이 기기·브라우저에서</b> 메일의 링크를 누르면 바로 로그인돼요. 메일에 8자리 번호가 있으면 아래에 입력해도 돼요.</p>

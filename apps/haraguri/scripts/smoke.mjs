@@ -16,6 +16,16 @@ try {
   assert.equal(await page.evaluate(() => localStorage.getItem('haraguri-invite')),'00000000-0000-4000-8000-000000000000');
   await page.evaluate(() => localStorage.removeItem('haraguri-invite'));
   await page.goto(base);
+  // A code (or whole link) pasted on the login screen is remembered the same way, before signing in.
+  await page.getByRole('button',{name:'초대 코드를 받았어요'}).click();
+  await page.getByLabel('초대 코드 또는 링크').fill('잘못된 코드');
+  await page.getByRole('button',{name:'코드 기억하기'}).click();
+  await page.getByRole('alert').filter({hasText:'초대 코드 형식이 아니에요'}).waitFor();
+  await page.getByLabel('초대 코드 또는 링크').fill(`${base}/?invite=11111111-2222-4333-8444-555555555555`);
+  await page.getByRole('button',{name:'코드 기억하기'}).click();
+  await page.getByText('초대받으셨네요!',{exact:false}).waitFor();
+  assert.equal(await page.evaluate(() => localStorage.getItem('haraguri-invite')),'11111111-2222-4333-8444-555555555555');
+  await page.evaluate(() => localStorage.removeItem('haraguri-invite'));
   // Simulate an Android share-sheet hand-off: the service worker would have cached these items before redirecting to /?shared=1.
   await page.evaluate(async () => { const c = await caches.open('haraguri-share'); await c.put('/share/meta', new Response(JSON.stringify({ count: 0, text: '신한카드(5678)승인 김*한 15,900원(일시불)10/26 09:10 스타벅스 역삼점', at: Date.now() }), { headers: { 'Content-Type': 'application/json' } })); });
   await page.goto(`${base}/?shared=1`);
