@@ -80,17 +80,22 @@ async function main() {
   // Sync health for diagnosis without Full Disk Access: when did the last iPhone SMS / any message reach this Mac?
   const toIso = d => d ? new Date(((d > 10000000000 ? d / 1e9 : d) + 978307200) * 1000).toISOString() : null;
   const newest = read(`select max(case when service='SMS' then date end) as sms, max(date) as any from message where is_from_me=0`)[0] || {};
-  writeFileSync(join(DIR, 'status.json'), JSON.stringify({ at: new Date().toISOString(), lastRowId: state.lastRowId, newestSms: toIso(newest.sms), newestMessage: toIso(newest.any) }));
+  const STATUS = join(DIR, 'status.json');
+  const status = { at: new Date().toISOString(), lastRowId: state.lastRowId, newestSms: toIso(newest.sms), newestMessage: toIso(newest.any), lastPass: readJson(STATUS, {}).lastPass };
+  const writeStatus = () => writeFileSync(STATUS, JSON.stringify(status));
+  writeStatus();
   // date is ns since 2001-01-01 on current macOS; older DBs used seconds.
-  const rows = read(`select m.ROWID as rowid, m.text as text, hex(m.attributedBody) as body, m.is_from_me as from_me,
+  const rows = read(`select m.ROWID as rowid, m.text as text, hex(m.attributedBody) as body, m.is_from_me as from_me, m.service as service,
       case when m.date > 10000000000 then m.date/1000000000 else m.date end + 978307200 as unix, h.id as sender
       from message m left join handle h on h.ROWID = m.handle_id where m.ROWID > ${Number(state.lastRowId) || 0} order by m.ROWID asc limit 500`);
   if (!rows.length) { if (flag('--verbose')) log('새 메시지 없음'); return; }
   const cutoff = Date.now() / 1000 - config.lookbackDays * 86400;
   let sent = 0, skipped = 0, last = Number(state.lastRowId) || 0;
+  const seen = []; // content-free trace of what each row looked like, for diagnosing decode/filter problems
   for (const row of rows) {
     const text = (row.text || decodeAttributedBody(row.body) || '').trim();
     const isPayment = !row.from_me && PAYMENT.test(text) && AMOUNT.test(text) && row.unix >= cutoff;
+    seen.push({ rowid: row.rowid, service: row.service, fromMe: !!row.from_me, chars: text.length, hasText: !!row.text, hasBody: !!row.body, keyword: PAYMENT.test(text), amount: AMOUNT.test(text), payment: isPayment, ageMin: Math.round((Date.now() / 1000 - row.unix) / 60) });
     if (isPayment) {
       if (flag('--dry-run')) { log(`[dry-run] ${row.sender ?? '?'}: ${text.replace(/\s+/g, ' ').slice(0, 80)}`); sent++; }
       else {
@@ -105,6 +110,7 @@ async function main() {
     last = row.rowid;
   }
   if (!flag('--dry-run')) { state.lastRowId = last; writeFileSync(STATE, JSON.stringify(state)); }
+  status.lastPass = { at: status.at, sent, skipped, rows: seen.slice(-10) }; writeStatus();
   if (sent || flag('--verbose')) log(`처리: 전송 ${sent}건 · 건너뜀 ${skipped}건`);
 }
 main().catch(e => { log(`오류: ${e.message}`); process.exit(1); });
