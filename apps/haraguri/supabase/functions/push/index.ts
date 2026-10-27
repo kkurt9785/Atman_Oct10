@@ -3,7 +3,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
-type Prefs = { messages?: boolean; files?: boolean; daily?: boolean; eve?: boolean; ingest?: boolean; unread?: boolean; budget?: boolean };
+type Prefs = { messages?: boolean; files?: boolean; daily?: boolean; eve?: boolean; ingest?: boolean; unread?: boolean; budget?: boolean; weekly?: boolean };
 type UnreadRow = { family_id: string; family_name: string; entry_id: string | null; occurrence: string | null; room_title: string; unread: number; latest_at: string; latest_body: string | null; latest_author: string | null };
 type Subscription = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; prefs: Prefs | null; quiet_start: number | null; quiet_end: number | null };
 type Kind = keyof Prefs;
@@ -145,6 +145,40 @@ async function onBudget(p: { family_id: string; level: number; spent: number; bu
   return send(await subscriptionsFor((members ?? []).map(m => m.user_id)), { title, body, url: '/?tab=money', tag: `budget-${p.month}` }, 'budget');
 }
 
+// kind 'weekly' (Monday 08:00 KST): last week's spending, the change versus the week before, top categories, budget progress.
+async function onWeekly() {
+  const now = kst();
+  const dow = now.getUTCDay();
+  const end = new Date(now); end.setUTCDate(now.getUTCDate() - ((dow + 6) % 7) - 1); // last Sunday
+  const start = new Date(end); start.setUTCDate(end.getUTCDate() - 6);
+  const prevStart = new Date(start); prevStart.setUTCDate(start.getUTCDate() - 7);
+  const prevEnd = new Date(start); prevEnd.setUTCDate(start.getUTCDate() - 1);
+  const s = ymd(start), e = ymd(end), ps = ymd(prevStart), pe = ymd(prevEnd), month = e.slice(0, 7);
+  const won = (n: number) => `${Math.round(n).toLocaleString('ko-KR')}원`;
+  const { data: families } = await admin.from('hg_families').select('id,name');
+  let delivered = 0;
+  for (const family of families ?? []) {
+    const [{ data: rows }, { data: members }, { data: budgets }] = await Promise.all([
+      admin.from('hg_expenses').select('amount,date,category,kind').eq('family_id', family.id).eq('kind', 'expense').gte('date', ps).lte('date', e),
+      admin.from('hg_members').select('user_id').eq('family_id', family.id),
+      admin.from('hg_budgets').select('month,total').eq('family_id', family.id).lte('month', `${month}-01`).order('month', { ascending: false }).limit(1),
+    ]);
+    const week = (rows ?? []).filter(r => r.date >= s), prev = (rows ?? []).filter(r => r.date <= pe);
+    const weekTotal = week.reduce((a, r) => a + Number(r.amount), 0), prevTotal = prev.reduce((a, r) => a + Number(r.amount), 0);
+    if (!week.length && !prev.length) continue;
+    const cats = new Map<string, number>(); for (const r of week) cats.set(r.category, (cats.get(r.category) ?? 0) + Number(r.amount));
+    const top = [...cats.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c, v]) => `${c} ${won(v)}`).join(' · ');
+    const budget = budgets?.[0]?.total ? Number(budgets[0].total) : 0;
+    let budgetLine = '';
+    if (budget) { const { data: mtd } = await admin.from('hg_expenses').select('amount').eq('family_id', family.id).eq('kind', 'expense').gte('date', `${month}-01`).lte('date', e); const spent = (mtd ?? []).reduce((a, r) => a + Number(r.amount), 0); budgetLine = ` · 이달 예산 ${Math.round(spent / budget * 100)}%`; }
+    const diff = weekTotal - prevTotal;
+    const body = `${prev.length ? `지지난주보다 ${diff >= 0 ? '+' : '−'}${won(Math.abs(diff))}` : '첫 주간 요약'}${top ? ` · ${top}` : ''}${budgetLine}`;
+    const r = await send(await subscriptionsFor((members ?? []).map(m => m.user_id)), { title: `${family.name} · 지난주 ${won(weekTotal)} 썼어요`, body: body.slice(0, 180), url: '/?tab=money', tag: `weekly-${e}` }, 'weekly');
+    delivered += r.delivered;
+  }
+  return { delivered };
+}
+
 Deno.serve(async req => {
   if (req.method !== 'POST') return new Response('method', { status: 405 });
   if (!configured()) return new Response('push not configured', { status: 503 });
@@ -156,6 +190,7 @@ Deno.serve(async req => {
       : payload.kind === 'eve' ? await onDaily('eve')
       : payload.kind === 'unread' ? await onUnread()
       : payload.kind === 'budget' ? await onBudget(payload as Parameters<typeof onBudget>[0])
+      : payload.kind === 'weekly' ? await onWeekly()
       : payload.kind === 'ingest' ? await send(await subscriptionsFor([String(payload.user_id)]), { title: String(payload.title ?? 'HARAGURI'), body: String(payload.body ?? ''), url: String(payload.url ?? '/'), tag: 'ingest' }, 'ingest')
       : (payload.kind === 'comment' || payload.kind === 'file') ? await onMessage(payload as Parameters<typeof onMessage>[0]) : { ignored: true };
     return Response.json(result);

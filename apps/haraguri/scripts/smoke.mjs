@@ -7,7 +7,7 @@ const errors = [];
 try {
   const page = await browser.newPage({ viewport: {width:390,height:844} });
   page.on('pageerror', e => errors.push(e.message));
-  page.on('dialog', d => d.type() === 'prompt' ? d.accept('테스트 이름') : d.accept()); // confirm → OK, prompt → a fixed name
+  page.on('dialog', d => d.type() === 'prompt' ? d.accept(/금액/.test(d.message()) ? '50000' : '테스트 이름') : d.accept()); // confirm → OK, prompt → a fixed name (or an amount)
   const base = process.env.BASE_URL || 'http://127.0.0.1:3004';
   // An invite link shows a banner on the login screen, remembers the code for after login, and cleans the URL.
   await page.goto(`${base}/?invite=00000000-0000-4000-8000-000000000000`);
@@ -181,7 +181,7 @@ try {
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
   await page.getByText(`${smsMonth} 총지출`,{exact:true}).waitFor();
   await page.getByRole('heading',{name:'자주 쓴 곳 TOP 5'}).waitFor();
-  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'반복 지출'}).click();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'반복·적립'}).click();
   await page.getByText('아파트 관리비',{exact:true}).waitFor();
   await page.getByRole('button',{name:'＋ 반복 지출'}).click();
   await dialog.getByLabel('이름',{exact:true}).fill('넷플릭스');
@@ -221,6 +221,43 @@ try {
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
   await page.getByText('수입 · 남는 돈',{exact:true}).waitFor();
   await page.getByText('예산 2,000,000원 중',{exact:false}).waitFor();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
+  // Learned rule: saving '스타벅스 강남' as 교통 teaches the family; the next '스타벅스 …' pre-selects 교통.
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await dialog.getByLabel('금액 (원)',{exact:true}).fill('4500');
+  await dialog.getByLabel('사용처·내용').fill('스타벅스 강남');
+  await dialog.getByRole('group',{name:'분류'}).getByRole('button',{name:/교통/}).click();
+  await moreFields(); await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-16');
+  await dialog.getByRole('button',{name:'저장하기'}).click();
+  await page.locator('.finance-expense').filter({hasText:'스타벅스 강남'}).waitFor();
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await dialog.getByLabel('사용처·내용').fill('스타벅스 역삼');
+  assert.equal(await dialog.getByRole('group',{name:'분류'}).getByRole('button',{name:/교통/}).getAttribute('aria-pressed'),'true');
+  await dialog.getByRole('button',{name:'닫기',exact:true}).click();
+  // Regret toggle, expense → chat room, calendar view with a day filter, search.
+  const star = page.locator('.finance-expense').filter({hasText:'스타벅스 강남'});
+  await star.getByRole('button',{name:'스타벅스 강남 후회 표시'}).click();
+  assert.equal(await star.getByRole('button',{name:'스타벅스 강남 후회 표시'}).getAttribute('aria-pressed'),'true');
+  await star.getByRole('button',{name:'스타벅스 강남 대화'}).click();
+  await dialog.getByRole('heading',{name:'스타벅스 강남'}).waitFor();
+  await dialog.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.getByRole('group',{name:'내역 보기'}).getByRole('button',{name:'달력'}).click();
+  await page.getByRole('button',{name:/^2026-03-16 /}).click();
+  await page.getByText('3월 16일 (월)만 보는 중').waitFor();
+  await page.getByRole('button',{name:'전체 보기'}).click();
+  if (!(await page.getByLabel('내역 검색').count())) await page.getByRole('button',{name:/^필터/}).click();
+  await page.getByLabel('내역 검색').fill('스타벅스');
+  assert.equal(await page.locator('.finance-expense').count(),1);
+  await page.getByLabel('내역 검색').fill('');
+  // Envelopes: the demo envelope takes a deposit through the amount prompt (50,000).
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'반복·적립'}).click();
+  await page.locator('.envelope').filter({hasText:'자동차세'}).getByRole('button',{name:'＋ 넣기'}).click();
+  await page.locator('.envelope').filter({hasText:'자동차세'}).getByText('150,000원',{exact:true}).waitFor();
+  // Report: settlement panel (2 demo members) and a CSV download.
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
+  await page.getByRole('heading',{name:'월말 정산'}).waitFor();
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button',{name:'CSV 내려받기'}).click()]);
+  assert.equal(download.suggestedFilename(),'haraguri-2026-03.csv');
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
 
 

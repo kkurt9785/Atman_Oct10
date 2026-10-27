@@ -4,9 +4,9 @@ import { supabase } from '../lib/supabase';
 import { currentSubscription } from '../lib/push';
 
 // Per-device notification choices, stored on this device's subscription row.
-type Prefs = { messages: boolean; files: boolean; daily: boolean; eve: boolean; ingest: boolean; unread: boolean; budget: boolean };
-const LABELS: [keyof Prefs, string][] = [['messages', '새 메시지'], ['files', '새 사진·문서'], ['unread', '안 읽은 메시지 리마인드 (2시간 뒤 한 번 더)'], ['daily', '아침 8시 오늘 할 일'], ['eve', '저녁 8시 내일 미리 보기'], ['ingest', '가계부 자동 등록 확인'], ['budget', '예산 80% · 초과 알림']];
-const defaults: Prefs = { messages: true, files: true, daily: true, eve: true, ingest: true, unread: true, budget: true };
+type Prefs = { messages: boolean; files: boolean; daily: boolean; eve: boolean; ingest: boolean; unread: boolean; budget: boolean; weekly: boolean };
+const LABELS: [keyof Prefs, string][] = [['messages', '새 메시지'], ['files', '새 사진·문서'], ['unread', '안 읽은 메시지 리마인드 (2시간 뒤 한 번 더)'], ['daily', '아침 8시 오늘 할 일'], ['eve', '저녁 8시 내일 미리 보기'], ['ingest', '가계부 자동 등록 확인'], ['budget', '예산 80% · 초과 알림'], ['weekly', '월요일 아침 지난주 요약']];
+const defaults: Prefs = { messages: true, files: true, daily: true, eve: true, ingest: true, unread: true, budget: true, weekly: true };
 
 export function PushPrefs({ busy, onError }: { busy: boolean; onError: (m: string) => void }) {
   const [endpoint, setEndpoint] = useState('');

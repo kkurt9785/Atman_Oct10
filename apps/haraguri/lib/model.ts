@@ -14,7 +14,12 @@ export type Expense = {
   id: string; family_id: string; card_id: string | null; title: string; amount: number; date: string; category: string; created_by: string;
   entry_id?: string | null; occurrence?: string | null; payment_method?: 'card' | 'bank_transfer' | 'cash' | 'other'; qualifying_amount?: number | null; performance_month?: string | null;
   source?: 'manual' | 'sms' | 'recurring'; reviewed?: boolean; raw_text?: string | null; kind?: 'expense' | 'income';
+  note?: string; cancels?: string | null; canceled_by?: string | null; scope?: 'shared' | 'personal'; regret?: boolean;
 };
+export type CategoryRule = { id: string; family_id: string; keyword: string; category: string; scope?: 'shared' | 'personal' | null };
+export type Envelope = { id: string; family_id: string; name: string; target: number; due_month: string | null; created_by: string; closed_at?: string | null };
+export type EnvelopeEntry = { id: string; family_id: string; envelope_id: string; amount: number; date: string; note?: string; created_by: string };
+export type Settlement = { family_id: string; month: string; settled_at: string; settled_by: string; note?: string };
 export type Budget = { family_id: string; month: string; total: number; by_category: Record<string, number> };
 export const INCOME_CATEGORIES = ['월급', '부수입', '용돈', '환급', '이자·배당', '기타 수입'];
 export type RecurringExpense = {
@@ -31,8 +36,8 @@ export type Family = { id: string; name: string; owner_id: string };
 // A closed room keeps its text but its files were removed; writes are blocked until reopened.
 export type RoomState = { family_id: string; entry_id: string; occurrence: string; closed_at: string | null; closed_by: string | null; purged_at: string | null; purged_files: number; purged_bytes: number };
 // Chat rooms (comments, attachments) are paged separately in lib/chat.ts and are not part of the family snapshot.
-export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[]; rooms: RoomState[]; recurring: RecurringExpense[]; budgets: Budget[] };
-export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [], rooms: [], recurring: [], budgets: [] };
+export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[]; rooms: RoomState[]; recurring: RecurringExpense[]; budgets: Budget[]; rules: CategoryRule[]; envelopes: Envelope[]; envelopeEntries: EnvelopeEntry[]; settlements: Settlement[] };
+export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [], rooms: [], recurring: [], budgets: [], rules: [], envelopes: [], envelopeEntries: [], settlements: [] };
 
 // Calendar dates are local date-only values, not UTC timestamps.
 export function today() {
@@ -84,6 +89,9 @@ export function demoData(): Data {
     ],
     rooms: [],
     budgets: [{ family_id: 'demo', month: `${month}-01`, total: 1500000, by_category: { '식비': 500000, '교육': 300000, '생활': 200000 } }],
+    rules: [], settlements: [],
+    envelopes: [{ id: 'e1', family_id: 'demo', name: '자동차세', target: 600000, due_month: `${String(Number(month.slice(0,4))+1)}-06-01`, created_by: 'demo' }],
+    envelopeEntries: [{ id: 'ee1', family_id: 'demo', envelope_id: 'e1', amount: 100000, date: `${month}-05`, created_by: 'demo' }],
     recurring: [{ id: 'r1', family_id: 'demo', title: '아파트 관리비', amount: 180000, day_of_month: 25, category: '관리비', payment_method: 'bank_transfer', card_id: null, start_month: `${month}-01`, end_month: null, active: true, created_by: 'demo' }],
   };
 }

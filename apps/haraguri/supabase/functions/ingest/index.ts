@@ -2,7 +2,7 @@
 // The message is parsed server-side and saved as an expense awaiting review (reviewed=false). Duplicates are ignored by fingerprint.
 //   POST /functions/v1/ingest?token=…   body: {"text": "..."} | text/plain | form field "text"   (or header x-ingest-token)
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage } from '../_shared/cardsms.core.ts';
+import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule } from '../_shared/cardsms.core.ts';
 
 type Card = { id: string; name: string; holder: string; benefit_note: string | null; card_type: 'credit' | 'debit' | null };
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -41,18 +41,33 @@ Deno.serve(async req => {
   if (!parsed) return json({ ignored: 'no amount found' });
   if (parsed.incoming) return json({ ignored: 'incoming transfer' });
 
-  const { data: cards } = await admin.from('hg_cards').select('id,name,holder,benefit_note,card_type').eq('family_id', owner.family_id);
+  const [{ data: cards }, { data: rules }] = await Promise.all([
+    admin.from('hg_cards').select('id,name,holder,benefit_note,card_type').eq('family_id', owner.family_id),
+    admin.from('hg_category_rules').select('keyword,category,scope').eq('family_id', owner.family_id),
+  ]);
+  const rule = matchRule(parsed.merchant, rules as { keyword: string; category: string; scope: string | null }[] | null);
+  // A cancellation message nets out the matching purchase (same amount, last 60 days, similar merchant or same card digits).
+  let cancels: string | null = null;
+  if (parsed.cancel) {
+    const since = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+    const { data: cands } = await admin.from('hg_expenses').select('id,title,raw_text').eq('family_id', owner.family_id).eq('kind', 'expense').eq('amount', Math.abs(parsed.amount)).is('canceled_by', null).gte('date', since).order('date', { ascending: false }).limit(20);
+    const norm = (v: string) => v.replace(/\s+/g, '').toLowerCase();
+    const key = norm(parsed.merchant).slice(0, 4);
+    const hit = (cands ?? []).find(c => (key && norm(c.title).includes(key)) || (parsed.last4 && c.raw_text?.includes(parsed.last4))) ?? (cands ?? [])[0] ?? null;
+    cancels = hit?.id ?? null;
+  }
   const cardId = matchCard(parsed, (cards ?? []) as Card[]);
   const payment = parsed.channel === 'bank_transfer' ? 'bank_transfer' : cardId ? 'card' : 'other';
   const row = {
-    family_id: owner.family_id, created_by: owner.user_id, title: parsed.merchant, amount: parsed.amount, date: parsed.date, category: parsed.category,
-    payment_method: payment, card_id: cardId, source: 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
+    family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : parsed.merchant, amount: parsed.amount, date: parsed.date, category: rule?.category ?? parsed.category,
+    scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
   };
   const inserted = await admin.from('hg_expenses').insert(row).select('id').single();
   if (inserted.error) {
     if (inserted.error.code === '23505') return json({ duplicate: true, summary: describe(parsed) });
     return json({ error: inserted.error.message }, 500);
   }
+  if (cancels) await admin.from('hg_expenses').update({ canceled_by: inserted.data.id }).eq('id', cancels);
   await admin.rpc('hg_bump_ingest', { tok: token }).then(() => undefined, () => undefined);
   // Tell the collector's own devices that something is waiting for review (best effort).
   const hook = Deno.env.get('HOOK_SECRET'); const base = Deno.env.get('SUPABASE_URL');

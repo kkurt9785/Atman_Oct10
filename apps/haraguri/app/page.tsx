@@ -5,9 +5,9 @@ import type { User } from '@supabase/supabase-js';
 import { startKakaoLogin } from '../lib/kakao';
 import { KakaoGlyph } from '../components/KakaoGlyph';
 import { supabase } from '../lib/supabase';
-import { Attachment, Card, Expense, Data, Entry, Family, Pin, Reaction, Comment, RecurringExpense, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
+import { Attachment, Card, Expense, Data, Entry, Envelope, Family, Pin, Reaction, Comment, RecurringExpense, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
 
-import { BudgetFields, CardFields, ExpenseFields, FinancePanel, FinanceView, RecurringFields, SmsPaste } from '../components/Finance';
+import { BudgetFields, CardFields, EnvelopeFields, ExpenseFields, FinancePanel, FinanceView, RecurringFields, SmsPaste } from '../components/Finance';
 import { budgetFor, budgetStatus } from '../lib/budget';
 import { PushPrefs } from '../components/PushPrefs';
 import { IngestSetup } from '../components/IngestSetup';
@@ -22,19 +22,19 @@ import { Chat } from '../components/Chat';
 import { WorkBoard, WorkFields, ExpenseWorkFields } from '../components/Work';
 import { Room, inRoom, isClosed, looksFinished, purchaseStates, roomDate, roomState, workExpenses } from '../lib/work';
 import { occurrence } from '../lib/model';
-import { categories, parseThresholds, validateQualifyingAmount } from '../lib/finance';
+import { categories, learnKeyword, parseThresholds, validateQualifyingAmount } from '../lib/finance';
 import { DemoChat, SearchHit, emptySocial, listRoomFiles, useRoomMessages, useRoomSocial } from '../lib/chat';
 import { formatBytes, prepareUpload, thumbPath } from '../lib/image';
 
 type Tab = 'home' | 'calendar' | 'money' | 'chat' | 'alerts' | 'settings';
-type FormKind = 'entry' | 'expense' | 'card' | 'recurring' | 'budget' | null;
+type FormKind = 'entry' | 'expense' | 'card' | 'recurring' | 'budget' | 'envelope' | null;
 type InviteRow = { family_id: string; family_name: string; invited_by_name: string; matched: string };
 type TargetRow = { id: string; target: string; expires_at: string };
 type UnreadRow = { family_id: string; family_name: string; entry_id: string | null; occurrence: string | null; room_title: string; unread: number; latest_at: string; latest_body: string | null; latest_author: string | null };
 const tabs: [Tab, string, string][] = [['home', '⌂', '우리집'], ['calendar', '▦', '일정·할 일'], ['money', '₩', '가계부'], ['chat', '◌', '대화'], ['settings', '⚙', '가족 설정']];
 // Snapshot tables: [key, table, order column, ascending, tiebreak column for stable paging]. Newest first so the 2,000-row window keeps recent records.
-const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id'], ['recurring', 'hg_recurring_expenses', 'day_of_month', true, 'id'], ['budgets', 'hg_budgets', 'month', false, null]];
-const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태', recurring: '반복 지출', budgets: '예산' };
+const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id'], ['recurring', 'hg_recurring_expenses', 'day_of_month', true, 'id'], ['budgets', 'hg_budgets', 'month', false, null], ['rules', 'hg_category_rules', 'keyword', true, 'id'], ['envelopes', 'hg_envelopes', 'created_at', false, 'id'], ['envelopeEntries', 'hg_envelope_entries', 'date', false, 'id'], ['settlements', 'hg_settlements', 'month', false, null]];
+const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태', recurring: '반복 지출', budgets: '예산', rules: '분류 규칙', envelopes: '적립 봉투', envelopeEntries: '적립 기록', settlements: '정산' };
 const ROW_CAP = 2000;
 const FREE_STORAGE_BYTES = 1024 ** 3;
 const repeatLabel = { none: '한 번', monthly: '매월', yearly: '매년' };
@@ -89,6 +89,7 @@ export default function Home() {
   const [invites,setInvites]=useState<InviteRow[]>([]); // 모임 주인이 내 닉네임·이메일을 적어 둔 초대 — 로그인하면 바로 보인다
   const [targets,setTargets]=useState<TargetRow[]>([]);
   const [codeMode,setCodeMode]=useState(false); // login screen: paste an invite code/link before signing in
+  const [recurringPrefill,setRecurringPrefill]=useState<{title:string;amount:number;day:number}|null>(null);
   const [unread,setUnread]=useState<UnreadRow[]>([]); // rooms with messages this person has not opened yet (all spaces)
   const [focusTick,setFocusTick]=useState(0); // bumps when the app comes back to the foreground so the open room is marked read again
   const inviteLink=(code:string)=>`${window.location.origin}/?invite=${code}`;
@@ -205,7 +206,7 @@ export default function Home() {
     const refreshChat=()=>{clearTimeout(chatTimer);chatTimer=setTimeout(bumpChat,150);};
     const channel=supabase.channel(`family-chat-${family.id}`);
     for(const table of ['hg_comments','hg_attachments','hg_reactions','hg_pins','hg_room_reads']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refreshChat);
-    for(const table of ['hg_entries','hg_expenses','hg_receipts','hg_rooms','hg_budgets']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refresh);
+    for(const table of ['hg_entries','hg_expenses','hg_receipts','hg_rooms','hg_budgets','hg_category_rules','hg_envelopes','hg_envelope_entries','hg_settlements']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refresh);
     channel.subscribe(status=>{const ok=status==='SUBSCRIBED';setLive(ok);setSync(ok?'실시간 연결됨':'연결 중 · 30초마다 새로고침');if(ok){refresh();refreshChat();}});
     return()=>{clearTimeout(timer);clearTimeout(chatTimer);setLive(false);void supabase!.removeChannel(channel);};
   },[family?.id,user?.id,demo,load]);
@@ -354,6 +355,36 @@ export default function Home() {
     const r = await supabase!.from('hg_comments').delete().eq('id', id);
     if (r.error) throw r.error;
     bumpChat();
+  }
+  // Saving an expense teaches the family a rule: merchant keyword → category (and shared/personal). Demo keeps rules in memory.
+  async function learnRule(title: string, category: string, scope: 'shared' | 'personal') {
+    const keyword = learnKeyword(title); if (!keyword || !category) return;
+    if (demo) { setData(d => ({ ...d, rules: [...d.rules.filter(r => r.keyword !== keyword), { id: crypto.randomUUID(), family_id: 'demo', keyword, category, scope }] })); return; }
+    await supabase!.from('hg_category_rules').upsert({ family_id: family!.id, keyword, category, scope, created_by: uid }, { onConflict: 'family_id,keyword' });
+  }
+  async function envelopeEntry(envelope: Envelope, amount: number) {
+    if (demo) { setData(d => ({ ...d, envelopeEntries: [...d.envelopeEntries, { id: crypto.randomUUID(), family_id: 'demo', envelope_id: envelope.id, amount, date: today(), created_by: uid }] })); return; }
+    const r = await supabase!.from('hg_envelope_entries').insert({ family_id: family!.id, envelope_id: envelope.id, amount, date: today() }); if (r.error) throw r.error; await load();
+  }
+  async function deleteEnvelope(envelope: Envelope) {
+    if (demo) { setData(d => ({ ...d, envelopes: d.envelopes.filter(e => e.id !== envelope.id), envelopeEntries: d.envelopeEntries.filter(e => e.envelope_id !== envelope.id) })); return; }
+    const r = await supabase!.from('hg_envelopes').delete().eq('id', envelope.id); if (r.error) throw r.error; await load();
+  }
+  async function setSettled(monthKey: string, settled: boolean) {
+    const monthDate = `${monthKey}-01`;
+    if (demo) { setData(d => ({ ...d, settlements: settled ? [...d.settlements, { family_id: 'demo', month: monthDate, settled_at: new Date().toISOString(), settled_by: uid }] : d.settlements.filter(x => x.month.slice(0, 10) !== monthDate) })); return; }
+    const r = settled ? await supabase!.from('hg_settlements').upsert({ family_id: family!.id, month: monthDate, settled_by: uid, settled_at: new Date().toISOString() }, { onConflict: 'family_id,month' }) : await supabase!.from('hg_settlements').delete().eq('family_id', family!.id).eq('month', monthDate);
+    if (r.error) throw r.error; await load();
+  }
+  // A chat for one expense: reuse its linked room, or create a done-purchase entry on the spot and link the expense to it.
+  async function openExpenseChat(e: Expense) {
+    const existing = e.entry_id ? data.entries.find(x => x.id === e.entry_id) : null;
+    if (existing) { setSelected({ entry: existing, date: e.occurrence || existing.date }); return; }
+    const fields = { title: e.title, body: `${money(e.amount)} · ${e.category}${e.note ? ` · ${e.note}` : ''}`, kind: 'purchase' as const, date: e.date, repeat: 'none' as const, purchase_state: 'purchased' as const, expected_amount: Number(e.amount), assignee: null as unknown as string };
+    if (demo) { const entry = { ...fields, id: crypto.randomUUID(), family_id: 'demo', created_by: uid } as Entry; setData(d => ({ ...d, entries: [...d.entries, entry], expenses: d.expenses.map(x => x.id === e.id ? { ...x, entry_id: entry.id, occurrence: e.date } : x) })); setSelected({ entry, date: e.date }); return; }
+    const ins = await supabase!.from('hg_entries').insert({ family_id: family!.id, created_by: uid, ...fields }).select().single(); if (ins.error) throw ins.error;
+    if (e.created_by === uid) await supabase!.from('hg_expenses').update({ entry_id: ins.data.id, occurrence: e.date }).eq('id', e.id);
+    await load(); setSelected({ entry: ins.data as Entry, date: e.date });
   }
   async function update(key: 'cards'|'expenses'|'entries'|'recurring', table: string, id: string, value: Record<string, unknown>) {
     if (demo) setData(d => ({...d, [key]: d[key].map(row => row.id === id ? {...row,...value} : row)}));
@@ -510,10 +541,18 @@ export default function Home() {
         if (str('payment_method')==='card' && !str('card_id')) throw new Error('카드를 선택해 주세요.');
         const entry=data.entries.find(e=>e.id===str('entry_id'));
         if(entry && occurrence(entry,str('occurrence').slice(0,7))!==str('occurrence')) throw new Error('반복 일정의 실제 회차 날짜를 선택해 주세요.');
-        const value = {entry_id: entry?.id || null, occurrence: entry?str('occurrence'):null, payment_method: str('payment_method'), title: str('title'), amount, date: str('date'), category: str('category'), card_id: str('card_id') || null, qualifying_amount: qualifying, performance_month: str('card_id') && str('performance_month') ? `${str('performance_month')}-01` : null, kind};
+        const scopeValue = str('scope') === 'personal' ? 'personal' : 'shared';
+        const value = {entry_id: entry?.id || null, occurrence: entry?str('occurrence'):null, payment_method: str('payment_method'), title: str('title'), amount, date: str('date'), category: str('category'), card_id: str('card_id') || null, qualifying_amount: qualifying, performance_month: str('card_id') && str('performance_month') ? `${str('performance_month')}-01` : null, kind, note: str('note').slice(0, 200), scope: scopeValue, regret: kind === 'expense' && str('regret') === 'on'};
         if (kind === 'income') { value.card_id = null; value.qualifying_amount = null; value.performance_month = null; if (value.payment_method === 'card' || !value.payment_method) value.payment_method = 'bank_transfer'; }
         if (editingExpense) await update('expenses','hg_expenses',editingExpense.id,editingExpense.reviewed===false?{...value,reviewed:true}:value);
         else { await insert('expenses','hg_expenses',{...common,...value}); try{localStorage.setItem(lastPayKey,JSON.stringify({payment_method:value.payment_method,card_id:value.card_id||''}));}catch{} }
+        if (kind === 'expense') await learnRule(value.title, value.category, scopeValue);
+      } else if (form === 'envelope') {
+        const target = Number(str('env_target'));
+        if (!str('env_name') || !Number.isSafeInteger(target) || target <= 0) throw new Error('이름과 목표 금액을 입력해 주세요.');
+        const row = { family_id: family!.id, name: str('env_name').slice(0, 60), target, due_month: str('env_due') ? `${str('env_due')}-01` : null };
+        if (demo) setData(d => ({ ...d, envelopes: [...d.envelopes, { ...row, id: crypto.randomUUID(), created_by: uid }] }));
+        else { const r = await supabase!.from('hg_envelopes').insert(row); if (r.error) throw r.error; await load(); }
       } else if (form === 'budget') {
         const totalBudget = Number(str('budget_total') || 0);
         if (!Number.isSafeInteger(totalBudget) || totalBudget < 0 || totalBudget > 100000000000) throw new Error('예산은 0 이상의 원 단위 금액으로 입력해 주세요.');
@@ -606,11 +645,13 @@ export default function Home() {
       {tab === 'calendar' && <Planner data={data} month={month} setMonth={setMonth} focusDay={plannerFocus} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={date=>{setEntryDate(date);setForm('entry');}}/>}
       {tab === 'money' && <FinancePanel entries={data.entries} onOpenWork={(entry,date)=>setSelected({entry,date})} cards={data.cards} expenses={data.expenses} uid={uid} month={month} setMonth={setMonth} busy={busy} onAddCard={()=>openCard()} onEditCard={openCard} onEditExpense={openExpense}
         view={financeView} setView={setFinanceView} report={monthlyReport(data.expenses,data.members,month,today())} recurring={data.recurring}
-        onAddRecurring={()=>{setError('');setForm('recurring');}}
+        onAddRecurring={()=>{setRecurringPrefill(null);setError('');setForm('recurring');}}
         onToggleRecurring={r=>run(()=>update('recurring','hg_recurring_expenses',r.id,{active:!r.active}))}
         onDeleteRecurring={r=>{if(!window.confirm(`'${r.title}' 반복 지출을 삭제할까요? 이미 기록된 지출은 남아요.`))return;run(async()=>{if(demo)setData(d=>({...d,recurring:d.recurring.filter(x=>x.id!==r.id)}));else{const d=await supabase!.from('hg_recurring_expenses').delete().eq('id',r.id);if(d.error)throw d.error;await load();}});}}
-        onConfirmReview={e=>run(()=>update('expenses','hg_expenses',e.id,{reviewed:true}))}
-        budgets={data.budgets} onEditBudget={()=>{setError('');setForm('budget');}}
+        onConfirmReview={e=>run(async()=>{await update('expenses','hg_expenses',e.id,{reviewed:true}); if(e.kind!=='income') await learnRule(e.title,e.category,e.scope||'shared');})}
+        budgets={data.budgets} onEditBudget={()=>{setError('');setForm('budget');}} members={data.members} envelopes={data.envelopes} envelopeEntries={data.envelopeEntries} settlements={data.settlements}
+        onAddEnvelope={()=>{setError('');setForm('envelope');}} onEnvelopeEntry={(e,amount)=>run(()=>envelopeEntry(e,amount))} onDeleteEnvelope={e=>run(()=>deleteEnvelope(e))} onMarkSettled={m=>run(()=>setSettled(m,true))} onUnsettle={m=>run(()=>setSettled(m,false))}
+        onToggleRegret={e=>run(()=>update('expenses','hg_expenses',e.id,{regret:!e.regret}))} onOpenChat={e=>run(()=>openExpenseChat(e))} onAddRecurringFrom={c=>{setRecurringPrefill(c);setError('');setForm('recurring');}}
         onDeleteExpense={expense=>{
         if(!window.confirm('이 지출 기록을 삭제할까요?')) return;
         run(async()=>{if(demo) setData(d=>({...d,expenses:d.expenses.filter(e=>e.id!==expense.id)})); else {const r=await supabase!.from('hg_expenses').delete().eq('id',expense.id);if(r.error)throw r.error;await load();}});
@@ -659,9 +700,9 @@ export default function Home() {
     {(tab==='home'||tab==='calendar')&&<button className="fab" aria-label="일정·할 일 추가" onClick={()=>{setEntryDate('');setForm('entry');}}>＋</button>}
     {tab==='money'&&<button className="fab" aria-label="지출 기록" onClick={()=>openExpense()}>₩</button>}
     <nav className="bottom-nav" aria-label="모바일 메뉴">{tabs.map(([key,icon,title]) => <button key={key} aria-label={title} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={() => setTab(key)}><span>{icon}</span>{title}{key==='chat'&&unreadFamilyTotal>0&&<b className="nav-badge" aria-label={`안 읽은 메시지 ${unreadFamilyTotal}개`}>{unreadFamilyTotal}</b>}</button>)}</nav>
-    {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='budget'?'예산 설정':form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
+    {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='budget'?'예산 설정':form==='envelope'?'적립 봉투 만들기':form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
       <form onSubmit={submitForm}>{error&&<p role="alert" className="error banner">{error}</p>}
-        {form==='budget'?<BudgetFields budget={budgetFor(data.budgets,month)} month={month}/>:form==='recurring'?<RecurringFields cards={data.cards}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
+        {form==='budget'?<BudgetFields budget={budgetFor(data.budgets,month)} month={month}/>:form==='envelope'?<EnvelopeFields/>:form==='recurring'?<RecurringFields cards={data.cards} initial={recurringPrefill}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} rules={data.rules} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
         <button className="primary" disabled={busy}>{busy?'저장 중…':'저장하기'}</button>
       </form>
     </Modal>}

@@ -7,7 +7,7 @@ import { createRequire } from 'node:module';
 import { createClient } from '@supabase/supabase-js';
 
 const readEnv = file => Object.fromEntries(readFileSync(new URL(file, import.meta.url), 'utf8').split('\n').filter(l=>l.includes('=')).map(l=>[l.slice(0,l.indexOf('=')),l.slice(l.indexOf('=')+1)]));
-const config = {...readEnv('../.env.local'),...readEnv('../.env.supabase-admin')};
+const config = {...readEnv('../.env.local'),...readEnv('../.env.supabase-admin'),...(()=>{ try { return readEnv('../.env.push'); } catch { return {}; } })()};
 const url = config.NEXT_PUBLIC_SUPABASE_URL;
 assert.equal(url,'https://rwyvqxkweqsoositvlht.supabase.co','Refusing to test any non-HARAGURI project');
 const options = {auth:{persistSession:false,autoRefreshToken:false}};
@@ -191,9 +191,31 @@ try {
   const pending=check(await member.db.from('hg_expenses').select('id,title,amount,payment_method,reviewed,source').eq('family_id',family).eq('reviewed',false).order('title'),'pending rows');
   assert.equal(pending.length,2); assert.equal(pending.find(p=>p.title==='QA 월세').payment_method,'bank_transfer'); assert.equal(pending.find(p=>p.title==='QA 동네마트').source,'sms');
   check(await member.db.from('hg_expenses').update({reviewed:true}).eq('id',pending[0].id),'confirm a pending row');
-  assert.equal(check(await member.db.from('hg_ingest_tokens').select('received').eq('token',tok.token).single(),'token counter').received,2);
+  // Learned rule applies to collected messages; a cancellation message links to (and nets out) the matching purchase.
+  check(await member.db.from('hg_category_rules').upsert({family_id:family,keyword:'qa 동네마트',category:'쇼핑',scope:'personal'},{onConflict:'family_id,keyword'}),'teach rule');
+  assert.ok((await outsider.db.from('hg_category_rules').insert({family_id:family,keyword:'x',category:'기타'})).error,'Outsider cannot teach rules');
+  const ruled=await ingest('[Web발신]\nKB국민카드 1234승인\n김*한\n12,000원 일시불\n10/28 09:00\nQA 동네마트\n누적1,246,567원');
+  assert.ok(ruled.json.saved,'rule-governed ingest saved');
+  const ruledRow=check(await member.db.from('hg_expenses').select('category,scope').eq('id',ruled.json.saved).single(),'ruled row');
+  assert.equal(ruledRow.category,'쇼핑'); assert.equal(ruledRow.scope,'personal');
+  const cancel=await ingest('[Web발신]\nKB국민카드 1234승인취소\n김*한\n48,300원\n10/28 09:05\nQA 동네마트');
+  assert.ok(cancel.json.saved,'cancellation saved');
+  const cancelRow=check(await member.db.from('hg_expenses').select('amount,cancels').eq('id',cancel.json.saved).single(),'cancel row');
+  assert.equal(cancelRow.amount,-48300); assert.equal(cancelRow.cancels,first.json.saved,'cancellation links to the original purchase');
+  assert.equal(check(await member.db.from('hg_expenses').select('canceled_by').eq('id',first.json.saved).single(),'original marked').canceled_by,cancel.json.saved);
+  assert.equal(check(await member.db.from('hg_ingest_tokens').select('received').eq('token',tok.token).single(),'token counter').received,4);
   assert.ok((await outsider.db.from('hg_ingest_tokens').select('token').eq('family_id',family)).data.length===0,'tokens are private');
-  console.log('PASS: recurring generation idempotent; ingest token → parsed expense awaiting review; duplicate/incoming handling; bank transfer channel.');
+  console.log('PASS: recurring generation idempotent; ingest token → parsed expense awaiting review; duplicate/incoming handling; bank transfer channel; learned rules and cancellation links.');
+  // Envelopes, settlements, and the weekly digest endpoint.
+  const env=check(await owner.db.from('hg_envelopes').insert({family_id:family,name:'QA 봉투',target:300000,due_month:'2027-06-01'}).select().single(),'envelope');
+  check(await member.db.from('hg_envelope_entries').insert({family_id:family,envelope_id:env.id,amount:50000}),'member deposits');
+  assert.ok((await outsider.db.from('hg_envelope_entries').insert({family_id:family,envelope_id:env.id,amount:1})).error,'Outsider cannot deposit');
+  assert.equal(check(await owner.db.from('hg_envelope_entries').select('amount').eq('envelope_id',env.id),'entries visible').length,1);
+  check(await member.db.from('hg_settlements').upsert({family_id:family,month:'2026-10-01'},{onConflict:'family_id,month'}),'mark settled');
+  assert.equal(check(await owner.db.from('hg_settlements').select('month').eq('family_id',family),'settlement visible').length,1);
+  assert.ok((await outsider.db.from('hg_settlements').select('month').eq('family_id',family)).data.length===0,'settlements private to the family');
+  if (config.HOOK_SECRET) { const weekly=await fetch(`${url}/functions/v1/push`,{method:'POST',headers:{'Content-Type':'application/json','x-haraguri-secret':config.HOOK_SECRET},body:JSON.stringify({kind:'weekly'})}); assert.equal(weekly.status,200,'weekly digest endpoint'); }
+  console.log('PASS: envelopes and deposits (members only), month settlement marks, weekly digest endpoint.');
   // Push preferences live on the device row and are private.
   const subRow=check(await member.db.from('hg_push_subscriptions').insert({user_id:member.id,endpoint:`https://example.invalid/push/${randomUUID()}`,p256dh:'p',auth:'a'}).select('id').single(),'register fake subscription');
   check(await member.db.from('hg_push_subscriptions').update({prefs:{messages:false,files:true,daily:true,eve:false,ingest:true},quiet_start:22,quiet_end:7}).eq('id',subRow.id),'save prefs');

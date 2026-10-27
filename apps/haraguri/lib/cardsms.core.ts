@@ -101,3 +101,11 @@ export function describe(parsed: ParsedCardMessage) {
   const where = parsed.channel === 'bank_transfer' ? (parsed.issuer ? `${parsed.issuer}은행 이체` : '계좌이체') : parsed.issuer ? `${parsed.issuer}${parsed.channel === 'debit' ? '체크' : ''}카드${parsed.last4 ? `(${parsed.last4})` : ''}` : parsed.channel === 'debit' ? '체크카드' : '';
   return [where, `${Math.abs(parsed.amount).toLocaleString('ko-KR')}원${parsed.cancel ? ' 취소' : ''}`, parsed.date.slice(5).replace('-', '/') + (parsed.time ? ` ${parsed.time}` : ''), parsed.merchant].filter(Boolean).join(' · ');
 }
+
+// Family-taught rules: the longest keyword contained in the merchant name wins.
+export function matchRule<T extends { keyword: string; category: string; scope?: string | null }>(merchant: string, rules: T[] | null | undefined): T | null {
+  const m = merchant.replace(/\s+/g, '').toLowerCase();
+  let best: T | null = null;
+  for (const r of rules ?? []) { const k = r.keyword.replace(/\s+/g, '').toLowerCase(); if (k && m.includes(k) && (!best || k.length > best.keyword.replace(/\s+/g, '').length)) best = r; }
+  return best;
+}

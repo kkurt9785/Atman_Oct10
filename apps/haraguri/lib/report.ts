@@ -1,5 +1,5 @@
 import type { Expense, Member } from './model';
-import { shiftMonth } from './finance';
+import { isFixed, shiftMonth } from './finance';
 
 // Monthly ledger report, computed on the client from the family's expenses.
 export type Report = {
@@ -9,6 +9,7 @@ export type Report = {
   byMember: { user_id: string; name: string; amount: number }[];
   topMerchants: { title: string; amount: number; count: number }[];
   refunds: number; count: number; pendingReview: number; income: number;
+  fixed: number; variable: number; regretCount: number; regretTotal: number;
 };
 const methodLabel: Record<string, string> = { card: '카드', bank_transfer: '계좌이체', cash: '현금', other: '기타' };
 
@@ -40,5 +41,7 @@ export function monthlyReport(expenses: Expense[], members: Member[], month: str
     byCategory, byMethod, byMember, topMerchants,
     refunds: rows.filter(e => Number(e.amount) < 0).reduce((s, e) => s + Number(e.amount), 0), count: rows.length,
     pendingReview: expenses.filter(e => e.reviewed === false).length, income,
+    fixed: rows.filter(isFixed).reduce((s, e) => s + Number(e.amount), 0), variable: rows.filter(e => !isFixed(e)).reduce((s, e) => s + Number(e.amount), 0),
+    regretCount: rows.filter(e => e.regret).length, regretTotal: rows.filter(e => e.regret).reduce((s, e) => s + Number(e.amount), 0),
   };
 }
