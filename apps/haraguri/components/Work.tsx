@@ -2,15 +2,17 @@
 import { useState } from 'react';
 import { Data, Entry, Expense, Member, money, today } from '../lib/model';
 import { Room, purchaseStates, roomDate, workExpenses } from '../lib/work';
-export function WorkFields({members,date}:{members:Member[];date:string}) {
-  const [kind,setKind]=useState('task');
+// `locked`: records (확인·대화·사진·지출) already hang off this entry's occurrences, so date and repeat stay fixed.
+export function WorkFields({members,date,entry,locked=false}:{members:Member[];date:string;entry?:Entry|null;locked?:boolean}) {
+  const [kind,setKind]=useState(entry?.kind || 'task');
   return <>
-    <label>제목<input name="title" required maxLength={200} placeholder="어떤 일을 함께 챙길까요?"/></label>
-    <div className="form-grid"><label>종류<select name="kind" value={kind} onChange={e=>setKind(e.target.value)}><option value="task">할 일</option><option value="event">일정·행사</option><option value="purchase">같이 살까? · 구매</option></select></label><label>날짜<input type="date" name="date" required defaultValue={date}/></label></div>
-    <label>반복<select name="repeat" key={kind} disabled={kind==='purchase'}><option value="none">반복 안 함</option><option value="monthly">매월 같은 날짜</option><option value="yearly">매년 같은 날짜</option></select></label><small className="muted">날짜가 없는 달은 말일로 표시해요. 반복 일정의 대화와 지출은 회차별로 구분돼요.</small>
-    <label>예상 금액 (원 · 선택)<input name="expected_amount" type="number" min="0" max="1000000000" step="1" defaultValue={0}/><small className="muted">계획용 금액이에요. 실제 지출은 결제한 뒤 따로 연결합니다.</small></label>
-    <label>담당자<select name="assignee"><option value="">가족 모두</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{m.display_name}</option>)}</select></label>
-    <label>메모·상품 링크<textarea name="body" maxLength={5000} rows={3} placeholder="필요한 이유, 상품 링크, 함께 알아둘 내용을 적어주세요."/></label>
+    <label>제목<input name="title" required maxLength={200} defaultValue={entry?.title} placeholder="어떤 일을 함께 챙길까요?"/></label>
+    <div className="form-grid"><label>종류<select name="kind" value={kind} onChange={e=>setKind(e.target.value as Entry['kind'])}><option value="task">할 일</option><option value="event">일정·행사</option><option value="purchase">같이 살까? · 구매</option></select></label><label>날짜<input type="date" name="date" required defaultValue={entry?.date || date} readOnly={locked} aria-describedby={locked?'entry-lock-note':undefined}/></label></div>
+    <label>반복<select name="repeat" key={kind} defaultValue={entry?.repeat || 'none'} disabled={locked||kind==='purchase'}><option value="none">반복 안 함</option><option value="monthly">매월 같은 날짜</option><option value="yearly">매년 같은 날짜</option></select></label>
+    {locked?<small id="entry-lock-note" className="muted">확인·대화·사진·지출 기록이 있어 날짜와 반복은 바꿀 수 없어요. 제목·종류·담당자·메모는 수정돼요.</small>:<small className="muted">날짜가 없는 달은 말일로 표시해요. 반복 일정의 대화와 지출은 회차별로 구분돼요.</small>}
+    <label>예상 금액 (원 · 선택)<input name="expected_amount" type="number" min="0" max="1000000000" step="1" defaultValue={entry?.expected_amount || 0}/><small className="muted">계획용 금액이에요. 실제 지출은 결제한 뒤 따로 연결합니다.</small></label>
+    <label>담당자<select name="assignee" defaultValue={entry?.assignee || ''}><option value="">가족 모두</option>{members.map(m=><option key={m.user_id} value={m.user_id}>{m.display_name}</option>)}</select></label>
+    <label>메모·상품 링크<textarea name="body" maxLength={5000} rows={3} defaultValue={entry?.body} placeholder="필요한 이유, 상품 링크, 함께 알아둘 내용을 적어주세요."/></label>
   </>;
 }
 export function ExpenseWorkFields({entries,expense,room}:{entries:Entry[];expense:Expense|null;room:Room}) {

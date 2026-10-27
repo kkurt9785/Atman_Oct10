@@ -15,10 +15,11 @@ export type Expense = {
   entry_id?: string | null; occurrence?: string | null; payment_method?: 'card' | 'bank_transfer' | 'cash' | 'other'; qualifying_amount?: number | null; performance_month?: string | null;
 };
 export type Comment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; shared_entry_id?: string | null; shared_occurrence?: string | null; body: string; created_by: string; created_at: string };
-export type Attachment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; created_at?: string; path: string; name: string; created_by: string };
+export type Attachment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; created_at?: string; path: string; name: string; size?: number; created_by: string };
 export type Family = { id: string; name: string; owner_id: string };
-export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[]; comments: Comment[]; attachments: Attachment[] };
-export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [], comments: [], attachments: [] };
+// Chat rooms (comments, attachments) are paged separately in lib/chat.ts and are not part of the family snapshot.
+export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[] };
+export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [] };
 
 // Calendar dates are local date-only values, not UTC timestamps.
 export function today() {
@@ -62,7 +63,15 @@ export function demoData(): Data {
       { id: 'x1', family_id: 'demo', card_id: 'c1', title: '동네 마트 장보기', amount: 48300, date, category: '식비', created_by: 'demo' },
       { id: 'x2', family_id: 'demo', card_id: 'c1', title: '아이 학원비', amount: 220000, date: `${month}-01`, category: '교육', created_by: 'demo' },
     ],
-    comments: [{id:'general-1',family_id:'demo',entry_id:null,occurrence:null,body:'오늘 저녁은 같이 먹어요! 일정이나 살 것은 각각의 대화방에서 이야기해요.',created_by:'partner',created_at:new Date().toISOString()}, { id: 'm1', family_id: 'demo', entry_id: 'e2', occurrence: date, body: '좋아요! 제가 먼저 준비할게요.', created_by: 'demo', created_at: new Date().toISOString() }],
+  };
+}
+export function demoChat(): { comments: Comment[]; attachments: Attachment[] } {
+  const date = today();
+  return {
+    comments: [
+      { id: 'general-1', family_id: 'demo', entry_id: null, occurrence: null, body: '오늘 저녁은 같이 먹어요! 일정이나 살 것은 각각의 대화방에서 이야기해요.', created_by: 'partner', created_at: new Date().toISOString() },
+      { id: 'm1', family_id: 'demo', entry_id: 'e2', occurrence: date, body: '좋아요! 제가 먼저 준비할게요.', created_by: 'demo', created_at: new Date().toISOString() },
+    ],
     attachments: [],
   };
 }

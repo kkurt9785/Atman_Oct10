@@ -3,11 +3,18 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { chromium } = require(process.argv[2] || 'playwright-core');
 const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
+const errors = [];
 try {
   const page = await browser.newPage({ viewport: {width:390,height:844} });
-  const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto((process.env.BASE_URL || 'http://127.0.0.1:3004'));
+  // Email fallback is reachable from the login screen without leaving the app.
+  if (await page.getByRole('button',{name:'카카오가 안 될 때 · 이메일로 로그인'}).count()) {
+    await page.getByRole('button',{name:'카카오가 안 될 때 · 이메일로 로그인'}).click();
+    await page.getByLabel('이메일',{exact:true}).waitFor();
+    await page.getByRole('button',{name:'← 카카오 로그인으로'}).click();
+    await page.getByRole('button',{name:'카카오 로그인',exact:true}).waitFor();
+  }
   await page.getByRole('button',{name:'로그인 없이 미리보기'}).click();
   await page.getByRole('heading',{name:'우리의 하루를 함께.'}).waitFor();
   await page.getByRole('button',{name:'＋ 일정·할 일',exact:true}).click();
@@ -29,6 +36,27 @@ try {
   await page.getByRole('button',{name:/테스트 정기 납부/}).click();
   assert.equal(await dialog.getByRole('button',{name:'완료했어요',exact:true}).getAttribute('aria-pressed'),'false');
   assert.equal(await dialog.locator('.chat-bubble').filter({hasText:'납부했어요'}).count(),0);
+  assert.equal(await dialog.getByRole('button',{name:'이전 대화 보기'}).count(),0);
+  // Editing: records exist on this entry, so date/repeat are locked while the title still changes.
+  await dialog.getByRole('button',{name:'✎ 수정',exact:true}).click();
+  await dialog.getByText('날짜와 반복은 바꿀 수 없어요',{exact:false}).waitFor();
+  assert.equal(await dialog.getByLabel('날짜',{exact:true}).getAttribute('readonly'),'');
+  await dialog.getByLabel('제목',{exact:true}).fill('테스트 정기 납부 (수정)');
+  await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
+  await page.getByRole('button',{name:/테스트 정기 납부 \(수정\)/}).click();
+  await dialog.getByText('2026-03-31 · 매월 · 함께',{exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.getByRole('button',{name:'＋ 일정·할 일',exact:true}).click();
+  await dialog.getByLabel('제목',{exact:true}).fill('수정 가능한 약속');
+  await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-20');
+  await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
+  await page.getByRole('button',{name:/수정 가능한 약속/}).click();
+  await dialog.getByRole('button',{name:'✎ 수정',exact:true}).click();
+  assert.equal(await dialog.getByLabel('날짜',{exact:true}).getAttribute('readonly'),null);
+  await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-21');
+  await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
+  await page.getByRole('button',{name:/수정 가능한 약속/}).click();
+  await dialog.getByText('2026-03-21 · 한 번 · 함께',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByRole('group',{name:'일정 보기'}).getByRole('button',{name:'연간',exact:true}).click();
   await page.getByRole('button',{name:'2026-02-28 일정 1개 완료',exact:true}).click();
@@ -118,6 +146,11 @@ try {
   console.log('PASS: mobile/desktop; year/month/day planner; recurring conversations; general/work chat and sharing; purchase status; existing expense linking; card performance; PWA assets.');
 } catch (error) {
   const page = browser.contexts()[0]?.pages()[0];
-  if (page) { await page.screenshot({path:'/tmp/haraguri-failure.png'}); console.error((await page.locator('body').innerText()).slice(-5000)); }
+  if (page) {
+    await page.screenshot({path:'/tmp/haraguri-failure.png'});
+    console.error('Page errors:', JSON.stringify(errors));
+    console.error('Alerts:', JSON.stringify(await page.getByRole('alert').allInnerTexts().catch(()=>[])));
+    console.error((await page.locator('body').innerText()).slice(-3000));
+  }
   throw error;
 } finally { await browser.close(); }

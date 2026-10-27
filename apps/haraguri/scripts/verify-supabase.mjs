@@ -87,6 +87,18 @@ try {
   assert.ok((await owner.db.from('hg_entries').delete().eq('id',entry.id)).error,'Prevent orphaned attachments');
   console.log('PASS: private upload, shared download, anonymous/other-family denial, attachment deletion guard.');
 
+  const usage=check(await member.db.rpc('hg_storage_usage',{family}),'storage usage');
+  const usageRow=Array.isArray(usage)?usage[0]:usage;
+  assert.ok(Number(usageRow.files)>=1,'usage counts family attachments');
+  assert.equal(check(await outsider.db.rpc('hg_storage_usage',{family}),'foreign usage hidden').map?.(r=>Number(r.files))[0] ?? 0,0);
+  check(await member.db.from('hg_entries').update({title:'실제 DB 반복 할 일 검증 (수정)',body:'edited by member'}).eq('id',entry.id),'member edits shared work');
+  assert.ok((await member.db.from('hg_entries').update({date:'2026-10-27'}).eq('id',entry.id)).error,'date locked once records exist');
+  assert.ok((await member.db.from('hg_entries').update({repeat:'none'}).eq('id',entry.id)).error,'repeat locked once records exist');
+  const movable=check(await owner.db.from('hg_entries').insert({family_id:family,title:'QA 이동 가능 일정',date:'2026-10-28',kind:'event'}).select().single(),'create unrecorded work');
+  check(await member.db.from('hg_entries').update({date:'2026-10-29',repeat:'yearly'}).eq('id',movable.id),'unrecorded work may move');
+  assert.equal(check(await outsider.db.from('hg_entries').update({title:'x'}).eq('id',entry.id).select(),'foreign edit denied').length,0);
+  console.log('PASS: storage usage per family; shared work edits; date/repeat locked after records; foreign edits denied.');
+
   if (process.argv[2]) {
     const require=createRequire(import.meta.url);
     const {chromium}=require(process.argv[2]);
