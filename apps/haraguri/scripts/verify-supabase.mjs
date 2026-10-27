@@ -99,6 +99,20 @@ try {
   assert.equal(check(await outsider.db.from('hg_entries').update({title:'x'}).eq('id',entry.id).select(),'foreign edit denied').length,0);
   console.log('PASS: storage usage per family; shared work edits; date/repeat locked after records; foreign edits denied.');
 
+  const roomKey={entry_id:entry.id,occurrence:'2026-10-26'};
+  assert.ok((await outsider.db.from('hg_rooms').upsert({family_id:family,...roomKey,closed_at:new Date().toISOString()})).error,'outsider cannot close a room');
+  check(await member.db.from('hg_rooms').upsert({family_id:family,...roomKey,closed_at:new Date().toISOString(),closed_by:member.id},{onConflict:'entry_id,occurrence'}),'member closes room');
+  assert.ok((await owner.db.from('hg_comments').insert({family_id:family,...roomKey,body:'blocked'})).error,'closed room rejects messages');
+  assert.ok((await owner.db.from('hg_attachments').insert({family_id:family,...roomKey,path:`${family}/${owner.id}/${randomUUID()}.txt`,name:'blocked.txt'})).error,'closed room rejects files');
+  check(await member.db.from('hg_comments').insert({family_id:family,entry_id:null,occurrence:null,body:'general chat still open'}),'general chat unaffected');
+  check(await member.db.storage.from('haraguri-files').remove([path]),'member removes another member\'s file during cleanup');
+  check(await member.db.from('hg_attachments').delete().eq('path',path),'member removes attachment row during cleanup');
+  uploads.splice(uploads.indexOf(path),1);
+  assert.equal(check(await owner.db.from('hg_attachments').select('id').eq('path',path),'attachment gone').length,0);
+  check(await member.db.from('hg_rooms').update({closed_at:null,closed_by:null}).match(roomKey),'reopen room');
+  check(await owner.db.from('hg_comments').insert({family_id:family,...roomKey,body:'reopened'}),'reopened room accepts messages');
+  console.log('PASS: close/reopen rooms; closed rooms reject writes; family-wide cleanup of files; outsiders cannot close.');
+
   if (process.argv[2]) {
     const require=createRequire(import.meta.url);
     const {chromium}=require(process.argv[2]);

@@ -11,18 +11,18 @@ import { CardFields, ExpenseFields, FinancePanel } from '../components/Finance';
 import { Planner } from '../components/Planner';
 import { Chat } from '../components/Chat';
 import { WorkBoard, WorkFields, ExpenseWorkFields } from '../components/Work';
-import { Room, inRoom, purchaseStates, workExpenses } from '../lib/work';
+import { Room, inRoom, isClosed, looksFinished, purchaseStates, roomState, workExpenses } from '../lib/work';
 import { occurrence } from '../lib/model';
 import { parseThresholds, validateQualifyingAmount } from '../lib/finance';
-import { DemoChat, useRoomMessages } from '../lib/chat';
-import { formatBytes, prepareUpload } from '../lib/image';
+import { DemoChat, listRoomFiles, useRoomMessages } from '../lib/chat';
+import { formatBytes, prepareUpload, thumbPath } from '../lib/image';
 
 type Tab = 'home' | 'calendar' | 'money' | 'chat' | 'alerts' | 'settings';
 type FormKind = 'entry' | 'expense' | 'card' | null;
 const tabs: [Tab, string, string][] = [['home', '⌂', '우리집'], ['calendar', '▦', '일정·할 일'], ['money', '₩', '가계부'], ['chat', '◌', '대화'], ['settings', '⚙', '가족 설정']];
-// Snapshot tables. Newest first so the 2,000-row window keeps recent records if a family ever outgrows it.
-const tables: [keyof Data, string, string, boolean][] = [['entries', 'hg_entries', 'date', false], ['members', 'hg_members', 'user_id', true], ['receipts', 'hg_receipts', 'occurrence', false], ['cards', 'hg_cards', 'name', true], ['expenses', 'hg_expenses', 'date', false]];
-const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출' };
+// Snapshot tables: [key, table, order column, ascending, tiebreak column for stable paging]. Newest first so the 2,000-row window keeps recent records.
+const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id']];
+const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태' };
 const ROW_CAP = 2000;
 const FREE_STORAGE_BYTES = 1024 ** 3;
 const repeatLabel = { none: '한 번', monthly: '매월', yearly: '매년' };
@@ -94,11 +94,11 @@ export default function Home() {
       if (!current) { setData(emptyData); return; }
       const fid = current.id;
       const capped: (keyof Data)[] = [];
-      const results = await Promise.all(tables.map(async ([key, table, column, ascending]) => {
+      const results = await Promise.all(tables.map(async ([key, table, column, ascending, tiebreak]) => {
         const collected: unknown[] = [];
         for (let offset = 0; offset < ROW_CAP; offset += 500) {
           let query = supabase!.from(table).select('*').eq('family_id', fid).order(column, { ascending });
-          if (key !== 'members') query = query.order('id'); // stable paging; hg_members has a composite key and no id
+          if (tiebreak) query = query.order(tiebreak);
           const r = await query.range(offset, offset + 499);
           if (r.error) throw r.error;
           collected.push(...(r.data ?? []));
@@ -149,7 +149,7 @@ export default function Home() {
     const refreshChat=()=>{clearTimeout(chatTimer);chatTimer=setTimeout(bumpChat,150);};
     const channel=supabase.channel(`family-chat-${family.id}`);
     for(const table of ['hg_comments','hg_attachments']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refreshChat);
-    for(const table of ['hg_entries','hg_expenses','hg_receipts']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refresh);
+    for(const table of ['hg_entries','hg_expenses','hg_receipts','hg_rooms']) channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`family_id=eq.${family.id}`},refresh);
     channel.subscribe(status=>{const ok=status==='SUBSCRIBED';setLive(ok);setSync(ok?'실시간 연결됨':'연결 중 · 30초마다 새로고침');if(ok){refresh();refreshChat();}});
     return()=>{clearTimeout(timer);clearTimeout(chatTimer);setLive(false);void supabase!.removeChannel(channel);};
   },[family?.id,user?.id,demo,load]);
@@ -244,19 +244,68 @@ export default function Home() {
       else { const r = await supabase!.from('hg_receipts').delete().eq('id', existing.id); if (r.error) throw r.error; await load(); }
     } else await insert('receipts', 'hg_receipts', { family_id: family!.id, entry_id: selected.entry.id, occurrence: selected.date, user_id: uid, state });
   }
-  async function upload(original: File) {
+  async function upload(originals: File[]) {
     if (demo) throw new Error('미리보기에서는 파일을 저장하지 않습니다. 로그인 후 이용해 주세요.');
+    if (selected && isClosed(data.rooms, selected)) throw new Error('종료된 대화예요. 다시 열면 올릴 수 있어요.');
     const allowed = ['image/jpeg','image/png','image/webp','application/pdf','text/plain','application/vnd.openxmlformats-officedocument.wordprocessingml.document','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-    if (!allowed.includes(original.type)) throw new Error('JPG, PNG, WEBP, PDF, TXT, DOCX, XLSX 파일을 올려주세요.');
-    const file = await prepareUpload(original);
-    if (file.size > 10 * 1024 * 1024) throw new Error('파일은 10MB 이하로 올려주세요.');
-    const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '') || 'bin';
-    const path = `${family!.id}/${uid}/${crypto.randomUUID()}.${extension}`;
-    const uploaded = await supabase!.storage.from('haraguri-files').upload(path, file, { contentType: file.type });
-    if (uploaded.error) throw uploaded.error;
-    const r = await supabase!.from('hg_attachments').insert({ family_id: family!.id, entry_id: selected?.entry.id ?? null, occurrence: selected?.date ?? null, path, name: file.name, size: file.size, created_by: uid });
-    if (r.error) { await supabase!.storage.from('haraguri-files').remove([path]); throw r.error; }
-    bumpChat();
+    const bucket = supabase!.storage.from('haraguri-files');
+    let done = 0;
+    try {
+      for (const original of originals) {
+        if (!allowed.includes(original.type)) throw new Error(`${original.name}: JPG, PNG, WEBP, PDF, TXT, DOCX, XLSX 파일을 올려주세요.`);
+        const { file, thumb } = await prepareUpload(original);
+        if (file.size > 10 * 1024 * 1024) throw new Error(`${original.name}: 파일은 10MB 이하로 올려주세요.`);
+        const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '') || 'bin';
+        const path = `${family!.id}/${uid}/${crypto.randomUUID()}.${extension}`;
+        const uploaded = await bucket.upload(path, file, { contentType: file.type });
+        if (uploaded.error) throw uploaded.error;
+        // The thumbnail is best-effort: the chat falls back to the full photo when it is missing.
+        const thumbOk = thumb ? !(await bucket.upload(thumbPath(path), thumb, { contentType: 'image/jpeg' })).error : false;
+        const size = file.size + (thumbOk && thumb ? thumb.size : 0);
+        const r = await supabase!.from('hg_attachments').insert({ family_id: family!.id, entry_id: selected?.entry.id ?? null, occurrence: selected?.date ?? null, path, name: file.name, size, created_by: uid });
+        if (r.error) { await bucket.remove(thumbOk ? [path, thumbPath(path)] : [path]); throw r.error; }
+        done++;
+      }
+    } finally { if (done) bumpChat(); }
+    if (originals.length > 1) setNotice(`사진·문서 ${done}개를 올렸어요.`);
+  }
+  const [dismissedFinish, setDismissedFinish] = useState<Set<string>>(new Set());
+  // Closing a room: writes stop, every file in it is removed (storage + rows), the text stays.
+  async function closeRoom(room: Exclude<Room, null>) {
+    const key = `${room.entry.id}|${room.date}`;
+    if (demo) {
+      const files = demoRooms.attachments.filter(f => inRoom(f, room));
+      if (!window.confirm(`대화를 종료할까요? 사진·문서 ${files.length}개는 지워지고 글은 남아요.`)) return;
+      setDemoRooms(d => ({ ...d, attachments: d.attachments.filter(f => !inRoom(f, room)) }));
+      setData(d => ({ ...d, rooms: [...d.rooms.filter(r => !(r.entry_id === room.entry.id && r.occurrence === room.date)), { family_id: 'demo', entry_id: room.entry.id, occurrence: room.date, closed_at: new Date().toISOString(), closed_by: uid, purged_at: new Date().toISOString(), purged_files: files.length, purged_bytes: files.reduce((s, f) => s + (f.size ?? 0), 0) }] }));
+      setNotice('대화를 종료했어요.'); return;
+    }
+    const files = await listRoomFiles(family!.id, room);
+    const bytes = files.reduce((s, f) => s + Number(f.size ?? 0), 0);
+    const warning = files.length ? `사진·문서 ${files.length}개(${formatBytes(bytes)})를 지우고 대화를 종료할까요? 글은 남아요. 남길 사진이 있으면 먼저 내려받으세요.` : '대화를 종료할까요? 글은 남고, 다시 열 수 있어요.';
+    if (!window.confirm(warning)) return;
+    const bucket = supabase!.storage.from('haraguri-files');
+    for (let i = 0; i < files.length; i += 50) {
+      const batch = files.slice(i, i + 50);
+      const removed = await bucket.remove(batch.flatMap(f => [f.path, thumbPath(f.path)]));
+      if (removed.error) throw new Error(`파일을 지우지 못했어요: ${removed.error.message}`);
+      const deleted = await supabase!.from('hg_attachments').delete().in('id', batch.map(f => f.id));
+      if (deleted.error) throw deleted.error;
+    }
+    const now = new Date().toISOString();
+    const saved = await supabase!.from('hg_rooms').upsert({ family_id: family!.id, entry_id: room.entry.id, occurrence: room.date, closed_at: now, closed_by: uid, purged_at: files.length ? now : null, purged_files: files.length, purged_bytes: bytes }, { onConflict: 'entry_id,occurrence' });
+    if (saved.error) throw saved.error;
+    setDismissedFinish(d => { const next = new Set(d); next.delete(key); return next; });
+    bumpChat(); await load();
+    setNotice(files.length ? `대화를 종료하고 ${formatBytes(bytes)}를 정리했어요.` : '대화를 종료했어요.');
+  }
+  async function reopenRoom(room: Exclude<Room, null>) {
+    if (demo) { setData(d => ({ ...d, rooms: d.rooms.map(r => r.entry_id === room.entry.id && r.occurrence === room.date ? { ...r, closed_at: null, closed_by: null } : r) })); return; }
+    const r = await supabase!.from('hg_rooms').update({ closed_at: null, closed_by: null }).eq('entry_id', room.entry.id).eq('occurrence', room.date).select('entry_id');
+    if (r.error) throw r.error;
+    if (!r.data?.length) throw new Error('대화 상태를 찾지 못했어요. 새로고침 후 다시 시도해 주세요.');
+    bumpChat(); await load();
+    setNotice('대화를 다시 열었어요. 지웠던 사진은 돌아오지 않아요.');
   }
   async function openFile(file: Attachment) {
     const r = await supabase!.storage.from('haraguri-files').createSignedUrl(file.path, 60, { download: file.name });
@@ -360,7 +409,7 @@ export default function Home() {
       }}/>}
       {tab === 'chat' && <>
         <div className="payment-tabs" role="group" aria-label="대화 종류"><button aria-pressed={chatView==='general'} onClick={()=>setChatView('general')}>가족 기본 채팅</button><button aria-pressed={chatView==='work'} onClick={()=>setChatView('work')}>일정·구매별 대화</button></div>
-        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key="general" room={null} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid}))} onUpload={file=>run(()=>upload(file))} onFile={file=>run(()=>openFile(file))}/></div>}
+        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key="general" room={null} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid}))} onUpload={files=>run(()=>upload(files))} onFile={file=>run(()=>openFile(file))}/></div>}
       </>}
       {tab === 'alerts' && <><div className="banner">앱 안에서 확인하는 알림 모음입니다. 앱을 닫았을 때의 예약 푸시는 아직 제공하지 않습니다.</div><section className="panel"><h2>이번 달 아직 확인하지 않았어요</h2>{unseen.map(({entry,date}) => renderEntry(entry,date))}{!unseen.length && <div className="empty">모든 일정을 확인했어요.</div>}<h2 className="list-title">오늘까지 미완료</h2>{due.map(({entry,date}) => renderEntry(entry,date))}{!due.length && <div className="empty">밀린 일이 없어요.</div>}</section></>}
       {tab === 'settings' && <section className="panel settings"><h2>모임 공간</h2><p>가족·친구·행사별로 독립된 공간을 만들어요. 대화, 일정, 카드와 지출은 선택한 모임 멤버끼리만 공유합니다.</p>
@@ -392,7 +441,8 @@ export default function Home() {
         <button className="secondary" disabled={busy} onClick={()=>run(async()=>{await sendComment({family_id:family.id,entry_id:null,occurrence:null,shared_entry_id:selected.entry.id,shared_occurrence:selected.date,body:`${selected.entry.title} 함께 확인해 주세요.`,created_by:uid});setSelected(null);setTab('chat');setChatView('general');})}>가족 기본 채팅에 공유</button>
         <h3>관련 지출</h3>{workExpenses(data.expenses,selected).map(e=><div className="expense-row" key={e.id}><div><strong>{e.title}</strong><small>{e.date} · {e.category}</small></div><b>{money(e.amount)}</b>{e.created_by===uid&&<button className="text-button" onClick={()=>openExpense(e,selected)}>수정</button>}</div>)}
         <div className="work-expense-actions"><button className="secondary" onClick={()=>openExpense(null,selected)}>＋ 결제·환불 기록</button><label>기존 지출 연결<select aria-label="기존 지출 연결" value="" disabled={busy} onChange={e=>{const id=e.target.value;if(id)run(()=>update('expenses','hg_expenses',id,{entry_id:selected.entry.id,occurrence:selected.date}));}}><option value="">이미 입력한 지출 선택</option>{data.expenses.filter(e=>e.created_by===uid&&!e.entry_id).map(e=><option key={e.id} value={e.id}>{e.date} · {e.title} · {money(e.amount)}</option>)}</select></label></div>
-        <Chat key={`${selected.entry.id}-${selected.date}`} room={selected} comments={detail.comments} attachments={detail.attachments} hasMore={detail.hasMore} loadingOlder={detail.loading} loadError={detail.error} onOlder={detail.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:selected.entry.id,occurrence:selected.date,body,created_by:uid}))} onUpload={file=>run(()=>upload(file))} onFile={file=>run(()=>openFile(file))}/>
+        {!isClosed(data.rooms,selected)&&looksFinished(selected.entry,selected.date,data.receipts)&&!dismissedFinish.has(`${selected.entry.id}|${selected.date}`)&&<div className="finish-banner" role="status"><p>{selected.entry.kind==='purchase'?'구매가 마무리됐어요.':'이 일이 끝났어요.'} 대화를 종료하면 사진·문서는 정리되고 글은 남아요.</p><button className="primary" disabled={busy} onClick={()=>run(()=>closeRoom(selected))}>대화 종료</button><button className="text-button" onClick={()=>setDismissedFinish(d=>new Set(d).add(`${selected.entry.id}|${selected.date}`))}>나중에</button></div>}
+        <Chat key={`${selected.entry.id}-${selected.date}`} room={selected} state={roomState(data.rooms,selected)} comments={detail.comments} attachments={detail.attachments} hasMore={detail.hasMore} loadingOlder={detail.loading} loadError={detail.error} onOlder={detail.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:selected.entry.id,occurrence:selected.date,body,created_by:uid}))} onUpload={files=>run(()=>upload(files))} onFile={file=>run(()=>openFile(file))} onClose={()=>run(()=>closeRoom(selected))} onReopen={()=>run(()=>reopenRoom(selected))}/>
         {selected.entry.created_by===uid&&<button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm('이 일과 반복 회차의 대화·확인 기록을 모두 삭제할까요?'))return;run(async()=>{
           const links=await entryLinks(selected.entry.id);
           if(links.attachments||links.expenses||links.shared)throw new Error('사진·지출·공유 대화가 연결된 일은 삭제할 수 없어요.');

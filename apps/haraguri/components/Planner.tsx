@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Data, Entry, daysInMonth, money, monthEntries, today, total } from '../lib/model';
 import { shiftMonth } from '../lib/finance';
+import { isClosed } from '../lib/work';
 export function Planner({data,month,setMonth,onOpen,onCreate}:{data:Data;month:string;setMonth:(m:string)=>void;onOpen:(entry:Entry,date:string)=>void;onCreate:(date:string)=>void}) {
   const [view,setView]=useState<'year'|'month'|'day'>('month');
   const [selectedDay,setDay]=useState(today());
@@ -19,7 +20,7 @@ export function Planner({data,month,setMonth,onOpen,onCreate}:{data:Data;month:s
   const period=view==='year'?String(year):view==='day'?date:month;
   const shownRows=view==='year'?yearRows:view==='day'?rows.filter(r=>r.date===date):rows;
   const expenses=data.expenses.filter(e=>e.date.startsWith(period)&&(kind==='all'||entries.some(w=>w.id===e.entry_id)));
-  const renderRow=({entry,date}:{entry:Entry;date:string})=><button className="entry" key={`${entry.id}-${date}`} onClick={()=>onOpen(entry,date)}><span className={`entry-icon ${completed(entry,date)?'complete':entry.kind}`}>{completed(entry,date)?'✓':entry.kind==='purchase'?'🛒':entry.kind==='task'?'□':'◷'}</span><span className="entry-copy"><strong>{entry.title}</strong><small>{date} · {entry.assignee?data.members.find(m=>m.user_id===entry.assignee)?.display_name || '가족':'함께'} · {entry.kind==='purchase'?'구매 계획':entry.kind==='event'?'일정':'할 일'}</small></span><span className="entry-end">{completed(entry,date)?'완료':'대화 ›'}</span></button>;
+  const renderRow=({entry,date}:{entry:Entry;date:string})=><button className="entry" key={`${entry.id}-${date}`} onClick={()=>onOpen(entry,date)}><span className={`entry-icon ${completed(entry,date)?'complete':entry.kind}`}>{completed(entry,date)?'✓':entry.kind==='purchase'?'🛒':entry.kind==='task'?'□':'◷'}</span><span className="entry-copy"><strong>{entry.title}</strong><small>{date} · {entry.assignee?data.members.find(m=>m.user_id===entry.assignee)?.display_name || '가족':'함께'} · {entry.kind==='purchase'?'구매 계획':entry.kind==='event'?'일정':'할 일'}</small></span><span className="entry-end">{isClosed(data.rooms,{entry,date})?'종료':completed(entry,date)?'완료':'대화 ›'}</span></button>;
   return <>
     <section className="panel planner">
       <div className="planner-toolbar"><div className="payment-tabs" role="group" aria-label="일정 보기"><button aria-pressed={view==='year'} onClick={()=>setView('year')}>연간</button><button aria-pressed={view==='month'} onClick={()=>setView('month')}>월간</button><button aria-pressed={view==='day'} onClick={()=>setView('day')}>일간</button></div><button className="secondary" onClick={()=>{setMonth(today().slice(0,7));setDay(today());}}>오늘로</button></div>

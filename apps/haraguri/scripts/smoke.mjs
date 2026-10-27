@@ -7,6 +7,7 @@ const errors = [];
 try {
   const page = await browser.newPage({ viewport: {width:390,height:844} });
   page.on('pageerror', e => errors.push(e.message));
+  page.on('dialog', d => d.accept()); // window.confirm for closing a room
   await page.goto((process.env.BASE_URL || 'http://127.0.0.1:3004'));
   // Email fallback is reachable from the login screen without leaving the app.
   if (await page.getByRole('button',{name:'카카오가 안 될 때 · 이메일로 로그인'}).count()) {
@@ -133,7 +134,21 @@ try {
   assert.equal(await dialog.getByLabel('구매 진행',{exact:true}).inputValue(),'decided');
   await dialog.getByRole('button',{name:'대화 바로가기 ↓'}).click();
   await page.screenshot({path:'/tmp/haraguri-work-mobile.png',fullPage:true});
+  // Finishing the purchase suggests closing; closing hides the composer, reopening restores it.
+  assert.equal(await dialog.locator('.finish-banner').count(),0);
+  await dialog.getByLabel('구매 진행',{exact:true}).selectOption('purchased');
+  await dialog.locator('.finish-banner').getByRole('button',{name:'대화 종료',exact:true}).click();
+  await dialog.getByText('종료된 대화예요.',{exact:false}).first().waitFor();
+  assert.equal(await dialog.getByLabel('메시지',{exact:true}).count(),0);
+  await dialog.locator('.chat-bubble').filter({hasText:'이 모델로 살까요?'}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'일정·구매별 대화'}).click();
+  await page.getByRole('group',{name:'진행 상태'}).getByRole('button',{name:/종료됨 1/}).click();
+  await page.getByRole('button',{name:/종료됨.*아이 자전거 같이 고르기/}).click();
+  await dialog.getByRole('button',{name:'다시 열기',exact:true}).click();
+  await dialog.getByLabel('메시지',{exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'닫기',exact:true}).click();
+  await page.getByRole('group',{name:'진행 상태'}).getByRole('button',{name:/진행 중/}).click();
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'우리집'}).click();
   await page.screenshot({path:'/tmp/haraguri-mobile.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000});

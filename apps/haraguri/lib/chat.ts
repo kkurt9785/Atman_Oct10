@@ -3,6 +3,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Attachment, Comment } from './model';
 import { supabase } from './supabase';
 import { Room, inRoom } from './work';
+import { thumbPath } from './image';
+
+// Every file in a room, for cleanup when the room closes (not page-limited).
+export async function listRoomFiles(familyId: string, room: Exclude<Room, null>) {
+  const files: { id: string; path: string; size: number }[] = [];
+  for (let offset = 0; offset < 10000; offset += 500) {
+    const r = await supabase!.from('hg_attachments').select('id,path,size').eq('family_id', familyId).eq('entry_id', room.entry.id).eq('occurrence', room.date).order('id').range(offset, offset + 499);
+    if (r.error) throw r.error;
+    files.push(...(r.data as typeof files));
+    if ((r.data?.length ?? 0) < 500) break;
+  }
+  return files;
+}
 
 // Rooms are loaded a page at a time so a family's chat history never hits the table-wide row cap.
 export const PAGE = 100;
@@ -94,7 +107,7 @@ export function useRoomMessages({ familyId, room, demo, demoChat, version, enabl
   return { comments, attachments, hasMore, loading, error, loadOlder };
 }
 
-// One signed-URL request per page of photos instead of one per image.
+// One signed-URL request per page of photos instead of one per image. Thumbnails first; full photos only where no thumbnail exists (older uploads).
 export function useSignedPhotos(files: Attachment[]) {
   const paths = files.filter(f => /\.(png|jpe?g|webp)$/i.test(f.path)).map(f => f.path).sort();
   const keyOf = paths.join('\n');
@@ -102,10 +115,18 @@ export function useSignedPhotos(files: Attachment[]) {
   useEffect(() => {
     if (!supabase || !paths.length) { setUrls({}); return; }
     let active = true;
-    const refresh = () => supabase!.storage.from('haraguri-files').createSignedUrls(paths, 600).then(r => {
-      if (!active || !r.data) return;
-      setUrls(Object.fromEntries(r.data.filter(x => x.signedUrl && x.path).map(x => [x.path as string, x.signedUrl as string])));
-    });
+    const refresh = async () => {
+      const bucket = supabase!.storage.from('haraguri-files');
+      const thumbs = await bucket.createSignedUrls(paths.map(thumbPath), 600);
+      const signed: Record<string, string> = {};
+      const missing: string[] = [];
+      paths.forEach((path, i) => { const hit = thumbs.data?.[i]; if (hit?.signedUrl && !hit.error) signed[path] = hit.signedUrl; else missing.push(path); });
+      if (missing.length) {
+        const full = await bucket.createSignedUrls(missing, 600);
+        missing.forEach((path, i) => { const hit = full.data?.[i]; if (hit?.signedUrl && !hit.error) signed[path] = hit.signedUrl; });
+      }
+      if (active) setUrls(signed);
+    };
     refresh();
     const timer = setInterval(refresh, 300000);
     return () => { active = false; clearInterval(timer); };

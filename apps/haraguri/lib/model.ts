@@ -17,9 +17,11 @@ export type Expense = {
 export type Comment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; shared_entry_id?: string | null; shared_occurrence?: string | null; body: string; created_by: string; created_at: string };
 export type Attachment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; created_at?: string; path: string; name: string; size?: number; created_by: string };
 export type Family = { id: string; name: string; owner_id: string };
+// A closed room keeps its text but its files were removed; writes are blocked until reopened.
+export type RoomState = { family_id: string; entry_id: string; occurrence: string; closed_at: string | null; closed_by: string | null; purged_at: string | null; purged_files: number; purged_bytes: number };
 // Chat rooms (comments, attachments) are paged separately in lib/chat.ts and are not part of the family snapshot.
-export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[] };
-export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [] };
+export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[]; rooms: RoomState[] };
+export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [], rooms: [] };
 
 // Calendar dates are local date-only values, not UTC timestamps.
 export function today() {
@@ -63,6 +65,7 @@ export function demoData(): Data {
       { id: 'x1', family_id: 'demo', card_id: 'c1', title: '동네 마트 장보기', amount: 48300, date, category: '식비', created_by: 'demo' },
       { id: 'x2', family_id: 'demo', card_id: 'c1', title: '아이 학원비', amount: 220000, date: `${month}-01`, category: '교육', created_by: 'demo' },
     ],
+    rooms: [],
   };
 }
 export function demoChat(): { comments: Comment[]; attachments: Attachment[] } {
