@@ -25,7 +25,7 @@ try {
     const link=check(await admin.auth.admin.generateLink({type:'magiclink',email}), 'generate local verification token');
     const db=client();
     const session=check(await db.auth.verifyOtp({token_hash:link.properties.hashed_token,type:'magiclink'}), 'verify email token').session;
-    actors.push({db,id:created.user.id,session});
+    actors.push({db,id:created.user.id,session,email});
   }
   const [owner,member,outsider]=actors;
   const family=check(await owner.db.rpc('hg_create_family',{family_name:'HARAGURI integration QA',member_name:'검증 소유자'}),'create family');
@@ -246,9 +246,19 @@ try {
     await page.reload();
     await page.getByRole('heading',{name:'우리의 하루를 함께.'}).waitFor();
     assert.equal(await page.getByLabel('현재 모임',{exact:true}).inputValue(),family);
-    const secondCode=check(await owner.db.rpc('hg_invite',{family:newFamily.id}),'invite second space');
-    check(await member.db.rpc('hg_join_family',{invite_code:secondCode,member_name:'친구'}),'join second space');
+    // Targeted invite: the owner registers the member's email (any case); the member sees it after login and joins without a code.
+    check(await owner.db.from('hg_invite_targets').insert({family_id:newFamily.id,target:member.email.toUpperCase()}),'register invite target');
+    assert.ok((await outsider.db.from('hg_invite_targets').insert({family_id:newFamily.id,target:outsider.email})).error,'Outsider cannot register invite targets for a family they are not in');
+    assert.deepEqual(check(await outsider.db.rpc('hg_my_invites'),'outsider sees no invites'),[]);
+    const mine=check(await member.db.rpc('hg_my_invites'),'member sees targeted invite');
+    assert.equal(mine.length,1); assert.equal(mine[0].family_id,newFamily.id); assert.equal(mine[0].family_name,'QA 친구 여행'); assert.equal(mine[0].invited_by_name,'검증 소유자');
+    assert.ok((await outsider.db.rpc('hg_accept_invite',{family:newFamily.id,member_name:'침입'})).error,'Outsider cannot accept an invite that is not theirs');
+    assert.equal(check(await member.db.rpc('hg_accept_invite',{family:newFamily.id,member_name:'친구'}),'accept targeted invite'),newFamily.id);
+    assert.equal(check(await owner.db.from('hg_invite_targets').select().eq('family_id',newFamily.id),'target consumed on join').length,0);
+    assert.deepEqual(check(await member.db.rpc('hg_my_invites'),'no invites left'),[]);
+    assert.ok((await member.db.rpc('hg_accept_invite',{family:newFamily.id,member_name:'친구'})).error,'Second accept is rejected');
     assert.equal(check(await member.db.from('hg_families').select(),'multiple memberships').length,2);
+    console.log('PASS: targeted invite by email/nickname — visible only to the invitee, outsider blocked, consumed on join.');
     assert.equal(check(await outsider.db.from('hg_families').select(),'outsider remains isolated').length,1);
     console.log('PASS: create/switch/persist group spaces; uninvited members cannot read; one user joins multiple groups.');
     await secondContext.close();

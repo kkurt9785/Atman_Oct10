@@ -9,6 +9,12 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   page.on('dialog', d => d.type() === 'prompt' ? d.accept('테스트 이름') : d.accept()); // confirm → OK, prompt → a fixed name
   const base = process.env.BASE_URL || 'http://127.0.0.1:3004';
+  // An invite link shows a banner on the login screen, remembers the code for after login, and cleans the URL.
+  await page.goto(`${base}/?invite=00000000-0000-4000-8000-000000000000`);
+  await page.getByText('초대받으셨네요!',{exact:false}).waitFor();
+  await page.waitForFunction(() => location.search === '');
+  assert.equal(await page.evaluate(() => localStorage.getItem('haraguri-invite')),'00000000-0000-4000-8000-000000000000');
+  await page.evaluate(() => localStorage.removeItem('haraguri-invite'));
   await page.goto(base);
   // Simulate an Android share-sheet hand-off: the service worker would have cached these items before redirecting to /?shared=1.
   await page.evaluate(async () => { const c = await caches.open('haraguri-share'); await c.put('/share/meta', new Response(JSON.stringify({ count: 0, text: '신한카드(5678)승인 김*한 15,900원(일시불)10/26 09:10 스타벅스 역삼점', at: Date.now() }), { headers: { 'Content-Type': 'application/json' } })); });
@@ -216,6 +222,9 @@ try {
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가족 설정'}).click();
   await page.locator('.member-row').filter({hasText:'(나)'}).getByRole('button',{name:'이름 바꾸기'}).click();
   await page.locator('.member-row').filter({hasText:'테스트 이름 (나)'}).waitFor();
+  // Owner-side invite tools: nickname/email target form and the link/code section both render.
+  await page.getByLabel('카카오 닉네임 또는 이메일').waitFor();
+  await page.getByRole('heading',{name:'초대 링크·코드'}).waitFor();
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'우리집'}).click();
   await page.screenshot({path:'/tmp/haraguri-mobile.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000});

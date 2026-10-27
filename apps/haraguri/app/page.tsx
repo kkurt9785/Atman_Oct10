@@ -27,6 +27,8 @@ import { formatBytes, prepareUpload, thumbPath } from '../lib/image';
 
 type Tab = 'home' | 'calendar' | 'money' | 'chat' | 'alerts' | 'settings';
 type FormKind = 'entry' | 'expense' | 'card' | 'recurring' | null;
+type InviteRow = { family_id: string; family_name: string; invited_by_name: string; matched: string };
+type TargetRow = { id: string; target: string; expires_at: string };
 const tabs: [Tab, string, string][] = [['home', '⌂', '우리집'], ['calendar', '▦', '일정·할 일'], ['money', '₩', '가계부'], ['chat', '◌', '대화'], ['settings', '⚙', '가족 설정']];
 // Snapshot tables: [key, table, order column, ascending, tiebreak column for stable paging]. Newest first so the 2,000-row window keeps recent records.
 const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id'], ['recurring', 'hg_recurring_expenses', 'day_of_month', true, 'id']];
@@ -80,6 +82,11 @@ export default function Home() {
   const [deepLink,setDeepLink]=useState<{tab?:Tab;open?:string}|null>(null);
   const [plannerFocus,setPlannerFocus]=useState<string|null>(null);
   const [financeView,setFinanceView]=useState<FinanceView>('list');
+  const [pendingInvite,setPendingInvite]=useState<string>('');
+  const [invites,setInvites]=useState<InviteRow[]>([]); // 모임 주인이 내 닉네임·이메일을 적어 둔 초대 — 로그인하면 바로 보인다
+  const [targets,setTargets]=useState<TargetRow[]>([]);
+  const inviteLink=(code:string)=>`${window.location.origin}/?invite=${code}`;
+  const kakaoName=()=>String(user?.user_metadata?.name||user?.user_metadata?.nickname||user?.user_metadata?.full_name||'가족').slice(0,40);
   async function refreshPush(){const support=pushSupport();if(support!=='off'){setPush(support);return;}setPush((await currentSubscription())&&Notification.permission==='granted'?'on':'off');}
   const bumpChat=()=>setChatVersion(v=>v+1);
   function openExpense(expense: Expense|null = null, room:Room=null, text='') { setExpenseRoom(room); setSelected(null); setEditingExpense(expense); setExpensePrefill(null); setPrefillText(text); setPrefillKey(k=>k+1); setError(''); setForm('expense'); }
@@ -137,6 +144,11 @@ export default function Home() {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
     // Notification taps arrive as /?tab=… or /?open=entryId:occurrence; applied once the family snapshot is loaded.
     const params = new URLSearchParams(window.location.search);
+    // Invite links: remember the code through the Kakao round-trip, then join automatically after login.
+    const inviteParam = params.get('invite');
+    if (inviteParam && /^[0-9a-f-]{36}$/i.test(inviteParam)) { try { localStorage.setItem('haraguri-invite', inviteParam); } catch { /* private mode */ } }
+    try { const stored = localStorage.getItem('haraguri-invite'); if (stored) setPendingInvite(stored); } catch { /* ignore */ }
+    if (inviteParam) window.history.replaceState(null, '', '/');
     if (params.get('tab') || params.get('open') || params.get('review')) { if (params.get('review')) setFinanceView('review'); setDeepLink({ tab: (params.get('tab') as Tab | null) ?? (params.get('review') ? 'money' : undefined), open: params.get('open') ?? undefined }); window.history.replaceState(null, '', '/'); }
     refreshPush();
     // Items handed over from the Android share sheet (service worker POST /share → cache → here).
@@ -192,6 +204,39 @@ export default function Home() {
   },[tab,demo,family?.id,chatVersion]);
   const usagePercent=usage&&usage.limit?Math.min(100,Math.round(usage.bytes/usage.limit*100)):0;
 
+  async function enterSpace(id:string){
+    requestVersion.current++; setSelected(null); setInvite(''); setActiveSpace(id); try{localStorage.setItem(`haraguri-space-${uid}`,id);}catch{}
+    setFamily(null); setData(emptyData); setLoading(true); setTab('home'); await load();
+  }
+  async function acceptInvite(inv:InviteRow){
+    const memberName=kakaoName();
+    const r=await supabase!.rpc('hg_accept_invite',{family:inv.family_id,member_name:memberName});
+    if(r.error) throw r.error;
+    setInvites(list=>list.filter(i=>i.family_id!==inv.family_id));
+    setNotice(`'${inv.family_name}' 모임에 참여했어요. 이름은 가족 설정에서 바꿀 수 있어요 (지금: ${memberName}).`);
+    await enterSpace(r.data);
+  }
+  useEffect(()=>{
+    if(!pendingInvite||!user||demo||!supabase||busy)return;
+    const code=pendingInvite; setPendingInvite(''); try{localStorage.removeItem('haraguri-invite');}catch{}
+    run(async()=>{
+      const memberName=kakaoName();
+      const r=await supabase!.rpc('hg_join_family',{invite_code:code,member_name:memberName});
+      if(r.error){ if(/이미 참여/.test(r.error.message)) setNotice('이미 참여한 모임이에요.'); else throw new Error(`초대 링크로 참여하지 못했어요: ${r.error.message}`); return; }
+      setNotice(`초대받은 모임에 참여했어요. 이름은 가족 설정에서 바꿀 수 있어요 (지금: ${memberName}).`);
+      await enterSpace(r.data);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[pendingInvite,user?.id,demo,busy]);
+  useEffect(()=>{ // targeted invites: re-check whenever the user or their space list changes
+    if(!supabase||!user||demo){setInvites([]);return;}
+    supabase.rpc('hg_my_invites').then(r=>{ if(!r.error) setInvites((r.data as InviteRow[])||[]); });
+  },[user?.id,demo,spaces.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(()=>{ setTargets([]); },[family?.id]);
+  useEffect(()=>{
+    if(demo||!supabase||!family?.id||tab!=='settings'||family.owner_id!==uid)return;
+    supabase.from('hg_invite_targets').select('id,target,expires_at').eq('family_id',family.id).order('created_at').then(r=>{ if(!r.error) setTargets(r.data as TargetRow[]); });
+  },[tab,demo,family?.id,family?.owner_id,uid]);
   useEffect(()=>{ if(tab!=='calendar') setPlannerFocus(null); },[tab]); // the week-strip hand-off applies once; leaving the tab clears it
   useEffect(()=>{ if(user&&!demo) syncPush(user.id).then(ok=>{ if(ok) setPush('on'); }).catch(()=>{}); },[user?.id,demo]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(()=>{
@@ -421,12 +466,13 @@ export default function Home() {
     </button>;
   }
   const banners = <>{error && <div role="alert" className="banner error">{error}<button onClick={() => setError('')} aria-label="오류 닫기">×</button></div>}{notice && <div role="status" className="banner">{notice}</div>}</>;
+  const inviteCards = invites.map(i => <div className="invite-card" key={i.family_id}><div><strong>{i.family_name}</strong><small>{i.invited_by_name}님이 ‘{i.matched}’(으)로 초대했어요</small></div><button className="primary" disabled={busy} onClick={() => run(() => acceptInvite(i))}>참여하기</button></div>);
 
   if (!authReady) return <main className="auth"><div className="brand">HARAGURI<span>우리 가족의 하루</span></div><p>가족 공간을 준비하고 있어요…</p></main>;
   if (!demo && !user) return <main className="auth"><div className="brand">HARAGURI<span>우리 가족의 하루</span></div><section className="auth-card">
-    <div className="eyebrow">A LITTLE CLOSER, EVERY DAY</div><h1>함께 챙기는 일상,<br/>차곡차곡 쌓이는 우리.</h1><p>이번 달 할 일부터 오늘 쓴 생활비까지.<br/>가족에게 필요한 이야기를 한곳에 모아요.</p>{banners}
+    <div className="eyebrow">A LITTLE CLOSER, EVERY DAY</div>{pendingInvite&&<div className="banner invite-banner">초대받으셨네요! 로그인하면 모임에 바로 참여돼요.</div>}<h1>함께 챙기는 일상,<br/>차곡차곡 쌓이는 우리.</h1><p>이번 달 할 일부터 오늘 쓴 생활비까지.<br/>가족에게 필요한 이야기를 한곳에 모아요.</p>{banners}
     {supabase ? <>
-      {!emailMode && <><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin())}><KakaoGlyph/>{busy?'카카오로 연결 중…':'카카오 로그인'}</button><p className="login-note">이메일 입력 없이 카카오 계정으로 시작해요.<br/>처음이라면 로그인 후 모임을 만들거나 초대 코드로 참여하세요.</p><button className="text-button" onClick={()=>{setEmailMode(true);setError('');setNotice('');}}>카카오가 안 될 때 · 이메일로 로그인</button></>}
+      {!emailMode && <><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin())}><KakaoGlyph/>{busy?'카카오로 연결 중…':'카카오 로그인'}</button><p className="login-note">이메일 입력 없이 카카오 계정으로 시작해요.<br/>처음이라면 로그인 후 모임을 만들거나, 가족이 보낸 초대 링크로 참여하세요.<br/>가족이 내 카카오 닉네임을 등록해 뒀다면 로그인만 하면 돼요.</p><button className="text-button" onClick={()=>{setEmailMode(true);setError('');setNotice('');}}>카카오가 안 될 때 · 이메일로 로그인</button></>}
       {emailMode && (emailAddr
         ? <form className="email-login" onSubmit={e=>{e.preventDefault();const v=new FormData(e.currentTarget);run(()=>verifyEmailCode(String(v.get('token'))));}}>
             <p className="login-note"><b>{emailAddr}</b>로 메일을 보냈어요. <b>지금 이 기기·브라우저에서</b> 메일의 링크를 누르면 바로 로그인돼요. 메일에 8자리 번호가 있으면 아래에 입력해도 돼요.</p>
@@ -444,7 +490,7 @@ export default function Home() {
     <button className="secondary" onClick={startDemo}>로그인 없이 미리보기 ↗</button><small>미리보기의 기록은 저장되지 않습니다.</small>
   </section></main>;
 
-  if (!family) return <main className="auth"><div className="brand">HARAGURI<span>우리 가족의 하루</span></div><section className="auth-card"><h1>우리 가족을 모아볼까요?</h1>{banners}{loading ? <p>가족 정보를 확인하고 있어요…</p> : <form onSubmit={e => { e.preventDefault(); const v = new FormData(e.currentTarget); const button = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement; run(async () => {
+  if (!family) return <main className="auth"><div className="brand">HARAGURI<span>우리 가족의 하루</span></div><section className="auth-card"><h1>{invites.length ? '초대받은 모임이 있어요!' : '우리 가족을 모아볼까요?'}</h1>{banners}{invites.length > 0 && <div className="invite-list"><h2 className="list-title">초대받은 모임</h2>{inviteCards}<div className="divider">또는 직접 만들기 · 코드로 참여</div></div>}{loading ? <p>가족 정보를 확인하고 있어요…</p> : <form onSubmit={e => { e.preventDefault(); const v = new FormData(e.currentTarget); const button = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement; run(async () => {
       const memberName = String(v.get('display_name')).trim();
       const r = button.value === 'join' ? await supabase!.rpc('hg_join_family', { invite_code: v.get('invite'), member_name: memberName }) : await supabase!.rpc('hg_create_family', { family_name: v.get('family_name'), member_name: memberName });
       if (r.error) throw r.error; setActiveSpace(r.data); localStorage.setItem(`haraguri-space-${uid}`,r.data); await load();
@@ -457,6 +503,7 @@ export default function Home() {
       <div className="space-switcher"><label>현재 모임<select aria-label="현재 모임" value={family.id} disabled={busy||demo} onChange={e=>switchSpace(e.target.value)}>{spaces.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><button className="text-button" onClick={()=>setTab('settings')}>＋ 모임 만들기·참여</button></div>
       {demo && <div className="demo-banner">미리보기 · 입력한 내용은 새로고침하면 초기화됩니다.<button onClick={() => { setDemo(false); setFamily(null); setData(emptyData); setDemoRooms({comments:[],attachments:[]}); setSelected(null); setForm(null); }}>로그인하기 ↗</button></div>}
       {banners}
+      {invites.map(i => <div role="status" className="banner invite-banner" key={i.family_id}>📨 {i.invited_by_name}님이 ‘{i.family_name}’ 모임에 초대했어요.<button disabled={busy} onClick={() => run(() => acceptInvite(i))}>참여하기 →</button></div>)}
       {truncated.length > 0 && <div role="status" className="banner">기록이 많아 {truncated.map(k => tableLabel[k]).join('·')}은(는) 최근 {ROW_CAP.toLocaleString('ko-KR')}건까지만 표시해요. 합계는 표시된 범위 기준이에요.</div>}
       <div className="page-heading"><div><div className="eyebrow">OUR LITTLE FAMILY SPACE</div><h1>{tab === 'home' ? '우리의 하루를 함께.' : tab==='alerts'?'알림':tabs.find(t => t[0] === tab)?.[2]}</h1><p>{tab === 'home' ? '챙겨야 할 일도, 기억하고 싶은 순간도 여기에.' : tab === 'money' ? '오늘의 지출을 기록하고, 이번 달 생활비를 함께 살펴봐요.' : tab === 'calendar' ? '매달 돌아오는 할 일과 소중한 약속을 놓치지 않게.' : tab === 'chat' ? '가족 기본 채팅과 일정·구매별 대화를 함께 살펴봐요.' : tab === 'alerts' ? '확인이 필요한 일정과 아직 끝내지 못한 일을 모았어요.' : '가족을 초대하고 함께 쓰는 공간을 관리해요.'}</p></div>{(tab === 'home' || tab === 'calendar') && <button className="primary" onClick={() => {setEntryDate('');setForm('entry');}}>＋ 일정·할 일</button>}{tab === 'money' && <button className="primary" onClick={() => openExpense()}>＋ 지출 기록</button>}</div>
       {loading && <p role="status" className="muted">최신 기록을 불러오는 중…</p>}
@@ -485,6 +532,7 @@ export default function Home() {
       </>}
       {tab === 'alerts' && <><div className="banner">앱 안에서 확인하는 알림 모음입니다. 앱을 닫았을 때의 예약 푸시는 아직 제공하지 않습니다.</div><section className="panel"><h2>이번 달 아직 확인하지 않았어요</h2>{unseen.map(({entry,date}) => renderEntry(entry,date))}{!unseen.length && <div className="empty">모든 일정을 확인했어요.</div>}<h2 className="list-title">오늘까지 미완료</h2>{due.map(({entry,date}) => renderEntry(entry,date))}{!due.length && <div className="empty">밀린 일이 없어요.</div>}</section></>}
       {tab === 'settings' && <section className="panel settings"><h2>모임 공간</h2><p>가족·친구·행사별로 독립된 공간을 만들어요. 대화, 일정, 카드와 지출은 선택한 모임 멤버끼리만 공유합니다.</p>
+        {invites.length > 0 && <><h2 className="list-title">초대받은 모임</h2>{inviteCards}</>}
         <div className="payment-tabs"><button aria-pressed={spaceAction==='create'} onClick={()=>setSpaceAction('create')}>새 모임 만들기</button><button aria-pressed={spaceAction==='join'} onClick={()=>setSpaceAction('join')}>초대 코드로 참여</button></div>
         <form key={spaceAction} onSubmit={e=>{e.preventDefault();const v=new FormData(e.currentTarget);run(async()=>{
           if(demo)throw new Error('실제 모임 생성·참여는 로그인 후 이용해 주세요.');
@@ -496,7 +544,18 @@ export default function Home() {
         {data.members.map(m => <div className="member-row" key={m.user_id}><span className="avatar" style={{ background: memberColor(data.members, m.user_id).bg, color: memberColor(data.members, m.user_id).fg }}>{m.display_name.slice(0,1)}</span><div><strong>{m.display_name}{m.user_id===uid&&' (나)'}</strong><small>{m.user_id === family.owner_id ? '모임 소유자' : '구성원'}</small></div>
           <span className="member-actions">{m.user_id===uid&&<button className="text-button" disabled={busy} onClick={()=>{const name=window.prompt('이 모임에서 보일 이름',m.display_name)?.trim();if(!name)return;run(async()=>{if(demo){setData(d=>({...d,members:d.members.map(x=>x.user_id===uid?{...x,display_name:name}:x)}));return;}const r=await supabase!.from('hg_members').update({display_name:name}).eq('family_id',family.id).eq('user_id',uid);if(r.error)throw r.error;await load();});}}>이름 바꾸기</button>}
           {family.owner_id===uid&&m.user_id!==uid&&<><button className="text-button" disabled={busy} onClick={()=>{if(!window.confirm(`${m.display_name}님에게 모임 소유권을 넘길까요?`))return;run(async()=>{if(demo)throw new Error('미리보기에서는 바꿀 수 없어요.');const r=await supabase!.rpc('hg_transfer_ownership',{family:family.id,member:m.user_id});if(r.error)throw r.error;await load();});}}>소유권 넘기기</button><button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm(`${m.display_name}님을 모임에서 내보낼까요? 그분이 남긴 기록은 남아요.`))return;run(async()=>{if(demo)throw new Error('미리보기에서는 바꿀 수 없어요.');const r=await supabase!.rpc('hg_remove_member',{family:family.id,member:m.user_id});if(r.error)throw r.error;await load();});}}>내보내기</button></>}</span></div>)}
-        {!demo&&<button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm(family.owner_id===uid&&data.members.length===1?'마지막 멤버예요. 나가면 이 모임의 기록·사진이 모두 삭제돼요. 계속할까요?':'이 모임에서 나갈까요? 내가 남긴 기록은 남아요.'))return;run(async()=>{const r=await supabase!.rpc('hg_leave_family',{family:family.id});if(r.error)throw r.error;requestVersion.current++;localStorage.removeItem(`haraguri-space-${uid}`);setActiveSpace('');setFamily(null);setData(emptyData);setTab('home');await load();});}}>모임 나가기</button>}{family.owner_id === uid && <><h2 className="list-title">가족 초대</h2><p>새 코드를 발급하면 이전 코드는 만료됩니다. 코드는 7일 동안 유효해요.</p><button className="primary" disabled={busy} onClick={() => run(async () => { if(demo) throw new Error('실제 가족 초대는 로그인 후 사용할 수 있어요.'); const r = await supabase!.rpc('hg_invite',{family:family.id}); if(r.error) throw r.error; setInvite(r.data); })}>초대 코드 발급</button>{invite && <label>가족에게 전달할 코드<input readOnly value={invite} onFocus={e => e.target.select()}/></label>}</>}{!demo&&<><h2 className="list-title">사진·문서 사용량</h2>{usage?<div className="usage-block"><p><b>{formatBytes(usage.bytes)}</b> / {formatBytes(usage.limit)} · {usage.files.toLocaleString('ko-KR')}개 · <b className={usagePercent>=80?'usage-warn':''}>{usagePercent}%</b> 사용 중</p><progress aria-label="저장공간 사용률" value={usagePercent} max={100} className={usagePercent>=80?'warn':''}/>{usagePercent>=80&&<p className="usage-warn">한도에 가까워요. 끝난 일의 대화를 종료하면 그 방의 사진·문서가 정리돼요.</p>}<small className="muted">모임마다 {formatBytes(usage.limit)}까지 올릴 수 있어요. 사진은 긴 변 1,600px으로 줄여 올리고, 문서는 원본 그대로예요.</small></div>:<p>사용량을 확인하고 있어요…</p>}<h2 className="list-title">알림</h2><div className="push-block">{push==='on'&&<><p>이 기기로 푸시 알림을 받고 있어요.</p><PushPrefs busy={busy} onError={setError}/><button className="secondary" disabled={busy} onClick={()=>run(async()=>{await disablePush();await refreshPush();setNotice('이 기기의 푸시 알림을 껐어요.');})}>이 기기 알림 끄기</button></>}
+        {!demo&&<button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm(family.owner_id===uid&&data.members.length===1?'마지막 멤버예요. 나가면 이 모임의 기록·사진이 모두 삭제돼요. 계속할까요?':'이 모임에서 나갈까요? 내가 남긴 기록은 남아요.'))return;run(async()=>{const r=await supabase!.rpc('hg_leave_family',{family:family.id});if(r.error)throw r.error;requestVersion.current++;localStorage.removeItem(`haraguri-space-${uid}`);setActiveSpace('');setFamily(null);setData(emptyData);setTab('home');await load();});}}>모임 나가기</button>}{family.owner_id === uid && <><h2 className="list-title">가족 초대</h2><h3>닉네임·이메일로 초대</h3><p>상대의 카카오 닉네임이나 로그인 이메일을 적어 두면, 그분이 로그인했을 때 ‘초대받은 모임’으로 떠서 한 번에 참여해요. 30일 동안 유효해요.</p>
+  <form className="target-form" onSubmit={e => { e.preventDefault(); const f = e.currentTarget; const target = String(new FormData(f).get('target') || '').trim(); if (!target) return; run(async () => {
+    if (demo) throw new Error('실제 초대는 로그인 후 사용할 수 있어요.');
+    const r = await supabase!.from('hg_invite_targets').insert({ family_id: family.id, target, invited_by: uid }).select('id,target,expires_at').single();
+    if (r.error) throw new Error(r.error.code === '23505' ? `'${target}'은(는) 이미 등록돼 있어요.` : r.error.message);
+    setTargets(t => [...t, r.data as TargetRow]); f.reset(); setNotice(`'${target}'님이 로그인하면 이 모임 초대가 보여요.`);
+  }); }}><label>카카오 닉네임 또는 이메일<input name="target" required maxLength={120} autoComplete="off" placeholder="예: 지유엄마 / mom@example.com"/></label><button className="secondary" disabled={busy}>초대 등록</button></form>
+  {targets.map(t => <div className="target-row" key={t.id}><span>{t.target}<small className="muted"> · {t.expires_at.slice(0, 10)}까지</small></span><button className="text-button" disabled={busy} onClick={() => run(async () => { const r = await supabase!.from('hg_invite_targets').delete().eq('id', t.id); if (r.error) throw r.error; setTargets(x => x.filter(y => y.id !== t.id)); })}>취소</button></div>)}
+  <h3>초대 링크·코드</h3><p>새 코드를 발급하면 이전 코드는 만료됩니다. 코드는 7일 동안 유효해요.</p><button className="primary" disabled={busy} onClick={() => run(async () => { if(demo) throw new Error('실제 가족 초대는 로그인 후 사용할 수 있어요.'); const r = await supabase!.rpc('hg_invite',{family:family.id}); if(r.error) throw r.error; setInvite(r.data); })}>초대 코드 발급</button>{invite && <div className="invite-box"><label>초대 링크 (7일 유효)<input readOnly value={inviteLink(invite)} onFocus={e => e.target.select()} aria-label="초대 링크"/></label>
+  <div className="ingest-actions"><button className="primary" onClick={()=>{navigator.clipboard?.writeText(inviteLink(invite)).then(()=>setNotice('초대 링크를 복사했어요. 카톡으로 보내 주세요.')).catch(()=>setError('복사가 막혀 있어요. 링크를 길게 눌러 복사해 주세요.'));}}>링크 복사</button>
+  {typeof navigator!=='undefined'&&'share' in navigator&&<button className="secondary" onClick={()=>navigator.share({title:'HARAGURI 초대',text:`'${family.name}' 모임에 초대해요. 링크를 눌러 카카오 로그인하면 바로 참여돼요. (7일 유효)`,url:inviteLink(invite)}).catch(()=>undefined)}>공유하기</button>}</div>
+  <small className="muted">상대가 링크를 누르면 로그인 후 자동으로 참여해요. 코드만 보내려면: {invite}</small></div>}</>}{!demo&&<><h2 className="list-title">사진·문서 사용량</h2>{usage?<div className="usage-block"><p><b>{formatBytes(usage.bytes)}</b> / {formatBytes(usage.limit)} · {usage.files.toLocaleString('ko-KR')}개 · <b className={usagePercent>=80?'usage-warn':''}>{usagePercent}%</b> 사용 중</p><progress aria-label="저장공간 사용률" value={usagePercent} max={100} className={usagePercent>=80?'warn':''}/>{usagePercent>=80&&<p className="usage-warn">한도에 가까워요. 끝난 일의 대화를 종료하면 그 방의 사진·문서가 정리돼요.</p>}<small className="muted">모임마다 {formatBytes(usage.limit)}까지 올릴 수 있어요. 사진은 긴 변 1,600px으로 줄여 올리고, 문서는 원본 그대로예요.</small></div>:<p>사용량을 확인하고 있어요…</p>}<h2 className="list-title">알림</h2><div className="push-block">{push==='on'&&<><p>이 기기로 푸시 알림을 받고 있어요.</p><PushPrefs busy={busy} onError={setError}/><button className="secondary" disabled={busy} onClick={()=>run(async()=>{await disablePush();await refreshPush();setNotice('이 기기의 푸시 알림을 껐어요.');})}>이 기기 알림 끄기</button></>}
 {push==='off'&&<><p>앱을 닫아 둔 동안에도 새 메시지와 아침 할 일 알림을 받으려면 켜 주세요. 기기마다 따로 켭니다.</p><button className="primary" disabled={busy} onClick={()=>run(async()=>{await enablePush(user!.id);await refreshPush();setNotice('푸시 알림을 켰어요. 가족이 메시지를 남기면 이 기기로 와요.');})}>이 기기에서 푸시 알림 받기</button></>}
 {push==='needs-install'&&<p>iPhone은 Safari 공유 메뉴 → ‘홈 화면에 추가’로 설치한 뒤 그 앱에서 알림을 켤 수 있어요(iOS 16.4 이상).</p>}
 {push==='denied'&&<p>이 브라우저에서 알림이 차단돼 있어요. 주소창 자물쇠 → 알림 → 허용으로 바꾼 뒤 새로고침해 주세요.</p>}
