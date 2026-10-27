@@ -13,15 +13,20 @@ export type Card = {
 export type Expense = {
   id: string; family_id: string; card_id: string | null; title: string; amount: number; date: string; category: string; created_by: string;
   entry_id?: string | null; occurrence?: string | null; payment_method?: 'card' | 'bank_transfer' | 'cash' | 'other'; qualifying_amount?: number | null; performance_month?: string | null;
+  source?: 'manual' | 'sms' | 'recurring'; reviewed?: boolean; raw_text?: string | null;
 };
-export type Comment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; shared_entry_id?: string | null; shared_occurrence?: string | null; body: string; created_by: string; created_at: string };
+export type RecurringExpense = {
+  id: string; family_id: string; title: string; amount: number; day_of_month: number; category: string; payment_method: 'card' | 'bank_transfer' | 'cash' | 'other';
+  card_id: string | null; start_month: string; end_month: string | null; active: boolean; created_by: string;
+};
+export type Comment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; shared_entry_id?: string | null; shared_occurrence?: string | null; body: string; created_by: string; created_at: string; edited_at?: string | null };
 export type Attachment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; created_at?: string; path: string; name: string; size?: number; created_by: string };
 export type Family = { id: string; name: string; owner_id: string };
 // A closed room keeps its text but its files were removed; writes are blocked until reopened.
 export type RoomState = { family_id: string; entry_id: string; occurrence: string; closed_at: string | null; closed_by: string | null; purged_at: string | null; purged_files: number; purged_bytes: number };
 // Chat rooms (comments, attachments) are paged separately in lib/chat.ts and are not part of the family snapshot.
-export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[]; rooms: RoomState[] };
-export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [], rooms: [] };
+export type Data = { entries: Entry[]; members: Member[]; receipts: Receipt[]; cards: Card[]; expenses: Expense[]; rooms: RoomState[]; recurring: RecurringExpense[] };
+export const emptyData: Data = { entries: [], members: [], receipts: [], cards: [], expenses: [], rooms: [], recurring: [] };
 
 // Calendar dates are local date-only values, not UTC timestamps.
 export function today() {
@@ -64,8 +69,10 @@ export function demoData(): Data {
     expenses: [
       { id: 'x1', family_id: 'demo', card_id: 'c1', title: '동네 마트 장보기', amount: 48300, date, category: '식비', created_by: 'demo' },
       { id: 'x2', family_id: 'demo', card_id: 'c1', title: '아이 학원비', amount: 220000, date: `${month}-01`, category: '교육', created_by: 'demo' },
+      { id: 'x3', family_id: 'demo', card_id: null, title: '편의점 CU', amount: 6200, date, category: '식비', created_by: 'demo', payment_method: 'other', source: 'sms', reviewed: false, raw_text: '[Web발신] 신한카드 승인 6,200원 CU 편의점' },
     ],
     rooms: [],
+    recurring: [{ id: 'r1', family_id: 'demo', title: '아파트 관리비', amount: 180000, day_of_month: 25, category: '관리비', payment_method: 'bank_transfer', card_id: null, start_month: `${month}-01`, end_month: null, active: true, created_by: 'demo' }],
   };
 }
 export function demoChat(): { comments: Comment[]; attachments: Attachment[] } {

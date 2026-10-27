@@ -254,6 +254,20 @@ otp_expiry = 3600
 # subject = "Your password has been changed"
 # content_path = "./templates/password_changed_notification.html"
 
+
+# HARAGURI: custom SMTP so family members (not only org members) can receive login emails.
+# 1) Create a Resend account, verify a sender domain (or use the onboarding sender for tests).
+# 2) Put RESEND_API_KEY in .env.kakao (gitignored) and run scripts/configure-kakao.py (it pushes this file).
+# 3) Make sure the "Magic Link" email template includes {{ .Token }} so the 8-digit code login keeps working.
+# [auth.email.smtp]
+# enabled = true
+# host = "smtp.resend.com"
+# port = 465
+# user = "resend"
+# pass = "env(RESEND_API_KEY)"
+# admin_email = "wesconnectdev@gmail.com"
+# sender_name = "HARAGURI"
+
 [auth.sms]
 # Allow/disallow new user signups via SMS to your project.
 enable_signup = false

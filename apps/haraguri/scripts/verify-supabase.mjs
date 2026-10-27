@@ -117,6 +117,53 @@ try {
   check(await owner.db.from('hg_comments').insert({family_id:family,...roomKey,body:'reopened'}),'reopened room accepts messages');
   console.log('PASS: close/reopen rooms; closed rooms reject writes; family-wide cleanup of files; outsiders cannot close.');
 
+  // Messages: edit/delete only your own.
+  const mine=check(await owner.db.from('hg_comments').insert({family_id:family,entry_id:null,occurrence:null,body:'edit me'}).select().single(),'own message');
+  assert.equal(check(await member.db.from('hg_comments').update({body:'hacked'}).eq('id',mine.id).select(),'other member cannot edit').length,0);
+  check(await owner.db.from('hg_comments').update({body:'edited',edited_at:new Date().toISOString()}).eq('id',mine.id),'edit own message');
+  assert.equal(check(await member.db.from('hg_comments').delete().eq('id',mine.id).select(),'other member cannot delete').length,0);
+  check(await owner.db.from('hg_comments').delete().eq('id',mine.id),'delete own message');
+  // Members: rename self, owner renames space, remove / leave, ownership transfer rules.
+  check(await member.db.from('hg_members').update({display_name:'검증 가족2'}).eq('family_id',family).eq('user_id',member.id),'rename self');
+  assert.equal(check(await member.db.from('hg_members').update({display_name:'x'}).eq('family_id',family).eq('user_id',owner.id).select(),'cannot rename others').length,0);
+  assert.equal(check(await member.db.from('hg_families').update({name:'x'}).eq('id',family).select(),'member cannot rename space').length,0);
+  check(await owner.db.from('hg_families').update({name:'HARAGURI integration QA 2'}).eq('id',family),'owner renames space');
+  assert.ok((await member.db.rpc('hg_remove_member',{family,member:owner.id})).error,'non-owner cannot remove');
+  assert.ok((await owner.db.rpc('hg_leave_family',{family})).error,'owner cannot leave while others remain');
+  console.log('PASS: own-message edit/delete; rename rules; owner leave blocked while members remain.');
+
+  // Recurring expenses generate once per month on their day (run the job as admin with today\'s KST day).
+  const kstDay=Number(new Date(Date.now()+9*3600*1000).toISOString().slice(8,10));
+  const rec=check(await member.db.from('hg_recurring_expenses').insert({family_id:family,title:'QA 구독',amount:9900,day_of_month:kstDay,category:'생활',payment_method:'cash'}).select().single(),'create recurring');
+  const gen1=check(await admin.rpc('hg_generate_recurring_expenses'),'run recurring job');
+  assert.ok(Number(gen1)>=1,'job generated at least one expense');
+  assert.equal(check(await admin.rpc('hg_generate_recurring_expenses'),'run job again'),0,'job is idempotent per month');
+  assert.equal(check(await member.db.from('hg_expenses').select('id,source,reviewed').eq('family_id',family).eq('title','QA 구독'),'generated expense').length,1);
+  check(await member.db.from('hg_recurring_expenses').delete().eq('id',rec.id),'remove recurring rule');
+  // Auto-collect: token → ingest function → expense awaiting review; duplicates ignored; incoming transfers skipped.
+  const tok=check(await member.db.from('hg_ingest_tokens').insert({family_id:family,user_id:member.id}).select('token').single(),'create ingest token');
+  const ingest=(body)=>fetch(`${url}/functions/v1/ingest?token=${tok.token}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:body})}).then(async r=>({status:r.status,json:await r.json().catch(()=>({}))}));
+  const first=await ingest('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\nQA 동네마트\n누적1,234,567원');
+  assert.equal(first.status,200,`ingest status ${first.status}`); assert.ok(first.json.saved,'ingest saved an expense');
+  const dup=await ingest('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\nQA 동네마트\n누적1,234,567원');
+  assert.ok(dup.json.duplicate,'duplicate message ignored');
+  const income=await ingest('[Web발신] 우리은행 입금 1,000,000원 급여 잔액 2,000,000원');
+  assert.equal(income.json.ignored,'incoming transfer');
+  const transfer=await ingest('[Web발신] 우리은행 10/27 11:30 출금 350,000원 QA 월세 잔액 1,200,000원');
+  assert.ok(transfer.json.saved,'bank transfer saved');
+  const pending=check(await member.db.from('hg_expenses').select('id,title,amount,payment_method,reviewed,source').eq('family_id',family).eq('reviewed',false).order('title'),'pending rows');
+  assert.equal(pending.length,2); assert.equal(pending.find(p=>p.title==='QA 월세').payment_method,'bank_transfer'); assert.equal(pending.find(p=>p.title==='QA 동네마트').source,'sms');
+  check(await member.db.from('hg_expenses').update({reviewed:true}).eq('id',pending[0].id),'confirm a pending row');
+  assert.equal(check(await member.db.from('hg_ingest_tokens').select('received').eq('token',tok.token).single(),'token counter').received,2);
+  assert.ok((await outsider.db.from('hg_ingest_tokens').select('token').eq('family_id',family)).data.length===0,'tokens are private');
+  console.log('PASS: recurring generation idempotent; ingest token → parsed expense awaiting review; duplicate/incoming handling; bank transfer channel.');
+  // Push preferences live on the device row and are private.
+  const subRow=check(await member.db.from('hg_push_subscriptions').insert({user_id:member.id,endpoint:`https://example.invalid/push/${randomUUID()}`,p256dh:'p',auth:'a'}).select('id').single(),'register fake subscription');
+  check(await member.db.from('hg_push_subscriptions').update({prefs:{messages:false,files:true,daily:true,eve:false,ingest:true},quiet_start:22,quiet_end:7}).eq('id',subRow.id),'save prefs');
+  assert.equal(check(await owner.db.from('hg_push_subscriptions').select('id').eq('id',subRow.id),'subscriptions are private').length,0);
+  check(await member.db.from('hg_push_subscriptions').delete().eq('id',subRow.id),'remove fake subscription');
+  console.log('PASS: per-device push preferences and quiet hours; subscriptions private.');
+
   if (process.argv[2]) {
     const require=createRequire(import.meta.url);
     const {chromium}=require(process.argv[2]);

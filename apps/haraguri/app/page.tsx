@@ -5,9 +5,12 @@ import type { User } from '@supabase/supabase-js';
 import { startKakaoLogin } from '../lib/kakao';
 import { KakaoGlyph } from '../components/KakaoGlyph';
 import { supabase } from '../lib/supabase';
-import { Attachment, Card, Expense, Data, Entry, Family, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
+import { Attachment, Card, Expense, Data, Entry, Family, RecurringExpense, daysInMonth, demoChat, demoData, emptyData, money, monthEntries, today, total } from '../lib/model';
 
-import { CardFields, ExpenseFields, FinancePanel, SmsPaste } from '../components/Finance';
+import { CardFields, ExpenseFields, FinancePanel, FinanceView, RecurringFields, SmsPaste } from '../components/Finance';
+import { PushPrefs } from '../components/PushPrefs';
+import { IngestSetup } from '../components/IngestSetup';
+import { monthlyReport } from '../lib/report';
 import { SharedItems, sharedFlag, takeSharedItems } from '../lib/share';
 import { parseCardMessage } from '../lib/cardsms';
 import { PushState, currentSubscription, disablePush, enablePush, pushSupport, syncPush } from '../lib/push';
@@ -23,11 +26,11 @@ import { DemoChat, listRoomFiles, useRoomMessages } from '../lib/chat';
 import { formatBytes, prepareUpload, thumbPath } from '../lib/image';
 
 type Tab = 'home' | 'calendar' | 'money' | 'chat' | 'alerts' | 'settings';
-type FormKind = 'entry' | 'expense' | 'card' | null;
+type FormKind = 'entry' | 'expense' | 'card' | 'recurring' | null;
 const tabs: [Tab, string, string][] = [['home', '⌂', '우리집'], ['calendar', '▦', '일정·할 일'], ['money', '₩', '가계부'], ['chat', '◌', '대화'], ['settings', '⚙', '가족 설정']];
 // Snapshot tables: [key, table, order column, ascending, tiebreak column for stable paging]. Newest first so the 2,000-row window keeps recent records.
-const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id']];
-const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태' };
+const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id'], ['recurring', 'hg_recurring_expenses', 'day_of_month', true, 'id']];
+const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태', recurring: '반복 지출' };
 const ROW_CAP = 2000;
 const FREE_STORAGE_BYTES = 1024 ** 3;
 const repeatLabel = { none: '한 번', monthly: '매월', yearly: '매년' };
@@ -76,6 +79,7 @@ export default function Home() {
   const [push,setPush]=useState<PushState>('unsupported');
   const [deepLink,setDeepLink]=useState<{tab?:Tab;open?:string}|null>(null);
   const [plannerFocus,setPlannerFocus]=useState<string|null>(null);
+  const [financeView,setFinanceView]=useState<FinanceView>('list');
   async function refreshPush(){const support=pushSupport();if(support!=='off'){setPush(support);return;}setPush((await currentSubscription())&&Notification.permission==='granted'?'on':'off');}
   const bumpChat=()=>setChatVersion(v=>v+1);
   function openExpense(expense: Expense|null = null, room:Room=null, text='') { setExpenseRoom(room); setSelected(null); setEditingExpense(expense); setExpensePrefill(null); setPrefillText(text); setPrefillKey(k=>k+1); setError(''); setForm('expense'); }
@@ -133,7 +137,7 @@ export default function Home() {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
     // Notification taps arrive as /?tab=… or /?open=entryId:occurrence; applied once the family snapshot is loaded.
     const params = new URLSearchParams(window.location.search);
-    if (params.get('tab') || params.get('open')) { setDeepLink({ tab: params.get('tab') as Tab | undefined ?? undefined, open: params.get('open') ?? undefined }); window.history.replaceState(null, '', '/'); }
+    if (params.get('tab') || params.get('open') || params.get('review')) { if (params.get('review')) setFinanceView('review'); setDeepLink({ tab: (params.get('tab') as Tab | null) ?? (params.get('review') ? 'money' : undefined), open: params.get('open') ?? undefined }); window.history.replaceState(null, '', '/'); }
     refreshPush();
     // Items handed over from the Android share sheet (service worker POST /share → cache → here).
     const flag = sharedFlag(window.location.search);
@@ -222,7 +226,20 @@ export default function Home() {
     if (error) throw error;
     bumpChat();
   }
-  async function update(key: 'cards'|'expenses'|'entries', table: string, id: string, value: Record<string, unknown>) {
+  async function editComment(id: string, body: string) {
+    if (demo) { setDemoRooms(d => ({ ...d, comments: d.comments.map(c => c.id === id ? { ...c, body, edited_at: new Date().toISOString() } : c) })); return; }
+    const r = await supabase!.from('hg_comments').update({ body, edited_at: new Date().toISOString() }).eq('id', id).select('id');
+    if (r.error) throw r.error;
+    if (!r.data?.length) throw new Error('본인이 쓴 메시지만 수정할 수 있어요.');
+    bumpChat();
+  }
+  async function deleteComment(id: string) {
+    if (demo) { setDemoRooms(d => ({ ...d, comments: d.comments.filter(c => c.id !== id) })); return; }
+    const r = await supabase!.from('hg_comments').delete().eq('id', id);
+    if (r.error) throw r.error;
+    bumpChat();
+  }
+  async function update(key: 'cards'|'expenses'|'entries'|'recurring', table: string, id: string, value: Record<string, unknown>) {
     if (demo) setData(d => ({...d, [key]: d[key].map(row => row.id === id ? {...row,...value} : row)}));
     else {
       const result = await supabase!.from(table).update(value).eq('id',id).select('id');
@@ -376,8 +393,14 @@ export default function Home() {
         const entry=data.entries.find(e=>e.id===str('entry_id'));
         if(entry && occurrence(entry,str('occurrence').slice(0,7))!==str('occurrence')) throw new Error('반복 일정의 실제 회차 날짜를 선택해 주세요.');
         const value = {entry_id: entry?.id || null, occurrence: entry?str('occurrence'):null, payment_method: str('payment_method'), title: str('title'), amount, date: str('date'), category: str('category'), card_id: str('card_id') || null, qualifying_amount: qualifying, performance_month: str('card_id') && str('performance_month') ? `${str('performance_month')}-01` : null};
-        if (editingExpense) await update('expenses','hg_expenses',editingExpense.id,value);
+        if (editingExpense) await update('expenses','hg_expenses',editingExpense.id,editingExpense.reviewed===false?{...value,reviewed:true}:value);
         else await insert('expenses','hg_expenses',{...common,...value});
+      } else if (form === 'recurring') {
+        const amount = Number(str('amount')); const day = Number(str('day_of_month'));
+        if (!str('title') || !Number.isSafeInteger(amount) || amount <= 0 || amount > 1000000000) throw new Error('이름과 올바른 원 단위 금액을 입력해 주세요.');
+        if (!Number.isSafeInteger(day) || day < 1 || day > 31) throw new Error('날짜는 1~31 사이로 입력해 주세요.');
+        if (str('payment_method') === 'card' && !str('card_id')) throw new Error('카드를 선택해 주세요.');
+        await insert('recurring','hg_recurring_expenses',{ family_id: family!.id, created_by: uid, title: str('title'), amount, day_of_month: day, category: str('category'), payment_method: str('payment_method'), card_id: str('payment_method') === 'card' ? str('card_id') : null, start_month: `${str('start_month')}-01`, end_month: str('end_month') ? `${str('end_month')}-01` : null, active: true });
       } else {
         const budget = Number(str('budget'));
         const creditLimit = Number(str('credit_limit'));
@@ -446,13 +469,19 @@ export default function Home() {
         <section className="panel"><div className="section-head"><h2>이번 달 함께할 순간</h2><span className="muted">{today().slice(0,7).replace('-', '. ')}</span></div>{currentRows.filter(r => r.date >= today()).slice(0,4).map(({ entry, date }) => renderEntry(entry, date))}{!currentRows.some(r => r.date >= today()) && <div className="empty">가족과 함께할 다음 일정을 등록해 보세요.</div>}</section>
       </>}
       {tab === 'calendar' && <Planner data={data} month={month} setMonth={setMonth} focusDay={plannerFocus} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={date=>{setEntryDate(date);setForm('entry');}}/>}
-      {tab === 'money' && <FinancePanel entries={data.entries} onOpenWork={(entry,date)=>setSelected({entry,date})} cards={data.cards} expenses={data.expenses} uid={uid} month={month} setMonth={setMonth} busy={busy} onAddCard={()=>openCard()} onEditCard={openCard} onEditExpense={openExpense} onDeleteExpense={expense=>{
+      {tab === 'money' && <FinancePanel entries={data.entries} onOpenWork={(entry,date)=>setSelected({entry,date})} cards={data.cards} expenses={data.expenses} uid={uid} month={month} setMonth={setMonth} busy={busy} onAddCard={()=>openCard()} onEditCard={openCard} onEditExpense={openExpense}
+        view={financeView} setView={setFinanceView} report={monthlyReport(data.expenses,data.members,month,today())} recurring={data.recurring}
+        onAddRecurring={()=>{setError('');setForm('recurring');}}
+        onToggleRecurring={r=>run(()=>update('recurring','hg_recurring_expenses',r.id,{active:!r.active}))}
+        onDeleteRecurring={r=>{if(!window.confirm(`'${r.title}' 반복 지출을 삭제할까요? 이미 기록된 지출은 남아요.`))return;run(async()=>{if(demo)setData(d=>({...d,recurring:d.recurring.filter(x=>x.id!==r.id)}));else{const d=await supabase!.from('hg_recurring_expenses').delete().eq('id',r.id);if(d.error)throw d.error;await load();}});}}
+        onConfirmReview={e=>run(()=>update('expenses','hg_expenses',e.id,{reviewed:true}))}
+        onDeleteExpense={expense=>{
         if(!window.confirm('이 지출 기록을 삭제할까요?')) return;
         run(async()=>{if(demo) setData(d=>({...d,expenses:d.expenses.filter(e=>e.id!==expense.id)})); else {const r=await supabase!.from('hg_expenses').delete().eq('id',expense.id);if(r.error)throw r.error;await load();}});
       }}/>}
       {tab === 'chat' && <>
         <div className="payment-tabs" role="group" aria-label="대화 종류"><button aria-pressed={chatView==='general'} onClick={()=>setChatView('general')}>가족 기본 채팅</button><button aria-pressed={chatView==='work'} onClick={()=>setChatView('work')}>일정·구매별 대화</button></div>
-        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key="general" room={null} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid}))} onUpload={files=>run(()=>upload(files,null))} onFile={file=>run(()=>openFile(file))}/></div>}
+        {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key="general" room={null} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid}))} onEdit={(id,body)=>run(()=>editComment(id,body))} onDelete={id=>run(()=>deleteComment(id))} onUpload={files=>run(()=>upload(files,null))} onFile={file=>run(()=>openFile(file))}/></div>}
       </>}
       {tab === 'alerts' && <><div className="banner">앱 안에서 확인하는 알림 모음입니다. 앱을 닫았을 때의 예약 푸시는 아직 제공하지 않습니다.</div><section className="panel"><h2>이번 달 아직 확인하지 않았어요</h2>{unseen.map(({entry,date}) => renderEntry(entry,date))}{!unseen.length && <div className="empty">모든 일정을 확인했어요.</div>}<h2 className="list-title">오늘까지 미완료</h2>{due.map(({entry,date}) => renderEntry(entry,date))}{!due.length && <div className="empty">밀린 일이 없어요.</div>}</section></>}
       {tab === 'settings' && <section className="panel settings"><h2>모임 공간</h2><p>가족·친구·행사별로 독립된 공간을 만들어요. 대화, 일정, 카드와 지출은 선택한 모임 멤버끼리만 공유합니다.</p>
@@ -463,20 +492,25 @@ export default function Home() {
           if(r.error)throw r.error;
           requestVersion.current++;setSelected(null);setInvite('');setData(emptyData);setFamily(null);setLoading(true);setActiveSpace(r.data);localStorage.setItem(`haraguri-space-${uid}`,r.data);setTab('home');
         });}}><label>이 모임에서 사용할 이름<input name="member_name" required maxLength={40} defaultValue={name(uid)}/></label>{spaceAction==='create'?<label>모임 이름<input name="space_name" required maxLength={80} placeholder="우리 가족 / 부모님 생신 / 친구 여행"/></label>:<label>모임 초대 코드<input name="space_invite" required placeholder="초대 코드를 붙여넣으세요"/></label>}<button className="primary" disabled={busy}>{spaceAction==='create'?'모임 생성하기':'모임 참여하기'}</button></form>
-        <h2 className="list-title">{family.name}</h2>{data.members.map(m => <div className="member-row" key={m.user_id}><span className="avatar" style={{ background: memberColor(data.members, m.user_id).bg, color: memberColor(data.members, m.user_id).fg }}>{m.display_name.slice(0,1)}</span><strong>{m.display_name}</strong><small>{m.user_id === family.owner_id ? '가족 공간 소유자' : '가족 구성원'}</small></div>)}{family.owner_id === uid && <><h2 className="list-title">가족 초대</h2><p>새 코드를 발급하면 이전 코드는 만료됩니다. 코드는 7일 동안 유효해요.</p><button className="primary" disabled={busy} onClick={() => run(async () => { if(demo) throw new Error('실제 가족 초대는 로그인 후 사용할 수 있어요.'); const r = await supabase!.rpc('hg_invite',{family:family.id}); if(r.error) throw r.error; setInvite(r.data); })}>초대 코드 발급</button>{invite && <label>가족에게 전달할 코드<input readOnly value={invite} onFocus={e => e.target.select()}/></label>}</>}{!demo&&<><h2 className="list-title">사진·문서 사용량</h2>{usage?<div className="usage-block"><p><b>{formatBytes(usage.bytes)}</b> / {formatBytes(usage.limit)} · {usage.files.toLocaleString('ko-KR')}개 · <b className={usagePercent>=80?'usage-warn':''}>{usagePercent}%</b> 사용 중</p><progress aria-label="저장공간 사용률" value={usagePercent} max={100} className={usagePercent>=80?'warn':''}/>{usagePercent>=80&&<p className="usage-warn">한도에 가까워요. 끝난 일의 대화를 종료하면 그 방의 사진·문서가 정리돼요.</p>}<small className="muted">모임마다 {formatBytes(usage.limit)}까지 올릴 수 있어요. 사진은 긴 변 1,600px으로 줄여 올리고, 문서는 원본 그대로예요.</small></div>:<p>사용량을 확인하고 있어요…</p>}<h2 className="list-title">알림</h2><div className="push-block">{push==='on'&&<><p>이 기기로 푸시 알림을 받고 있어요. 새 메시지·사진, 매일 아침 8시 '오늘 챙길 일'이 와요.</p><button className="secondary" disabled={busy} onClick={()=>run(async()=>{await disablePush();await refreshPush();setNotice('이 기기의 푸시 알림을 껐어요.');})}>이 기기 알림 끄기</button></>}
+        <h2 className="list-title">{family.name}{family.owner_id===uid&&<button className="text-button" disabled={busy} onClick={()=>{const name=window.prompt('모임 이름을 입력하세요',family.name)?.trim();if(!name)return;run(async()=>{if(demo){setFamily(f=>f&&{...f,name});return;}const r=await supabase!.from('hg_families').update({name}).eq('id',family.id).select('id');if(r.error)throw r.error;if(!r.data?.length)throw new Error('모임 소유자만 이름을 바꿀 수 있어요.');await load();});}}>이름 바꾸기</button>}</h2>
+        {data.members.map(m => <div className="member-row" key={m.user_id}><span className="avatar" style={{ background: memberColor(data.members, m.user_id).bg, color: memberColor(data.members, m.user_id).fg }}>{m.display_name.slice(0,1)}</span><div><strong>{m.display_name}{m.user_id===uid&&' (나)'}</strong><small>{m.user_id === family.owner_id ? '모임 소유자' : '구성원'}</small></div>
+          <span className="member-actions">{m.user_id===uid&&<button className="text-button" disabled={busy} onClick={()=>{const name=window.prompt('이 모임에서 보일 이름',m.display_name)?.trim();if(!name)return;run(async()=>{if(demo){setData(d=>({...d,members:d.members.map(x=>x.user_id===uid?{...x,display_name:name}:x)}));return;}const r=await supabase!.from('hg_members').update({display_name:name}).eq('family_id',family.id).eq('user_id',uid);if(r.error)throw r.error;await load();});}}>이름 바꾸기</button>}
+          {family.owner_id===uid&&m.user_id!==uid&&<><button className="text-button" disabled={busy} onClick={()=>{if(!window.confirm(`${m.display_name}님에게 모임 소유권을 넘길까요?`))return;run(async()=>{if(demo)throw new Error('미리보기에서는 바꿀 수 없어요.');const r=await supabase!.rpc('hg_transfer_ownership',{family:family.id,member:m.user_id});if(r.error)throw r.error;await load();});}}>소유권 넘기기</button><button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm(`${m.display_name}님을 모임에서 내보낼까요? 그분이 남긴 기록은 남아요.`))return;run(async()=>{if(demo)throw new Error('미리보기에서는 바꿀 수 없어요.');const r=await supabase!.rpc('hg_remove_member',{family:family.id,member:m.user_id});if(r.error)throw r.error;await load();});}}>내보내기</button></>}</span></div>)}
+        {!demo&&<button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm(family.owner_id===uid&&data.members.length===1?'마지막 멤버예요. 나가면 이 모임의 기록·사진이 모두 삭제돼요. 계속할까요?':'이 모임에서 나갈까요? 내가 남긴 기록은 남아요.'))return;run(async()=>{const r=await supabase!.rpc('hg_leave_family',{family:family.id});if(r.error)throw r.error;requestVersion.current++;localStorage.removeItem(`haraguri-space-${uid}`);setActiveSpace('');setFamily(null);setData(emptyData);setTab('home');await load();});}}>모임 나가기</button>}{family.owner_id === uid && <><h2 className="list-title">가족 초대</h2><p>새 코드를 발급하면 이전 코드는 만료됩니다. 코드는 7일 동안 유효해요.</p><button className="primary" disabled={busy} onClick={() => run(async () => { if(demo) throw new Error('실제 가족 초대는 로그인 후 사용할 수 있어요.'); const r = await supabase!.rpc('hg_invite',{family:family.id}); if(r.error) throw r.error; setInvite(r.data); })}>초대 코드 발급</button>{invite && <label>가족에게 전달할 코드<input readOnly value={invite} onFocus={e => e.target.select()}/></label>}</>}{!demo&&<><h2 className="list-title">사진·문서 사용량</h2>{usage?<div className="usage-block"><p><b>{formatBytes(usage.bytes)}</b> / {formatBytes(usage.limit)} · {usage.files.toLocaleString('ko-KR')}개 · <b className={usagePercent>=80?'usage-warn':''}>{usagePercent}%</b> 사용 중</p><progress aria-label="저장공간 사용률" value={usagePercent} max={100} className={usagePercent>=80?'warn':''}/>{usagePercent>=80&&<p className="usage-warn">한도에 가까워요. 끝난 일의 대화를 종료하면 그 방의 사진·문서가 정리돼요.</p>}<small className="muted">모임마다 {formatBytes(usage.limit)}까지 올릴 수 있어요. 사진은 긴 변 1,600px으로 줄여 올리고, 문서는 원본 그대로예요.</small></div>:<p>사용량을 확인하고 있어요…</p>}<h2 className="list-title">알림</h2><div className="push-block">{push==='on'&&<><p>이 기기로 푸시 알림을 받고 있어요.</p><PushPrefs busy={busy} onError={setError}/><button className="secondary" disabled={busy} onClick={()=>run(async()=>{await disablePush();await refreshPush();setNotice('이 기기의 푸시 알림을 껐어요.');})}>이 기기 알림 끄기</button></>}
 {push==='off'&&<><p>앱을 닫아 둔 동안에도 새 메시지와 아침 할 일 알림을 받으려면 켜 주세요. 기기마다 따로 켭니다.</p><button className="primary" disabled={busy} onClick={()=>run(async()=>{await enablePush(user!.id);await refreshPush();setNotice('푸시 알림을 켰어요. 가족이 메시지를 남기면 이 기기로 와요.');})}>이 기기에서 푸시 알림 받기</button></>}
 {push==='needs-install'&&<p>iPhone은 Safari 공유 메뉴 → ‘홈 화면에 추가’로 설치한 뒤 그 앱에서 알림을 켤 수 있어요(iOS 16.4 이상).</p>}
 {push==='denied'&&<p>이 브라우저에서 알림이 차단돼 있어요. 주소창 자물쇠 → 알림 → 허용으로 바꾼 뒤 새로고침해 주세요.</p>}
 {push==='unsupported'&&<p>이 브라우저는 푸시 알림을 지원하지 않아요. 앱 안의 알림 모음은 그대로 쓸 수 있어요.</p>}</div>
+<h2 className="list-title">가계부 자동 수집</h2>{demo?<p className="muted">로그인하면 결제 문자를 자동으로 받아오는 주소를 만들 수 있어요.</p>:<IngestSetup familyId={family.id} userId={uid} busy={busy} run={run}/>}
 <h2 className="list-title">로그인 계정</h2>{user?.email&&<p>{user.email}</p>}{user?.identities?.some(i=>i.provider==='kakao')?<p>카카오 계정이 연결되어 있어요.</p>:<><p>기존 기록을 유지하려면 현재 계정에 카카오 로그인을 연결하세요.</p><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin(true))}><KakaoGlyph/>카카오 계정 연결</button></>}</>}<h2 className="list-title">홈 화면에 설치</h2><p>iPhone은 Safari 공유 메뉴에서 ‘홈 화면에 추가’를, Android는 브라우저 메뉴의 ‘앱 설치’를 선택하세요.</p><h2 className="list-title">기록 공유</h2><p>가족 공간의 일정, 지출, 댓글과 첨부파일은 참여한 가족 모두에게 공유됩니다.</p><button className="secondary" disabled={busy} onClick={() => run(async () => { if(!demo) { const r = await supabase!.auth.signOut(); if(r.error) throw r.error; } setDemo(false); setFamily(null); setSpaces([]); setActiveSpace(''); setData(emptyData); setSelected(null); setInvite(''); })}>{demo ? '미리보기 나가기' : '로그아웃'}</button></section>}
       <footer>HARAGURI <span>우리 가족의 작은 기록들</span></footer>
     </main>
     {(tab==='home'||tab==='calendar')&&<button className="fab" aria-label="일정·할 일 추가" onClick={()=>{setEntryDate('');setForm('entry');}}>＋</button>}
     {tab==='money'&&<button className="fab" aria-label="지출 기록" onClick={()=>openExpense()}>₩</button>}
     <nav className="bottom-nav" aria-label="모바일 메뉴">{tabs.map(([key,icon,title]) => <button key={key} aria-label={title} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={() => setTab(key)}><span>{icon}</span>{title}</button>)}</nav>
-    {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?'지출 수정하기':'지출 기록하기'):(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
+    {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
       <form onSubmit={submitForm}>{error&&<p role="alert" className="error banner">{error}</p>}
-        {form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards}/><ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
+        {form==='recurring'?<RecurringFields cards={data.cards}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards}/><ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
         <button className="primary" disabled={busy}>{busy?'저장 중…':'저장하기'}</button>
       </form>
     </Modal>}
@@ -502,7 +536,7 @@ export default function Home() {
         <h3>관련 지출</h3>{workExpenses(data.expenses,selected).map(e=><div className="expense-row" key={e.id}><div><strong>{e.title}</strong><small>{e.date} · {e.category}</small></div><b>{money(e.amount)}</b>{e.created_by===uid&&<button className="text-button" onClick={()=>openExpense(e,selected)}>수정</button>}</div>)}
         <div className="work-expense-actions"><button className="secondary" onClick={()=>openExpense(null,selected)}>＋ 결제·환불 기록</button><label>기존 지출 연결<select aria-label="기존 지출 연결" value="" disabled={busy} onChange={e=>{const id=e.target.value;if(id)run(()=>update('expenses','hg_expenses',id,{entry_id:selected.entry.id,occurrence:selected.date}));}}><option value="">이미 입력한 지출 선택</option>{data.expenses.filter(e=>e.created_by===uid&&!e.entry_id).map(e=><option key={e.id} value={e.id}>{e.date} · {e.title} · {money(e.amount)}</option>)}</select></label></div>
         {!isClosed(data.rooms,selected)&&looksFinished(selected.entry,selected.date,data.receipts)&&!dismissedFinish.has(`${selected.entry.id}|${selected.date}`)&&<div className="finish-banner" role="status"><p>{selected.entry.kind==='purchase'?'구매가 마무리됐어요.':'이 일이 끝났어요.'} 대화를 종료하면 사진·문서는 정리되고 글은 남아요.</p><button className="primary" disabled={busy} onClick={()=>run(()=>closeRoom(selected))}>대화 종료</button><button className="text-button" onClick={()=>setDismissedFinish(d=>new Set(d).add(`${selected.entry.id}|${selected.date}`))}>나중에</button></div>}
-        <Chat key={`${selected.entry.id}-${selected.date}`} room={selected} state={roomState(data.rooms,selected)} comments={detail.comments} attachments={detail.attachments} hasMore={detail.hasMore} loadingOlder={detail.loading} loadError={detail.error} onOlder={detail.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:selected.entry.id,occurrence:selected.date,body,created_by:uid}))} onUpload={files=>run(()=>upload(files))} onFile={file=>run(()=>openFile(file))} onClose={()=>run(()=>closeRoom(selected))} onReopen={()=>run(()=>reopenRoom(selected))}/>
+        <Chat key={`${selected.entry.id}-${selected.date}`} room={selected} state={roomState(data.rooms,selected)} comments={detail.comments} attachments={detail.attachments} hasMore={detail.hasMore} loadingOlder={detail.loading} loadError={detail.error} onOlder={detail.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={body=>run(()=>sendComment({family_id:family.id,entry_id:selected.entry.id,occurrence:selected.date,body,created_by:uid}))} onEdit={(id,body)=>run(()=>editComment(id,body))} onDelete={id=>run(()=>deleteComment(id))} onUpload={files=>run(()=>upload(files))} onFile={file=>run(()=>openFile(file))} onClose={()=>run(()=>closeRoom(selected))} onReopen={()=>run(()=>reopenRoom(selected))}/>
         {selected.entry.created_by===uid&&<button className="text-button danger" disabled={busy} onClick={()=>{if(!window.confirm('이 일과 반복 회차의 대화·확인 기록을 모두 삭제할까요?'))return;run(async()=>{
           const links=await entryLinks(selected.entry.id);
           if(links.attachments||links.expenses||links.shared)throw new Error('사진·지출·공유 대화가 연결된 일은 삭제할 수 없어요.');

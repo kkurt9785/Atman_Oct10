@@ -3,7 +3,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
 
-type Subscription = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string };
+type Prefs = { messages?: boolean; files?: boolean; daily?: boolean; eve?: boolean; ingest?: boolean };
+type Subscription = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; prefs: Prefs | null; quiet_start: number | null; quiet_end: number | null };
+type Kind = keyof Prefs;
 type Entry = { id: string; family_id: string; title: string; date: string; kind: string; repeat: 'none' | 'monthly' | 'yearly' };
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -27,7 +29,14 @@ function occurrence(entry: Entry, month: string): string | null {
   return `${month}-${String(day).padStart(2, '0')}`;
 }
 
-async function send(subs: Subscription[], payload: Record<string, unknown>) {
+// Quiet hours are per device in KST; a window like 22→7 wraps midnight.
+function inQuietHours(s: Subscription, hour: number) {
+  if (s.quiet_start == null || s.quiet_end == null || s.quiet_start === s.quiet_end) return false;
+  return s.quiet_start < s.quiet_end ? hour >= s.quiet_start && hour < s.quiet_end : hour >= s.quiet_start || hour < s.quiet_end;
+}
+async function send(allSubs: Subscription[], payload: Record<string, unknown>, kind: Kind) {
+  const hour = kst().getUTCHours();
+  const subs = allSubs.filter(s => (s.prefs?.[kind] ?? true) && !inQuietHours(s, hour));
   let delivered = 0;
   const gone: string[] = [];
   await Promise.all(subs.map(async s => {
@@ -45,7 +54,7 @@ async function send(subs: Subscription[], payload: Record<string, unknown>) {
 
 async function subscriptionsFor(userIds: string[]) {
   if (!userIds.length) return [] as Subscription[];
-  const { data } = await admin.from('hg_push_subscriptions').select('id,user_id,endpoint,p256dh,auth').in('user_id', userIds);
+  const { data } = await admin.from('hg_push_subscriptions').select('id,user_id,endpoint,p256dh,auth,prefs,quiet_start,quiet_end').in('user_id', userIds);
   return (data ?? []) as Subscription[];
 }
 
@@ -60,11 +69,13 @@ async function onMessage(p: { kind: 'comment' | 'file'; family_id: string; entry
   if (p.entry_id) { const { data: entry } = await admin.from('hg_entries').select('title').eq('id', p.entry_id).single(); room = entry?.title ?? '우리집 일'; }
   const text = p.kind === 'file' ? `사진·문서를 올렸어요: ${p.name ?? ''}` : (p.body ?? '');
   const url = p.entry_id ? `/?open=${p.entry_id}:${p.occurrence}` : '/?tab=chat';
-  return send(await subscriptionsFor(recipients), { title: `${room} · ${family?.name ?? 'HARAGURI'}`, body: `${author}: ${text}`.slice(0, 180), url, tag: `room-${p.entry_id ?? 'general'}` });
+  return send(await subscriptionsFor(recipients), { title: `${room} · ${family?.name ?? 'HARAGURI'}`, body: `${author}: ${text}`.slice(0, 180), url, tag: `room-${p.entry_id ?? 'general'}` }, p.kind === 'file' ? 'files' : 'messages');
 }
 
-async function onDaily() {
-  const today = ymd(kst());
+// kind 'daily' (08:00): today's items + overdue. kind 'eve' (20:00): a look at tomorrow.
+async function onDaily(kind: 'daily' | 'eve' = 'daily') {
+  const base = kst(); if (kind === 'eve') base.setUTCDate(base.getUTCDate() + 1);
+  const today = ymd(base);
   const month = today.slice(0, 7);
   const { data: families } = await admin.from('hg_families').select('id,name');
   let total = 0;
@@ -75,13 +86,13 @@ async function onDaily() {
       admin.from('hg_members').select('user_id').eq('family_id', family.id),
     ]);
     const done = new Set((receipts ?? []).map(r => `${r.entry_id}|${r.occurrence}`));
-    const due = (entries as Entry[] ?? []).flatMap(e => { const d = occurrence(e, month); return d && d <= today && !done.has(`${e.id}|${d}`) ? [{ e, d }] : []; });
+    const due = (entries as Entry[] ?? []).flatMap(e => { const d = occurrence(e, month); return d && (kind === 'eve' ? d === today : d <= today) && !done.has(`${e.id}|${d}`) ? [{ e, d }] : []; });
     const todayItems = due.filter(x => x.d === today);
     const overdue = due.length - todayItems.length;
     if (!due.length) continue;
     const titles = (todayItems.length ? todayItems : due).slice(0, 3).map(x => x.e.title).join(', ');
-    const body = `${todayItems.length ? `오늘 ${todayItems.length}개: ${titles}` : `밀린 일 ${overdue}개: ${titles}`}${todayItems.length && overdue ? ` · 밀린 일 ${overdue}개` : ''}`;
-    const result = await send(await subscriptionsFor((members ?? []).map(m => m.user_id)), { title: `${family.name} · 오늘 챙길 일`, body: body.slice(0, 180), url: '/?tab=alerts', tag: 'daily' });
+    const body = kind === 'eve' ? `내일 ${todayItems.length}개: ${titles}` : `${todayItems.length ? `오늘 ${todayItems.length}개: ${titles}` : `밀린 일 ${overdue}개: ${titles}`}${todayItems.length && overdue ? ` · 밀린 일 ${overdue}개` : ''}`;
+    const result = await send(await subscriptionsFor((members ?? []).map(m => m.user_id)), { title: `${family.name} · ${kind === 'eve' ? '내일 챙길 일' : '오늘 챙길 일'}`, body: body.slice(0, 180), url: '/?tab=alerts', tag: kind }, kind);
     total += result.delivered;
   }
   return { delivered: total };
@@ -94,7 +105,10 @@ Deno.serve(async req => {
   let payload: Record<string, unknown>;
   try { payload = await req.json(); } catch { return new Response('bad json', { status: 400 }); }
   try {
-    const result = payload.kind === 'daily' ? await onDaily() : (payload.kind === 'comment' || payload.kind === 'file') ? await onMessage(payload as Parameters<typeof onMessage>[0]) : { ignored: true };
+    const result = payload.kind === 'daily' ? await onDaily('daily')
+      : payload.kind === 'eve' ? await onDaily('eve')
+      : payload.kind === 'ingest' ? await send(await subscriptionsFor([String(payload.user_id)]), { title: String(payload.title ?? 'HARAGURI'), body: String(payload.body ?? ''), url: String(payload.url ?? '/'), tag: 'ingest' }, 'ingest')
+      : (payload.kind === 'comment' || payload.kind === 'file') ? await onMessage(payload as Parameters<typeof onMessage>[0]) : { ignored: true };
     return Response.json(result);
   } catch (e) {
     console.error('push failed', e);

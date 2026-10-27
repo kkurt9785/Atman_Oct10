@@ -44,3 +44,27 @@ suite('card approval message parsing', () => {
     expect(guessCategory('알 수 없는 가맹점')).toBe('기타');
   });
 });
+
+import { readFileSync } from 'node:fs';
+import { detectChannel, fingerprintOf } from './cardsms.core';
+suite('channel rules and the shared copy', () => {
+  it('maps 계좌이체 / 잔액 / 누적 to bank, debit and credit', () => {
+    expect(detectChannel('우리은행 출금 50,000원 잔액 1,234,567원 자동이체 관리비')).toBe('bank_transfer');
+    expect(detectChannel('신한카드 승인 12,000원 잔액 300,000원 동네마트')).toBe('debit');
+    expect(detectChannel('KB국민카드 승인 48,300원 누적 1,234,567원')).toBe('credit');
+    expect(parseCardMessage('[Web발신] 우리은행 10/27 11:21 출금 350,000원 월세 잔액 1,200,000원', now)).toMatchObject({ channel: 'bank_transfer', amount: 350000, merchant: '월세' });
+    expect(parseCardMessage('[Web발신] 우리은행 입금 1,000,000원 급여 잔액 2,000,000원', now)!.incoming).toBe(true);
+  });
+  it('prefers a card of the detected type when matching', () => {
+    const cards = [card('credit', '국민 신용'), { ...card('debit', '국민 체크'), card_type: 'debit' as const }];
+    expect(matchCard(parseCardMessage('KB국민카드 승인 1,000원 10/27 마트 누적 50,000원', now)!, cards)).toBe('credit');
+    expect(matchCard(parseCardMessage('KB국민체크카드 승인 1,000원 10/27 마트 잔액 50,000원', now)!, cards)).toBe('debit');
+  });
+  it('fingerprints the same transaction identically regardless of whitespace', () => {
+    const a = parseCardMessage('신한카드 승인 1,000원 10/27 11:21 동네 마트', now)!, b = parseCardMessage('신한카드  승인 1,000원  10/27 11:21 동네마트', now)!;
+    expect(fingerprintOf(a)).toBe(fingerprintOf(b));
+  });
+  it('keeps the Deno copy of the parser identical to lib/cardsms.core.ts', () => {
+    expect(readFileSync(new URL('../supabase/functions/_shared/cardsms.core.ts', import.meta.url), 'utf8')).toBe(readFileSync(new URL('./cardsms.core.ts', import.meta.url), 'utf8'));
+  });
+});

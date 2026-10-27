@@ -7,7 +7,7 @@ const errors = [];
 try {
   const page = await browser.newPage({ viewport: {width:390,height:844} });
   page.on('pageerror', e => errors.push(e.message));
-  page.on('dialog', d => d.accept()); // window.confirm for closing a room
+  page.on('dialog', d => d.type() === 'prompt' ? d.accept('테스트 이름') : d.accept()); // confirm → OK, prompt → a fixed name
   const base = process.env.BASE_URL || 'http://127.0.0.1:3004';
   await page.goto(base);
   // Simulate an Android share-sheet hand-off: the service worker would have cached these items before redirecting to /?shared=1.
@@ -146,11 +146,39 @@ try {
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'전체',exact:true}).click();
   await page.getByLabel('가계부 조회 월').fill(smsMonth); // the list shows the month being viewed, not the month just saved
   await page.getByText('동네마트',{exact:true}).waitFor();
+  // Ledger views: report numbers, recurring add, review queue confirm.
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
+  await page.getByText(`${smsMonth} 총지출`,{exact:true}).waitFor();
+  await page.getByRole('heading',{name:'자주 쓴 곳 TOP 5'}).waitFor();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'반복 지출'}).click();
+  await page.getByText('아파트 관리비',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'＋ 반복 지출'}).click();
+  await dialog.getByLabel('이름',{exact:true}).fill('넷플릭스');
+  await dialog.getByLabel('금액 (원)',{exact:true}).fill('17000');
+  await dialog.locator('select[name=payment_method]').selectOption('cash');
+  await dialog.getByRole('button',{name:'저장하기'}).click();
+  await page.getByText('넷플릭스',{exact:true}).waitFor();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:/확인 대기/}).click();
+  await page.getByText('편의점 CU',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'확인',exact:true}).click();
+  await page.getByText('확인할 자동 등록 건이 없어요',{exact:false}).waitFor();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
   await page.getByLabel('가계부 조회 월').fill('2026-03');
 
 
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'대화',exact:true}).click();
+  await page.getByLabel('메시지',{exact:true}).fill('가족 기본방 테스트');
+  await page.getByRole('button',{name:'보내기',exact:true}).click();
+  await page.locator('.chat-bubble').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  // Own messages can be edited and deleted.
+  const mine = page.locator('.chat-line.mine').filter({hasText:'가족 기본방 테스트'});
+  await mine.getByRole('button',{name:'수정',exact:true}).click();
+  await page.getByLabel('메시지 수정').fill('가족 기본방 테스트 (수정)');
+  await page.getByRole('button',{name:'저장',exact:true}).click();
+  await page.locator('.chat-line.mine').filter({hasText:'가족 기본방 테스트 (수정)'}).filter({hasText:'수정됨'}).waitFor();
+  await page.locator('.chat-line.mine').filter({hasText:'(수정)'}).getByRole('button',{name:'삭제',exact:true}).click();
+  await page.waitForFunction(()=>![...document.querySelectorAll('.chat-bubble')].some(b=>b.textContent?.includes('가족 기본방 테스트 (수정)')));
   await page.getByLabel('메시지',{exact:true}).fill('가족 기본방 테스트');
   await page.getByRole('button',{name:'보내기',exact:true}).click();
   await page.locator('.chat-bubble').filter({hasText:'가족 기본방 테스트'}).waitFor();
@@ -184,6 +212,10 @@ try {
   await dialog.getByLabel('메시지',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByRole('group',{name:'진행 상태'}).getByRole('button',{name:/진행 중/}).click();
+  // Settings: rename yourself (prompt → '테스트 이름').
+  await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가족 설정'}).click();
+  await page.locator('.member-row').filter({hasText:'(나)'}).getByRole('button',{name:'이름 바꾸기'}).click();
+  await page.locator('.member-row').filter({hasText:'테스트 이름 (나)'}).waitFor();
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'우리집'}).click();
   await page.screenshot({path:'/tmp/haraguri-mobile.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000});

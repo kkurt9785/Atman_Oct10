@@ -1,8 +1,63 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Card, Expense, Entry, Member, money, total, today, daysInMonth } from '../lib/model';
+import { Card, Expense, Entry, Member, RecurringExpense, money, total, today, daysInMonth } from '../lib/model';
 import { categories, cardProgress, qualifyingAmount, performanceMonth, shiftMonth } from '../lib/finance';
 import { ParsedCardMessage, describe, matchCard, parseCardMessage } from '../lib/cardsms';
+import { Report } from '../lib/report';
+
+const methodLabel: Record<string, string> = { card: '카드', bank_transfer: '계좌이체', cash: '현금', other: '기타' };
+export type FinanceView = 'list' | 'report' | 'recurring' | 'review';
+
+// Rows collected from phone messages wait here until a person confirms them.
+export function ReviewQueue({ items, cards, busy, onConfirm, onEdit, onDelete }: { items: Expense[]; cards: Card[]; busy: boolean; onConfirm: (e: Expense) => void; onEdit: (e: Expense) => void; onDelete: (e: Expense) => void }) {
+  if (!items.length) return <div className="panel empty">확인할 자동 등록 건이 없어요. 폰에서 결제 문자가 오면 여기에 쌓여요.</div>;
+  return <section className="panel"><div className="section-head"><h2>자동 등록 확인 <span className="count">{items.length}</span></h2></div>
+    <p className="muted">문자에서 읽은 내용이에요. 맞으면 확인, 다르면 수정하세요. 카드가 비어 있으면 수정에서 골라 주세요.</p>
+    {items.map(e => { const card = cards.find(c => c.id === e.card_id); return <div className="review-row" key={e.id}>
+      <div><strong>{e.title}</strong><small>{e.date} · {e.category} · {card?.name ?? methodLabel[e.payment_method ?? 'other']}{!card && e.payment_method !== 'bank_transfer' && <b className="usage-warn"> · 카드 미지정</b>}</small>{e.raw_text && <small className="raw-text">{e.raw_text}</small>}</div>
+      <div className="review-actions"><b>{money(e.amount)}</b><span><button className="primary" disabled={busy} onClick={() => onConfirm(e)}>확인</button><button className="text-button" disabled={busy} onClick={() => onEdit(e)}>수정</button><button className="text-button" disabled={busy} onClick={() => onDelete(e)}>삭제</button></span></div>
+    </div>; })}
+  </section>;
+}
+
+export function RecurringFields({ cards }: { cards: Card[] }) {
+  const [method, setMethod] = useState('bank_transfer');
+  return <>
+    <label>이름<input name="title" required maxLength={200} placeholder="아파트 관리비 / 아이 학원비"/></label>
+    <div className="form-grid"><label>금액 (원)<input name="amount" type="number" required min="1" max="1000000000" step="1"/></label><label>매월 며칠<input name="day_of_month" type="number" required min="1" max="31" defaultValue={25}/></label></div>
+    <div className="form-grid"><label>분류<select name="category" defaultValue="관리비">{categories.map(c => <option key={c}>{c}</option>)}</select></label><label>결제 수단<select name="payment_method" value={method} onChange={e => setMethod(e.target.value)}><option value="bank_transfer">계좌이체</option><option value="card">카드</option><option value="cash">현금</option><option value="other">기타</option></select></label></div>
+    {method === 'card' && <label>카드<select name="card_id" required><option value="">카드를 선택하세요</option>{cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+    <div className="form-grid"><label>시작 월<input name="start_month" type="month" required defaultValue={today().slice(0, 7)}/></label><label>종료 월 (선택)<input name="end_month" type="month"/></label></div>
+    <p className="muted">매일 0시 10분에 그날 해당하는 반복 지출을 자동으로 기록해요. 31일 설정은 짧은 달에 말일로 들어가요.</p>
+  </>;
+}
+
+export function RecurringPanel({ items, cards, busy, onAdd, onToggle, onDelete }: { items: RecurringExpense[]; cards: Card[]; busy: boolean; onAdd: () => void; onToggle: (r: RecurringExpense) => void; onDelete: (r: RecurringExpense) => void }) {
+  return <section className="panel"><div className="section-head"><h2>매월 반복 지출</h2><button className="secondary" onClick={onAdd}>＋ 반복 지출</button></div>
+    <p className="muted">관리비·학원비·구독처럼 매달 같은 지출을 등록해 두면 날짜에 맞춰 자동으로 기록돼요.</p>
+    {items.map(r => <div className="recurring-row" key={r.id}><div><strong>{r.title}</strong><small>매월 {r.day_of_month}일 · {r.category} · {r.payment_method === 'card' ? cards.find(c => c.id === r.card_id)?.name ?? '카드' : methodLabel[r.payment_method]} · {r.start_month.slice(0, 7)}부터{r.end_month ? ` ${r.end_month.slice(0, 7)}까지` : ''}{!r.active && ' · 일시 중지'}</small></div><div className="review-actions"><b>{money(r.amount)}</b><span><button className="text-button" disabled={busy} onClick={() => onToggle(r)}>{r.active ? '중지' : '재개'}</button><button className="text-button" disabled={busy} onClick={() => onDelete(r)}>삭제</button></span></div></div>)}
+    {!items.length && <div className="empty">아직 반복 지출이 없어요.</div>}
+  </section>;
+}
+
+function Bar({ share, tone }: { share: number; tone?: string }) { return <span className="bar"><i style={{ width: `${Math.max(2, Math.round(share * 100))}%` }} className={tone}/></span>; }
+export function ReportPanel({ report, month, setMonth }: { report: Report; month: string; setMonth: (m: string) => void }) {
+  const r = report;
+  const max = r.byCategory[0]?.amount || 1;
+  const changeText = r.change == null ? '지난달 기록 없음' : `${r.change >= 0 ? '+' : ''}${Math.round(r.change * 100)}% · 지난달 ${money(r.previous)}`;
+  return <>
+    <div className="finance-toolbar report-toolbar"><label>리포트 월<input aria-label="리포트 월" type="month" value={month} onChange={e => e.target.value && setMonth(e.target.value)}/></label></div>
+    <div className="stats"><section className="stat peach"><span>{month} 총지출</span><strong>{money(r.total)}</strong><small>{changeText}</small></section><section className="stat mint"><span>하루 평균</span><strong>{money(r.perDay)}</strong><small>{r.days}일 기준 · {r.count}건</small></section><section className="stat lavender"><span>환불·취소</span><strong>{money(Math.abs(r.refunds))}</strong><small>{r.pendingReview ? `확인 대기 ${r.pendingReview}건` : '확인 대기 없음'}</small></section></div>
+    <section className="panel"><h2>분류별</h2><p className="muted">막대는 이달 금액, 오른쪽은 지난달 대비예요.</p>
+      {r.byCategory.map(c => { const diff = c.amount - c.previous; return <div className="report-row" key={c.name}><span className="report-label">{c.name}</span><Bar share={c.amount / max}/><b>{money(c.amount)}</b><small className={diff > 0 ? 'usage-warn' : 'muted'}>{Math.round(c.share * 100)}% · {c.previous ? `${diff >= 0 ? '+' : ''}${money(diff)}` : '신규'}</small></div>; })}
+      {!r.byCategory.length && <div className="empty">이달 기록이 아직 없어요.</div>}</section>
+    <div className="home-grid">
+      <section className="panel"><h2>결제 수단</h2>{r.byMethod.map(m => <div className="report-row" key={m.name}><span className="report-label">{m.name}</span><Bar share={r.total > 0 ? m.amount / r.total : 0} tone="mint"/><b>{money(m.amount)}</b></div>)}{!r.byMethod.length && <div className="empty">—</div>}</section>
+      <section className="panel"><h2>누가 썼나</h2>{r.byMember.map(m => <div className="report-row" key={m.user_id}><span className="report-label">{m.name}</span><Bar share={r.total > 0 ? m.amount / r.total : 0} tone="lavender"/><b>{money(m.amount)}</b></div>)}{!r.byMember.length && <div className="empty">—</div>}</section>
+    </div>
+    <section className="panel"><h2>자주 쓴 곳 TOP 5</h2>{r.topMerchants.map((m, i) => <div className="expense-row" key={m.title}><span className="expense-icon">{i + 1}</span><div><strong>{m.title}</strong><small>{m.count}회</small></div><b>{money(m.amount)}</b></div>)}{!r.topMerchants.length && <div className="empty">—</div>}</section>
+  </>;
+}
 
 // Paste (or share) a card approval message and the expense form fills itself; the user only confirms.
 export function SmsPaste({cards,initial='',onParsed}:{cards:Card[];initial?:string;onParsed:(prefill:Partial<Expense>,parsed:ParsedCardMessage)=>void}) {
@@ -57,12 +112,18 @@ export function ExpenseFields({ expense, cards }: { expense?: Partial<Expense> |
     <label>실적 반영 월 (선택)<input type="month" name="performance_month" defaultValue={expense?.performance_month?.slice(0,7) || ''}/><small className="muted">비우면 거래한 달에 반영해요. 환불이 원래 결제 월의 실적을 차감하면 그 달을 지정하세요.</small></label></>}
   </>;
 }
-export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy}: {
+export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onConfirmReview}: {
   entries:Entry[];onOpenWork:(entry:Entry,date:string)=>void;cards:Card[];expenses:Expense[];uid:string;month:string;setMonth:(m:string)=>void;onAddCard:()=>void;onEditCard:(c:Card)=>void;onEditExpense:(e:Expense)=>void;onDeleteExpense:(e:Expense)=>void;busy:boolean;
+  view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onConfirmReview:(e:Expense)=>void;
 }) {
   const [scope,setScope]=useState('all');
   const [methodFilter,setMethodFilter]=useState('all');
   const [cardId,setCardId]=useState('all');
+  const pending=expenses.filter(e=>e.reviewed===false);
+  const tabs=<div className="payment-tabs finance-views" role="group" aria-label="가계부 보기"><button aria-pressed={view==='list'} onClick={()=>setView('list')}>내역</button><button aria-pressed={view==='report'} onClick={()=>setView('report')}>리포트</button><button aria-pressed={view==='recurring'} onClick={()=>setView('recurring')}>반복 지출</button><button aria-pressed={view==='review'} onClick={()=>setView('review')}>확인 대기{pending.length>0&&<b className="tab-badge">{pending.length}</b>}</button></div>;
+  if(view==='report') return <>{tabs}<ReportPanel report={report} month={month} setMonth={setMonth}/></>;
+  if(view==='recurring') return <>{tabs}<RecurringPanel items={recurring} cards={cards} busy={busy} onAdd={onAddRecurring} onToggle={onToggleRecurring} onDelete={onDeleteRecurring}/></>;
+  if(view==='review') return <>{tabs}<ReviewQueue items={pending} cards={cards} busy={busy} onConfirm={onConfirmReview} onEdit={onEditExpense} onDelete={onDeleteExpense}/></>;
   const selectableCards=cards.filter(c=>(scope==='all'||c.owner_user_id===uid)&&(methodFilter==='all'||(c.card_type || 'credit')===methodFilter));
   const visibleCards=selectableCards.filter(c=>cardId==='all'||c.id===cardId);
   const visibleExpenses=expenses.filter(e=>e.card_id?visibleCards.some(c=>c.id===e.card_id):cardId==='all'&&(scope==='all'||e.created_by===uid)&&(methodFilter==='all'||(e.payment_method || 'other')===methodFilter));
@@ -71,6 +132,7 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
   const daily=Array.from({length:daysInMonth(month)},(_,i)=>({day:i+1,amount:total(visibleExpenses,`${month}-${String(i+1).padStart(2,'0')}`)}));
   const maxDay=Math.max(1,...daily.map(d=>Math.abs(d.amount)));
   return <>
+    {tabs}
     <div className="payment-tabs" role="group" aria-label="결제 수단 필터">{[['all','전체'],['credit','신용카드'],['debit','체크카드'],['bank_transfer','계좌이체'],['cash','현금'],['other','기타']].map(([value,label])=><button key={value} aria-pressed={methodFilter===value} onClick={()=>{setMethodFilter(value);setCardId('all');}}>{label}</button>)}</div>
     <div className="finance-toolbar"><label>조회 월<input aria-label="가계부 조회 월" type="month" value={month} onChange={e=>e.target.value&&setMonth(e.target.value)}/></label><label>사용자 범위<select value={scope} onChange={e=>{setScope(e.target.value);setCardId('all');}}><option value="all">가족 전체</option><option value="mine">내 카드·내 지출</option></select></label><label>카드 선택<select value={cardId} onChange={e=>setCardId(e.target.value)}><option value="all">전체 카드</option>{selectableCards.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div>
     <div className="stats"><section className="stat peach"><span>{month} 지출</span><strong>{money(selectedTotal)}</strong><small>선택 범위 · 결제에서 환불을 뺀 금액</small></section><section className="stat mint"><span>오늘 지출</span><strong>{money(total(visibleExpenses,today()))}</strong><small>{today()} · 선택 범위 기준</small></section><section className="stat lavender"><span>이번 조회 월 기록</span><strong>{rows.length}<em>건</em></strong><small>카드·현금 직접 입력 기준</small></section></div>
@@ -92,6 +154,6 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
       </article>;
     })}</div>{!visibleCards.length&&<div className="panel empty">{cards.length?'선택한 범위에 카드가 없어요. 카드 설정에서 사용자를 지정해 주세요.':'쓰는 카드를 등록하고 혜택 실적을 챙겨보세요.'}</div>}</>}
     <section className="panel daily-chart"><h2>날짜별 지출</h2><div className="chart-bars">{daily.map(d=><div key={d.day} title={`${month}-${d.day}: ${money(d.amount)}`}><i style={{height:`${Math.abs(d.amount)/maxDay*85}px`,background:d.amount<0?'#b59d86':undefined}}/><small>{d.day}</small></div>)}</div><small className="muted">일별 순지출 · 갈색 막대는 환불이 더 많은 날이에요.</small></section>
-    <section className="panel"><div className="section-head"><h2>지출·환불 내역</h2><small className="muted">{rows.length}건</small></div>{rows.map(e=>{const card=cards.find(c=>c.id===e.card_id);return <div className="finance-expense" key={e.id}><div><strong>{e.title}</strong>{e.entry_id&&(()=>{const work=entries.find(w=>w.id===e.entry_id);return work?<button className="text-button linked-work" onClick={()=>onOpenWork(work,e.occurrence || work.date)}>↗ {work.title}</button>:null;})()}<small>{e.date} · {card?.name || (e.payment_method==='bank_transfer'?'계좌이체':e.payment_method==='cash'?'현금':'기타')} · {e.category}</small>{card&&<small>{qualifyingAmount(e,card)===0?'실적 제외':`인정 실적 ${money(qualifyingAmount(e,card))}`} · {performanceMonth(e)} 반영</small>}</div><div className="expense-actions"><b>{money(e.amount)}</b>{e.created_by===uid&&<span><button disabled={busy} className="text-button" onClick={()=>onEditExpense(e)} aria-label={`${e.title} 수정`}>수정</button><button disabled={busy} className="text-button" onClick={()=>onDeleteExpense(e)} aria-label={`${e.title} 삭제`}>삭제</button></span>}</div></div>;})}{!rows.length&&<div className="empty">이번 달 기록이 아직 없어요.</div>}</section>
+    <section className="panel"><div className="section-head"><h2>지출·환불 내역</h2><small className="muted">{rows.length}건</small></div>{rows.map(e=>{const card=cards.find(c=>c.id===e.card_id);return <div className={`finance-expense ${e.reviewed===false?'unreviewed':''}`} key={e.id}><div><strong>{e.title}{e.reviewed===false&&<span className="tab-badge inline">확인 대기</span>}{e.source==='recurring'&&<span className="room-closed-badge">반복</span>}</strong>{e.entry_id&&(()=>{const work=entries.find(w=>w.id===e.entry_id);return work?<button className="text-button linked-work" onClick={()=>onOpenWork(work,e.occurrence || work.date)}>↗ {work.title}</button>:null;})()}<small>{e.date} · {card?.name || (e.payment_method==='bank_transfer'?'계좌이체':e.payment_method==='cash'?'현금':'기타')} · {e.category}</small>{card&&<small>{qualifyingAmount(e,card)===0?'실적 제외':`인정 실적 ${money(qualifyingAmount(e,card))}`} · {performanceMonth(e)} 반영</small>}</div><div className="expense-actions"><b>{money(e.amount)}</b>{e.created_by===uid&&<span><button disabled={busy} className="text-button" onClick={()=>onEditExpense(e)} aria-label={`${e.title} 수정`}>수정</button><button disabled={busy} className="text-button" onClick={()=>onDeleteExpense(e)} aria-label={`${e.title} 삭제`}>삭제</button></span>}</div></div>;})}{!rows.length&&<div className="empty">이번 달 기록이 아직 없어요.</div>}</section>
   </>;
 }
