@@ -7,7 +7,13 @@ type Subscription = { id: string; user_id: string; endpoint: string; p256dh: str
 type Entry = { id: string; family_id: string; title: string; date: string; kind: string; repeat: 'none' | 'monthly' | 'yearly' };
 
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
-webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com', Deno.env.get('VAPID_PUBLIC_KEY')!, Deno.env.get('VAPID_PRIVATE_KEY')!);
+// VAPID keys arrive via `supabase secrets set`; until then the function answers 503 instead of failing to boot.
+function configured() {
+  const pub = Deno.env.get('VAPID_PUBLIC_KEY'), priv = Deno.env.get('VAPID_PRIVATE_KEY'), secret = Deno.env.get('HOOK_SECRET');
+  if (!pub || !priv || !secret) return false;
+  webpush.setVapidDetails(Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@example.com', pub, priv);
+  return true;
+}
 
 const kst = (d = new Date()) => new Date(d.getTime() + 9 * 3600 * 1000);
 const ymd = (d: Date) => d.toISOString().slice(0, 10);
@@ -83,6 +89,7 @@ async function onDaily() {
 
 Deno.serve(async req => {
   if (req.method !== 'POST') return new Response('method', { status: 405 });
+  if (!configured()) return new Response('push not configured', { status: 503 });
   if (req.headers.get('x-haraguri-secret') !== Deno.env.get('HOOK_SECRET')) return new Response('forbidden', { status: 403 });
   let payload: Record<string, unknown>;
   try { payload = await req.json(); } catch { return new Response('bad json', { status: 400 }); }
