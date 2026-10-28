@@ -75,3 +75,38 @@ suite('Apple Pay transaction trigger text', () => {
     expect(parseCardMessage('KRW 48,300 스타벅스 역삼점 10/26 09:10', now)).toMatchObject({ amount: 48300, merchant: '스타벅스 역삼점', date: '2026-10-26' });
   });
 });
+
+// Card-app push notifications (iOS 27 Shortcuts "알림" trigger / Mac relay / Galaxy) arrive as title + body joined by the ingest function.
+// The company name sits in the title and the body is a sentence, so these differ from SMS layouts.
+suite('card-app push notification parsing', () => {
+  it('reads KB Pay style: name, date, merchant, then amount with a sentence ending', () => {
+    const p = parseCardMessage('KB국민카드 홍*동님 10/27 12:34 스타벅스 10,000원 승인되었습니다', now)!;
+    expect(p).toMatchObject({ amount: 10000, date: '2026-10-27', time: '12:34', merchant: '스타벅스', issuer: '국민', cancel: false, category: '식비' });
+  });
+  it('reads Shinhan SOL style with installment and a two-word merchant', () => {
+    const p = parseCardMessage('신한카드 승인 홍*동 4,500원 일시불 10/27 08:15 스타벅스 역삼점', now)!;
+    expect(p).toMatchObject({ amount: 4500, merchant: '스타벅스 역삼점', issuer: '신한', installment: '일시불' });
+  });
+  it('reads Toss / KakaoPay / NaverPay sentences ("…에서 N원 결제되었어요")', () => {
+    expect(parseCardMessage('토스 스타벅스에서 10,000원 결제되었어요', now)).toMatchObject({ amount: 10000, merchant: '스타벅스', issuer: '토스', channel: 'unknown' });
+    expect(parseCardMessage('카카오페이 결제 완료 스타벅스 10,000원 결제', now)).toMatchObject({ merchant: '스타벅스', issuer: '카카오페이' });
+    expect(parseCardMessage('네이버페이 결제완료 10,000원 스타벅스 결제가 완료되었습니다', now)).toMatchObject({ merchant: '스타벅스', issuer: '네이버페이' });
+  });
+  it('reads Hyundai / Samsung / Lotte orderings', () => {
+    expect(parseCardMessage('현대카드 승인 12,000원 (일시불) 올리브영 10/27 19:02', now)).toMatchObject({ amount: 12000, merchant: '올리브영', issuer: '현대', category: '쇼핑', time: '19:02' });
+    expect(parseCardMessage('삼성카드 홍*동님 10/27 13:10 7,900원 승인 GS25 서초점', now)).toMatchObject({ amount: 7900, merchant: 'GS25 서초점', issuer: '삼성', category: '식비' });
+    expect(parseCardMessage('[롯데카드] 승인 홍*동 25,000원 10/27 18:40 쿠팡', now)).toMatchObject({ amount: 25000, merchant: '쿠팡', issuer: '롯데', category: '쇼핑' });
+  });
+  it('drops the app name even when it leads the merchant (KB Pay, SOL페이)', () => {
+    expect(parseCardMessage('KB Pay 스타벅스 10,000원 결제', now)).toMatchObject({ merchant: '스타벅스', issuer: '국민' });
+    expect(parseCardMessage('SOL페이 승인 3,000원 메가커피', now)).toMatchObject({ merchant: '메가커피', issuer: '신한' });
+  });
+  it('treats a push cancellation as a refund', () => {
+    expect(parseCardMessage('KB국민카드 승인취소 10,000원 10/27 12:40 스타벅스', now)).toMatchObject({ amount: -10000, cancel: true, merchant: '스타벅스' });
+  });
+  it('fingerprints the same purchase identically whether it came as SMS or as an app push', () => {
+    const sms = parseCardMessage('[Web발신]\nKB국민카드 1234승인\n김*한\n10,000원 일시불\n10/27 12:34\n스타벅스\n누적1,234,567원', now)!;
+    const push = parseCardMessage('KB국민카드 홍*동님 10/27 12:34 스타벅스 10,000원 승인되었습니다', now)!;
+    expect(fingerprintOf(sms)).toBe(fingerprintOf(push));
+  });
+});

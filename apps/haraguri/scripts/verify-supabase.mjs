@@ -213,9 +213,29 @@ try {
   const cancelRow=check(await member.db.from('hg_expenses').select('amount,cancels').eq('id',cancel.json.saved).single(),'cancel row');
   assert.equal(cancelRow.amount,-48300); assert.equal(cancelRow.cancels,first.json.saved,'cancellation links to the original purchase');
   assert.equal(check(await member.db.from('hg_expenses').select('canceled_by').eq('id',first.json.saved).single(),'original marked').canceled_by,cancel.json.saved);
-  assert.equal(check(await member.db.from('hg_ingest_tokens').select('received').eq('token',tok.token).single(),'token counter').received,4);
+  // Ingest v2: a notification payload (title/body/app) saves as source 'push'; the same purchase as SMS is then a duplicate;
+  // every delivery is kept in hg_inbox with its outcome, so unreadable text is never lost; members read/delete, outsiders see nothing.
+  const post=(body)=>fetch(`${url}/functions/v1/ingest?token=${tok.token}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(async r=>({status:r.status,json:await r.json().catch(()=>({}))}));
+  const pushRes=await post({title:'신한카드',body:'승인 홍*동 4,500원 일시불 10/27 08:15 QA 스타벅스',app:'신한 SOL페이'});
+  assert.ok(pushRes.json.saved,`notification payload saved (${JSON.stringify(pushRes.json)})`);
+  const pushRow=check(await member.db.from('hg_expenses').select('source,title,amount').eq('id',pushRes.json.saved).single(),'push row');
+  assert.equal(pushRow.source,'push'); assert.equal(pushRow.title,'QA 스타벅스'); assert.equal(pushRow.amount,4500);
+  const smsTwin=await ingest('[Web발신] 신한카드 승인 홍*동 4,500원 일시불 10/27 08:15 QA 스타벅스 누적 100,000원');
+  assert.ok(smsTwin.json.duplicate,'the same purchase arriving as SMS is a duplicate of the push');
+  const junk=await ingest('QA 읽을 수 없는 알림 본문');
+  assert.equal(junk.json.inbox,'unparsed','unreadable text is kept, not dropped');
+  const ping=await post({text:'하라구리 연결 테스트',via:'test'});
+  assert.ok(ping.json.test,'connection test answered');
+  const inboxRows=check(await member.db.from('hg_inbox').select('status,via,raw,expense_id').eq('family_id',family),'inbox rows');
+  assert.ok(inboxRows.some(r=>r.status==='saved'&&r.via==='ios-shortcut'&&r.expense_id===pushRes.json.saved),'push delivery recorded as saved from an iPhone shortcut');
+  assert.ok(inboxRows.some(r=>r.status==='duplicate'),'duplicate delivery recorded');
+  assert.ok(inboxRows.some(r=>r.status==='unparsed'&&r.raw==='QA 읽을 수 없는 알림 본문'),'unreadable text kept in the inbox');
+  assert.ok(inboxRows.some(r=>r.status==='ignored'&&r.via==='test'),'connection test recorded');
+  assert.equal((await outsider.db.from('hg_inbox').select('id').eq('family_id',family)).data.length,0,'inbox is private to the family');
+  check(await member.db.from('hg_inbox').delete().eq('family_id',family).eq('status','unparsed'),'member clears an unreadable row');
+  assert.equal(check(await member.db.from('hg_ingest_tokens').select('received').eq('token',tok.token).single(),'token counter').received,5);
   assert.ok((await outsider.db.from('hg_ingest_tokens').select('token').eq('family_id',family)).data.length===0,'tokens are private');
-  console.log('PASS: recurring generation idempotent; ingest token → parsed expense awaiting review; duplicate/incoming handling; bank transfer channel; learned rules and cancellation links.');
+  console.log('PASS: recurring generation idempotent; ingest token → parsed expense awaiting review; duplicate/incoming handling; bank transfer channel; learned rules and cancellation links; notification payload → push source, SMS twin deduped, inbox keeps every delivery.');
   // Envelopes, settlements, and the weekly digest endpoint.
   const env=check(await owner.db.from('hg_envelopes').insert({family_id:family,name:'QA 봉투',target:300000,due_month:'2027-06-01'}).select().single(),'envelope');
   check(await member.db.from('hg_envelope_entries').insert({family_id:family,envelope_id:env.id,amount:50000}),'member deposits');

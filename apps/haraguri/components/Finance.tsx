@@ -17,9 +17,9 @@ export type FinanceView = 'list' | 'report' | 'recurring' | 'review';
 
 // Rows collected from phone messages wait here until a person confirms them.
 export function ReviewQueue({ items, cards, busy, onConfirm, onEdit, onDelete }: { items: Expense[]; cards: Card[]; busy: boolean; onConfirm: (e: Expense) => void; onEdit: (e: Expense) => void; onDelete: (e: Expense) => void }) {
-  if (!items.length) return <div className="panel empty">확인할 자동 등록 건이 없어요. 폰에서 결제 문자가 오면 여기에 쌓여요.</div>;
+  if (!items.length) return <div className="panel empty">확인할 자동 등록 건이 없어요. 결제 문자나 카드앱 알림이 폰에 오면 여기에 쌓여요.</div>;
   return <section className="panel"><div className="section-head"><h2>자동 등록 확인 <span className="count">{items.length}</span></h2></div>
-    <p className="muted">문자에서 읽은 내용이에요. 맞으면 확인, 다르면 수정하세요. 카드가 비어 있으면 수정에서 골라 주세요.</p>
+    <p className="muted">문자·알림에서 읽은 내용이에요. 맞으면 확인, 다르면 수정하세요. 카드가 비어 있으면 수정에서 골라 주세요.</p>
     {items.map(e => { const card = cards.find(c => c.id === e.card_id); return <div className="review-row" key={e.id}>
       <div><strong>{e.title}</strong><small>{e.date} · {e.category} · {card?.name ?? methodLabel[e.payment_method ?? 'other']}{!card && e.payment_method !== 'bank_transfer' && <b className="usage-warn"> · 카드 미지정</b>}</small>{e.raw_text && <small className="raw-text">{e.raw_text}</small>}</div>
       <div className="review-actions"><b>{money(e.amount)}</b><span><button className="primary" disabled={busy} onClick={() => onConfirm(e)}>확인</button><button className="text-button" disabled={busy} onClick={() => onEdit(e)}>수정</button><button className="text-button" disabled={busy} onClick={() => onDelete(e)}>삭제</button></span></div>

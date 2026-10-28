@@ -41,8 +41,8 @@ function query(db, sql) {
   return out.trim() ? JSON.parse(out) : [];
 }
 
-async function post(url, text) {
-  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, via: 'mac-relay' }) });
+async function post(url, text, via = 'mac-relay-sms', app = '') {
+  const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, via, app }) });
   const body = await r.text().catch(() => '');
   return { status: r.status, body: body.slice(0, 200) };
 }
@@ -80,6 +80,15 @@ async function scanNotifications(config, state, status) {
     rows = query(NOTIF_DB, `select r.rec_id as id, a.identifier as app, hex(r.data) as data from record r join app a on a.app_id = r.app_id where r.rec_id > ${Number(state.lastNotifId) || 0} order by r.rec_id asc limit 200`);
   } catch (e) { status.notif = { available: false, reason: String(e.message || e).slice(0, 120) }; return 0; }
   const apps = new Set(status.notif?.apps ?? []);
+  try {
+    const top = query(NOTIF_DB, 'select a.identifier as app, count(*) as n, max(r.rec_id) as last from record r join app a on a.app_id = r.app_id group by a.identifier order by last desc limit 15');
+    const eco = query(NOTIF_DB, "select hex(r.data) as data from record r join app a on a.app_id = r.app_id where a.identifier = 'com.apple.ecosystem.notifications' order by r.rec_id desc limit 3");
+    const ecoDecoded = eco.length ? decodePlists(eco.map(r => r.data)).map(d => ({ title: (d.title || '').slice(0, 12), subtitle: (d.subtitle || '').slice(0, 12), bodyChars: (d.body || '').length })) : [];
+    // Content-free look at the newest KakaoTalk(Mac) notifications: card companies can send approval alerts as 알림톡, which land here.
+    const kakao = query(NOTIF_DB, "select hex(r.data) as data from record r join app a on a.app_id = r.app_id where a.identifier = 'com.kakao.kakaotalkmac' order by r.rec_id desc limit 8");
+    const kakaoDecoded = kakao.length ? decodePlists(kakao.map(r => r.data)).map(d => { const t = [d.title, d.subtitle, d.body].filter(Boolean).join(' '); return { titleChars: (d.title || '').length, bodyChars: (d.body || '').length, payment: PAYMENT.test(t) && AMOUNT.test(t), preview: (d.body || '').length > 0 }; }) : [];
+    status.notif = { ...(status.notif || {}), topApps: top, ecosystemRecent: ecoDecoded, kakaoRecent: kakaoDecoded };
+  } catch (e) { status.notif = { ...(status.notif || {}), diagError: String(e.message || e).slice(0, 100) }; }
   if (!rows.length) { status.notif = { ...(status.notif || {}), available: true, lastScan: new Date().toISOString() }; return 0; }
   const decoded = decodePlists(rows.map(r => r.data));
   let sent = 0;
@@ -93,7 +102,7 @@ async function scanNotifications(config, state, status) {
     if (isPayment) {
       if (flag('--dry-run')) { log(`[dry-run][알림 ${r.app}] ${text.slice(0, 80)}`); sent++; }
       else {
-        try { const res = await post(config.ingestUrl, text); log(`${res.status} [알림 ${r.app}] ${text.slice(0, 40)} → ${res.body}`); if (res.status >= 500) break; sent++; }
+        try { const res = await post(config.ingestUrl, text, 'mac-relay-notif', r.app); log(`${res.status} [알림 ${r.app}] ${text.slice(0, 40)} → ${res.body}`); if (res.status >= 500) break; sent++; }
         catch (e) { log(`알림 전송 실패(다음에 재시도): ${e.message}`); break; }
       }
     }

@@ -8,7 +8,7 @@ export type ParsedCardMessage = {
 };
 
 const ISSUERS: [RegExp, string][] = [
-  [/KB\s*국민|국민/, '국민'], [/신한/, '신한'], [/삼성/, '삼성'], [/현대/, '현대'], [/롯데/, '롯데'], [/우리/, '우리'], [/하나/, '하나'],
+  [/KB\s*국민|국민|KB\s*Pay|KBPay/i, '국민'], [/신한|SOL\s*페이|쏠페이/i, '신한'], [/삼성/, '삼성'], [/현대/, '현대'], [/롯데/, '롯데'], [/우리/, '우리'], [/하나/, '하나'],
   [/NH\s*농협|농협/, '농협'], [/\bBC\b|비씨/, 'BC'], [/씨티|시티/, '씨티'], [/IBK\s*기업|기업/, '기업'], [/카카오뱅크/, '카카오뱅크'], [/토스뱅크/, '토스뱅크'], [/케이뱅크/, '케이뱅크'],
   [/카카오페이/, '카카오페이'], [/토스/, '토스'], [/네이버페이/, '네이버페이'], [/페이코/, '페이코'], [/새마을/, '새마을'], [/수협/, '수협'],
 ];
@@ -84,17 +84,19 @@ export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessa
     .replace(/\d{1,2}:\d{2}(?::\d{2})?/g, ' ')
     .replace(/\(\d{4}\)|\*+\d{4}|\d{4}(?=\s*(?:승인|사용|결제|취소))|끝\s*\d{4}/g, ' ')
     .replace(/[가-힣]\*+[가-힣]*\s*님?|고객님|님/g, ' ')
-    .replace(/(KB\s*국민|NH\s*농협|IBK\s*기업|카카오뱅크|토스뱅크|카카오페이|네이버페이|케이뱅크|국민|신한|삼성|현대|롯데|우리|하나|농협|비씨|BC|씨티|시티|기업|토스|페이코|새마을|수협)\s*(체크|신용)?\s*(카드|은행)?/gi, ' ')
+    .replace(/(KB\s*국민|KB\s*Pay|KBPay|SOL\s*페이|쏠페이|NH\s*농협|IBK\s*기업|카카오뱅크|토스뱅크|카카오페이|네이버페이|케이뱅크|국민|신한|삼성|현대|롯데|우리|하나|농협|비씨|BC|씨티|시티|기업|토스|페이코|새마을|수협)\s*(체크|신용)?\s*(카드|은행|페이|Pay)?/gi, ' ')
     .replace(/해외승인|승인취소|결제취소|승인|취소|일시불|\d{1,2}개월|할부|체크|신용|카드|결제|완료|사용|출금|자동이체|이체|송금|입금|알림|안내|\[|\]|\(|\)|【|】/g, ' ')
+    .replace(/되었습니다|됐습니다|되었어요|됐어요|하였습니다|했습니다|되었음|감사합니다|입니다|에서|으로|님의/g, ' ') // push-notification sentence endings
     .replace(/[|·•▶►>]/g, ' ');
   const fragments = stripped.split(/\n/).flatMap(line => line.split(/\s{2,}/)).map(s => s.replace(/\s+/g, ' ').trim()).filter(s => /[가-힣A-Za-z0-9]{2,}/.test(s));
-  const merchant = (fragments[fragments.length - 1] || '').replace(/^[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').slice(0, 60) || (channel === 'bank_transfer' ? '계좌이체' : '카드 결제');
+  const merchant = (fragments[fragments.length - 1] || '').replace(/^[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').replace(/\s[가이은는을를의로에]$/, '').slice(0, 60) // a lone trailing particle left by "결제가 완료…" || (channel === 'bank_transfer' ? '계좌이체' : '카드 결제');
   return { amount: cancel ? -amount : amount, date, time, merchant, issuer, last4, cancel, installment, category: guessCategory(merchant), channel, incoming };
 }
 
 // Stable key for de-duplicating the same message delivered twice (SMS + KakaoTalk notification, or a retry).
+// Source-agnostic: the same purchase arriving as SMS, app push, KakaoTalk alert or Mac relay collides on one key.
 export function fingerprintOf(parsed: ParsedCardMessage) {
-  return `sms:${parsed.date}:${parsed.time ?? ''}:${parsed.amount}:${parsed.merchant.replace(/\s+/g, '').slice(0, 30)}`;
+  return `pay:${parsed.date}:${parsed.time ?? ''}:${parsed.amount}:${parsed.merchant.replace(/\s+/g, '').toLowerCase().slice(0, 4)}`;
 }
 
 export function describe(parsed: ParsedCardMessage) {

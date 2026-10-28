@@ -748,7 +748,7 @@ export default function Home() {
 {push==='needs-install'&&<p>iPhone은 Safari 공유 메뉴 → ‘홈 화면에 추가’로 설치한 뒤 그 앱에서 알림을 켤 수 있어요(iOS 16.4 이상).</p>}
 {push==='denied'&&<p>이 브라우저에서 알림이 차단돼 있어요. 주소창 자물쇠 → 알림 → 허용으로 바꾼 뒤 새로고침해 주세요.</p>}
 {push==='unsupported'&&<p>이 브라우저는 푸시 알림을 지원하지 않아요. 앱 안의 알림 모음은 그대로 쓸 수 있어요.</p>}</div>
-<h2 className="list-title">가계부 자동 수집</h2>{demo?<p className="muted">로그인하면 결제 문자를 자동으로 받아오는 주소를 만들 수 있어요.</p>:<IngestSetup familyId={family.id} userId={uid} busy={busy} run={run}/>}
+<h2 className="list-title">가계부 자동 수집</h2>{demo?<p className="muted">로그인하면 결제 문자·카드앱 알림을 자동으로 받아오는 주소를 만들 수 있어요.</p>:<IngestSetup familyId={family.id} userId={uid} busy={busy} run={run}/>}
 <h2 className="list-title">로그인 계정</h2>{user?.email&&<p>{user.email}</p>}{user?.identities?.some(i=>i.provider==='kakao')?<p>카카오 계정이 연결되어 있어요.</p>:<><p>기존 기록을 유지하려면 현재 계정에 카카오 로그인을 연결하세요.</p><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin(true))}><KakaoGlyph/>카카오 계정 연결</button></>}</>}<h2 className="list-title">홈 화면에 설치</h2><p>iPhone은 Safari 공유 메뉴에서 ‘홈 화면에 추가’를, Android는 브라우저 메뉴의 ‘앱 설치’를 선택하세요.</p><h2 className="list-title">기록 공유</h2><p>가족 공간의 일정, 지출, 댓글과 첨부파일은 참여한 가족 모두에게 공유됩니다.</p><button className="secondary" disabled={busy} onClick={() => run(async () => { if(!demo) { const r = await supabase!.auth.signOut(); if(r.error) throw r.error; } setDemo(false); setFamily(null); setSpaces([]); setActiveSpace(''); setData(emptyData); setSelected(null); setInvite(''); })}>{demo ? '미리보기 나가기' : '로그아웃'}</button></section>}
       <footer>HARAGURI <span>우리 가족의 작은 기록들</span></footer>
     </main>

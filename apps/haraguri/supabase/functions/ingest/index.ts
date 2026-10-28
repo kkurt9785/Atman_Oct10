@@ -1,6 +1,7 @@
 // HARAGURI auto-collect endpoint. Phone automations (iOS 단축어, MacroDroid) POST a payment message here with a per-member token.
 // The message is parsed server-side and saved as an expense awaiting review (reviewed=false). Duplicates are ignored by fingerprint.
-//   POST /functions/v1/ingest?token=…   body: {"text": "..."} | text/plain | form field "text"   (or header x-ingest-token)
+//   POST /functions/v1/ingest?token=…   body: {"text": "..."} or {"title","subtitle","body","app","via"} | text/plain | form field "text"   (or header x-ingest-token)
+//   Every delivery is recorded in hg_inbox with its outcome (saved / duplicate / ignored / unparsed).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule } from '../_shared/cardsms.core.ts';
 
@@ -19,11 +20,18 @@ function matchCard(parsed: ParsedCardMessage, cards: Card[]): string | null {
   return pool.length === 1 ? pool[0].id : null;
 }
 
-async function readText(req: Request): Promise<string> {
+type Payload = { text: string; via: string; app: string; structured: boolean };
+async function readText(req: Request): Promise<Payload> {
   const type = req.headers.get('content-type') ?? '';
-  if (type.includes('application/json')) { const b = await req.json().catch(() => ({})); return String(b.text ?? b.message ?? b.body ?? b.content ?? ''); }
-  if (type.includes('form')) { const f = await req.formData().catch(() => null); return String(f?.get('text') ?? f?.get('message') ?? ''); }
-  return await req.text();
+  if (type.includes('application/json')) {
+    const b = await req.json().catch(() => ({})) as Record<string, unknown>;
+    // v2: notification triggers send title/subtitle/body separately; v1 senders send one text.
+    const parts = [b.title, b.subtitle, b.body].filter(v => typeof v === 'string' && v.trim()).map(v => String(v).trim());
+    const text = parts.length ? parts.join(' ') : String(b.text ?? b.message ?? b.content ?? '');
+    return { text, via: String(b.via ?? ''), app: String(b.app ?? ''), structured: parts.length > 0 };
+  }
+  if (type.includes('form')) { const f = await req.formData().catch(() => null); return { text: String(f?.get('text') ?? f?.get('message') ?? ''), via: String(f?.get('via') ?? ''), app: String(f?.get('app') ?? ''), structured: false }; }
+  return { text: await req.text(), via: req.headers.get('x-haraguri-via') ?? '', app: '', structured: false };
 }
 
 Deno.serve(async req => {
@@ -34,12 +42,19 @@ Deno.serve(async req => {
   const { data: owner } = await admin.from('hg_ingest_tokens').select('family_id,user_id').eq('token', token).maybeSingle();
   if (!owner) return json({ error: 'unknown token' }, 404);
 
-  const text = (await readText(req)).trim().slice(0, 2000);
+  const payload = await readText(req);
+  const text = payload.text.trim().slice(0, 2000);
+  // Only the iOS notification trigger sends title/body separately, so structured input without a label means an iPhone Shortcut.
+  const via = (payload.via || (payload.structured ? 'ios-shortcut' : '')).slice(0, 40), app = payload.app.slice(0, 120);
+  const inbox = (status: 'saved' | 'duplicate' | 'ignored' | 'unparsed', summary: string, expense_id: string | null = null) =>
+    admin.from('hg_inbox').insert({ family_id: owner.family_id, user_id: owner.user_id, via, app, raw: text, status, summary: summary.slice(0, 200), expense_id }).then(() => undefined, () => undefined);
   if (!text) return json({ error: 'empty text' }, 400);
-  const parsed = parseCardMessage(text, new Date(Date.now() + 9 * 3600 * 1000)); // KST "today" for messages without a year
   await admin.from('hg_ingest_tokens').update({ last_used_at: new Date().toISOString() }).eq('token', token);
-  if (!parsed) return json({ ignored: 'no amount found' });
-  if (parsed.incoming) return json({ ignored: 'incoming transfer' });
+  if (via === 'test' || /하라구리 연결 테스트/.test(text)) { await inbox('ignored', '연결 테스트 ✓'); return json({ test: true, inbox: 'ignored' }); }
+  // The source app name helps name the card company when the push body itself does not (e.g. 토스·카카오페이 pushes).
+  const parsed = parseCardMessage(app ? `${app} ${text}` : text, new Date(Date.now() + 9 * 3600 * 1000)); // KST "today" for messages without a year
+  if (!parsed) { await inbox('unparsed', '금액을 찾지 못함'); return json({ ignored: 'no amount found', inbox: 'unparsed' }); }
+  if (parsed.incoming) { await inbox('ignored', '입금 알림'); return json({ ignored: 'incoming transfer', inbox: 'ignored' }); }
 
   const [{ data: cards }, { data: rules }] = await Promise.all([
     admin.from('hg_cards').select('id,name,holder,benefit_note,card_type').eq('family_id', owner.family_id),
@@ -60,13 +75,15 @@ Deno.serve(async req => {
   const payment = parsed.channel === 'bank_transfer' ? 'bank_transfer' : cardId ? 'card' : 'other';
   const row = {
     family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : parsed.merchant, amount: parsed.amount, date: parsed.date, category: rule?.category ?? parsed.category,
-    scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
+    scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
   };
   const inserted = await admin.from('hg_expenses').insert(row).select('id').single();
   if (inserted.error) {
-    if (inserted.error.code === '23505') return json({ duplicate: true, summary: describe(parsed) });
+    if (inserted.error.code === '23505') { await inbox('duplicate', describe(parsed)); return json({ duplicate: true, summary: describe(parsed) }); }
+    await inbox('unparsed', `저장 실패: ${inserted.error.message}`.slice(0, 200));
     return json({ error: inserted.error.message }, 500);
   }
+  await inbox('saved', describe(parsed), inserted.data.id);
   if (cancels) await admin.from('hg_expenses').update({ canceled_by: inserted.data.id }).eq('id', cancels);
   await admin.rpc('hg_bump_ingest', { tok: token }).then(() => undefined, () => undefined);
   // Tell the collector's own devices that something is waiting for review (best effort).
