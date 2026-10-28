@@ -9,6 +9,7 @@ export type Card = {
   id: string; family_id: string; name: string; holder: string; budget: number; credit_limit: number;
   card_type?: 'credit' | 'debit'; owner_user_id?: string | null; performance_thresholds?: number[];
   benefit_basis?: 'previous_month' | 'current_month'; excluded_categories?: string[]; benefit_note?: string;
+  perf_override_month?: string | null; perf_override_amount?: number | null; perf_override_date?: string | null;
 };
 export type Expense = {
   id: string; family_id: string; card_id: string | null; title: string; amount: number; date: string; category: string; created_by: string;
@@ -32,7 +33,7 @@ export type Pin = { comment_id: string; pinned_by: string; pinned_at: string };
 export type RoomRead = { user_id: string; last_read_at: string };
 export const REACTION_EMOJI = ['❤️','👍','😂','😮','😢','🙏'];
 export type Attachment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; created_at?: string; path: string; name: string; size?: number; created_by: string };
-export type Family = { id: string; name: string; owner_id: string };
+export type Family = { id: string; name: string; owner_id: string; settings?: { settlement?: boolean } | null };
 // A closed room keeps its text but its files were removed; writes are blocked until reopened.
 export type RoomState = { family_id: string; entry_id: string; occurrence: string; closed_at: string | null; closed_by: string | null; purged_at: string | null; purged_files: number; purged_bytes: number };
 // Chat rooms (comments, attachments) are paged separately in lib/chat.ts and are not part of the family snapshot.

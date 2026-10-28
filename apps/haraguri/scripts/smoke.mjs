@@ -131,15 +131,14 @@ try {
   await dialog.locator('select[name=card_id]').selectOption('c1');
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.getByText('190,000원 남았어요',{exact:true}).waitFor();
+  // One switch per transaction: counts toward the card's performance or not.
   await page.getByRole('button',{name:'실적 테스트 수정'}).click();
-  await dialog.locator('select[name=qualifying_mode]').selectOption('exclude');
+  await dialog.getByLabel(/이 거래는 카드 실적에서 제외/).check();
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.getByText('300,000원 남았어요',{exact:true}).waitFor();
   await page.getByRole('button',{name:'실적 테스트 수정'}).click();
-  await dialog.locator('select[name=qualifying_mode]').selectOption('manual');
-  await dialog.getByLabel('인정 실적 (원)',{exact:true}).fill('300000');
-  await dialog.getByRole('button',{name:'저장하기'}).click();
-  await page.getByText('200,000원 남았어요',{exact:true}).waitFor();
+  assert.equal(await dialog.getByLabel(/이 거래는 카드 실적에서 제외/).isChecked(),true);
+  await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.screenshot({path:'/tmp/haraguri-finance-mobile.png',fullPage:true});
   await page.getByRole('button',{name:'지출 기록',exact:true}).click();
   await moreFields();
@@ -236,8 +235,6 @@ try {
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   // Regret toggle, expense → chat room, calendar view with a day filter, search.
   const star = page.locator('.finance-expense').filter({hasText:'스타벅스 강남'});
-  await star.getByRole('button',{name:'스타벅스 강남 후회 표시'}).click();
-  assert.equal(await star.getByRole('button',{name:'스타벅스 강남 후회 표시'}).getAttribute('aria-pressed'),'true');
   await star.getByRole('button',{name:'스타벅스 강남 대화'}).click();
   await dialog.getByRole('heading',{name:'스타벅스 강남'}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
@@ -341,8 +338,8 @@ try {
   await page.getByRole('group',{name:'대화 종류'}).getByRole('button',{name:'일정·구매별 대화'}).click();
   await page.getByRole('group',{name:'진행 상태'}).getByRole('button',{name:/종료됨 1/}).click();
   await page.getByRole('button',{name:/종료됨.*아이 자전거 같이 고르기/}).click();
-  await dialog.getByRole('button',{name:'다시 열기',exact:true}).click();
-  await dialog.getByLabel('메시지',{exact:true}).waitFor();
+  await dialog.getByText('종료된 대화예요',{exact:false}).first().waitFor(); // closed rooms are read-only now (no reopen)
+  assert.equal(await dialog.getByLabel('메시지',{exact:true}).count(),0);
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByRole('group',{name:'진행 상태'}).getByRole('button',{name:/진행 중/}).click();
   // Settings: rename yourself (prompt → '테스트 이름').

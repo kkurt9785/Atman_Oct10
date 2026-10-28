@@ -16,8 +16,9 @@ const PROMPT = `이 이미지는 카드사·은행·간편결제 앱의 이용�
 
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
-  if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY');
+  if (req.method === 'GET') return json({ configured: !!apiKey }); // the app shows the AI button only when this says yes
+  if (req.method !== 'POST') return json({ error: 'POST only' }, 405);
   if (!apiKey) return json({ error: 'AI recognition is not configured' }, 503);
   const form = await req.formData().catch(() => null);
   const image = form?.get('image');

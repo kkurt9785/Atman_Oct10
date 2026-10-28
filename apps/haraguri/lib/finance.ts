@@ -22,15 +22,17 @@ export function qualifyingAmount(expense: Expense, card: Card) {
 export function performanceMonth(expense: Expense) {
   return (expense.performance_month || expense.date).slice(0,7);
 }
+// If the family typed the card company's own figure for this month ("카드사 실적 보정"), start from it and add only records after that date.
 export function cardProgress(card: Card, expenses: Expense[], month: string) {
-  const records = expenses.filter(e => e.card_id === card.id && performanceMonth(e) === month);
-  const amount = records.reduce((sum,e) => sum + qualifyingAmount(e,card),0);
+  const override = card.perf_override_month?.slice(0, 7) === month && card.perf_override_amount != null ? { amount: Number(card.perf_override_amount), date: card.perf_override_date || `${month}-01` } : null;
+  const records = expenses.filter(e => e.card_id === card.id && performanceMonth(e) === month && (!override || e.date > override.date));
+  const amount = (override?.amount ?? 0) + records.reduce((sum,e) => sum + qualifyingAmount(e,card),0);
   const thresholds = [...new Set(card.performance_thresholds ?? [])].sort((a,b) => a-b);
   const achieved = thresholds.filter(t => amount >= t);
   const next = thresholds.find(t => amount < t) ?? null;
   const target = next ?? thresholds.at(-1) ?? 0;
   return {
-    amount, records: records.length, thresholds, achieved, next,
+    amount, records: records.length, thresholds, achieved, next, override,
     remaining: next == null ? 0 : next - amount,
     percent: target ? Math.max(0, Math.min(100, amount / target * 100)) : 0,
   };

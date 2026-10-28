@@ -8,6 +8,7 @@ import { formatBytes } from '../lib/image';
 export const MAX_FILES_PER_UPLOAD = 10;
 const GROUP_GAP = 5 * 60 * 1000; // consecutive messages by the same person within 5 minutes share one header
 const MAX_VOICE_SECONDS = 60;
+const VOICE = false; // hidden for now: KakaoTalk does voice better and iOS recording formats are unverified
 type Pending = { id: string; body: string; time: string; failed: boolean; replyTo: string | null };
 type Row = { type: 'message'; id: string; time: string; message: Comment } | { type: 'file'; id: string; time: string; file: Attachment } | { type: 'photos'; id: string; time: string; files: Attachment[] } | { type: 'pending'; id: string; time: string; pending: Pending };
 
@@ -61,7 +62,7 @@ export function Chat({room,state,comments,attachments,entries,uid,name,busy,sync
   const initialUnread=useRef(unreadCount); // where the "read up to here" line goes; fixed when the room opens
   const photos=useSignedPhotos(attachments);
   const closed=!!state?.closed_at;
-  const canRecord=typeof window!=='undefined'&&'MediaRecorder' in window&&!!navigator.mediaDevices?.getUserMedia;
+  const canRecord=VOICE&&typeof window!=='undefined'&&'MediaRecorder' in window&&!!navigator.mediaDevices?.getUserMedia;
 
   // A pending bubble disappears as soon as the real row arrives (same author, same text, within two minutes).
   useEffect(()=>{ if(pending.length) setPending(p=>p.filter(x=>x.failed||!comments.some(c=>c.created_by===uid&&c.body===x.body&&Math.abs(new Date(c.created_at).getTime()-new Date(x.time).getTime())<120000))); },[comments]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -175,7 +176,7 @@ export function Chat({room,state,comments,attachments,entries,uid,name,busy,sync
     </div>
     {fresh>0&&<button type="button" className="chat-fresh" onClick={jumpToBottom}>새 메시지 {fresh}개 ↓</button>}
     {closed
-      ? <div className="room-closed" role="status"><p><b>종료된 대화예요.</b> {state?.purged_files?`사진·문서 ${state.purged_files}개(${formatBytes(state.purged_bytes)})는 정리했고 `:''}글은 그대로 남아 있어요.</p>{onReopen&&<button className="secondary" disabled={busy} onClick={onReopen}>다시 열기</button>}</div>
+      ? <div className="room-closed" role="status"><p><b>종료된 대화예요.</b> {state?.purged_files?`사진·문서 ${state.purged_files}개(${formatBytes(state.purged_bytes)})는 정리했고 `:''}글은 그대로 남아 있어요. 다시 이야기할 일이면 새 일을 만들어 주세요.</p></div>
       : <form className="chat-compose" onSubmit={e=>{e.preventDefault();submit();}}>
           {replyTo&&<div className="reply-preview" role="status">↩ <b>{name(replyTo.created_by)}</b> {snippet(replyTo.body,70)}<button type="button" className="icon-button" aria-label="답장 취소" onClick={()=>setReplyTo(null)}>×</button></div>}
           {rec?<div className="voice-recording" role="status"><span className="rec-dot"/>녹음 중 {Math.floor(recSeconds/60)}:{String(recSeconds%60).padStart(2,'0')} · 최대 {MAX_VOICE_SECONDS}초<span className="rec-actions"><button type="button" className="text-button" onClick={()=>stopRecording(false)}>취소</button><button type="button" className="primary small" onClick={()=>stopRecording(true)}>보내기</button></span></div>

@@ -37,7 +37,9 @@ function inQuietHours(s: Subscription, hour: number) {
 }
 async function send(allSubs: Subscription[], payload: Record<string, unknown>, kind: Kind) {
   const hour = kst().getUTCHours();
-  const subs = allSubs.filter(s => (s.prefs?.[kind] ?? true) && !inQuietHours(s, hour));
+  // Five user-facing switches: files follow messages; evening preview and ingest pushes are opt-in (off unless explicitly true).
+  const enabled = (s: Subscription) => kind === 'files' ? (s.prefs?.messages ?? true) : kind === 'eve' || kind === 'ingest' ? s.prefs?.[kind] === true : (s.prefs?.[kind] ?? true);
+  const subs = allSubs.filter(s => enabled(s) && !inQuietHours(s, hour));
   let delivered = 0;
   const gone: string[] = [];
   await Promise.all(subs.map(async s => {
@@ -94,19 +96,31 @@ async function onDaily(kind: 'daily' | 'eve' = 'daily') {
   const { data: families } = await admin.from('hg_families').select('id,name');
   let total = 0;
   for (const family of families ?? []) {
-    const [{ data: entries }, { data: receipts }, { data: members }] = await Promise.all([
+    const [{ data: entries }, { data: receipts }, { data: members }, { data: budgets }] = await Promise.all([
       admin.from('hg_entries').select('id,family_id,title,date,kind,repeat').eq('family_id', family.id),
       admin.from('hg_receipts').select('entry_id,occurrence,state').eq('family_id', family.id).eq('state', 'done'),
       admin.from('hg_members').select('user_id').eq('family_id', family.id),
+      kind === 'daily' ? admin.from('hg_budgets').select('month,total').eq('family_id', family.id).lte('month', `${month}-01`).order('month', { ascending: false }).limit(1) : Promise.resolve({ data: [] as { month: string; total: number }[] }),
     ]);
+    // Morning briefing also carries today's allowance (remaining budget ÷ days left), the one number the family checks daily.
+    let allowance = '';
+    const budget = budgets?.[0]?.total ? Number(budgets[0].total) : 0;
+    if (kind === 'daily' && budget) {
+      const { data: mtd } = await admin.from('hg_expenses').select('amount').eq('family_id', family.id).eq('kind', 'expense').gte('date', `${month}-01`).lte('date', today);
+      const spent = (mtd ?? []).reduce((a, r) => a + Number(r.amount), 0);
+      const daysLeft = daysInMonth(month) - Number(today.slice(8)) + 1;
+      const perDay = Math.max(0, Math.floor((budget - spent) / Math.max(1, daysLeft)));
+      allowance = spent >= budget ? ` · 예산 ${Math.round(spent / budget * 100)}% 사용` : ` · 오늘은 ${perDay.toLocaleString('ko-KR')}원까지`;
+    }
     const done = new Set((receipts ?? []).map(r => `${r.entry_id}|${r.occurrence}`));
     const due = (entries as Entry[] ?? []).flatMap(e => { const d = occurrence(e, month); return d && (kind === 'eve' ? d === today : d <= today) && !done.has(`${e.id}|${d}`) ? [{ e, d }] : []; });
     const todayItems = due.filter(x => x.d === today);
     const overdue = due.length - todayItems.length;
-    if (!due.length) continue;
+    if (!due.length && !allowance) continue;
     const titles = (todayItems.length ? todayItems : due).slice(0, 3).map(x => x.e.title).join(', ');
-    const body = kind === 'eve' ? `내일 ${todayItems.length}개: ${titles}` : `${todayItems.length ? `오늘 ${todayItems.length}개: ${titles}` : `밀린 일 ${overdue}개: ${titles}`}${todayItems.length && overdue ? ` · 밀린 일 ${overdue}개` : ''}`;
-    const result = await send(await subscriptionsFor((members ?? []).map(m => m.user_id)), { title: `${family.name} · ${kind === 'eve' ? '내일 챙길 일' : '오늘 챙길 일'}`, body: body.slice(0, 180), url: '/?tab=alerts', tag: kind }, kind);
+    const todo = !due.length ? '오늘 챙길 일 없음' : kind === 'eve' ? `내일 ${todayItems.length}개: ${titles}` : `${todayItems.length ? `오늘 ${todayItems.length}개: ${titles}` : `밀린 일 ${overdue}개: ${titles}`}${todayItems.length && overdue ? ` · 밀린 일 ${overdue}개` : ''}`;
+    const body = `${todo}${allowance}`;
+    const result = await send(await subscriptionsFor((members ?? []).map(m => m.user_id)), { title: `${family.name} · ${kind === 'eve' ? '내일 챙길 일' : '아침 브리핑'}`, body: body.slice(0, 180), url: kind === 'daily' && !due.length ? '/?tab=money' : '/?tab=home', tag: kind }, kind);
     total += result.delivered;
   }
   return { delivered: total };

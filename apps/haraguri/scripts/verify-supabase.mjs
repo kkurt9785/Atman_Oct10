@@ -171,6 +171,13 @@ try {
   assert.ok((await member.db.rpc('hg_remove_member',{family,member:owner.id})).error,'non-owner cannot remove');
   assert.ok((await owner.db.rpc('hg_leave_family',{family})).error,'owner cannot leave while others remain');
   console.log('PASS: own-message edit/delete; rename rules; owner leave blocked while members remain.');
+  // Family switches: owner turns settlement on, member reads it, member cannot change it. Card override columns are member-editable.
+  check(await owner.db.from('hg_families').update({settings:{settlement:true}}).eq('id',family),'owner sets settings');
+  assert.equal(check(await member.db.from('hg_families').select('settings').eq('id',family).single(),'member reads settings').settings.settlement,true);
+  assert.equal(check(await member.db.from('hg_families').update({settings:{settlement:false}}).eq('id',family).select('id'),'member cannot change settings').length,0);
+  check(await member.db.from('hg_cards').update({perf_override_month:'2026-10-01',perf_override_amount:250000,perf_override_date:'2026-10-20'}).eq('id',card.id),'card override');
+  assert.equal(check(await owner.db.from('hg_cards').select('perf_override_amount').eq('id',card.id).single(),'override visible').perf_override_amount,250000);
+  console.log('PASS: family settings (owner-only), card performance override columns.');
 
   // Recurring expenses generate once per month on their day (run the job as admin with today\'s KST day).
   const kstDay=Number(new Date(Date.now()+9*3600*1000).toISOString().slice(8,10));
