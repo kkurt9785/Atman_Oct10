@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { startKakaoLogin } from '../lib/kakao';
 import { KakaoGlyph } from '../components/KakaoGlyph';
@@ -21,11 +21,11 @@ import { dayTone, holidayName, weekOf } from '../lib/holidays';
 import { memberColor } from '../lib/colors';
 import { Planner } from '../components/Planner';
 import { Chat } from '../components/Chat';
-import { WorkBoard, WorkFields, ExpenseWorkFields } from '../components/Work';
+import { RoomSummary, WorkBoard, WorkFields, ExpenseWorkFields } from '../components/Work';
 import { Room, inRoom, isClosed, looksFinished, purchaseStates, roomDate, roomState, workExpenses } from '../lib/work';
 import { occurrence } from '../lib/model';
 import { categories, learnKeyword, parseThresholds, validateQualifyingAmount } from '../lib/finance';
-import { DemoChat, SearchHit, emptySocial, listRoomFiles, useRoomMessages, useRoomSocial } from '../lib/chat';
+import { DemoChat, SearchHit, emptySocial, listRoomFiles, useRoomMessages, useRoomSocial, useSignedPhotos } from '../lib/chat';
 import { formatBytes, prepareUpload, thumbPath } from '../lib/image';
 
 type Tab = 'home' | 'calendar' | 'money' | 'chat' | 'settings';
@@ -467,6 +467,25 @@ export default function Home() {
     if (r.error || !r.data.session) throw new Error('번호가 맞지 않거나 만료됐어요. 메일을 다시 확인하거나 새로 받아 주세요.');
   }
   const name = (id: string) => data.members.find(m => m.user_id === id)?.display_name ?? '가족';
+  // Home board: the latest message and photo per room (one light query each; not the per-room pages the chat uses).
+  const [roomActivity,setRoomActivity]=useState<{comments:Comment[];attachments:Attachment[]}>({comments:[],attachments:[]});
+  useEffect(()=>{
+    if(!family){ setRoomActivity({comments:[],attachments:[]}); return; }
+    if(demo||!supabase){ setRoomActivity({comments:demoRooms.comments.filter(c=>!!c.entry_id),attachments:demoRooms.attachments.filter(a=>!!a.entry_id)}); return; }
+    let active=true;
+    Promise.all([
+      supabase.from('hg_comments').select('*').eq('family_id',family.id).not('entry_id','is',null).order('created_at',{ascending:false}).limit(60),
+      supabase.from('hg_attachments').select('*').eq('family_id',family.id).not('entry_id','is',null).order('created_at',{ascending:false}).limit(30),
+    ]).then(([c,a])=>{ if(active) setRoomActivity({comments:(c.data as Comment[])??[],attachments:(a.data as Attachment[])??[]}); }).catch(()=>undefined);
+    return ()=>{ active=false; };
+  },[family?.id,demo,demoRooms,chatVersion]);
+  const roomSummaries=useMemo(()=>{
+    const m:Record<string,RoomSummary>={};
+    for(const c of roomActivity.comments){ const k=`${c.entry_id}:${c.occurrence}`; if(!m[k]||(m[k].at??'')<c.created_at) m[k]={...m[k],text:c.body,by:name(c.created_by),at:c.created_at}; }
+    for(const a of roomActivity.attachments){ if(!/\.(png|jpe?g|webp)$/i.test(a.path)) continue; const k=`${a.entry_id}:${a.occurrence}`; const cur=m[k]||{}; if(!cur.photo) m[k]={...cur,photo:a.path,at:cur.at&&cur.at>(a.created_at||'')?cur.at:(a.created_at||cur.at)}; }
+    return m;
+  },[roomActivity,data.members]); // eslint-disable-line react-hooks/exhaustive-deps
+  const homePhotos=useSignedPhotos(roomActivity.attachments.filter(a=>/\.(png|jpe?g|webp)$/i.test(a.path)));
   const rows = monthEntries(data.entries, month);
   const currentRows = monthEntries(data.entries, today().slice(0, 7));
   const done = (id: string, date: string) => data.receipts.some(r => r.entry_id === id && r.occurrence === date && r.state === 'done');
@@ -670,9 +689,8 @@ export default function Home() {
       {loading && <p role="status" className="muted">최신 기록을 불러오는 중…</p>}
       {tab === 'home' && <>
         <div className="week-strip" role="group" aria-label="이번 주">{weekOf(today()).map(d=>{const items=monthEntries(data.entries,d.slice(0,7)).filter(r=>r.date===d);const overdue=d<today()&&items.some(r=>!done(r.entry.id,r.date));const holiday=holidayName(d);return <button key={d} className={`${dayTone(d)} ${d===today()?'today':''} ${overdue?'has-overdue':''}`} aria-label={`${d}${holiday?` ${holiday}`:''} 일정 ${items.length}개`} title={holiday||undefined} onClick={()=>{setPlannerFocus(d);setTab('calendar');}}><small>{holiday?holiday.slice(0,3):['일','월','화','수','목','금','토'][new Date(`${d}T12:00:00`).getDay()]}</small><strong>{Number(d.slice(8))}</strong><span className="year-dots">{[...new Set(items.map(r=>r.entry.kind))].map(k=><i key={k} className={k}/>)}</span></button>;})}</div>
-        <div className="stats"><section className="stat peach"><span>오늘 쓴 돈</span><strong>{money(total(data.expenses, today()))}</strong><small>직접 기록한 결제·환불 기준</small></section><section className="stat mint"><span>이번 달 지출</span><strong>{money(total(data.expenses, today().slice(0, 7)))}</strong><small>가족이 함께 기록한 생활비</small></section><section className="stat lavender"><span>오늘까지 챙길 일</span><strong>{due.length}<em>개</em></strong><small>이번 달 미완료 일정·할 일</small></section></div>
-        {(()=>{const b=budgetStatus(data.budgets,data.expenses,today().slice(0,7),today());return <section className={`budget-gauge ${b.total>0&&b.percent>=80?'warn':''}`} aria-label="이번 달 예산">{b.total>0?<><div className="gauge-head"><span>이번 달 예산 {money(b.total)} · <b>{b.percent}%</b> 사용</span><button className="text-button" onClick={()=>{setError('');setMonth(today().slice(0,7));setForm('budget');}}>조정</button></div><progress value={Math.min(100,b.percent)} max={100} className={b.percent>=80?'warn':''}/><p>{b.remaining>=0?<>남은 <b>{money(b.remaining)}</b> · 오늘은 <b>{money(b.perDay)}</b>까지</>:<>예산보다 <b>{money(-b.remaining)}</b> 더 썼어요</>}</p></>:<div className="gauge-head"><span>예산을 정하면 “오늘 쓸 수 있는 돈”을 알려드려요.</span><button className="secondary" onClick={()=>{setError('');setMonth(today().slice(0,7));setForm('budget');}}>예산 정하기</button></div>}</section>;})()}
-        <WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} unread={unreadMap} month={today().slice(0,7)} compact onMore={()=>{setTab('chat');setChatView('work');}} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>
+        {(()=>{const b=budgetStatus(data.budgets,data.expenses,today().slice(0,7),today());return <section className={`today-line ${b.total>0&&b.percent>=80?'warn':''}`} aria-label="오늘 한눈에"><button type="button" onClick={()=>document.getElementById('due-section')?.scrollIntoView({behavior:'smooth',block:'start'})}><span>오늘 챙길 일</span><b>{due.length}개</b></button><button type="button" onClick={()=>setTab('money')}><span>오늘 쓴 돈</span><b>{money(total(data.expenses,today()))}</b></button><button type="button" onClick={()=>{setError('');setMonth(today().slice(0,7));setForm('budget');}}><span>{b.total>0?`남은 예산 · ${b.percent}% 사용`:'예산'}</span><b>{b.total>0?(b.remaining>=0?`${money(b.remaining)} · 오늘 ${money(b.perDay)}까지`:`${money(-b.remaining)} 초과`):'정하기 →'}</b></button>{b.total>0&&<progress value={Math.min(100,b.percent)} max={100} className={b.percent>=80?'warn':''} aria-label="예산 사용률"/>}</section>;})()}
+        <WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} unread={unreadMap} summaries={roomSummaries} photos={homePhotos} month={today().slice(0,7)} compact onMore={()=>{setTab('chat');setChatView('work');}} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>
         <div className="home-grid"><section className="panel" id="due-section"><div className="section-head"><h2>놓치지 말고 챙겨요 <span className="count">{due.length}</span></h2><button className="text-button" onClick={() => setTab('calendar')}>전체 보기 ↗</button></div>{due.length ? due.slice(0, 5).map(({ entry, date }) => renderEntry(entry, date)) : <div className="empty">오늘까지 할 일을 모두 챙겼어요 🌿</div>}<div className="gentle-note">확인과 완료는 따로 기록해요.<br/>반복되는 할 일도 매달 새롭게 체크할 수 있어요.</div></section>
         <section className="panel"><div className="section-head"><h2>최근 지출</h2><button className="text-button" onClick={() => setTab('money')}>가계부 ↗</button></div>{[...data.expenses].sort((a,b) => b.date.localeCompare(a.date)).slice(0,4).map(e => <div className="expense-row" key={e.id}><span className="expense-icon">₩</span><div><strong>{e.title}</strong><small>{e.date.slice(5)} · {e.category}</small></div><b>{money(e.amount)}</b></div>)}{!data.expenses.length && <div className="empty">첫 생활비를 기록해 보세요.</div>}<button className="wide-button" onClick={() => openExpense()}>＋ 지출 기록하기</button></section></div>
         <section className="panel"><div className="section-head"><h2>이번 달 함께할 순간</h2><span className="muted">{today().slice(0,7).replace('-', '. ')}</span></div>{currentRows.filter(r => r.date >= today()).slice(0,4).map(({ entry, date }) => renderEntry(entry, date))}{!currentRows.some(r => r.date >= today()) && <div className="empty">가족과 함께할 다음 일정을 등록해 보세요.</div>}</section>
