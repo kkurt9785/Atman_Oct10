@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// HARAGURI Mac relay: forwards new payment SMS from the Mac Messages database (iPhone "문자 메시지 전달") to the collect address.
+// HARAGURI Mac relay: forwards new payment SMS from the Mac Messages database (iPhone "문자 메시지 전달") and payment pushes from
+// iPhone notifications mirrored to the Mac notification center (iOS 18 + macOS 15 "iPhone 알림 허용") to the collect address.
 // One pass per run; HaraguriRelay.app (built by install.sh) runs it every 30 seconds. State: ~/.haraguri-relay/.
 // Reading ~/Library/Messages/chat.db needs Full Disk Access for the app that launches this script.
 import { execFileSync } from 'node:child_process';
@@ -46,6 +47,62 @@ async function post(url, text) {
   return { status: r.status, body: body.slice(0, 200) };
 }
 
+const NOTIF_DB = join(HOME, 'Library/Group Containers/group.com.apple.usernoted/db2/db');
+// Notification payloads are binary plists; macOS ships python3 with plistlib, so decode a batch there (title/subtitle/body only).
+export function decodePlists(hexes) {
+  if (!hexes.length) return [];
+  const py = `import sys,json,plistlib,binascii
+out=[]
+for line in sys.stdin:
+    h=line.strip()
+    if not h: continue
+    try:
+        p=plistlib.loads(binascii.unhexlify(h))
+        req=p.get('req',{}) if isinstance(p,dict) else {}
+        out.append({'title':str(req.get('titl','') or ''),'subtitle':str(req.get('subt','') or ''),'body':str(req.get('body','') or '')})
+    except Exception as e:
+        out.append({'title':'','subtitle':'','body':'','err':str(e)[:60]})
+print(json.dumps(out,ensure_ascii=False))`;
+  const out = execFileSync('/usr/bin/python3', ['-c', py], { input: hexes.join('\n'), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return JSON.parse(out);
+}
+// Payment pushes from card apps (mirrored from the iPhone) are forwarded exactly like SMS. First run only remembers the newest id.
+async function scanNotifications(config, state, status) {
+  if (!existsSync(NOTIF_DB)) { status.notif = { available: false, reason: 'no notification db' }; return 0; }
+  let rows;
+  try {
+    if (!state.lastNotifId) {
+      const newest = Number(query(NOTIF_DB, 'select coalesce(max(rec_id), 0) as m from record')[0]?.m) || 0;
+      state.lastNotifId = newest; status.notif = { available: true, newestId: newest, apps: [] };
+      log(`알림 첫 실행: 기존 알림은 건너뛰고 지금부터 감시해요 (기준 #${newest}).`);
+      return 0;
+    }
+    rows = query(NOTIF_DB, `select r.rec_id as id, a.identifier as app, hex(r.data) as data from record r join app a on a.app_id = r.app_id where r.rec_id > ${Number(state.lastNotifId) || 0} order by r.rec_id asc limit 200`);
+  } catch (e) { status.notif = { available: false, reason: String(e.message || e).slice(0, 120) }; return 0; }
+  const apps = new Set(status.notif?.apps ?? []);
+  if (!rows.length) { status.notif = { ...(status.notif || {}), available: true, lastScan: new Date().toISOString() }; return 0; }
+  const decoded = decodePlists(rows.map(r => r.data));
+  let sent = 0;
+  const recent = [];
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i], d = decoded[i] || {};
+    apps.add(r.app);
+    const text = [d.title, d.subtitle, d.body].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    const isPayment = PAYMENT.test(text) && AMOUNT.test(text);
+    recent.push({ id: r.id, app: r.app, chars: text.length, payment: isPayment });
+    if (isPayment) {
+      if (flag('--dry-run')) { log(`[dry-run][알림 ${r.app}] ${text.slice(0, 80)}`); sent++; }
+      else {
+        try { const res = await post(config.ingestUrl, text); log(`${res.status} [알림 ${r.app}] ${text.slice(0, 40)} → ${res.body}`); if (res.status >= 500) break; sent++; }
+        catch (e) { log(`알림 전송 실패(다음에 재시도): ${e.message}`); break; }
+      }
+    }
+    state.lastNotifId = r.id;
+  }
+  status.notif = { available: true, newestId: state.lastNotifId, apps: [...apps].slice(-30), recent: recent.slice(-10), lastScan: new Date().toISOString() };
+  return sent;
+}
+
 async function main() {
   if (flag('--selftest')) {
     const text = '승인 1,000원 동네마트';
@@ -53,8 +110,10 @@ async function main() {
     const short = Buffer.concat([header, Buffer.from([Buffer.byteLength(text)]), Buffer.from(text), Buffer.from([0x86])]);
     const long = Buffer.concat([header, Buffer.from([0x81, Buffer.byteLength(text) & 0xff, Buffer.byteLength(text) >> 8]), Buffer.from(text), Buffer.from([0x86])]);
     const a = decodeAttributedBody(short.toString('hex')), b = decodeAttributedBody(long.toString('hex'));
-    const ok = a === text && b === text;
-    console.log(ok ? 'selftest ok' : `selftest FAILED: ${JSON.stringify([a, b])}`);
+    let plistOk = false;
+    try { const hex = execFileSync('/usr/bin/python3', ['-c', "import plistlib,binascii;print(binascii.hexlify(plistlib.dumps({'req':{'titl':'신한카드','body':'승인 1,000원 테스트'}},fmt=plistlib.FMT_BINARY)).decode())"], { encoding: 'utf8' }).trim(); const d = decodePlists([hex])[0]; plistOk = d.title === '신한카드' && d.body === '승인 1,000원 테스트'; } catch (e) { console.log('plist selftest error', e.message); }
+    const ok = a === text && b === text && plistOk;
+    console.log(ok ? 'selftest ok' : `selftest FAILED: ${JSON.stringify([a, b, plistOk])}`);
     process.exit(ok ? 0 : 1);
   }
   const config = { db: join(HOME, 'Library/Messages/chat.db'), lookbackDays: 2, ...readJson(CONFIG, {}) };
@@ -81,14 +140,14 @@ async function main() {
   const toIso = d => d ? new Date(((d > 10000000000 ? d / 1e9 : d) + 978307200) * 1000).toISOString() : null;
   const newest = read(`select max(case when service='SMS' then date end) as sms, max(date) as any from message where is_from_me=0`)[0] || {};
   const STATUS = join(DIR, 'status.json');
-  const status = { at: new Date().toISOString(), lastRowId: state.lastRowId, newestSms: toIso(newest.sms), newestMessage: toIso(newest.any), lastPass: readJson(STATUS, {}).lastPass };
+  const previous = readJson(STATUS, {});
+  const status = { at: new Date().toISOString(), lastRowId: state.lastRowId, newestSms: toIso(newest.sms), newestMessage: toIso(newest.any), lastPass: previous.lastPass, notif: previous.notif };
   const writeStatus = () => writeFileSync(STATUS, JSON.stringify(status));
   writeStatus();
   // date is ns since 2001-01-01 on current macOS; older DBs used seconds.
   const rows = read(`select m.ROWID as rowid, m.text as text, hex(m.attributedBody) as body, m.is_from_me as from_me, m.service as service,
       case when m.date > 10000000000 then m.date/1000000000 else m.date end + 978307200 as unix, h.id as sender
       from message m left join handle h on h.ROWID = m.handle_id where m.ROWID > ${Number(state.lastRowId) || 0} order by m.ROWID asc limit 500`);
-  if (!rows.length) { if (flag('--verbose')) log('새 메시지 없음'); return; }
   const cutoff = Date.now() / 1000 - config.lookbackDays * 86400;
   let sent = 0, skipped = 0, last = Number(state.lastRowId) || 0;
   const seen = []; // content-free trace of what each row looked like, for diagnosing decode/filter problems
@@ -109,8 +168,10 @@ async function main() {
     } else skipped++;
     last = row.rowid;
   }
+  const notifSent = await scanNotifications(config, state, status);
   if (!flag('--dry-run')) { state.lastRowId = last; writeFileSync(STATE, JSON.stringify(state)); }
-  status.lastPass = { at: status.at, sent, skipped, rows: seen.slice(-10) }; writeStatus();
-  if (sent || flag('--verbose')) log(`처리: 전송 ${sent}건 · 건너뜀 ${skipped}건`);
+  if (rows.length) status.lastPass = { at: status.at, sent, skipped, rows: seen.slice(-10) };
+  writeStatus();
+  if (sent || notifSent || flag('--verbose')) log(`처리: 문자 전송 ${sent}건 · 건너뜀 ${skipped}건 · 알림 전송 ${notifSent}건`);
 }
 main().catch(e => { log(`오류: ${e.message}`); process.exit(1); });

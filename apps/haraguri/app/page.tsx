@@ -93,6 +93,7 @@ export default function Home() {
   const [codeMode,setCodeMode]=useState(false); // login screen: paste an invite code/link before signing in
   const [recurringPrefill,setRecurringPrefill]=useState<{title:string;amount:number;day:number}|null>(null);
   const [captureOpen,setCaptureOpen]=useState(false); // screenshot → transactions importer
+  const [captureFiles,setCaptureFiles]=useState<File[]|null>(null); // handed over from the share sheet
   const [aiReady,setAiReady]=useState(false); // the vision function says whether an API key is configured
   useEffect(()=>{ if(!captureOpen||demo||!supabase) return; supabase.auth.getSession().then(({data:{session}})=>fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/vision`,{headers:{Authorization:`Bearer ${session?.access_token ?? ''}`}})).then(r=>r.ok?r.json():null).then(b=>setAiReady(!!b?.configured)).catch(()=>setAiReady(false)); },[captureOpen,demo]);
   const [unread,setUnread]=useState<UnreadRow[]>([]); // rooms with messages this person has not opened yet (all spaces)
@@ -407,7 +408,7 @@ export default function Home() {
       added++;
     }
     if (!demo) await load();
-    setCaptureOpen(false); setTab('money'); setFinanceView('list');
+    setCaptureOpen(false); setCaptureFiles(null); setTab('money'); setFinanceView('list');
     setNotice(`캡처에서 ${added}건을 가계부에 넣었어요${skipped ? ` · ${skipped}건은 이미 있거나 비어 있어 건너뜀` : ''}.`);
   }
   async function aiRecognize(file: File): Promise<OcrRow[]> {
@@ -754,7 +755,7 @@ export default function Home() {
     {(tab==='home'||tab==='calendar')&&<button className="fab" aria-label="일정·할 일 추가" onClick={()=>{setEntryDate('');setForm('entry');}}>＋</button>}
     {tab==='money'&&<button className="fab" aria-label="지출 기록" onClick={()=>openExpense()}>₩</button>}
     <nav className="bottom-nav" aria-label="모바일 메뉴">{tabs.map(([key,icon,title]) => <button key={key} aria-label={title} className={tab===key?'active':''} aria-current={tab===key?'page':undefined} onClick={() => setTab(key)}><span>{icon}</span>{title}{key==='chat'&&unreadFamilyTotal>0&&<b className="nav-badge" aria-label={`안 읽은 메시지 ${unreadFamilyTotal}개`}>{unreadFamilyTotal}</b>}</button>)}</nav>
-    {captureOpen && <Modal title="카드앱 캡처로 가져오기" close={()=>{if(!busy)setCaptureOpen(false);}}><CaptureImport cards={data.cards} expenses={data.expenses} rules={data.rules} busy={busy} onImport={(rows,cardId)=>run(()=>importRows(rows,cardId)).then(()=>undefined)} onAi={!demo&&aiReady?aiRecognize:undefined}/></Modal>}
+    {captureOpen && <Modal title="카드앱 캡처로 가져오기" close={()=>{if(!busy){setCaptureOpen(false);setCaptureFiles(null);}}}><CaptureImport key={captureFiles?captureFiles.length:'pick'} initialFiles={captureFiles??undefined} cards={data.cards} expenses={data.expenses} rules={data.rules} busy={busy} onImport={(rows,cardId)=>run(()=>importRows(rows,cardId)).then(()=>undefined)} onAi={!demo&&aiReady?aiRecognize:undefined}/></Modal>}
     {form && <Modal title={form==='entry'?(editingEntry?'일 수정하기':'함께할 일 남기기'):form==='expense'?(editingExpense?(editingExpense.reviewed===false?'자동 등록 확인·수정':'지출 수정하기'):'지출 기록하기'):form==='budget'?'예산 설정':form==='envelope'?'적립 봉투 만들기':form==='recurring'?'매월 반복 지출 추가':(editingCard?'카드 설정':'카드·실적 목표 추가')} close={()=>{if(!busy){setForm(null);setEditingEntry(null);}}}>
       <form onSubmit={submitForm}>{error&&<p role="alert" className="error banner">{error}</p>}
         {form==='budget'?<BudgetFields budget={budgetFor(data.budgets,month)} month={month}/>:form==='envelope'?<EnvelopeFields/>:form==='recurring'?<RecurringFields cards={data.cards} initial={recurringPrefill}/>:form==='card'?<CardFields card={editingCard} members={data.members}/>:form==='expense'?<>{!editingExpense&&<><SmsPaste cards={data.cards} initial={prefillText} onParsed={prefill=>{setExpensePrefill(prefill);setPrefillKey(k=>k+1);}}/><button type="button" className="text-button sms-toggle" onClick={()=>{setForm(null);setCaptureOpen(true);}}>📷 카드앱 캡처로 여러 건 가져오기</button></>}<ExpenseFields key={prefillKey} expense={editingExpense ?? expensePrefill} cards={data.cards} rules={data.rules} settlement={!!family.settings?.settlement} remembered={readLastPay()} openAdvanced={!!expenseRoom} extra={<ExpenseWorkFields entries={data.entries} expense={editingExpense} room={expenseRoom}/>}/></>:<WorkFields key={editingEntry?.id ?? 'new'} members={data.members} date={entryDate || today()} entry={editingEntry} locked={!!editingEntry&&entryLocked}/>}
@@ -763,6 +764,7 @@ export default function Home() {
     </Modal>}
     {shared && !form && <Modal title="공유받은 항목" close={()=>{if(!busy)setShared(null);}}>
       <div className="detail">
+        {shared.files.length>0&&shared.files.some(f=>/^image\//.test(f.type))&&<div className="share-capture"><button className="secondary" disabled={busy} onClick={()=>{const imgs=shared.files.filter(f=>/^image\//.test(f.type));setShared(null);setCaptureFiles(imgs);setCaptureOpen(true);}}>📷 카드앱 이용내역 캡처예요 → 거래로 가져오기</button><small className="muted">폰 안에서만 읽고 서버로 보내지 않아요.</small></div>}
         {shared.files.length>0&&<><p className="muted">사진·문서 {shared.files.length}개를 어디에 올릴까요?</p><ul className="share-list">{shared.files.slice(0,10).map((f,i)=><li key={i}>{f.name} · {formatBytes(f.size)}</li>)}</ul>
           <label>올릴 곳<select aria-label="올릴 곳" value={shareDest} onChange={e=>setShareDest(e.target.value)}><option value="general">가족 기본 채팅</option>{data.entries.filter(e=>!isClosed(data.rooms,{entry:e,date:roomDate(e,today().slice(0,7))})).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,30).map(e=><option key={e.id} value={e.id}>{e.title} · {roomDate(e,today().slice(0,7))}</option>)}</select></label>
           <div className="share-actions"><button className="primary" disabled={busy} onClick={()=>run(async()=>{const entry=data.entries.find(e=>e.id===shareDest);const room:Room=entry?{entry,date:roomDate(entry,today().slice(0,7))}:null;await upload(shared.files.slice(0,10),room);setShared(null);if(room){setSelected(room);}else{setTab('chat');setChatView('general');}})}>{busy?'올리는 중…':`${Math.min(10,shared.files.length)}개 올리기`}</button></div></>}

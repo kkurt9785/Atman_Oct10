@@ -40,12 +40,12 @@ async function recognizeOnDevice(file: File, onProgress: (p: number) => void): P
   } finally { await worker.terminate(); }
 }
 
-export function CaptureImport({ cards, expenses, rules, busy, onImport, onAi }: {
-  cards: Card[]; expenses: Expense[]; rules: CategoryRule[]; busy: boolean;
+export function CaptureImport({ cards, expenses, rules, busy, onImport, onAi, initialFiles }: {
+  cards: Card[]; expenses: Expense[]; rules: CategoryRule[]; busy: boolean; initialFiles?: File[]; // e.g. a screenshot that arrived through the Android share sheet
   onImport: (rows: ImportRow[], cardId: string | null) => Promise<void>;
   onAi?: (file: File) => Promise<OcrRow[]>; // optional server-side recognition; shown with explicit consent copy
 }) {
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<File[]>(initialFiles ?? []);
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState(0);
   const [rows, setRows] = useState<ImportRow[]>([]);
@@ -99,6 +99,7 @@ export function CaptureImport({ cards, expenses, rules, busy, onImport, onAi }: 
           {r.duplicate && <small className="dup-tag">이미 있음</small>}
         </div>)}
       </div>
+      <p className="muted import-summary">새로 넣을 것 <b>{rows.filter(r => !r.duplicate).length}건</b> · 이미 있는 것 <b>{rows.filter(r => r.duplicate).length}건</b>(해제됨) — 빠진 거래만 골라 채우는 용도예요. 언제든 다시 캡처해 올려도 겹치지 않아요.</p>
       <button type="button" className="primary wide" disabled={busy || !selected.length} onClick={() => onImport(selected, cardId || null)}>{selected.length}건 가계부에 추가 · {money(selected.reduce((s, r) => s + r.amount, 0))}</button>
       <small className="muted">같은 날 같은 금액이 이미 있으면 '이미 있음'으로 표시하고 기본 해제했어요. 추가한 뒤에도 내역에서 수정할 수 있어요. 오늘 {today()} 기준으로 연도를 추정했어요.</small>
     </>}
