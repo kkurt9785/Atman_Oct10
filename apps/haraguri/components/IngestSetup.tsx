@@ -95,25 +95,27 @@ export function IngestSetup({ familyId, userId, busy, run }: { familyId: string;
           <div className="chips" role="group" aria-label="카드앱 선택">{CARD_APPS.map(a => <button type="button" key={a} className={`chip ${apps.includes(a) ? 'on' : ''}`} aria-pressed={apps.includes(a)} onClick={() => setApps(v => v.includes(a) ? v.filter(x => x !== a) : [...v, a])}>{a}</button>)}</div>
           <ol>
             <li><b>카드앱 알림 켜기</b> — {appList} 안의 설정 → 알림에서 승인(결제) 알림을 켜고, 아이폰 설정 → 알림에서도 그 앱을 허용해요.</li>
-            <li><b>단축어 앱 → 자동화 → ＋</b> → 목록 아래쪽 <b>알림</b>(“앱에서 알림을 받을 때”) → 앱에서 {appList} 선택{apps.length > 1 && ' (한 자동화에 여러 앱을 함께 고를 수 있어요)'} → <b>즉시 실행</b> 켜기 → 다음</li>
-            <li><b>새로운 빈 자동화</b> → 동작 검색 <b>URL 콘텐츠 가져오기</b> → URL 칸에 위 수집 주소 붙여넣기 {token && <button type="button" className="text-button inline-copy" onClick={() => copy(url, 'url2')}>{copied === 'url2' ? '복사했어요 ✓' : '주소 복사'}</button>} → 화살표를 눌러 펼치고 방법 <b>POST</b> · 요청 본문 <b>JSON</b></li>
-            <li>새 필드 추가(텍스트) 세 개 — 값은 변수 선택에서 <b>알림</b>을 고르고 항목을 바꿔요.
-              <table className="recipe-table"><tbody>
-                <tr><td><code>title</code></td><td>알림 → <b>제목</b></td></tr>
-                <tr><td><code>body</code></td><td>알림 → <b>본문</b></td></tr>
-                <tr><td><code>app</code></td><td>알림 → <b>앱</b> (없으면 비워도 돼요)</td></tr>
-              </tbody></table></li>
-            <li>완료. 다음 결제 알림이 오면 아래 3단계에 <b>방금 수신 ✓</b>가 떠요. 알림이 올 때 화면 위에 자동화 실행 띠가 잠깐 보이는 건 iOS 정책이에요.</li>
+            <li><b>단축어 받기</b> — 두 버튼을 차례로 누르면 단축어 앱이 열리고 “내 수집 주소” 질문이 떠요. 그 칸에 <b>붙여넣기</b> → <b>단축어 추가</b>. 타이핑은 없어요.
+              <div className="ingest-actions">{token && <button type="button" className="secondary" onClick={() => copy(url, 'url2')}>{copied === 'url2' ? '복사했어요 ✓' : '① 주소 복사'}</button>}<a className="button-link" href="/haraguri-collect.shortcut" target="_blank" rel="noopener" download="하라구리 수집.shortcut">② 단축어 받기</a></div>
+              <small className="muted">홈 화면 앱에서 누르면 Safari가 열려요. 내려받은 파일을 누르면 단축어 앱으로 넘어가요.</small></li>
+            <li><b>자동화 연결</b> — 단축어 앱 → 자동화 → ＋ → 목록 아래쪽 <b>알림</b>(“알림을 받을 때”) → 앱에서 {appList} 선택{apps.length > 1 && ' (한 번에 여러 앱이 안 되면 앱마다 하나씩)'} → <b>즉시 실행</b> → 다음 → 목록에서 <b>하라구리 수집</b> 선택. 끝.</li>
+            <li>다음 결제 알림이 오면 아래 3단계에 <b>연결됨 ✓</b>가 떠요. 알림이 올 때 화면 위에 자동화 실행 띠가 잠깐 보이는 건 iOS 정책이에요.</li>
           </ol>
-          <p className="muted">Apple Pay만 쓰는 카드는 자동화 트리거 <b>거래</b>로도 같은 동작을 만들 수 있어요(금액·가맹점이 바로 와요).</p>
+          <details className="recipe-manual"><summary>단축어를 직접 만들려면</summary><ol>
+            <li>자동화의 <b>새로운 빈 자동화</b> → 동작 검색 <b>URL 콘텐츠 가져오기</b> → URL 칸에 수집 주소 붙여넣기 → 화살표를 눌러 펼치고 방법 <b>POST</b> · 요청 본문 <b>JSON</b></li>
+            <li><b>새로운 필드 추가 → 텍스트</b> 하나만: 키 <code>body</code>, 값은 키보드 위 변수 줄에서 <b>단축어 입력</b>(받은 알림)을 선택.</li>
+          </ol></details>
+          <p className="muted">카드사 이름이 같이 안 들어오면 확인 대기에서 카드를 한 번만 골라 주세요. Apple Pay만 쓰는 카드는 자동화 트리거 <b>거래</b>에 같은 <b>하라구리 수집</b> 단축어를 연결하면 돼요.</p>
         </>}
         {device === 'iphone-sms' && <>
           <p className="muted">카드사 알림을 문자로 받는 경우예요. 카드앱 푸시만 오면 카드사 설정에서 ‘문자 알림’을 켜거나, iOS {IOS_NOTIFICATION_TRIGGER_MIN} 이상이면 <b>아이폰 · 카드앱 알림</b>을 쓰세요.</p>
           <ol>
-            <li>단축어 → 자동화 → ＋ → <b>메시지</b> → “메시지에 다음 포함”에 <code>승인</code> (또는 <code>원</code>) → <b>즉시 실행</b> 켜기 → 다음</li>
-            <li><b>새로운 빈 자동화</b> → <b>URL 콘텐츠 가져오기</b> → URL에 위 주소 붙여넣기 {token && <button type="button" className="text-button inline-copy" onClick={() => copy(url, 'url3')}>{copied === 'url3' ? '복사했어요 ✓' : '주소 복사'}</button>} → 방법 <b>POST</b> → 요청 본문 <b>JSON</b> → 필드 <code>text</code> = <b>단축어 입력</b></li>
-            <li>완료. 다음 승인 문자가 오면 아래 3단계에 <b>방금 수신 ✓</b>가 떠요.</li>
+            <li><b>단축어 받기</b> — 두 버튼을 차례로 누르면 단축어 앱이 열리고 “내 수집 주소” 질문이 떠요. 그 칸에 <b>붙여넣기</b> → <b>단축어 추가</b>.
+              <div className="ingest-actions">{token && <button type="button" className="secondary" onClick={() => copy(url, 'url3')}>{copied === 'url3' ? '복사했어요 ✓' : '① 주소 복사'}</button>}<a className="button-link" href="/haraguri-collect.shortcut" target="_blank" rel="noopener" download="하라구리 수집.shortcut">② 단축어 받기</a></div></li>
+            <li><b>자동화 연결</b> — 단축어 앱 → 자동화 → ＋ → <b>메시지</b> → “메시지에 다음 포함”에 <code>승인</code> (또는 <code>원</code>) → <b>즉시 실행</b> → 다음 → 목록에서 <b>하라구리 수집</b> 선택. 끝.</li>
+            <li>다음 승인 문자가 오면 아래 3단계에 <b>연결됨 ✓</b>가 떠요.</li>
           </ol>
+          <details className="recipe-manual"><summary>단축어를 직접 만들려면</summary><p><b>새로운 빈 자동화</b> → <b>URL 콘텐츠 가져오기</b> → URL에 수집 주소 → 방법 <b>POST</b> → 요청 본문 <b>JSON</b> → 필드 <code>body</code> = <b>단축어 입력</b></p></details>
         </>}
         {device === 'galaxy' && <>
           <ol>

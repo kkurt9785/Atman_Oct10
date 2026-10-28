@@ -52,6 +52,7 @@ Deno.serve(async req => {
   await admin.from('hg_ingest_tokens').update({ last_used_at: new Date().toISOString() }).eq('token', token);
   if (via === 'test' || /하라구리 연결 테스트/.test(text)) { await inbox('ignored', '연결 테스트 ✓'); return json({ test: true, inbox: 'ignored' }); }
   // The source app name helps name the card company when the push body itself does not (e.g. 토스·카카오페이 pushes).
+  // Source label below: 'Web발신' marks a real SMS even when the shared shortcut sends it as {body}; other structured input is an app push.
   const parsed = parseCardMessage(app ? `${app} ${text}` : text, new Date(Date.now() + 9 * 3600 * 1000)); // KST "today" for messages without a year
   if (!parsed) { await inbox('unparsed', '금액을 찾지 못함'); return json({ ignored: 'no amount found', inbox: 'unparsed' }); }
   if (parsed.incoming) { await inbox('ignored', '입금 알림'); return json({ ignored: 'incoming transfer', inbox: 'ignored' }); }
@@ -75,7 +76,7 @@ Deno.serve(async req => {
   const payment = parsed.channel === 'bank_transfer' ? 'bank_transfer' : cardId ? 'card' : 'other';
   const row = {
     family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : parsed.merchant, amount: parsed.amount, date: parsed.date, category: rule?.category ?? parsed.category,
-    scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
+    scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
   };
   const inserted = await admin.from('hg_expenses').insert(row).select('id').single();
   if (inserted.error) {

@@ -193,7 +193,7 @@ try {
   const first=await ingest('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\nQA 동네마트\n누적1,234,567원');
   assert.equal(first.status,200,`ingest status ${first.status}`); assert.ok(first.json.saved,'ingest saved an expense');
   const dup=await ingest('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\nQA 동네마트\n누적1,234,567원');
-  assert.ok(dup.json.duplicate,'duplicate message ignored');
+  assert.ok(dup.json.duplicate,`duplicate message ignored (status ${dup.status} ${JSON.stringify(dup.json)})`);
   const income=await ingest('[Web발신] 우리은행 입금 1,000,000원 급여 잔액 2,000,000원');
   assert.equal(income.json.ignored,'incoming transfer');
   const transfer=await ingest('[Web발신] 우리은행 10/27 11:30 출금 350,000원 QA 월세 잔액 1,200,000원');
