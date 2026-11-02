@@ -3,7 +3,7 @@
 //   POST /functions/v1/ingest?token=…   body: {"text": "..."} or {"title","subtitle","body","app","via"} | text/plain | form field "text"   (or header x-ingest-token)
 //   Every delivery is recorded in hg_inbox with its outcome (saved / duplicate / ignored / unparsed).
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule } from '../_shared/cardsms.core.ts';
+import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule, nonTransactionReason } from '../_shared/cardsms.core.ts';
 
 type Card = { id: string; name: string; holder: string; benefit_note: string | null; card_type: 'credit' | 'debit' | null };
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -27,7 +27,7 @@ async function readText(req: Request): Promise<Payload> {
     const b = await req.json().catch(() => ({})) as Record<string, unknown>;
     // v2: notification triggers send title/subtitle/body separately; v1 senders send one text.
     const parts = [b.title, b.subtitle, b.body].filter(v => typeof v === 'string' && v.trim()).map(v => String(v).trim());
-    const text = parts.length ? parts.join(' ') : String(b.text ?? b.message ?? b.content ?? '');
+    const text = parts.length ? parts.join('\n') : String(b.text ?? b.message ?? b.content ?? '');
     return { text, via: String(b.via ?? ''), app: String(b.app ?? ''), structured: parts.length > 0 };
   }
   if (type.includes('form')) { const f = await req.formData().catch(() => null); return { text: String(f?.get('text') ?? f?.get('message') ?? ''), via: String(f?.get('via') ?? ''), app: String(f?.get('app') ?? ''), structured: false }; }
@@ -46,14 +46,20 @@ Deno.serve(async req => {
   const text = payload.text.trim().slice(0, 2000);
   // Only the iOS notification trigger sends title/body separately, so structured input without a label means an iPhone Shortcut.
   const via = (payload.via || (payload.structured ? 'ios-shortcut' : '')).slice(0, 40), app = payload.app.slice(0, 120);
-  const inbox = (status: 'saved' | 'duplicate' | 'ignored' | 'unparsed', summary: string, expense_id: string | null = null) =>
-    admin.from('hg_inbox').insert({ family_id: owner.family_id, user_id: owner.user_id, via, app, raw: text, status, summary: summary.slice(0, 200), expense_id }).then(() => undefined, () => undefined);
-  if (!text) return json({ error: 'empty text' }, 400);
+  const inbox = async (status: 'saved' | 'duplicate' | 'ignored' | 'unparsed', summary: string, expense_id: string | null = null) => {
+    const result = await admin.from('hg_inbox').insert({ family_id: owner.family_id, user_id: owner.user_id, via, app, raw: text, status, summary: summary.slice(0, 200), expense_id });
+    if (result.error) throw new Error('Unable to record notification delivery');
+  };
   await admin.from('hg_ingest_tokens').update({ last_used_at: new Date().toISOString() }).eq('token', token);
+  // An empty delivery still gets an inbox row: it proves the phone automation fired but passed nothing (e.g. a trigger not wired to the body field).
+  if (!text) { await inbox('unparsed', '빈 전달 · 자동화는 실행됐지만 내용이 비어 있음'); return json({ error: 'empty text', inbox: 'unparsed' }, 400); }
   if (via === 'test' || /하라구리 연결 테스트/.test(text)) { await inbox('ignored', '연결 테스트 ✓'); return json({ test: true, inbox: 'ignored' }); }
   // The source app name helps name the card company when the push body itself does not (e.g. 토스·카카오페이 pushes).
   // Source label below: 'Web발신' marks a real SMS even when the shared shortcut sends it as {body}; other structured input is an app push.
-  const parsed = parseCardMessage(app ? `${app} ${text}` : text, new Date(Date.now() + 9 * 3600 * 1000)); // KST "today" for messages without a year
+  const paymentText = app ? `${app} ${text}` : text;
+  const ignoreReason = nonTransactionReason(paymentText);
+  if (ignoreReason) { await inbox('ignored', ignoreReason); return json({ ignored: 'benefit notice', inbox: 'ignored' }); }
+  const parsed = parseCardMessage(paymentText, new Date(Date.now() + 9 * 3600 * 1000)); // KST "today" for messages without a year
   if (!parsed) { await inbox('unparsed', '금액을 찾지 못함'); return json({ ignored: 'no amount found', inbox: 'unparsed' }); }
   if (parsed.incoming) { await inbox('ignored', '입금 알림'); return json({ ignored: 'incoming transfer', inbox: 'ignored' }); }
 
@@ -69,7 +75,7 @@ Deno.serve(async req => {
     const { data: cands } = await admin.from('hg_expenses').select('id,title,raw_text').eq('family_id', owner.family_id).eq('kind', 'expense').eq('amount', Math.abs(parsed.amount)).is('canceled_by', null).gte('date', since).order('date', { ascending: false }).limit(20);
     const norm = (v: string) => v.replace(/\s+/g, '').toLowerCase();
     const key = norm(parsed.merchant).slice(0, 4);
-    const hit = (cands ?? []).find(c => (key && norm(c.title).includes(key)) || (parsed.last4 && c.raw_text?.includes(parsed.last4))) ?? (cands ?? [])[0] ?? null;
+    const hit = (cands ?? []).find(c => (key && norm(c.title).includes(key)) || (parsed.last4 && c.raw_text?.includes(parsed.last4))) ?? null;
     cancels = hit?.id ?? null;
   }
   const cardId = matchCard(parsed, (cards ?? []) as Card[]);

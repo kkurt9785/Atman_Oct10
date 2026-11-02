@@ -65,7 +65,7 @@ try {
   await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'일정·할 일'}).click();
   await page.getByLabel('조회 월').fill('2026-02');
-  await page.getByRole('button',{name:/테스트 정기 납부/}).click();
+  await page.locator('button.entry').filter({hasText:/테스트 정기 납부/}).click();
   await dialog.getByText('2026-02-28 · 매월 · 함께',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'완료했어요',exact:true}).click();
   await dialog.getByLabel('메시지',{exact:true}).fill('납부했어요');
@@ -73,7 +73,7 @@ try {
   await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'납부했어요'}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByLabel('조회 월').fill('2026-03');
-  await page.getByRole('button',{name:/테스트 정기 납부/}).click();
+  await page.locator('button.entry').filter({hasText:/테스트 정기 납부/}).click();
   assert.equal(await dialog.getByRole('button',{name:'완료했어요',exact:true}).getAttribute('aria-pressed'),'false');
   assert.equal(await dialog.locator('.chat-bubble:not(.pending)').filter({hasText:'납부했어요'}).count(),0);
   assert.equal(await dialog.getByRole('button',{name:'이전 대화 보기'}).count(),0);
@@ -83,19 +83,19 @@ try {
   assert.equal(await dialog.getByLabel('날짜',{exact:true}).getAttribute('readonly'),'');
   await dialog.getByLabel('제목',{exact:true}).fill('테스트 정기 납부 (수정)');
   await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
-  await page.getByRole('button',{name:/테스트 정기 납부 \(수정\)/}).click();
+  await page.locator('button.entry').filter({hasText:/테스트 정기 납부 \(수정\)/}).click();
   await dialog.getByText('2026-03-31 · 매월 · 함께',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByRole('button',{name:'일정·할 일 추가',exact:true}).click();
   await dialog.getByLabel('제목',{exact:true}).fill('수정 가능한 약속');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-20');
   await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
-  await page.getByRole('button',{name:/수정 가능한 약속/}).click();
+  await page.locator('button.entry').filter({hasText:/수정 가능한 약속/}).click();
   await dialog.getByRole('button',{name:'✎ 수정',exact:true}).click();
   assert.equal(await dialog.getByLabel('날짜',{exact:true}).getAttribute('readonly'),null);
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-21');
   await dialog.getByRole('button',{name:'저장하기',exact:true}).click();
-  await page.getByRole('button',{name:/수정 가능한 약속/}).click();
+  await page.locator('button.entry').filter({hasText:/수정 가능한 약속/}).click();
   await dialog.getByText('2026-03-21 · 한 번 · 함께',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByRole('group',{name:'일정 보기'}).getByRole('button',{name:'연간',exact:true}).click();
@@ -175,7 +175,7 @@ try {
   await page.getByLabel('가계부 조회 월').fill(smsMonth); // the list shows the month being viewed, not the month just saved
   await page.getByText('동네마트',{exact:true}).waitFor();
   await page.getByText('확인을 기다려요',{exact:false}).waitFor(); // pending strip + inline confirm on the unreviewed row
-  await page.getByRole('button',{name:'편의점 CU 확인'}).waitFor();
+  if (smsMonth === todayStr.slice(0,7)) await page.getByRole('button',{name:'편의점 CU 확인'}).waitFor();
   // Ledger views: report numbers, recurring add, review queue confirm.
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
   await page.getByText(`${smsMonth} 총지출`,{exact:true}).waitFor();
@@ -217,6 +217,15 @@ try {
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.locator('.finance-expense').filter({hasText:'보너스'}).getByText('+500,000원',{exact:true}).waitFor();
   assert.equal(await page.locator('.fin-figures > div').nth(0).locator('strong').innerText(),spentBefore,'Income must not change the spending total');
+  await page.getByRole('button',{name:'지출 기록',exact:true}).click();
+  await dialog.getByRole('group',{name:'종류'}).getByRole('button',{name:'자금 이동',exact:true}).click();
+  await dialog.getByLabel('금액 (원)',{exact:true}).fill('500000');
+  await dialog.getByLabel('사용처·내용').fill('본인 계좌 간 이동');
+  await moreFields();
+  await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-16');
+  await dialog.getByRole('button',{name:'저장하기'}).click();
+  await page.locator('.finance-expense').filter({hasText:'본인 계좌 간 이동'}).getByText('자금 이동 · 집계 제외',{exact:true}).waitFor();
+  assert.equal(await page.locator('.fin-figures > div').nth(0).locator('strong').innerText(),spentBefore,'Own-account movement must not change spending');
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
   await page.getByText('수입 · 남는 돈',{exact:true}).waitFor();
   await page.getByText('예산 2,000,000원 중',{exact:false}).waitFor();

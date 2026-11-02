@@ -14,8 +14,8 @@ export type Report = {
 const methodLabel: Record<string, string> = { card: '카드', bank_transfer: '계좌이체', cash: '현금', other: '기타' };
 
 export function monthlyReport(expenses: Expense[], members: Member[], month: string, today: string): Report {
-  const rows = expenses.filter(e => e.date.startsWith(month) && e.kind !== 'income');
-  const prevRows = expenses.filter(e => e.date.startsWith(shiftMonth(month, -1)) && e.kind !== 'income');
+  const rows = expenses.filter(e => e.date.startsWith(month) && e.kind !== 'income' && e.kind !== 'transfer');
+  const prevRows = expenses.filter(e => e.date.startsWith(shiftMonth(month, -1)) && e.kind !== 'income' && e.kind !== 'transfer');
   const income = expenses.filter(e => e.date.startsWith(month) && e.kind === 'income').reduce((s, e) => s + Number(e.amount), 0);
   const sum = (list: Expense[]) => list.reduce((s, e) => s + Number(e.amount), 0);
   const total = sum(rows), previous = sum(prevRows);

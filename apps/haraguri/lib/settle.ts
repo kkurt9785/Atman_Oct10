@@ -3,7 +3,7 @@ import type { Expense, Member } from './model';
 // Month-end settlement of shared spending, split equally among members: who paid more than their share, and the fewest transfers to even out.
 export type Settle = { shared: number; share: number; paid: { user_id: string; name: string; paid: number; balance: number }[]; transfers: { from: string; to: string; amount: number }[] };
 export function settlement(expenses: Expense[], members: Member[], month: string): Settle {
-  const rows = expenses.filter(e => e.date.startsWith(month) && e.kind !== 'income' && (e.scope ?? 'shared') === 'shared');
+  const rows = expenses.filter(e => e.date.startsWith(month) && e.kind !== 'income' && e.kind !== 'transfer' && (e.scope ?? 'shared') === 'shared');
   const shared = rows.reduce((s, e) => s + Number(e.amount), 0);
   const share = members.length ? Math.round(shared / members.length) : 0;
   const paid = members.map(m => { const p = rows.filter(e => e.created_by === m.user_id).reduce((s, e) => s + Number(e.amount), 0); return { user_id: m.user_id, name: m.display_name, paid: p, balance: p - share }; });

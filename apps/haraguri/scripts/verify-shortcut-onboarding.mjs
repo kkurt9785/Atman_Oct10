@@ -1,0 +1,104 @@
+// Mobile browser + real HARAGURI backend, isolated temporary account; no emails.
+// Never prints pairing codes, collection addresses, auth sessions or keys.
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { createClient } from '@supabase/supabase-js';
+
+const readEnv = file => Object.fromEntries(readFileSync(new URL(file, import.meta.url), 'utf8').split('\n').filter(l => l.includes('=')).map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
+const cfg = { ...readEnv('../.env.local'), ...readEnv('../.env.supabase-admin') };
+assert.equal(cfg.NEXT_PUBLIC_SUPABASE_URL, 'https://rwyvqxkweqsoositvlht.supabase.co');
+const options = { auth: { persistSession: false, autoRefreshToken: false } };
+const admin = createClient(cfg.NEXT_PUBLIC_SUPABASE_URL, cfg.SUPABASE_SERVICE_ROLE_KEY, options);
+const client = createClient(cfg.NEXT_PUBLIC_SUPABASE_URL, cfg.NEXT_PUBLIC_SUPABASE_ANON_KEY, options);
+const check = (r, step) => { if (r.error) throw new Error(`${step}: ${r.error.message}`); return r.data; };
+const require = createRequire(import.meta.url);
+const { chromium } = require(process.argv[2] || '/Users/kihankim/lumenix/main/node_modules/playwright-core');
+let userId, familyId, browser;
+try {
+  const email = `haraguri-shortcut-${randomUUID()}@example.invalid`;
+  userId = check(await admin.auth.admin.createUser({ email, email_confirm: true }), 'create temporary user').user.id;
+  const magic = check(await admin.auth.admin.generateLink({ type: 'magiclink', email }), 'create temporary login');
+  const session = check(await client.auth.verifyOtp({ token_hash: magic.properties.hashed_token, type: 'magiclink' }), 'temporary login').session;
+  familyId = check(await client.rpc('hg_create_family', { family_name: '단축어 연결 QA', member_name: '검증 사용자' }), 'create temporary family');
+  const original = check(await client.from('hg_ingest_tokens').insert({ family_id: familyId, user_id: userId }).select('token').single(), 'seed existing SMS token');
+  browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 27_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1' });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', { configurable: true, value: ({ files }) => localStorage.getItem('qa-disable-file-share') !== '1' && files?.[0]?.name.endsWith('.shortcut') });
+    Object.defineProperty(navigator, 'share', { configurable: true, value: ({ files }) => {
+      window.__shortcutShared = { name: files[0].name, type: files[0].type, size: files[0].size, activated: navigator.userActivation.isActive };
+      return Promise.reject(new DOMException('Canceled by QA', 'AbortError'));
+    } });
+  });
+  await page.addInitScript(session => localStorage.setItem('haraguri-auth', JSON.stringify(session)), session);
+  await page.goto(process.env.BASE_URL || 'http://127.0.0.1:3014');
+  await page.getByRole('heading', { name: '우리의 하루를 함께.' }).waitFor();
+  await page.getByRole('navigation', { name: '모바일 메뉴' }).getByRole('button', { name: '가족 설정' }).click();
+  const setup = page.locator('.ingest-setup');
+  const manifest = await page.request.get(new URL('/haraguri-notifications.json', page.url()).href);
+  const release = await manifest.json();
+  const manual = release.manual_trigger === true;
+  await setup.getByText(manual ? '간편 수집 시험판' : '간편 연결 시험판', { exact: true }).waitFor();
+  if (manual) await setup.getByText('앱에서 알림을 수신할 때', { exact: true }).waitFor();
+  const install = setup.getByRole('button', { name: '단축어 추가', exact: true });
+  await install.waitFor();
+  await install.click();
+  const shared = await page.evaluate(() => window.__shortcutShared);
+  assert.equal(shared.name, `${release.name}.shortcut`);
+  assert.ok(shared.size > 0 && shared.activated, 'the prepared file is shared within the user tap');
+  assert.equal(await setup.getByRole('alert').count(), 0, 'canceling the share sheet is not an installation error');
+  const download = setup.getByRole('link', { name: '단축어 받기', exact: true, includeHidden: true });
+  const file = await page.request.get(new URL(await download.getAttribute('href'), page.url()).href);
+  assert.ok(file.ok(), 'signed file is downloadable');
+  assert.ok(file.headers()['content-disposition']?.includes("filename*=UTF-8''"), 'Korean shortcut name is provided');
+  assert.equal((await file.body()).subarray(0, 4).toString(), 'AEA1', 'download is signed');
+  const connect = setup.getByRole('link', { name: '내 계정 연결', exact: true });
+  await connect.waitFor();
+  const firstLink = await connect.getAttribute('href');
+  await setup.getByRole('button', { name: '연결 버튼 다시 받기', exact: true }).click();
+  await page.waitForFunction(previous => Array.from(document.querySelectorAll('.shortcut-connect a')).some(a => a.textContent === '내 계정 연결' && a.getAttribute('href') !== previous), firstLink);
+  const scheme = new URL(await connect.getAttribute('href'));
+  assert.notEqual(scheme.searchParams.get('text'), new URL(firstLink).searchParams.get('text'), 'a failed connection can be retried immediately with a fresh code');
+  assert.equal(scheme.protocol, 'shortcuts:');
+  assert.equal(scheme.searchParams.get('name'), manual ? '하라구리 알림 수집' : '하라구리 계정 연결');
+  const code = scheme.searchParams.get('text');
+  assert.ok(/^[0-9a-f]{48}$/.test(code), 'button carries a pairing code');
+  assert.ok(code !== original.token, 'button never carries the existing SMS token');
+  const paired = await fetch(`${cfg.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/shortcut-pair`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
+  assert.equal(paired.status, 200);
+  const data = await paired.json();
+  assert.ok(data.collect_url === `${cfg.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ingest?token=${original.token}`, 'pairing keeps existing collection address');
+  const setupPing = await fetch(data.collect_url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: '하라구리 연결 테스트', via: 'ios-notification-setup' }) });
+  assert.ok((await setupPing.json()).test);
+  await setup.getByText('계정 연결 확인 ✓', { exact: false }).waitFor({ timeout: 15000 });
+  assert.equal(await setup.getByText('결제 수집 확인 ✓', { exact: false }).count(), 0, 'a setup ping is not a real payment');
+  assert.equal(check(await client.from('hg_expenses').select('id').eq('family_id', familyId), 'no expenses from setup').length, 0);
+  await setup.screenshot({ path: '/private/tmp/haraguri-shortcut-pairing-mobile.png' });
+  const notification = await fetch(data.collect_url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: 'QA 스타벅스에서 10,000원 결제되었어요', app: 'KB Pay', via: 'ios-notification' }) });
+  assert.ok((await notification.json()).saved, 'real-shaped notification saves an expense');
+  await setup.getByText('아이폰 · 카드앱 알림 결제 수집 확인 ✓', { exact: true }).waitFor({ timeout: 15000 });
+  await setup.screenshot({ path: '/private/tmp/haraguri-shortcut-payment-mobile.png' });
+  // Historical success must not confirm a newly rotated collection address.
+  check(await client.from('hg_ingest_tokens').delete().eq('family_id', familyId).eq('user_id', userId), 'rotate collection address');
+  check(await client.from('hg_ingest_tokens').insert({ family_id: familyId, user_id: userId }), 'new collection address');
+  await setup.getByText('아이폰 · 카드앱 알림 결제 수집 확인 ✓', { exact: true }).waitFor({ state: 'hidden', timeout: 15000 });
+  assert.equal(await setup.getByText('계정 연결 확인 ✓', { exact: false }).count(), 0, 'old setup ping cannot confirm a new address');
+  assert.equal(check(await client.from('hg_inbox').select('id').eq('family_id', familyId), 'historical inbox').length, 3, 'rotating an address preserves the historical inbox');
+  await page.evaluate(() => localStorage.setItem('qa-disable-file-share', '1'));
+  await page.reload();
+  await page.getByRole('navigation', { name: '모바일 메뉴' }).getByRole('button', { name: '가족 설정' }).click();
+  await setup.getByRole('link', { name: '단축어 받기', exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await setup.getByRole('button', { name: '단축어 추가', exact: true }).count(), 0, 'unsupported sharing retains the ordinary file download');
+  assert.deepEqual(errors, []);
+  console.log('PASS: mobile setup, signed download, immediate connection retry, existing SMS address retained; account connection and payment collection shown separately; rotated addresses require fresh evidence.');
+} finally {
+  await browser?.close();
+  if (familyId) check(await admin.from('hg_families').delete().eq('id', familyId), 'clean temporary family');
+  if (userId) check(await admin.auth.admin.deleteUser(userId), 'clean temporary user');
+  console.log('Temporary shortcut onboarding data cleaned up.');
+}

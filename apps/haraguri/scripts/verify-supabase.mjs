@@ -189,6 +189,35 @@ try {
   check(await member.db.from('hg_recurring_expenses').delete().eq('id',rec.id),'remove recurring rule');
   // Auto-collect: token → ingest function → expense awaiting review; duplicates ignored; incoming transfers skipped.
   const tok=check(await member.db.from('hg_ingest_tokens').insert({family_id:family,user_id:member.id}).select('token').single(),'create ingest token');
+  // Pairing passes only an expiring code through the URL scheme; collection URLs stay out of it.
+  const issuePair=async()=>check(await member.db.rpc('hg_create_shortcut_pairing',{family}),'issue shortcut pairing');
+  const claimPair=async code=>{
+    const r=await fetch(`${url}/functions/v1/shortcut-pair`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code})});
+    return {status:r.status,json:await r.json().catch(()=>({}))};
+  };
+  assert.ok((await outsider.db.rpc('hg_create_shortcut_pairing',{family})).error,'cannot pair another family');
+  assert.ok((await member.db.from('hg_shortcut_pairings').select('*')).error,'pairing hashes are server-only');
+  const pairing=await issuePair();
+  assert.ok(/^[0-9a-f]{48}$/.test(pairing.code),'pairing code format');
+  const retainedToken=check(await member.db.from('hg_ingest_tokens').select('token').eq('family_id',family).single(),'existing SMS token after pairing');
+  assert.ok(retainedToken.token===tok.token,'issuing a pairing code preserves the SMS token');
+  assert.ok((await member.db.rpc('hg_claim_shortcut_pairing',{pair_code:pairing.code})).error,'members cannot call the privileged claim RPC directly');
+  const claimed=await claimPair(pairing.code);
+  assert.equal(claimed.status,200);
+  assert.ok(claimed.json.collect_url===`${url}/functions/v1/ingest?token=${tok.token}`,'claim returns the existing collection address');
+  const setupPing=await fetch(claimed.json.collect_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({body:'하라구리 연결 테스트',via:'ios-notification-setup'})});
+  assert.ok((await setupPing.json()).test,'paired shortcut can reach ingest without creating an expense');
+  assert.equal((await claimPair(pairing.code)).status,410,'pairing code is single-use');
+  assert.equal((await claimPair('invalid')).status,400,'malformed codes are rejected');
+  const expiredPair=await issuePair();
+  check(await admin.from('hg_shortcut_pairings').update({expires_at:new Date(Date.now()-60000).toISOString()}).eq('family_id',family).eq('user_id',member.id),'expire temporary pairing');
+  assert.equal((await claimPair(expiredPair.code)).status,410,'expired code is rejected');
+  const supersededPair=await issuePair();
+  const newestPair=await issuePair();
+  assert.equal((await claimPair(supersededPair.code)).status,410,'new code supersedes an unused code');
+  const claims=await Promise.all([claimPair(newestPair.code),claimPair(newestPair.code)]);
+  assert.deepEqual(claims.map(r=>r.status).sort(),[200,410],'only one concurrent claim succeeds');
+  console.log('PASS: shortcut pairing preserves SMS token; family isolation; one-use, expiration, supersession and atomic concurrent claim; setup ping creates no expense.');
   const ingest=(body)=>fetch(`${url}/functions/v1/ingest?token=${tok.token}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:body})}).then(async r=>({status:r.status,json:await r.json().catch(()=>({}))}));
   const first=await ingest('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\nQA 동네마트\n누적1,234,567원');
   assert.equal(first.status,200,`ingest status ${first.status}`); assert.ok(first.json.saved,'ingest saved an expense');
@@ -196,6 +225,8 @@ try {
   assert.ok(dup.json.duplicate,`duplicate message ignored (status ${dup.status} ${JSON.stringify(dup.json)})`);
   const income=await ingest('[Web발신] 우리은행 입금 1,000,000원 급여 잔액 2,000,000원');
   assert.equal(income.json.ignored,'incoming transfer');
+  const benefit=await ingest('[Web발신]\n[신한카드] 마일리지 적립 기준 변경 안내\n공정위 기업결합 승인에 따른 변경입니다.\n적용 예시: 1,000원당 1.5마일 → 1,000원당 1.23마일');
+  assert.equal(benefit.status,200); assert.equal(benefit.json.ignored,'benefit notice'); assert.equal(benefit.json.inbox,'ignored');
   const transfer=await ingest('[Web발신] 우리은행 10/27 11:30 출금 350,000원 QA 월세 잔액 1,200,000원');
   assert.ok(transfer.json.saved,'bank transfer saved');
   const pending=check(await member.db.from('hg_expenses').select('id,title,amount,payment_method,reviewed,source').eq('family_id',family).eq('reviewed',false).order('title'),'pending rows');
@@ -216,6 +247,16 @@ try {
   // Ingest v2: a notification payload (title/body/app) saves as source 'push'; the same purchase as SMS is then a duplicate;
   // every delivery is kept in hg_inbox with its outcome, so unreadable text is never lost; members read/delete, outsiders see nothing.
   const post=(body)=>fetch(`${url}/functions/v1/ingest?token=${tok.token}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(async r=>({status:r.status,json:await r.json().catch(()=>({}))}));
+  const beforeRewardPush=check(await member.db.from('hg_expenses').select('id').eq('family_id',family),'expenses before reward push').length;
+  const rewardPush=await post({body:'30,000원 이상 결제 시 1,000원 캐시백을 드려요.',app:'토스',via:'ios-shortcut'});
+  assert.equal(rewardPush.json.ignored,'benefit notice','app reward offers are also excluded');
+  const quizPush=await post({body:'오늘도 퀴즈 맞히고 최대 10원 받아가세요.',via:'ios-notification'});
+  assert.equal(quizPush.json.ignored,'benefit notice','a real-shaped quiz promotion is not an expense');
+  for (const body of ['출석 티켓이 충전됐어요. (날씨 체크 알림)', '순금 복권 응모장 1장이 생겼어요\n오늘 응모하지 않으면 사라져요.', '포인트 도착 🎉\n1원 받았어요'.normalize('NFD'), '8원 받았어요'.normalize('NFD'), '부가세 예정고지 납부 기한이 3일 남았어요. (토스인컴 알림)']) {
+    const notice=await post({body,via:'ios-notification'});
+    assert.equal(notice.json.inbox,'ignored','observed engagement and decomposed point notices are ignored');
+  }
+  assert.equal(check(await member.db.from('hg_expenses').select('id').eq('family_id',family),'expenses after reward notices').length,beforeRewardPush,'reward notices never create an expense');
   const pushRes=await post({title:'신한카드',body:'승인 홍*동 4,500원 일시불 10/27 08:15 QA 스타벅스',app:'신한 SOL페이'});
   assert.ok(pushRes.json.saved,`notification payload saved (${JSON.stringify(pushRes.json)})`);
   const pushRow=check(await member.db.from('hg_expenses').select('source,title,amount').eq('id',pushRes.json.saved).single(),'push row');
@@ -224,6 +265,8 @@ try {
   assert.ok(smsTwin.json.duplicate,'the same purchase arriving as SMS is a duplicate of the push');
   const junk=await ingest('QA 읽을 수 없는 알림 본문');
   assert.equal(junk.json.inbox,'unparsed','unreadable text is kept, not dropped');
+  const empty=await post({body:''});
+  assert.equal(empty.status,400,'empty delivery rejected'); assert.equal(empty.json.inbox,'unparsed','empty delivery still recorded');
   const ping=await post({text:'하라구리 연결 테스트',via:'test'});
   assert.ok(ping.json.test,'connection test answered');
   const inboxRows=check(await member.db.from('hg_inbox').select('status,via,raw,expense_id').eq('family_id',family),'inbox rows');
@@ -231,10 +274,22 @@ try {
   assert.ok(inboxRows.some(r=>r.status==='duplicate'),'duplicate delivery recorded');
   assert.ok(inboxRows.some(r=>r.status==='unparsed'&&r.raw==='QA 읽을 수 없는 알림 본문'),'unreadable text kept in the inbox');
   assert.ok(inboxRows.some(r=>r.status==='ignored'&&r.via==='test'),'connection test recorded');
+  assert.ok(inboxRows.some(r=>r.status==='ignored'&&r.raw==='오늘도 퀴즈 맞히고 최대 10원 받아가세요.'&&r.expense_id===null),'quiz promotion retained without an expense');
+  assert.equal(inboxRows.filter(r=>r.status==='ignored'&&r.expense_id===null&&/마일리지 적립 기준 변경 안내|캐시백을 드려요/.test(r.raw)).length,2,'both reward notices remain in the inbox without an expense');
   assert.equal((await outsider.db.from('hg_inbox').select('id').eq('family_id',family)).data.length,0,'inbox is private to the family');
   check(await member.db.from('hg_inbox').delete().eq('family_id',family).eq('status','unparsed'),'member clears an unreadable row');
   assert.equal(check(await member.db.from('hg_ingest_tokens').select('received').eq('token',tok.token).single(),'token counter').received,5);
   assert.ok((await outsider.db.from('hg_ingest_tokens').select('token').eq('family_id',family)).data.length===0,'tokens are private');
+  for (const body of ['3원 적립','105원을 토스뱅크 아이 통장에 쏙! 넣어드렸어요.','69,900원에서 10,640원으로 내렸어요']) {
+    assert.equal((await post({body,via:'ios-notification'})).json.inbox,'ignored','weekend non-payment regression');
+  }
+  assert.equal((await post({body:'[입금] 5,800원 9002-000-000*** 잔액 8,656원 11/02 04:45 간편결제할인',via:'ios-notification'})).json.ignored,'incoming transfer');
+  const face=await post({title:'38,300원 결제',body:'페이스페이 (올바른POINT체크, 일시불) · QA 와플 베르비에',via:'ios-notification'});
+  assert.ok(face.json.saved,'title-only amount makes a complete payment');
+  const faceRow=check(await member.db.from('hg_expenses').select('title,amount,category').eq('id',face.json.saved).single(),'facepay row');
+  assert.deepEqual(faceRow,{title:'QA 와플 베르비에',amount:38300,category:'식비'});
+  const transferRecord=check(await owner.db.from('hg_expenses').insert({family_id:family,created_by:owner.id,title:'QA 본인 계좌 이동',amount:500000,date:'2026-11-01',category:'자금 이동',payment_method:'bank_transfer',kind:'transfer'}).select('id').single(),'internal transfer record');
+  assert.ok(transferRecord.id,'internal transfer retains a ledger record');
   console.log('PASS: recurring generation idempotent; ingest token → parsed expense awaiting review; duplicate/incoming handling; bank transfer channel; learned rules and cancellation links; notification payload → push source, SMS twin deduped, inbox keeps every delivery.');
   // Envelopes, settlements, and the weekly digest endpoint.
   const env=check(await owner.db.from('hg_envelopes').insert({family_id:family,name:'QA 봉투',target:300000,due_month:'2027-06-01'}).select().single(),'envelope');
@@ -244,8 +299,9 @@ try {
   check(await member.db.from('hg_settlements').upsert({family_id:family,month:'2026-10-01'},{onConflict:'family_id,month'}),'mark settled');
   assert.equal(check(await owner.db.from('hg_settlements').select('month').eq('family_id',family),'settlement visible').length,1);
   assert.ok((await outsider.db.from('hg_settlements').select('month').eq('family_id',family)).data.length===0,'settlements private to the family');
-  if (config.HOOK_SECRET) { const weekly=await fetch(`${url}/functions/v1/push`,{method:'POST',headers:{'Content-Type':'application/json','x-haraguri-secret':config.HOOK_SECRET},body:JSON.stringify({kind:'weekly'})}); assert.equal(weekly.status,200,'weekly digest endpoint'); }
-  console.log('PASS: envelopes and deposits (members only), month settlement marks, weekly digest endpoint.');
+  // The digest reaches real families, so ordinary integration checks must not send it.
+  if (config.HOOK_SECRET && process.env.VERIFY_WEEKLY_DIGEST==='1') { const weekly=await fetch(`${url}/functions/v1/push`,{method:'POST',headers:{'Content-Type':'application/json','x-haraguri-secret':config.HOOK_SECRET},body:JSON.stringify({kind:'weekly'})}); assert.equal(weekly.status,200,'weekly digest endpoint'); console.log('PASS: explicitly requested weekly digest endpoint.'); }
+  console.log('PASS: envelopes and deposits (members only), month settlement marks.');
   // Push preferences live on the device row and are private.
   const subRow=check(await member.db.from('hg_push_subscriptions').insert({user_id:member.id,endpoint:`https://example.invalid/push/${randomUUID()}`,p256dh:'p',auth:'a'}).select('id').single(),'register fake subscription');
   check(await member.db.from('hg_push_subscriptions').update({prefs:{messages:false,files:true,daily:true,eve:false,ingest:true},quiet_start:22,quiet_end:7}).eq('id',subRow.id),'save prefs');

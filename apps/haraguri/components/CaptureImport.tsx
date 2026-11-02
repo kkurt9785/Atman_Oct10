@@ -88,7 +88,7 @@ export function CaptureImport({ cards, expenses, rules, busy, onImport, onAi, in
     {status && <p role="status" className="capture-status">{status}{engine === 'device' && progress > 0 && progress < 1 && <progress value={progress} max={1}/>}</p>}
     {error && <p role="alert" className="error banner">{error}</p>}
     {rows.length > 0 && <>
-      <label>어느 카드·수단으로 쓴 내역인가요?<select value={cardId} onChange={e => setCardId(e.target.value)}><option value="">카드 미지정 (기타)</option>{cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+      <label>어느 카드·수단으로 쓴 내역인가요?<select value={cardId} onChange={e => setCardId(e.target.value)}><option value="">결제수단 미확인</option>{cards.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       <div className="import-table" role="table" aria-label="인식된 거래">
         {rows.map(r => <div className={`import-row ${r.selected ? '' : 'off'} ${r.duplicate ? 'dup' : ''}`} role="row" key={r.id}>
           <label className="import-check"><input type="checkbox" checked={r.selected} onChange={e => update(r.id, { selected: e.target.checked })} aria-label={`${r.merchant} 포함`}/></label>

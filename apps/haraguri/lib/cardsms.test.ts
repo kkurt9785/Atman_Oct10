@@ -5,6 +5,25 @@ import type { Card } from './model';
 const now = new Date(2026, 9, 27, 12, 0, 0); // 2026-10-27
 const card = (id: string, name: string, holder = ''): Card => ({ id, family_id: 'f', name, holder, budget: 0, credit_limit: 0 });
 
+suite('weekend notification regressions', () => {
+  it.each(['3원 적립', '2원 적립', '5원 적립', '105원을 토스뱅크 아이 통장에 쏙! 넣어드렸어요. (토스뱅크 알림)', '69,900원에서 10,640원으로 내렸어요'])('does not save a reward or price notice: %s', text => {
+    expect(parseCardMessage(text, now)).toBeNull();
+  });
+  it('keeps a marked deposit as incoming even if the merchant contains 결제', () => {
+    expect(parseCardMessage('[입금] 5,800원 9002-000-000*** 잔액 8,656원 11/02 04:45 간편결제할인', now)?.incoming).toBe(true);
+  });
+  it('preserves merchant names shared with payment providers and issuer names', () => {
+    const mg = parseCardMessage('MG체크카드(1*6*) 29,000원 승인 10/27 19:10 네이버페이', now)!;
+    const bank = parseCardMessage('[출금] 29,000원 9002-000-000*** 잔액 2,856원 10/27 19:10 네이버페이', now)!;
+    expect(mg).toMatchObject({ issuer: '새마을', merchant: '네이버페이', channel: 'debit' });
+    expect(fingerprintOf(mg)).toBe(fingerprintOf(bank));
+    expect(parseCardMessage('[출금] 31,300원 9002-000-000*** 잔액 11,856원 10/27 17:57 현대아울렛 스페', now)?.merchant).toBe('현대아울렛 스페');
+  });
+  it('reads a FacePay payment when the amount is in the notification title', () => {
+    expect(parseCardMessage('38,300원 결제\n페이스페이 (올바른POINT체크, 일시불) · 와플 베르비에', now)).toMatchObject({ amount: 38300, merchant: '와플 베르비에', category: '식비', channel: 'debit' });
+  });
+});
+
 suite('card approval message parsing', () => {
   it('reads the KB multi-line format', () => {
     const p = parseCardMessage('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\n동네마트\n누적1,234,567원', now)!;
@@ -46,8 +65,78 @@ suite('card approval message parsing', () => {
 });
 
 import { readFileSync } from 'node:fs';
-import { detectChannel, fingerprintOf } from './cardsms.core';
+import { detectChannel, fingerprintOf, nonTransactionReason } from './cardsms.core';
+
+suite('reward promotion notifications', () => {
+  it('uses the NH card header instead of the insurer name as the issuer', () => {
+    const raw = '[Web발신]\nNH카드8*6*승인\r\n김*한\r\n25,580원 (일시불)\r\n10/28 17:06\r\n현대해상화재보험(주)';
+    const parsed = parseCardMessage(raw, now)!;
+    expect(parsed).toMatchObject({ amount: 25580, issuer: '농협', merchant: '현대해상화재보험 주', category: '보험' });
+    expect(matchCard(parsed, [card('nh', '농협카드'), card('hyundai', '현대카드')])).toBe('nh');
+  });
+  it.each([
+    '오늘도 퀴즈 맞히고 최대 10원 받아가세요.',
+    '이벤트 참여하고 1,000원 받으세요.',
+    '출석 미션을 완료하면 최대 500원을 드려요.',
+  ])('does not turn a reward offer into a payment: %s', raw => {
+    expect(nonTransactionReason(raw)).toBe('이벤트·리워드 안내');
+    expect(parseCardMessage(raw)).toBeNull();
+  });
+  it('keeps a real payment with a quiz promotion footer', () => {
+    const raw = '신한카드(5678)승인 22,000원 일시불 10/30 11:21 동네마트\n퀴즈 맞히고 최대 10원 받아가세요.';
+    expect(nonTransactionReason(raw)).toBeNull();
+    expect(parseCardMessage(raw)?.amount).toBe(22000);
+  });
+  it('keeps a marked bank withdrawal with a reward footer', () => {
+    const raw = '[출금] 커피앤메이트 1,700원\n1002-000-000***계좌 잔액 99,999원\n퀴즈 맞히고 최대 10원 받아가세요.';
+    expect(nonTransactionReason(raw)).toBeNull();
+    expect(parseCardMessage(raw)?.amount).toBe(1700);
+  });
+  it.each([
+    '발견했어요. 친구가 떠나기 전에 눌러보세요.',
+    '출석 티켓이 충전됐어요. (날씨 체크 알림)',
+    '순금 복권 응모장 1장이 생겼어요\n오늘 응모하지 않으면 사라져요. (토스뱅크 알림)',
+    '네이버페이 럭키볼 뽑기\n당첨 확률이 올라갔어요. 새로운 럭키볼 뽑으러 가기',
+    '오늘 새로 열린 동전 미션 9개\n금요일 동전을 모아보세요. (토스뱅크 알림)',
+  ])('classifies observed non-payment engagement notices: %s', raw => {
+    expect(nonTransactionReason(raw)).toBe('이벤트·리워드 안내');
+    expect(parseCardMessage(raw)).toBeNull();
+  });
+  it('recognizes decomposed Hangul in an observed point reward', () => {
+    const raw = '포인트 도착 🎉\n1원 받았어요'.normalize('NFD');
+    expect(nonTransactionReason(raw)).toBe('마일리지·포인트 혜택 안내');
+    expect(parseCardMessage(raw)).toBeNull();
+  });
+  it('reads an actual payment with decomposed Hangul', () => {
+    expect(parseCardMessage('신한카드 승인 12,000원 10/30 12:30 동네마트'.normalize('NFD'))).toMatchObject({ amount: 12000, issuer: '신한', merchant: '동네마트' });
+  });
+  it.each([
+    '8원 받았어요'.normalize('NFD'),
+    '클릭 한번에 응모하세요!🎵\n수신변경 : 전체메뉴>환경설정>푸시알림설정',
+    '구름이 많고 흐린 날씨예요. (날씨 체크 알림)',
+    '부가세 예정고지 납부 기한이 3일 남았어요. (토스인컴 알림)',
+    '카드로 커피값도 아낄 수 있어요.',
+  ])('skips later observed rewards and service notices: %s', raw => {
+    expect(nonTransactionReason(raw)).not.toBeNull();
+    expect(parseCardMessage(raw)).toBeNull();
+  });
+  it('keeps a payment when a small reward was also received', () => {
+    const raw = '신한카드 승인 12,000원 10/30 12:30 동네마트\n8원 받았어요';
+    expect(nonTransactionReason(raw)).toBeNull();
+    expect(parseCardMessage(raw)?.amount).toBe(12000);
+  });
+});
 suite('channel rules and the shared copy', () => {
+  it('reads a WON bank withdrawal without confusing the masked account or balance with the merchant or amount', () => {
+    const raw = '[출금] 커피앤메이트 1,700원\n1002-000-000***계좌 잔액\n99,999원 10/30 12:48:42';
+    expect(parseCardMessage(raw, new Date('2026-10-30T13:00:00+09:00'))).toMatchObject({ amount: 1700, merchant: '커피앤메이트', channel: 'bank_transfer', category: '식비', date: '2026-10-30', time: '12:48' });
+  });
+  it('uses a bank fallback when a withdrawal contains only account metadata', () => {
+    expect(parseCardMessage('[출금] 1,700원\n1002-000-000***계좌 잔액 99,999원', now)).toMatchObject({ amount: 1700, merchant: '계좌이체' });
+  });
+  it('preserves a merchant with a short numeric hyphen', () => {
+    expect(parseCardMessage('[출금] 24-7카페 1,700원\n1002-000-000***계좌 잔액 99,999원', now)).toMatchObject({ amount: 1700, merchant: '24-7카페' });
+  });
   it('maps 계좌이체 / 잔액 / 누적 to bank, debit and credit', () => {
     expect(detectChannel('우리은행 출금 50,000원 잔액 1,234,567원 자동이체 관리비')).toBe('bank_transfer');
     expect(detectChannel('신한카드 승인 12,000원 잔액 300,000원 동네마트')).toBe('debit');
@@ -73,6 +162,71 @@ suite('Apple Pay transaction trigger text', () => {
   it('reads ₩ and KRW amounts without 원', () => {
     expect(parseCardMessage('거래 ₩12,000 GS25 수원점 현대카드', now)).toMatchObject({ amount: 12000, merchant: 'GS25 수원점', issuer: '현대', category: '식비' });
     expect(parseCardMessage('KRW 48,300 스타벅스 역삼점 10/26 09:10', now)).toMatchObject({ amount: 48300, merchant: '스타벅스 역삼점', date: '2026-10-26' });
+  });
+});
+
+suite('benefit notices are not payments', () => {
+  // Anonymized from a real false positive: the first amount is an accrual rate,
+  // and "승인" refers to a corporate merger, not a card transaction.
+  const mileageNotice = `[Web발신]
+[신한카드] 아시아나항공 마일리지 적립 기준 변경 안내
+안녕하세요, 고객님. 신한카드를 이용해 주셔서 감사합니다.
+공정거래위원회의 대한항공-아시아나항공 기업결합 승인에 따라,
+아시아나 마일리지 제도가 아래와 같이 변경될 예정입니다.
+[변경 내용]
+▶ 적용 대상 : 아시아나항공 제휴 신한카드 보유 고객
+▶ 적용 일자 : 2026년 12월 17일 이용 건부터 적용
+▶ 변경 사항 : 카드 이용 마일리지 적립 기준 변경
+· 변경 사유 : 공정위 승인 마일리지 전환 비율(1:0.82) 반영
+[적용 예시]
+· 1,000원당 1.5마일 → 1,000원당 1.23 대한항공 마일리지
+· 2,500원당 1.0마일 → 2,500원당 0.82 대한항공 마일리지
+궁금하신 사항은 신한카드 고객센터로 문의해 주시기 바랍니다.`;
+
+  it('rejects the Shinhan mileage policy notice that was saved as a 1,000-won expense', () => {
+    expect(nonTransactionReason(mileageNotice)).toBe('마일리지·포인트 혜택 안내');
+    expect(parseCardMessage(mileageNotice, now)).toBeNull();
+  });
+
+  it.each([
+    '[신한카드] 마이신한포인트 적립 안내\n이번 달 포인트는 1,000원 상당입니다. 결제 시 사용할 수 있습니다.',
+    '[현대카드] M포인트 소멸 예정 안내\n보유 포인트는 1,000원 상당입니다.',
+    '[토스] 30,000원 이상 결제 시 1,000원 캐시백을 드려요. 이벤트에 참여해 보세요.',
+    '[신한카드] 포인트 1,000원 적립되었습니다.',
+    '[신한카드] 10/27까지 이벤트 참여 시 1,000원 결제 할인 혜택을 드립니다.',
+    '[신한카드] 포인트 결제가 가능합니다. 1,000원부터 사용하세요.',
+    '[신한카드] 1,000원 결제를 하면 포인트를 드려요.',
+    '[신한카드] 적립 안내\n지난달 결제 완료 고객에게 1,000원 포인트 지급 예정',
+  ])('rejects a reward notification without a completed payment: %s', text => {
+    expect(parseCardMessage(text, now)).toBeNull();
+    expect(nonTransactionReason(text)).toBe('마일리지·포인트 혜택 안내');
+  });
+
+  it('does not use a rate per won as a transaction amount, even outside a reward notice', () => {
+    expect(parseCardMessage('적용 예시: 1,000원당 1회 제공', now)).toBeNull();
+    expect(parseCardMessage('1,000 원 당 1회 제공', now)).toBeNull();
+  });
+
+  it('keeps real approvals with reward footnotes, regardless of message length', () => {
+    const text = '[Web발신]\n신한카드(5678)승인\n김*한\n22,000원 일시불\n10/27 11:21\n동네마트\n마일리지 적립 기준 안내: 1,000원당 1마일\n' + '이용 상세 내역은 카드 앱에서 확인하실 수 있습니다.\n'.repeat(30);
+    expect(nonTransactionReason(text)).toBeNull();
+    expect(parseCardMessage(text, now)).toMatchObject({ amount: 22000, issuer: '신한', cancel: false });
+  });
+
+  it('finds the actual payment when a reward rate appears first', () => {
+    const text = '마일리지 적립 기준: 1,000원당 1마일\n신한카드 승인 22,000원 10/27 11:21 동네마트';
+    expect(parseCardMessage(text, now)).toMatchObject({ amount: 22000 });
+  });
+
+  it.each([
+    ['토스 스타벅스에서 10,000원 결제되었어요.\n포인트 적립 안내: 100점', 10000],
+    ['KB Pay 스타벅스 10,000원 결제\n포인트 적립 예정: 100점', 10000],
+    ['카카오페이 결제 완료 10,000원 스타벅스\n포인트 적립 안내: 100점', 10000],
+    ['신한카드 승인취소 22,000원 10/27 동네마트\n적립 포인트도 취소됩니다.', -22000],
+    ['우리은행 10/27 11:30 출금 50,000원 월세 잔액 100,000원\n포인트 혜택 안내는 앱에서 확인하세요.', 50000],
+  ])('keeps a completed payment with a reward mention: %s', (text, amount) => {
+    expect(nonTransactionReason(text)).toBeNull();
+    expect(parseCardMessage(text, now)).toMatchObject({ amount });
   });
 });
 

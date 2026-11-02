@@ -15,7 +15,7 @@ export function looksFinished(entry: Entry, date: string, receipts: {entry_id: s
   return receipts.some(r => r.entry_id === entry.id && r.occurrence === date && r.state === 'done');
 }
 export function workExpenses(expenses:Expense[], room:Exclude<Room,null>) {
-  return expenses.filter(e=>inRoom(e,room));
+  return expenses.filter(e=>e.kind!=='income'&&e.kind!=='transfer'&&inRoom(e,room));
 }
 export function roomDate(entry:Entry, month:string) {
   return occurrence(entry,month) || entry.date;

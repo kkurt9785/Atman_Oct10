@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "하라구리 알림 수집",
+  "file": "/haraguri-notifications.shortcut",
+  "requires_ios": 27,
+  "ready": true,
+  "collector_ready": false,
+  "manual_trigger": true,
+  "requires_app_selection": true
+}
