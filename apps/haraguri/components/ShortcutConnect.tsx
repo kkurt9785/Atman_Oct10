@@ -64,7 +64,7 @@ export function ShortcutConnect({ familyId, initialized, onPrepared }: { familyI
       </li>
       {collector && <li><b>{release.manual_trigger ? '알림 자동화 연결' : '앱 선택·자동화 켜기'}</b>
         {release.manual_trigger && <p className="muted">추가한 단축어를 열고 아래 검색에서 <b>앱에서 알림을 수신할 때</b>를 찾아 추가해 주세요.</p>}
-        <a className="button-link" href={`shortcuts://open-shortcut?${new URLSearchParams({ name: release.name })}`}>단축어 열기</a>
+        <a className="button-link" href={`shortcuts://open-shortcut?name=${encodeURIComponent(release.name)}`}>단축어 열기</a>
         <p className="muted">알림 카드의 파란 앱 이름 또는 ＋를 눌러 받을 앱을 고르고, 필터가 있으면 비워 주세요. 카드의 〉에서 자동화를 켜 주세요. 우리은행 알림은 <b>우리WON뱅킹</b>을 선택해 주세요.</p>
         <p className="muted">정보 ⓘ → 개인정보 보호에서 <b>잠겨 있는 동안 실행 허용</b>도 켜져 있는지 확인해 주세요.</p>
         <p className="muted">실제 새 알림이 오면 아래 수신함에서 확인할 수 있어요.</p>

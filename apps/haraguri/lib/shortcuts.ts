@@ -25,8 +25,9 @@ export function parseShortcutRelease(value: unknown): ShortcutRelease | null {
 
 export function shortcutPairingURL(code: string, name: ShortcutRelease['name'] = NOTIFICATION_SHORTCUT_NAME) {
   if (!/^[0-9a-f]{48}$/.test(code)) throw new Error('잘못된 연결 코드예요. 다시 시도해 주세요.');
-  const params = new URLSearchParams({ name, input: 'text', text: code });
-  return `shortcuts://run-shortcut?${params}`;
+  // iOS matches the name literally. URLSearchParams encodes spaces as '+', which Shortcuts does not decode
+  // ("'하라구리+알림+수집' 단축어를 찾을 수 없습니다" on a real iPhone, 2026-11-02). encodeURIComponent gives %20.
+  return `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${code}`;
 }
 
 export type IngestDelivery = {
