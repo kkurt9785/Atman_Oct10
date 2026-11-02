@@ -4,7 +4,8 @@
   "file": "/haraguri-notifications.shortcut",
   "requires_ios": 27,
   "ready": true,
-  "collector_ready": false,
-  "manual_trigger": true,
-  "requires_app_selection": true
+  "collector_ready": true,
+  "manual_trigger": false,
+  "requires_app_selection": true,
+  "icloud_url": "https://www.icloud.com/shortcuts/273c25287f24405b913d5237fd9f5168"
 }

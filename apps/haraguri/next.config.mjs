@@ -8,7 +8,7 @@ export default {
       { key: 'X-Content-Type-Options', value: 'nosniff' },
       { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
       { key: 'X-Frame-Options', value: 'DENY' },
-    ] }, { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
+    ] }, { source: '/pair', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }, { key: 'Cache-Control', value: 'no-store' }] }, { source: '/sw.js', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
     // Signed Shortcuts file (built by scripts/build-shortcut.py). The Korean filename becomes the shortcut's name on import.
     { source: '/haraguri-collect.shortcut', headers: [
       { key: 'Content-Type', value: 'application/octet-stream' },

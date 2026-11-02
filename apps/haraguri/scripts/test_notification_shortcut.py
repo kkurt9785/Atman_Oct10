@@ -121,25 +121,44 @@ class NotificationShortcutTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '트리거'):
             verify_preserved(workflow, stripped)
 
-    def test_published_prototype_still_has_its_input_and_storage_settings(self):
-        before = builder.build_workflow()
-        after = read_workflow(HERE.parent / 'public' / 'haraguri-connect.shortcut')
-        mapping = {}
-        for a, b in zip(before['WFWorkflowActions'], after['WFWorkflowActions']):
-            for key in ('UUID', 'GroupingIdentifier'):
-                old = a['WFWorkflowActionParameters'].get(key)
-                new = b['WFWorkflowActionParameters'].get(key)
-                if old and new:
-                    mapping[old] = new
+    def test_legacy_public_file_remains_compatible_without_secrets(self):
+        legacy = read_workflow(HERE.parent / 'public' / 'haraguri-connect.shortcut')
+        self.assertNotRegex(json.dumps(legacy), r'[?&]token=[0-9a-f]{16,}')
+        self.assertIn('haraguri.collect.url.v1', json.dumps(legacy))
 
-        def remap(value):
-            if isinstance(value, dict):
-                return {key: remap(child) for key, child in value.items()}
-            if isinstance(value, list):
-                return [remap(child) for child in value]
-            return mapping.get(value, value) if isinstance(value, str) else value
+    def test_v2_stores_token_and_uses_header_on_both_ingest_requests(self):
+        workflow = builder.build_workflow(source_fixture())
+        posts = [a['WFWorkflowActionParameters'] for a in workflow['WFWorkflowActions'] if a['WFWorkflowActionIdentifier'].endswith('.downloadurl')]
+        ingest = [p for p in posts if p['WFURL'] == builder.INGEST_URL]
+        self.assertEqual(len(ingest), 2)
+        for params in ingest:
+            field = params['WFHTTPHeaders']['Value']['WFDictionaryFieldValueItems'][0]
+            self.assertEqual(field['WFKey'], 'x-ingest-token')
+            self.assertIsInstance(field['WFValue'], dict)
+        stores = [a['WFWorkflowActionParameters'] for a in workflow['WFWorkflowActions'] if a['WFWorkflowActionIdentifier'].endswith('.setstoredcontent')]
+        self.assertEqual(stores[0]['WFStoredContentKey'], 'haraguri.collect.token.v2')
+        self.assertIn('"WFDictionaryKey": "token"', json.dumps(workflow))
+        self.assertNotIn('haraguri.collect.url.v1', json.dumps(workflow))
 
-        verify_preserved(remap(before), after)
+    def test_unlinked_collector_opens_pair_page_instead_of_popup(self):
+        workflow = builder.build_workflow(source_fixture())
+        self.assertIn('https://haraguri.vercel.app/pair', json.dumps(workflow))
+        self.assertNotIn('먼저 하라구리에서', json.dumps(workflow, ensure_ascii=False))
+
+    def test_rebuilding_a_complete_source_skips_the_literal_setup_ping(self):
+        first = builder.build_workflow(source_fixture())
+        rebuilt = builder.build_workflow(first)
+        self.assertEqual(len(rebuilt['WFWorkflowTriggers']), 1)
+        self.assertIn('PropertyName', json.dumps(rebuilt))
+        self.assertIn('x-ingest-token', json.dumps(rebuilt))
+
+    def test_dictionary_app_selection_is_removed_and_name_is_nfc(self):
+        import unicodedata
+        source = source_fixture()
+        source['WFWorkflowTriggers'][0]['WFTriggerSerializedParameters']['SelectedApps'] = {'Name': 'Private Bank'}
+        workflow = builder.build_workflow(source)
+        self.assertNotIn('Private Bank', json.dumps(workflow))
+        self.assertTrue(unicodedata.is_normalized('NFC', workflow['WFWorkflowName']))
 
 
 if __name__ == '__main__':

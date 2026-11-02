@@ -28,13 +28,6 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'canShare', { configurable: true, value: ({ files }) => localStorage.getItem('qa-disable-file-share') !== '1' && files?.[0]?.name.endsWith('.shortcut') });
-    Object.defineProperty(navigator, 'share', { configurable: true, value: ({ files }) => {
-      window.__shortcutShared = { name: files[0].name, type: files[0].type, size: files[0].size, activated: navigator.userActivation.isActive };
-      return Promise.reject(new DOMException('Canceled by QA', 'AbortError'));
-    } });
-  });
   await page.addInitScript(session => localStorage.setItem('haraguri-auth', JSON.stringify(session)), session);
   await page.goto(process.env.BASE_URL || 'http://127.0.0.1:3014');
   await page.getByRole('heading', { name: '우리의 하루를 함께.' }).waitFor();
@@ -42,21 +35,12 @@ try {
   const setup = page.locator('.ingest-setup');
   const manifest = await page.request.get(new URL('/haraguri-notifications.json', page.url()).href);
   const release = await manifest.json();
-  const manual = release.manual_trigger === true;
-  await setup.getByText(manual ? '간편 수집 시험판' : '간편 연결 시험판', { exact: true }).waitFor();
-  if (manual) await setup.getByText('앱에서 알림을 수신할 때', { exact: true }).waitFor();
-  const install = setup.getByRole('button', { name: '단축어 추가', exact: true });
+  const install = setup.getByRole('link', { name: '단축어 추가', exact: true });
   await install.waitFor();
-  await install.click();
-  const shared = await page.evaluate(() => window.__shortcutShared);
-  assert.equal(shared.name, `${release.name}.shortcut`);
-  assert.ok(shared.size > 0 && shared.activated, 'the prepared file is shared within the user tap');
-  assert.equal(await setup.getByRole('alert').count(), 0, 'canceling the share sheet is not an installation error');
-  const download = setup.getByRole('link', { name: '단축어 받기', exact: true, includeHidden: true });
-  const file = await page.request.get(new URL(await download.getAttribute('href'), page.url()).href);
-  assert.ok(file.ok(), 'signed file is downloadable');
-  assert.ok(file.headers()['content-disposition']?.includes("filename*=UTF-8''"), 'Korean shortcut name is provided');
-  assert.equal((await file.body()).subarray(0, 4).toString(), 'AEA1', 'download is signed');
+  assert.equal(await install.getAttribute('href'), release.icloud_url);
+  assert.equal(await install.getAttribute('target'), '_blank');
+  assert.equal(await setup.getByRole('link', { name: '단축어 받기', exact: true }).count(), 0);
+  await setup.getByRole('button', { name: '내 계정 연결 시작', exact: true }).click();
   const connect = setup.getByRole('link', { name: '내 계정 연결', exact: true });
   await connect.waitFor();
   const firstLink = await connect.getAttribute('href');
@@ -65,7 +49,7 @@ try {
   const scheme = new URL(await connect.getAttribute('href'));
   assert.notEqual(scheme.searchParams.get('text'), new URL(firstLink).searchParams.get('text'), 'a failed connection can be retried immediately with a fresh code');
   assert.equal(scheme.protocol, 'shortcuts:');
-  assert.equal(scheme.searchParams.get('name'), manual ? '하라구리 알림 수집' : '하라구리 계정 연결');
+  assert.equal(scheme.searchParams.get('name'), '하라구리 알림 수집');
   const code = scheme.searchParams.get('text');
   assert.ok(/^[0-9a-f]{48}$/.test(code), 'button carries a pairing code');
   assert.ok(code !== original.token, 'button never carries the existing SMS token');
@@ -89,13 +73,26 @@ try {
   await setup.getByText('아이폰 · 카드앱 알림 결제 수집 확인 ✓', { exact: true }).waitFor({ state: 'hidden', timeout: 15000 });
   assert.equal(await setup.getByText('계정 연결 확인 ✓', { exact: false }).count(), 0, 'old setup ping cannot confirm a new address');
   assert.equal(check(await client.from('hg_inbox').select('id').eq('family_id', familyId), 'historical inbox').length, 3, 'rotating an address preserves the historical inbox');
-  await page.evaluate(() => localStorage.setItem('qa-disable-file-share', '1'));
-  await page.reload();
-  await page.getByRole('navigation', { name: '모바일 메뉴' }).getByRole('button', { name: '가족 설정' }).click();
-  await setup.getByRole('link', { name: '단축어 받기', exact: true }).waitFor({ state: 'visible' });
-  assert.equal(await setup.getByRole('button', { name: '단축어 추가', exact: true }).count(), 0, 'unsupported sharing retains the ordinary file download');
+  await setup.getByRole('button', { name: '내 계정 연결 시작', exact: true }).waitFor();
+  // Error callback retries the same unused code in NFD once, never after claim.
+  const retry = check(await client.rpc('hg_create_shortcut_pairing', { family: familyId }), 'retry code');
+  await page.goto(`${new URL(page.url()).origin}/pair?pairRetry=nfd&code=${retry.code}`);
+  const retryLink = page.getByRole('link', { name: '단축어로 연결 계속하기' });
+  await retryLink.waitFor();
+  const nfd = new URL(await retryLink.getAttribute('href'));
+  assert.equal(nfd.searchParams.get('name'), release.name.normalize('NFD'));
+  assert.equal(nfd.searchParams.get('text'), retry.code);
+  assert.equal(new URL(page.url()).search, '', 'callback code is stripped');
+  await page.goto(`${new URL(page.url()).origin}/pair?pairRetry=nfd&code=${retry.code}`);
+  await page.getByRole('status').filter({ hasText: '단축어를 열지 못했어요' }).waitFor();
+  assert.equal(await retryLink.count(), 0, 'second callback does not launch again');
+  const retryClaim = await fetch(`${cfg.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/shortcut-pair`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: retry.code }) });
+  assert.equal(retryClaim.status, 200);
+  await page.goto(`${new URL(page.url()).origin}/pair?pairRetry=nfd&code=${retry.code}`);
+  await page.getByRole('status').filter({ hasText: '연결 정보가 단축어에 전달됐어요' }).waitFor();
+  assert.equal(await retryLink.count(), 0, 'a consumed code is not relaunched');
   assert.deepEqual(errors, []);
-  console.log('PASS: mobile setup, signed download, immediate connection retry, existing SMS address retained; account connection and payment collection shown separately; rotated addresses require fresh evidence.');
+  console.log('PASS: mobile iCloud setup, NFC/NFD single retry, consumed-code guard, existing SMS address retained; account connection and payment collection shown separately; rotated addresses require fresh evidence.');
 } finally {
   await browser?.close();
   if (familyId) check(await admin.from('hg_families').delete().eq('id', familyId), 'clean temporary family');

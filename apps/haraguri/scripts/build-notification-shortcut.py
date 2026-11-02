@@ -5,7 +5,7 @@ The public file never contains a member's collection token. Pairing uses a
 five-minute code supplied by the app and Shortcuts' OS 27 Stored Content actions.
 Manual-trigger mode includes all collector actions and the observed iOS body
 reference; the recipient adds the notification card. Embedded-trigger mode
-requires a real iOS export and a signer that preserves its trigger.
+requires a real iOS export. Distribution uses an iPhone iCloud share; Mac signing is intentionally unavailable.
 """
 import argparse
 import copy
@@ -13,15 +13,13 @@ import json
 import pathlib
 import plistlib
 import re
-import shutil
-import subprocess
-import tempfile
 import uuid
-from shortcut_archive import read_workflow, verify_preserved
+from shortcut_archive import read_workflow
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PAIR_URL = 'https://rwyvqxkweqsoositvlht.supabase.co/functions/v1/shortcut-pair'
-STORAGE_KEY = 'haraguri.collect.url.v1'
+STORAGE_KEY = 'haraguri.collect.token.v2'
+INGEST_URL = 'https://rwyvqxkweqsoositvlht.supabase.co/functions/v1/ingest'
 OBJ = '\ufffc'
 
 
@@ -45,9 +43,12 @@ def action(identifier, **parameters):
     return {'WFWorkflowActionIdentifier': 'is.workflow.actions.' + identifier, 'WFWorkflowActionParameters': {'UUID': fresh(), **parameters}}
 
 
-def post(url, fields):
+def post(url, fields, ingest_token=None):
     items = [{'WFItemType': 0, 'WFKey': key, 'WFValue': value} for key, value in fields.items()]
-    return action('downloadurl', WFURL=url, WFHTTPMethod='POST', WFHTTPBodyType='JSON', WFJSONValues={'WFSerializationType': 'WFDictionaryFieldValue', 'Value': {'WFDictionaryFieldValueItems': items}})
+    headers = {}
+    if ingest_token is not None:
+        headers['WFHTTPHeaders'] = {'WFSerializationType': 'WFDictionaryFieldValue', 'Value': {'WFDictionaryFieldValueItems': [{'WFItemType': 0, 'WFKey': 'x-ingest-token', 'WFValue': ingest_token}]}}
+    return action('downloadurl', WFURL=url, WFHTTPMethod='POST', WFHTTPBodyType='JSON', WFJSONValues={'WFSerializationType': 'WFDictionaryFieldValue', 'Value': {'WFDictionaryFieldValueItems': items}}, **headers)
 
 
 def conditional(reference):
@@ -105,6 +106,12 @@ def source_notification(source):
         if params.get('WFHTTPMethod') != 'POST' or params.get('WFHTTPBodyType') not in (None, 'JSON'):
             continue
         fields = params.get('WFJSONValues', {}).get('Value', {}).get('WFDictionaryFieldValueItems', [])
+        def literal(value):
+            return value.get('Value', {}).get('string') if isinstance(value, dict) else value
+        # A complete source also contains a pairing test POST before the real
+        # notification request. It is intentionally literal, not a body source.
+        if any(literal(f.get('WFKey')) == 'via' and literal(f.get('WFValue')) == 'ios-notification-setup' for f in fields):
+            continue
         for field in fields:
             key = field.get('WFKey')
             if isinstance(key, dict):
@@ -124,10 +131,10 @@ def build_workflow(source=None, manual_trigger=False):
     match = action('text.match', text=token(shortcut_input), WFMatchTextPattern='^[0-9a-f]{48}$', WFMatchTextCaseSensitive=True)
     start, otherwise, end = conditional(output(match, 'Matches'))
     claim = post(PAIR_URL, {'code': token(output(match, 'Matches'))})
-    collect_url = action('getvalueforkey', WFGetDictionaryValueType='Value', WFDictionaryKey='collect_url', WFInput=attachment(output(claim, 'Contents of URL')))
+    collect_url = action('getvalueforkey', WFGetDictionaryValueType='Value', WFDictionaryKey='token', WFInput=attachment(output(claim, 'Contents of URL')))
     valid, invalid, valid_end = conditional(output(collect_url, 'Dictionary Value'))
     store = action('setstoredcontent', WFInput=attachment(output(collect_url, 'Dictionary Value')), WFStoredContentKey=STORAGE_KEY, WFStoredContentGlobalValue=True)
-    ping = post(token(output(collect_url, 'Dictionary Value')), {'body': '하라구리 연결 테스트', 'via': 'ios-notification-setup'})
+    ping = post(INGEST_URL, {'body': '하라구리 연결 테스트', 'via': 'ios-notification-setup'}, token(output(collect_url, 'Dictionary Value')))
     actions = [match, start, claim, collect_url, valid, store, ping,
                action('showresult', Text='하라구리 계정 연결이 완료됐어요. 실제 앱 알림 수신 확인은 별도로 진행해 주세요.'),
                invalid, action('showresult', Text='연결 코드가 만료됐어요. 하라구리에서 내 계정 연결을 다시 눌러 주세요.'), valid_end, otherwise]
@@ -152,12 +159,13 @@ def build_workflow(source=None, manual_trigger=False):
                 '{0, 1}': title['Value']['attachmentsByRange']['{0, 1}'], '{2, 1}': output(text, 'Text')}}})
         present, _, present_end = conditional(output(combined, 'Text'))
         actions.extend([stored, linked, *prefix, text, combined, present,
-                        post(token(output(stored, 'Stored Content')), {'title': title, 'body': token(output(text, 'Text')), 'via': 'ios-notification'}), present_end,
-                        unlinked, action('showresult', Text='먼저 하라구리에서 내 계정 연결을 눌러 주세요.'), linked_end])
+                        post(INGEST_URL, {'title': title, 'body': token(output(text, 'Text')), 'via': 'ios-notification'}, token(output(stored, 'Stored Content'))), present_end,
+                        unlinked, action('openurl', WFInput='https://haraguri.vercel.app/pair'), linked_end])
     else:
         actions.append(action('showresult', Text='하라구리 설정에서 내 계정 연결 버튼으로 실행해 주세요.'))
     actions.append(end)
     workflow = {
+        'WFWorkflowName': ('하라구리 알림 수집' if source is not None or manual_trigger else '하라구리 계정 연결'),
         'WFWorkflowClientVersion': '2607.0.2', 'WFWorkflowMinimumClientVersion': 900,
         'WFWorkflowMinimumClientVersionString': '900', 'WFWorkflowHasOutputFallback': False,
         'WFWorkflowHasShortcutInputVariables': True,
@@ -177,32 +185,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source', type=pathlib.Path, help='Private iOS 27 export; never uploaded or copied to public')
     parser.add_argument('--manual-trigger', action='store_true', help='Build all collector actions; the recipient adds the notification card on iPhone')
-    parser.add_argument('--draft', action='store_true', help='Build the signed file without switching the app release manifest')
-    parser.add_argument('--unsigned-output', type=pathlib.Path, help='Write a reviewable plist without publishing')
+    parser.add_argument('--unsigned-output', type=pathlib.Path, required=True, help='Write a reviewable workflow for iPhone import and iCloud sharing; never sign on Mac')
     args = parser.parse_args()
     source = read_workflow(args.source) if args.source else None
     workflow = build_workflow(source, manual_trigger=args.manual_trigger)
-    if args.unsigned_output:
-        args.unsigned_output.write_bytes(plistlib.dumps(workflow, fmt=plistlib.FMT_XML))
-        print('unsigned prototype generated; not published')
-        return
-    collector = source is not None or args.manual_trigger
-    name = '하라구리 알림 수집' if collector else '하라구리 계정 연결'
-    filename = 'haraguri-notifications.shortcut' if collector else 'haraguri-connect.shortcut'
-    with tempfile.TemporaryDirectory(prefix='haraguri-build-') as tmp:
-        unsigned = pathlib.Path(tmp) / 'unsigned.shortcut'
-        signed = pathlib.Path(tmp) / 'signed.shortcut'
-        unsigned.write_bytes(plistlib.dumps(workflow, fmt=plistlib.FMT_BINARY))
-        subprocess.run(['shortcuts', 'sign', '--mode', 'anyone', '--input', str(unsigned), '--output', str(signed)], check=True)
-        verify_preserved(workflow, read_workflow(signed))
-        target = ROOT / 'public' / filename
-        shutil.copyfile(signed, target)
-        target.chmod(0o644)
-    manifest = {'version': 1, 'name': name, 'file': '/' + filename, 'requires_ios': 27,
-                'ready': True, 'collector_ready': source is not None, 'manual_trigger': args.manual_trigger, 'requires_app_selection': collector}
-    if not args.draft:
-        (ROOT / 'public' / 'haraguri-notifications.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
-    print(json.dumps({'built': filename, 'collector_ready': source is not None, 'manual_trigger': args.manual_trigger, 'draft': args.draft}, ensure_ascii=False))
+    args.unsigned_output.write_bytes(plistlib.dumps(workflow, fmt=plistlib.FMT_XML))
+    print('Unsigned workflow generated. Import and verify on iOS 27, then share a token-free iCloud copy. App release unchanged.')
 
 
 if __name__ == '__main__':

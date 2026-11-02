@@ -5,6 +5,7 @@ export const NOTIFICATION_SHORTCUT_FILE = '/haraguri-notifications.shortcut';
 export const PAIRING_SHORTCUT_NAME = '하라구리 계정 연결';
 export const PAIRING_SHORTCUT_FILE = '/haraguri-connect.shortcut';
 export type ShortcutRelease = {
+  icloud_url?: string;
   ready: true; collector_ready: boolean; manual_trigger: boolean; requires_ios: 27;
   name: typeof NOTIFICATION_SHORTCUT_NAME | typeof PAIRING_SHORTCUT_NAME;
   file: typeof NOTIFICATION_SHORTCUT_FILE | typeof PAIRING_SHORTCUT_FILE;
@@ -20,14 +21,28 @@ export function parseShortcutRelease(value: unknown): ShortcutRelease | null {
   const collector = r.collector_ready || manual_trigger;
   const name = collector ? NOTIFICATION_SHORTCUT_NAME : PAIRING_SHORTCUT_NAME;
   const file = collector ? NOTIFICATION_SHORTCUT_FILE : PAIRING_SHORTCUT_FILE;
-  return r.name === name && r.file === file ? { ready: true, collector_ready: r.collector_ready, manual_trigger, requires_ios: 27, name, file } : null;
+  if (r.icloud_url !== undefined && (typeof r.icloud_url !== 'string' || !/^https:\/\/www\.icloud\.com\/shortcuts\/[0-9a-f]{32}$/.test(r.icloud_url))) return null;
+  return r.name === name && r.file === file ? { ready: true, collector_ready: r.collector_ready, manual_trigger, requires_ios: 27, name, file, ...(r.icloud_url ? { icloud_url: r.icloud_url as string } : {}) } : null;
 }
 
-export function shortcutPairingURL(code: string, name: ShortcutRelease['name'] = NOTIFICATION_SHORTCUT_NAME) {
+export function shortcutPairingURL(code: string, name: ShortcutRelease['name'] = NOTIFICATION_SHORTCUT_NAME, normalization: 'NFC' | 'NFD' = 'NFC', origin = 'https://haraguri.vercel.app') {
   if (!/^[0-9a-f]{48}$/.test(code)) throw new Error('잘못된 연결 코드예요. 다시 시도해 주세요.');
-  // iOS matches the name literally. URLSearchParams encodes spaces as '+', which Shortcuts does not decode
-  // ("'하라구리+알림+수집' 단축어를 찾을 수 없습니다" on a real iPhone, 2026-11-02). encodeURIComponent gives %20.
-  return `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${code}`;
+  const callback = new URL('/pair', origin);
+  callback.searchParams.set('code', code);
+  callback.searchParams.set('pairRetry', normalization === 'NFC' ? 'nfd' : 'failed');
+  const success = new URL('/pair', origin);
+  success.searchParams.set('code', code);
+  success.searchParams.set('pairResult', 'success');
+  // Shortcuts treats '+' literally in names. Keep spaces as %20.
+  return `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(name.normalize(normalization))}&input=text&text=${code}&x-error=${encodeURIComponent(callback.href)}&x-success=${encodeURIComponent(success.href)}`;
+}
+
+export function canRetryPairing(status: string, attempted: boolean, phase: string | null) {
+  return phase === 'nfd' && status === 'pending' && !attempted;
+}
+
+export function shortcutOpenURL(name: string = NOTIFICATION_SHORTCUT_NAME, normalization: 'NFC' | 'NFD' = 'NFC') {
+  return `shortcuts://open-shortcut?name=${encodeURIComponent(name.normalize(normalization))}`;
 }
 
 export type IngestDelivery = {

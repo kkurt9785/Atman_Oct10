@@ -20,5 +20,5 @@ Deno.serve(async req => {
   const { data, error } = await admin.rpc('hg_claim_shortcut_pairing', { pair_code: code });
   if (error) return reply({ error: '연결하지 못했어요. 잠시 후 다시 시도해 주세요.' }, 500);
   if (!data?.token) return reply({ error: '연결 코드가 만료됐어요. 하라구리에서 연결 버튼을 다시 눌러 주세요.' }, 410);
-  return reply({ collect_url: `${base}/functions/v1/ingest?token=${data.token}`, version: 1 });
+  return reply({ collect_url: `${base}/functions/v1/ingest?token=${data.token}`, ingest_url: `${base}/functions/v1/ingest`, token: data.token, version: 2 });
 });

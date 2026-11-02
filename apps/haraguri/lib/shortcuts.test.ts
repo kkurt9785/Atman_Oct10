@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isCollectedPayment, isCollectorDelivery, NOTIFICATION_SHORTCUT_NAME, PAIRING_SHORTCUT_NAME, parseShortcutRelease, shortcutPairingURL, type IngestDelivery } from './shortcuts';
+import { isCollectedPayment, isCollectorDelivery, NOTIFICATION_SHORTCUT_NAME, PAIRING_SHORTCUT_NAME, parseShortcutRelease, shortcutPairingURL, canRetryPairing, type IngestDelivery } from './shortcuts';
 
 const delivery = (patch: Partial<IngestDelivery> = {}): IngestDelivery => ({ via: 'ios-notification', app: '', raw: '스타벅스 10,000원 결제', status: 'saved', ...patch });
 
@@ -8,11 +8,40 @@ describe('shortcut pairing link', () => {
     const code = 'ab'.repeat(24);
     const url = new URL(shortcutPairingURL(code));
     expect(url.protocol).toBe('shortcuts:');
-    expect(url.hostname).toBe('run-shortcut');
+    expect(url.hostname).toBe('x-callback-url');
+    expect(url.pathname).toBe('/run-shortcut');
     expect(url.searchParams.get('name')).toBe(NOTIFICATION_SHORTCUT_NAME);
     expect(url.searchParams.get('input')).toBe('text');
     expect(url.searchParams.get('text')).toBe(code);
     expect(url.href).not.toContain('supabase');
+  });
+  it('encodes spaces as %20 and sends failures back for a single NFD retry', () => {
+    const url = shortcutPairingURL('ab'.repeat(24));
+    expect(url).toContain('%20');
+    expect(url).not.toContain('+');
+    const callback = new URL(new URL(url).searchParams.get('x-error')!);
+    expect(callback.pathname).toBe('/pair');
+    expect(callback.searchParams.get('pairRetry')).toBe('nfd');
+    expect(callback.searchParams.get('code')).toBe('ab'.repeat(24));
+  });
+  it('uses the same code with an NFD name and a terminal error callback', () => {
+    const url = new URL(shortcutPairingURL('ab'.repeat(24), NOTIFICATION_SHORTCUT_NAME, 'NFD'));
+    expect(url.searchParams.get('name')).toBe(NOTIFICATION_SHORTCUT_NAME.normalize('NFD'));
+    expect(url.searchParams.get('text')).toBe('ab'.repeat(24));
+    expect(new URL(url.searchParams.get('x-error')!).searchParams.get('pairRetry')).toBe('failed');
+  });
+  it('retries only a failed, unclaimed code once', () => {
+    expect(canRetryPairing('pending', false, 'nfd')).toBe(true);
+    expect(canRetryPairing('pending', true, 'nfd')).toBe(false);
+    for (const status of ['claimed', 'expired', 'missing']) expect(canRetryPairing(status, false, 'nfd')).toBe(false);
+    expect(canRetryPairing('pending', false, 'failed')).toBe(false);
+    expect(canRetryPairing('pending', false, null)).toBe(false);
+  });
+  it('validates the iCloud release link', () => {
+    const release = { ready: true, collector_ready: true, requires_ios: 27, name: NOTIFICATION_SHORTCUT_NAME, file: '/haraguri-notifications.shortcut', icloud_url: 'https://www.icloud.com/shortcuts/273c25287f24405b913d5237fd9f5168' };
+    expect(parseShortcutRelease(release)?.icloud_url).toBe(release.icloud_url);
+    expect(parseShortcutRelease({ ...release, icloud_url: 'javascript:alert(1)' })).toBeNull();
+    expect(parseShortcutRelease({ ...release, icloud_url: 'https://evil.example/shortcuts/273c25287f24405b913d5237fd9f5168' })).toBeNull();
   });
   it.each(['', 'not-a-code', 'ab'.repeat(23), 'ab'.repeat(25), 'https://example.com/'])('rejects invalid code %s', code => {
     expect(() => shortcutPairingURL(code)).toThrow();
