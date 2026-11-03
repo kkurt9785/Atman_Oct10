@@ -3,6 +3,37 @@ import { adminClient } from './supabase';
 import { platformAdminEmails, platformAdminUserIds } from './platform-admin';
 import { nudgeNotificationDispatch } from './notify-nudge';
 import { todayKST } from './date';
+import { checkBusinessStatus, BUSINESS_STATUS_LABEL } from './nts';
+
+// 국세청 조회 점검용 번호 — 잇닿(케셰르) 자기 사업자등록번호(사이트 하단에 공개). 키가 살아 있으면 '계속사업자'가 나와야 한다.
+const NTS_PROBE_BRN = process.env.NTS_PROBE_BRN ?? '4814401177';
+
+// 직업안정법 §25(2026-12-10) 운영 의무 3가지를 매일 점검한다: 국세청 조회 동작 · 공고 신고 처리 · 공표 정보 월 1회 대조
+async function complianceChecks(sb: NonNullable<ReturnType<typeof adminClient>>): Promise<HealthCheck[]> {
+  const out: HealthCheck[] = [];
+  if (!process.env.NTS_BUSINESS_API_KEY) {
+    out.push({ key: 'nts', label: '국세청 사업자 조회', level: 'error', count: null, detail: 'NTS_BUSINESS_API_KEY 미설정 · 휴·폐업 사업장 자동 차단이 멈춰 있어요' });
+  } else {
+    const probe = await checkBusinessStatus(NTS_PROBE_BRN);
+    out.push(!probe
+      ? { key: 'nts', label: '국세청 사업자 조회', level: 'error', count: null, detail: '국세청 응답 없음 · 키 활성 전(발급 후 약 1시간)·만료·장애 중 하나' }
+      : probe.status === 'active'
+        ? { key: 'nts', label: '국세청 사업자 조회', level: 'ok', count: null, detail: `점검용 번호 ${BUSINESS_STATUS_LABEL.active}` }
+        : { key: 'nts', label: '국세청 사업자 조회', level: 'warn', count: null, detail: `조회는 되지만 점검용 번호가 ${BUSINESS_STATUS_LABEL[probe.status] ?? probe.status}` });
+  }
+  const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const monthAgo = new Date(Date.now() - 35 * 86_400_000).toISOString();
+  const [postings, staleFlags] = await Promise.all([
+    sb.from('job_posting_reports').select('id', { count: 'exact', head: true }).in('status', ['open', 'reviewing']).lt('created_at', twoDaysAgo),
+    sb.from('facilities').select('id', { count: 'exact', head: true }).eq('is_demo', false).eq('is_active', true).is('deleted_at', null)
+      .or(`public_flags_checked_at.is.null,public_flags_checked_at.lt.${monthAgo}`),
+  ]);
+  out.push({ key: 'posting-reports', label: '공고·사업장 신고 검토', level: postings.error ? 'error' : (postings.count ?? 0) > 0 ? 'error' : 'ok', count: postings.count,
+    detail: postings.error ? '신고 목록 조회 실패' : (postings.count ?? 0) > 0 ? '접수 후 48시간이 지난 미처리 신고 · 신고 검토에서 확인' : null });
+  out.push({ key: 'public-flags', label: '체불·산재 공표 대조', level: staleFlags.error ? 'warn' : (staleFlags.count ?? 0) > 0 ? 'warn' : 'ok', count: staleFlags.count,
+    detail: staleFlags.error ? '대조 현황 조회 실패' : (staleFlags.count ?? 0) > 0 ? '35일 넘게 대조하지 않은 운영 사업장 · 등록 심사 › 구인자 공표 정보' : null });
+  return out;
+}
 
 // 매일 자동 점검: DB 점검(ops_health_report) + 사이트 응답 확인 → 결과 저장 → 오류가 있으면 운영자에게 푸시.
 // 주의(warn)는 운영자 화면 카드에만 남기고 알림은 보내지 않는다 — 매일 울리면 아무도 안 본다.
@@ -67,6 +98,7 @@ export async function runHealthCheck(trigger: 'cron' | 'manual'): Promise<Health
     detail:!cleanupReady?'자동 삭제 설정·스케줄 확인 필요':overdue>0?'15분 이상 처리되지 않은 삭제 작업이 있어요':null});
   checks.push({key:'safety-reports',label:'대화 신고 검토',level:reports.error?'error':(reports.count??0)>0?'error':'ok',count:reports.count,
     detail:reports.error?'신고 목록 조회 실패':(reports.count??0)>0?'접수 후 24시간이 지난 미처리 신고 · 운영 관리에서 확인':null});
+  checks.push(...await complianceChecks(sb));
   const status: HealthRun['status'] = checks.some((c) => c.level === 'error') ? 'error' : checks.some((c) => c.level === 'warn') ? 'warn' : 'ok';
   const { data: saved } = await sb.from('ops_health_runs').insert({ status, checks, trigger }).select('id, ran_at').single();
 
