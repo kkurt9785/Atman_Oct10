@@ -46,6 +46,7 @@ try {
   const openMore = async () => { const b = views.getByRole('button',{name:'더 보기 ▾'}); if (await b.count()) await b.click(); };
   const toView = async name => { await openMore(); await views.getByRole('button',{name,exact:true}).click(); };
   const openFold = async name => { await toView('카드'); const fold = page.locator('details.fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); };
+  const openReportDetail = async () => { const fold = page.locator('details.report-detail'); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); }; // 리포트 = card first, tables under '자세히'
   // The shared card message is offered as an expense and pre-fills the form.
   await dialog.getByRole('heading',{name:'공유받은 항목'}).waitFor();
   await dialog.getByRole('button',{name:'₩ 카드 결제로 가계부에 기록'}).click();
@@ -186,6 +187,7 @@ try {
   if (smsMonth === todayStr.slice(0,7)) await page.locator('.finance-expense').filter({hasText:'편의점 CU'}).waitFor(); // collected rows sit in the feed like any other — no review queue
   await openMore();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
+  await openReportDetail();
   await page.getByText(`${smsMonth} 총지출`,{exact:true}).waitFor();
   await page.getByRole('heading',{name:'자주 쓴 곳 TOP 5'}).waitFor();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'반복·적립'}).click();
@@ -240,6 +242,7 @@ try {
   assert.equal(await page.locator('.fin-figures > div').nth(0).locator('strong').innerText(),spentBefore,'Own-account movement must not change spending');
   await openMore();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
+  await openReportDetail();
   await page.getByText('수입 · 남는 돈',{exact:true}).waitFor();
   await page.getByText('예산 2,000,000원 중',{exact:false}).waitFor();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'피드'}).click();
@@ -285,6 +288,7 @@ try {
   await page.locator('.envelope').filter({hasText:'자동차세'}).getByText('150,000원',{exact:true}).waitFor();
   // Report: settlement panel (2 demo members) and a CSV download.
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
+  await openReportDetail();
   await page.getByRole('heading',{name:'월말 정산'}).waitFor();
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button',{name:'CSV 내려받기'}).click()]);
   assert.equal(download.suggestedFilename(),'haraguri-2026-03.csv');

@@ -11,6 +11,8 @@ import { categories, cardProgress, qualifyingAmount, performanceMonth, shiftMont
 import { ParsedCardMessage, describe, matchCard, parseCardMessage } from '../lib/cardsms';
 import { suggestCards, type CardSuggestion } from '../lib/cardsuggest';
 import { sameMerchantTargets, suggestCategories } from '../lib/classify';
+import { monthCard } from '../lib/monthcard';
+import { MonthCardView } from './MonthCard';
 import { Report } from '../lib/report';
 import { categoryLabel, matchesPaymentFilter, paymentLabel } from '../lib/payment-display';
 
@@ -183,9 +185,9 @@ export function ExpenseFields({ expense, cards, remembered, openAdvanced=false, 
     </div>
   </>;
 }
-export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onRegisterCard,onClassify,rules:familyRules=[],budgets,onEditBudget,members,envelopes,envelopeEntries,settlements,onAddEnvelope,onEnvelopeEntry,onDeleteEnvelope,onMarkSettled,onUnsettle,onToggleRegret,onOpenChat,onAddRecurringFrom,onCapture,settlementOn=false}: {
+export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onRegisterCard,onClassify,rules:familyRules=[],childName='아이',budgets,onEditBudget,members,envelopes,envelopeEntries,settlements,onAddEnvelope,onEnvelopeEntry,onDeleteEnvelope,onMarkSettled,onUnsettle,onToggleRegret,onOpenChat,onAddRecurringFrom,onCapture,settlementOn=false}: {
   entries:Entry[];onOpenWork:(entry:Entry,date:string)=>void;cards:Card[];expenses:Expense[];uid:string;month:string;setMonth:(m:string)=>void;onAddCard:()=>void;onEditCard:(c:Card)=>void;onEditExpense:(e:Expense)=>void;onDeleteExpense:(e:Expense)=>void;busy:boolean;
-  view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onRegisterCard?:(s:CardSuggestion)=>void;onClassify?:(e:Expense,category:string)=>void;rules?:CategoryRule[];
+  view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onRegisterCard?:(s:CardSuggestion)=>void;onClassify?:(e:Expense,category:string)=>void;rules?:CategoryRule[];childName?:string;
   budgets:Budget[];onEditBudget:()=>void;members:Member[];envelopes:Envelope[];envelopeEntries:EnvelopeEntry[];settlements:Settlement[];
   onAddEnvelope:()=>void;onEnvelopeEntry:(e:Envelope,amount:number)=>void;onDeleteEnvelope:(e:Envelope)=>void;onMarkSettled:(month:string)=>void;onUnsettle:(month:string)=>void;onToggleRegret:(e:Expense)=>void;onOpenChat:(e:Expense)=>void;onAddRecurringFrom:(c:{title:string;amount:number;day:number})=>void;onCapture:()=>void;settlementOn?:boolean;
 }) {
@@ -206,7 +208,11 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
   // One feed by default. Reports, recurring/envelopes and cards sit behind '더 보기' so the tab reads as "what we spent", not a ledger to keep.
   const pill=(v:FinanceView,label:string)=><button type="button" key={v} className={`view-pill ${view===v?'on':''}`} aria-pressed={view===v} onClick={()=>setView(v)}>{label}</button>;
   const tabs=<div className="finance-views" role="group" aria-label="가계부 보기">{pill('list','피드')}{(moreOpen||view!=='list')?<>{pill('report','리포트')}{pill('recurring','반복·적립')}{pill('cards','카드')}</>:<button type="button" className="view-pill more" onClick={()=>setMoreOpen(true)}>더 보기 ▾</button>}</div>;
-  if(view==='report') return <>{tabs}<ReportPanel report={report} month={month} setMonth={setMonth} budget={status} onEditBudget={onEditBudget} expenses={expenses} members={members} cards={cards} settlements={settlements} onMarkSettled={onMarkSettled} onUnsettle={onUnsettle} settlementOn={settlementOn}/></>;
+  // 리포트 = one card of sentences; the former tables (분류별·결제수단·정산·CSV) stay reachable under '자세히'.
+  if(view==='report') return <>{tabs}
+    <MonthCardView card={monthCard(expenses,members,budgets,month,today(),childName)} month={month} setMonth={setMonth} onEditBudget={onEditBudget}/>
+    <details className="panel fold report-detail"><summary><h2>자세히</h2><small className="muted">분류별 · 결제수단 · 정산 · CSV</small></summary><div className="fold-body"><ReportPanel report={report} month={month} setMonth={setMonth} budget={status} onEditBudget={onEditBudget} expenses={expenses} members={members} cards={cards} settlements={settlements} onMarkSettled={onMarkSettled} onUnsettle={onUnsettle} settlementOn={settlementOn}/></div></details>
+  </>;
   if(view==='recurring') return <>{tabs}<RecurringPanel items={recurring} cards={cards} busy={busy} onAdd={onAddRecurring} onToggle={onToggleRecurring} onDelete={onDeleteRecurring} expenses={expenses} onAddFrom={onAddRecurringFrom}/><EnvelopePanel envelopes={envelopes} entries={envelopeEntries} members={members} uid={uid} busy={busy} onAdd={onAddEnvelope} onEntry={onEnvelopeEntry} onDelete={onDeleteEnvelope}/></>;
   const selectableCards=cards.filter(c=>(scope==='all'||c.owner_user_id===uid)&&(methodFilter==='all'||(c.card_type || 'credit')===methodFilter));
   const visibleCards=selectableCards.filter(c=>cardId==='all'||c.id===cardId);

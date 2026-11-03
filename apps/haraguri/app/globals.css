@@ -82,3 +82,11 @@ input[readonly],select:disabled,textarea[readonly]{background:#f3f4ef;color:#6b7
 .cat-tag{display:inline;min-height:0;padding:0 2px;font-size:12px;vertical-align:baseline}.cat-tag.empty{color:var(--green);text-decoration:underline dotted}.feed-row .cat-chips{margin-top:6px}.feed-row .cat-chips .peers{flex-basis:100%;font-size:11px}
 /* 가족 채팅에 흐르는 결제 한 줄 */
 .chat-expense{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;background:#f6f8f3;border:1px dashed #d7dbd2;font-size:13px;max-width:100%}.chat-expense b{display:block;font-size:13px;overflow-wrap:anywhere}.chat-expense small{color:var(--muted);font-size:11px}.chat-expense .text-button{margin-left:auto;min-height:28px;font-size:12px;white-space:nowrap}
+/* 월간 카드: 큰 숫자 셋 + 문장 */
+.month-card .month-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}.month-card .month-nav h2{margin:0;font-size:17px}
+.big-three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:4px 0 12px}.big-three>div,.big-three>button{border:0;background:#f6f8f3;border-radius:12px;padding:10px 12px;text-align:left;min-width:0;font:inherit;color:var(--ink)}.big-three span{display:block;font-size:11px;color:var(--muted)}.big-three strong{display:block;font-size:17px;line-height:1.3;overflow-wrap:anywhere}.big-three small{display:block;font-size:10px;color:var(--muted)}
+.card-lines{list-style:none;margin:0;padding:0;display:grid;gap:8px;font-size:14px;line-height:1.6}.card-lines li{padding-left:14px;position:relative}.card-lines li::before{content:'·';position:absolute;left:2px;color:var(--green)}
+@media(max-width:760px){.big-three{grid-template-columns:1fr 1fr}.big-three>div:first-child{grid-column:1/-1}}
+/* 채팅에 흐르는 월간 카드 · 주간 한 줄 */
+.chat-line.digest{align-self:center;max-width:100%;width:100%}.chat-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:13px;display:grid;gap:6px}.chat-card>b{font-size:13px}.chat-card>strong{font-size:22px;line-height:1.1}.chat-card ul{margin:0;padding-left:16px;line-height:1.6;color:#3f4742}.chat-card-actions{display:flex;gap:4px;justify-content:flex-end}.chat-card .text-button{min-height:28px;font-size:12px}
+.chat-card.week{grid-template-columns:1fr auto;align-items:center;padding:8px 12px;background:#f6f8f3;border-style:dashed}.chat-card.week>b{font-weight:500}

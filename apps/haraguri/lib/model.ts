@@ -33,7 +33,7 @@ export type Pin = { comment_id: string; pinned_by: string; pinned_at: string };
 export type RoomRead = { user_id: string; last_read_at: string };
 export const REACTION_EMOJI = ['❤️','👍','😂','😮','😢','🙏'];
 export type Attachment = { id: string; family_id: string; entry_id: string | null; occurrence: string | null; created_at?: string; path: string; name: string; size?: number; created_by: string };
-export type Family = { id: string; name: string; owner_id: string; settings?: { settlement?: boolean } | null };
+export type Family = { id: string; name: string; owner_id: string; settings?: { settlement?: boolean; child_name?: string } | null };
 // A closed room keeps its text but its files were removed; writes are blocked until reopened.
 export type RoomState = { family_id: string; entry_id: string; occurrence: string; closed_at: string | null; closed_by: string | null; purged_at: string | null; purged_files: number; purged_bytes: number };
 // Chat rooms (comments, attachments) are paged separately in lib/chat.ts and are not part of the family snapshot.

@@ -4,6 +4,8 @@ import { Attachment, Comment, Entry, Expense, Pin, REACTION_EMOJI, Reaction, Roo
 import { Room } from '../lib/work';
 import { SearchHit, useSignedPhotos } from '../lib/chat';
 import { formatBytes } from '../lib/image';
+import { monthLabel, type Digest } from '../lib/monthcard';
+import { MonthCardMini, WeekLineBubble } from './MonthCard';
 
 export const MAX_FILES_PER_UPLOAD = 10;
 const GROUP_GAP = 5 * 60 * 1000; // consecutive messages by the same person within 5 minutes share one header
@@ -11,8 +13,14 @@ const MAX_VOICE_SECONDS = 60;
 const VOICE = false; // hidden for now: KakaoTalk does voice better and iOS recording formats are unverified
 type Pending = { id: string; body: string; time: string; failed: boolean; replyTo: string | null };
 // 'expense' rows are collected payments flowing through the family chat (read-only, replied to by quoting); they live in hg_expenses, not hg_comments.
-type Row = { type: 'expense'; id: string; time: string; expense: Expense } | { type: 'message'; id: string; time: string; message: Comment } | { type: 'file'; id: string; time: string; file: Attachment } | { type: 'photos'; id: string; time: string; files: Attachment[] } | { type: 'pending'; id: string; time: string; pending: Pending };
+type Row = { type: 'expense'; id: string; time: string; expense: Expense } | { type: 'digest'; id: string; time: string; digest: Digest } | { type: 'message'; id: string; time: string; message: Comment } | { type: 'file'; id: string; time: string; file: Attachment } | { type: 'photos'; id: string; time: string; files: Attachment[] } | { type: 'pending'; id: string; time: string; pending: Pending };
 
+// Payments and digests are computed rows, not stored messages. While older messages are still loadable, only rows newer than the
+// oldest loaded message are shown so they interleave correctly once the rest arrives.
+function virtualRows(expenses: Expense[], digests: Digest[], floor: string): Row[] {
+  const rows: Row[] = [...expenses.map(e => ({ type: 'expense' as const, id: `x-${e.id}`, time: e.created_at || `${e.date}T12:00:00`, expense: e })), ...digests.map(d => ({ type: 'digest' as const, id: d.id, time: d.time, digest: d }))];
+  return floor ? rows.filter(r => r.time >= floor) : rows;
+}
 const isImage = (f: Attachment) => /\.(png|jpe?g|webp)$/i.test(f.path);
 const isAudio = (f: Attachment) => /\.(webm|m4a|mp4|mp3|ogg|aac)$/i.test(f.path);
 const dayKey = (iso: string) => new Date(iso).toLocaleDateString('sv-SE');
@@ -26,15 +34,15 @@ function dayLabel(iso: string) {
 const clock = (iso: string) => new Date(iso).toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' });
 const coarse = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches;
 const snippet = (s: string, n = 60) => s.length > n ? `${s.slice(0, n)}…` : s;
-function authorOf(row: Row, uid: string) { return row.type === 'message' ? row.message.created_by : row.type === 'file' ? row.file.created_by : row.type === 'photos' ? row.files[0].created_by : row.type === 'expense' ? row.expense.created_by : uid; }
+function authorOf(row: Row, uid: string) { return row.type === 'message' ? row.message.created_by : row.type === 'file' ? row.file.created_by : row.type === 'photos' ? row.files[0].created_by : row.type === 'expense' ? row.expense.created_by : row.type === 'digest' ? 'haraguri' : uid; }
 
 export function Chat({room,state,comments,attachments,entries,uid,name,busy,sync,hasMore,loadingOlder,loadError,onOlder,onSend,onEdit,onDelete,onUpload,onFile,onOpen,onClose,onReopen,unreadCount=0,
-  expenses=[],reactions=[],reads=[],pin=null,othersCount=0,onReact,onPin,onUnpin,onPhotoUrl,onSearch,onJump,highlightId=null}: {
+  expenses=[],digests=[],onOpenReport,reactions=[],reads=[],pin=null,othersCount=0,onReact,onPin,onUnpin,onPhotoUrl,onSearch,onJump,highlightId=null}: {
   room:Room;state?:RoomState;comments:Comment[];attachments:Attachment[];entries:Entry[];uid:string;name:(id:string)=>string;busy:boolean;sync:string;
   hasMore:boolean;loadingOlder:boolean;loadError:string;onOlder:()=>void;
   onSend:(body:string,replyTo?:string|null)=>Promise<boolean>;onEdit:(id:string,body:string)=>Promise<boolean>;onDelete:(id:string)=>void;onUpload:(files:File[])=>void;onFile:(file:Attachment)=>void;onOpen:(entry:Entry,date:string)=>void;
   onClose?:()=>void;onReopen?:()=>void;unreadCount?:number;
-  expenses?:Expense[];reactions?:Reaction[];reads?:RoomRead[];pin?:(Pin&{comment:Comment|null})|null;othersCount?:number;
+  expenses?:Expense[];digests?:Digest[];onOpenReport?:(month:string)=>void;reactions?:Reaction[];reads?:RoomRead[];pin?:(Pin&{comment:Comment|null})|null;othersCount?:number;
   onReact?:(commentId:string,emoji:string)=>void;onPin?:(commentId:string)=>void;onUnpin?:()=>void;onPhotoUrl?:(file:Attachment)=>Promise<string|null>;
   onSearch?:(q:string)=>Promise<SearchHit[]>;onJump?:(hit:SearchHit)=>void;highlightId?:string|null;
 }) {
@@ -68,7 +76,7 @@ export function Chat({room,state,comments,attachments,entries,uid,name,busy,sync
   // A pending bubble disappears as soon as the real row arrives (same author, same text, within two minutes).
   useEffect(()=>{ if(pending.length) setPending(p=>p.filter(x=>x.failed||!comments.some(c=>c.created_by===uid&&c.body===x.body&&Math.abs(new Date(c.created_at).getTime()-new Date(x.time).getTime())<120000))); },[comments]); // eslint-disable-line react-hooks/exhaustive-deps
   // Consecutive photos from one person become a grid instead of a column of bubbles.
-  const sorted:Row[]=[...comments.map(m=>({type:'message' as const,id:m.id,time:m.created_at,message:m})),...attachments.map(f=>({type:'file' as const,id:f.id,time:f.created_at || '',file:f})),...pending.map(p=>({type:'pending' as const,id:p.id,time:p.time,pending:p})),...expenses.map(e=>({type:'expense' as const,id:`x-${e.id}`,time:e.created_at||`${e.date}T12:00:00`,expense:e}))].sort((a,b)=>a.time.localeCompare(b.time)||a.id.localeCompare(b.id));
+  const sorted:Row[]=[...comments.map(m=>({type:'message' as const,id:m.id,time:m.created_at,message:m})),...attachments.map(f=>({type:'file' as const,id:f.id,time:f.created_at || '',file:f})),...pending.map(p=>({type:'pending' as const,id:p.id,time:p.time,pending:p})),...virtualRows(expenses,digests,hasMore?comments.reduce((m,c)=>c.created_at<m?c.created_at:m,comments[0]?.created_at??''):'')].sort((a,b)=>a.time.localeCompare(b.time)||a.id.localeCompare(b.id));
   const timeline:Row[]=[];
   for(const row of sorted){
     const prev=timeline.at(-1);
@@ -79,7 +87,7 @@ export function Chat({room,state,comments,attachments,entries,uid,name,busy,sync
   const images=timeline.flatMap(r=>r.type==='photos'?r.files:[]);
   const last=timeline.at(-1)?.id;
   const first=timeline[0]?.id;
-  const othersIdx=timeline.flatMap((r,i)=>r.type!=='pending'&&r.type!=='expense'&&authorOf(r,uid)!==uid?[i]:[]); // payments are not unread messages
+  const othersIdx=timeline.flatMap((r,i)=>r.type!=='pending'&&r.type!=='expense'&&r.type!=='digest'&&authorOf(r,uid)!==uid?[i]:[]); // payments and digests are not unread messages
   const unreadStart=initialUnread.current>0&&othersIdx.length?othersIdx[Math.max(0,othersIdx.length-initialUnread.current)]:-1;
   const reactionsFor=(id:string)=>{ const m=new Map<string,{count:number;mine:boolean}>(); for(const r of reactions) if(r.comment_id===id){ const e=m.get(r.emoji)||{count:0,mine:false}; e.count++; if(r.user_id===uid) e.mine=true; m.set(r.emoji,e); } return [...m.entries()]; };
   const readersOf=(iso:string)=>reads.filter(r=>r.user_id!==uid&&new Date(r.last_read_at).getTime()>=new Date(iso).getTime()).length;
@@ -139,21 +147,24 @@ export function Chat({room,state,comments,attachments,entries,uid,name,busy,sync
         const author=authorOf(row,uid); const mine=author===uid; const prev=timeline[i-1];
         const newDay=!prev||dayKey(prev.time)!==dayKey(row.time);
         const grouped=!newDay&&!!prev&&authorOf(prev,uid)===author&&new Date(row.time).getTime()-new Date(prev.time).getTime()<GROUP_GAP&&i!==unreadStart;
-        const readers=mine&&row.type!=='pending'&&row.type!=='expense'?readersOf(row.time):0;
+        const readers=mine&&row.type!=='pending'&&row.type!=='expense'&&row.type!=='digest'?readersOf(row.time):0;
         const readMark=mine&&othersCount>0&&readers>0?(readers>=othersCount?'읽음':`읽음 ${readers}`):'';
         const quoted=row.type==='message'&&row.message.reply_to?comments.find(c=>c.id===row.message.reply_to):row.type==='pending'&&row.pending.replyTo?comments.find(c=>c.id===row.pending.replyTo):undefined;
         const chips=row.type==='message'?reactionsFor(row.id):[];
         return <Fragment key={row.id}>
           {newDay&&<div className="chat-date" role="separator">{dayLabel(row.time)}</div>}
           {i===unreadStart&&<div className="chat-unread" ref={divider} role="separator">여기까지 읽었어요</div>}
-          <div className={`chat-line ${mine?'mine':''} ${grouped?'grouped':''} ${flash===row.id?'flash':''} ${row.type==='expense'?'expense':''}`} data-id={row.id}>
-            {!mine&&!grouped&&<small className="chat-author">{name(author)}</small>}
+          <div className={`chat-line ${mine?'mine':''} ${grouped?'grouped':''} ${flash===row.id?'flash':''} ${row.type==='expense'?'expense':''} ${row.type==='digest'?'digest':''}`} data-id={row.id}>
+            {!mine&&!grouped&&row.type!=='digest'&&<small className="chat-author">{name(author)}</small>}
             {(quoted||(row.type==='message'&&row.message.reply_to))&&<button type="button" className="quote" onClick={()=>{ if(quoted) jumpTo(quoted.id); }}>{quoted?<><b>{name(quoted.created_by)}</b><span>{snippet(quoted.body)}</span></>:<span className="muted">원본 메시지를 불러올 수 없어요</span>}</button>}
             <div className="bubble-row">
               {row.type==='pending'?<p className="chat-bubble pending">{row.pending.body}</p>
               :row.type==='message'?(editing?.id===row.id
                 ?<form className="chat-edit" onSubmit={async e=>{e.preventDefault();const body=editing.body.trim();if(!body)return;if(await onEdit(row.id,body))setEditing(null);}}><textarea aria-label="메시지 수정" value={editing.body} maxLength={5000} rows={2} onChange={e=>setEditing({id:row.id,body:e.target.value})}/><div><button type="button" className="text-button" onClick={()=>setEditing(null)}>취소</button><button className="primary" disabled={busy||!editing.body.trim()}>저장</button></div></form>
                 :<p className="chat-bubble" onContextMenu={e=>{e.preventDefault();e.stopPropagation();setMenu(row.id);}} onPointerDown={e=>{if(e.pointerType!=='mouse')startPress(row.id);}} onPointerUp={cancelPress} onPointerCancel={cancelPress} onPointerMove={cancelPress}>{row.message.body}</p>)
+              :row.type==='digest'?(row.digest.type==='month'
+                ?<MonthCardMini card={row.digest.card} onOpen={onOpenReport?()=>onOpenReport((row.digest as Extract<Digest,{type:'month'}>).card.month):undefined} onReply={closed?undefined:()=>{const m=(row.digest as Extract<Digest,{type:'month'}>).card.month;setDraft(d=>d||`📬 ${monthLabel(m)} 우리 가족 — `);input.current?.focus();}}/>
+                :<WeekLineBubble digest={row.digest} onReply={closed?undefined:()=>{setDraft(d=>d||'📅 이번 주 — ');input.current?.focus();}}/>)
               :row.type==='expense'?<div className="chat-expense"><span aria-hidden="true">💳</span><div><b>{row.expense.title}</b><small>{money(row.expense.amount)}{row.expense.category!=='기타'?` · ${row.expense.category}`:''}</small></div>{!closed&&<button type="button" className="text-button" onClick={()=>{setDraft(d=>d||`💳 ${row.expense.title} ${money(row.expense.amount)} — `);input.current?.focus();}}>답글</button>}</div>
               :row.type==='photos'?<div className={`photo-grid n${Math.min(row.files.length,4)}`}>{row.files.map(f=><button type="button" className="photo-cell" key={f.id} aria-label={`사진 ${f.name} 크게 보기`} onClick={()=>setViewer({file:f,url:null})}>{photos[f.path]?<img src={photos[f.path]} alt={f.name} loading="lazy"/>:<span>{f.name}</span>}</button>)}</div>
               :isAudio(row.file)?<div className="voice-bubble"><span>🎙 음성 메시지</span>{photos[row.file.path]?<audio controls preload="none" src={photos[row.file.path]}/>:<small className="muted">불러오는 중…</small>}</div>
