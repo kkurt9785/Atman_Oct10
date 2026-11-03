@@ -25,7 +25,7 @@ describe('shortcut pairing link', () => {
     expect(callback.searchParams.get('code')).toBe('ab'.repeat(24));
   });
   it('uses the same code with an NFD name and a terminal error callback', () => {
-    const url = new URL(shortcutPairingURL('ab'.repeat(24), NOTIFICATION_SHORTCUT_NAME, 'NFD'));
+    const url = new URL(shortcutPairingURL('ab'.repeat(24), NOTIFICATION_SHORTCUT_NAME, 'NFD', 'https://haraguri.vercel.app', true));
     expect(url.searchParams.get('name')).toBe(NOTIFICATION_SHORTCUT_NAME.normalize('NFD'));
     expect(url.searchParams.get('text')).toBe('ab'.repeat(24));
     expect(new URL(url.searchParams.get('x-error')!).searchParams.get('pairRetry')).toBe('failed');
@@ -42,6 +42,15 @@ describe('shortcut pairing link', () => {
     expect(parseShortcutRelease(release)?.icloud_url).toBe(release.icloud_url);
     expect(parseShortcutRelease({ ...release, icloud_url: 'javascript:alert(1)' })).toBeNull();
     expect(parseShortcutRelease({ ...release, icloud_url: 'https://evil.example/shortcuts/273c25287f24405b913d5237fd9f5168' })).toBeNull();
+  });
+  it('calls the published NFD shortcut by its exact imported name on the first attempt', () => {
+    const release = parseShortcutRelease({ ready: true, collector_ready: true, requires_ios: 27, name: NOTIFICATION_SHORTCUT_NAME, file: '/haraguri-notifications.shortcut', name_normalization: 'NFD' })!;
+    const url = new URL(shortcutPairingURL('ab'.repeat(24), release.name, release.name_normalization));
+    expect(url.searchParams.get('name')).toBe(NOTIFICATION_SHORTCUT_NAME.normalize('NFD'));
+    expect(new URL(url.searchParams.get('x-error')!).searchParams.get('pairRetry')).toBe('nfc');
+    expect(new URL(url.searchParams.get('x-success')!).searchParams.get('shortcutNormalization')).toBe('NFD');
+    expect(canRetryPairing('pending', false, 'nfc')).toBe(true);
+    expect(canRetryPairing('claimed', false, 'nfc')).toBe(false);
   });
   it.each(['', 'not-a-code', 'ab'.repeat(23), 'ab'.repeat(25), 'https://example.com/'])('rejects invalid code %s', code => {
     expect(() => shortcutPairingURL(code)).toThrow();

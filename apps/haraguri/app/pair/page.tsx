@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { canRetryPairing, NOTIFICATION_SHORTCUT_NAME, shortcutPairingURL } from '../../lib/shortcuts';
+import { canRetryPairing, NOTIFICATION_SHORTCUT_NAME, parseShortcutRelease, shortcutPairingURL } from '../../lib/shortcuts';
 
 type Family = { id: string; name: string };
 export default function PairPage() {
@@ -19,7 +19,9 @@ export default function PairPage() {
     try {
       const { data, error } = await supabase.rpc('hg_create_shortcut_pairing', { family });
       if (error || !data || !Number.isFinite(Date.parse(data.expires_at)) || Date.parse(data.expires_at) <= Date.now()) throw new Error('연결 코드를 만들지 못했어요. 다시 시도해 주세요.');
-      launch(shortcutPairingURL(data.code, NOTIFICATION_SHORTCUT_NAME, 'NFC', window.location.origin));
+      const release = parseShortcutRelease(await fetch('/haraguri-notifications.json', { cache: 'no-store' }).then(r => r.json()));
+      const mode = release?.name_normalization ?? 'NFD';
+      launch(shortcutPairingURL(data.code, NOTIFICATION_SHORTCUT_NAME, mode, window.location.origin));
     } catch (e) { setMessage(e instanceof Error ? e.message : '연결하지 못했어요.'); }
     finally { setBusy(false); }
   }
@@ -51,13 +53,15 @@ export default function PairPage() {
         const status = await supabase.rpc('hg_shortcut_pairing_status', { pair_code: code });
         if (status.error) throw new Error('연결 상태를 확인하지 못했어요. 자동 재시도는 중단했어요.');
         if (status.data === 'claimed') {
-          localStorage.setItem('haraguri-shortcut-normalization', localStorage.getItem(`haraguri-pair-retried-${code}`) === '1' ? 'NFD' : 'NFC');
+          localStorage.setItem('haraguri-shortcut-normalization', callback.get('shortcutNormalization') === 'NFD' ? 'NFD' : callback.get('shortcutNormalization') === 'NFC' ? 'NFC' : localStorage.getItem(`haraguri-pair-mode-${code}`) || 'NFC');
           setMessage('연결 정보가 단축어에 전달됐어요. 가족 설정의 수신함에서 연결 테스트와 실제 알림 도착을 확인해 주세요.'); return;
         }
         const key = `haraguri-pair-retried-${code}`;
         if (canRetryPairing(status.data, localStorage.getItem(key) === '1', callback.get('pairRetry'))) {
           localStorage.setItem(key, '1');
-          launch(shortcutPairingURL(code, NOTIFICATION_SHORTCUT_NAME, 'NFD', window.location.origin)); return;
+          const mode = callback.get('pairRetry') === 'nfc' ? 'NFC' : 'NFD';
+          localStorage.setItem(`haraguri-pair-mode-${code}`, mode);
+          launch(shortcutPairingURL(code, NOTIFICATION_SHORTCUT_NAME, mode, window.location.origin, true)); return;
         }
         throw new Error(status.data === 'expired' || status.data === 'missing' ? '연결 코드가 만료됐어요. 가족 설정에서 다시 연결해 주세요.' : '단축어를 열지 못했어요. 이름을 “하라구리 알림 수집”으로 다시 입력한 뒤 가족 설정에서 연결해 주세요.');
       }

@@ -172,6 +172,9 @@ def build_workflow(source=None, manual_trigger=False):
         'WFWorkflowIcon': {'WFWorkflowIconGlyphNumber': 59771, 'WFWorkflowIconStartColor': 431817727},
         'WFWorkflowImportQuestions': [], 'WFWorkflowInputContentItemClasses': ['WFStringContentItem'],
         'WFWorkflowOutputContentItemClasses': [], 'WFWorkflowTypes': [], 'WFWorkflowActions': actions,
+        # Running the shortcut by hand (no input) reads the pairing code from the clipboard, so the app's
+        # "연결 코드 복사" path works without any shortcuts:// link or name lookup. Verify on device.
+        'WFWorkflowNoInputBehavior': {'Name': 'WFWorkflowNoInputBehaviorGetClipboard', 'Parameters': {}},
     }
     if triggers:
         workflow['WFWorkflowTriggers'] = triggers

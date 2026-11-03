@@ -49,8 +49,14 @@ try {
   const scheme = new URL(await connect.getAttribute('href'));
   assert.notEqual(scheme.searchParams.get('text'), new URL(firstLink).searchParams.get('text'), 'a failed connection can be retried immediately with a fresh code');
   assert.equal(scheme.protocol, 'shortcuts:');
-  assert.equal(scheme.searchParams.get('name'), '하라구리 알림 수집');
+  assert.equal(scheme.searchParams.get('name'), release.name.normalize(release.name_normalization || 'NFC'));
   const code = scheme.searchParams.get('text');
+  await setup.getByRole('button', { name: '단축어를 찾을 수 없을 때', exact: true }).click();
+  await page.waitForFunction(original => Array.from(document.querySelectorAll('.shortcut-connect a')).some(a => a.textContent === '내 계정 연결' && a.getAttribute('href') !== original), scheme.href);
+  const alternate = new URL(await connect.getAttribute('href'));
+  assert.equal(alternate.searchParams.get('text'), code, 'manual fallback keeps the same unused code');
+  assert.equal(alternate.searchParams.get('name'), release.name.normalize(release.name_normalization === 'NFD' ? 'NFC' : 'NFD'));
+  assert.equal(await setup.getByRole('button', { name: '단축어를 찾을 수 없을 때', exact: true }).count(), 0, 'manual fallback is offered once');
   assert.ok(/^[0-9a-f]{48}$/.test(code), 'button carries a pairing code');
   assert.ok(code !== original.token, 'button never carries the existing SMS token');
   const paired = await fetch(`${cfg.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/shortcut-pair`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) });
@@ -67,12 +73,17 @@ try {
   assert.ok((await notification.json()).saved, 'real-shaped notification saves an expense');
   await setup.getByText('아이폰 · 카드앱 알림 결제 수집 확인 ✓', { exact: true }).waitFor({ timeout: 15000 });
   await setup.screenshot({ path: '/private/tmp/haraguri-shortcut-payment-mobile.png' });
+  check(await admin.from('hg_inbox').insert(Array.from({ length: 31 }, () => ({ family_id: familyId, user_id: userId, via: 'ios-notification', app: 'QA', raw: '포인트 안내', status: 'ignored', summary: 'QA 이벤트 알림' }))), 'push connection evidence beyond inbox window');
+  await page.goto(`${new URL(page.url()).origin}/?tab=settings`);
+  await setup.getByText('계정 연결 확인 ✓', { exact: false }).waitFor({ timeout: 15000 });
+  assert.equal(await setup.getByRole('link', { name: '단축어 추가', exact: true }).count(), 0, 'connected setup does not ask to install again after thirty alerts');
   // Historical success must not confirm a newly rotated collection address.
   check(await client.from('hg_ingest_tokens').delete().eq('family_id', familyId).eq('user_id', userId), 'rotate collection address');
   check(await client.from('hg_ingest_tokens').insert({ family_id: familyId, user_id: userId }), 'new collection address');
   await setup.getByText('아이폰 · 카드앱 알림 결제 수집 확인 ✓', { exact: true }).waitFor({ state: 'hidden', timeout: 15000 });
+  await setup.getByText('계정 연결 확인 ✓', { exact: false }).waitFor({ state: 'hidden', timeout: 15000 });
   assert.equal(await setup.getByText('계정 연결 확인 ✓', { exact: false }).count(), 0, 'old setup ping cannot confirm a new address');
-  assert.equal(check(await client.from('hg_inbox').select('id').eq('family_id', familyId), 'historical inbox').length, 3, 'rotating an address preserves the historical inbox');
+  assert.equal(check(await client.from('hg_inbox').select('id').eq('family_id', familyId), 'historical inbox').length, 34, 'rotating an address preserves the historical inbox');
   await setup.getByRole('button', { name: '내 계정 연결 시작', exact: true }).waitFor();
   // Error callback retries the same unused code in NFD once, never after claim.
   const retry = check(await client.rpc('hg_create_shortcut_pairing', { family: familyId }), 'retry code');

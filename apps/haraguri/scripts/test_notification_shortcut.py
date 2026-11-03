@@ -23,6 +23,10 @@ def source_fixture():
 
 
 class NotificationShortcutTests(unittest.TestCase):
+    def test_manual_run_reads_pairing_code_from_clipboard(self):
+        for workflow in (builder.build_workflow(), builder.build_workflow(manual_trigger=True)):
+            self.assertEqual(workflow['WFWorkflowNoInputBehavior']['Name'], 'WFWorkflowNoInputBehaviorGetClipboard')
+
     def test_collector_sends_explicit_title_and_body_properties(self):
         workflow = builder.build_workflow(manual_trigger=True)
         posts = [a for a in workflow['WFWorkflowActions'] if a['WFWorkflowActionIdentifier'].endswith('.downloadurl')]
