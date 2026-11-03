@@ -114,14 +114,17 @@ def free_window_for_today(worker_id, kst_now):
             end_minute += 24 * 60
         occupied.append((start_minute, end_minute))
 
+    # Since 2026-10-14 apply_to_shift rejects shifts whose start time has passed ("이미 지난 근무예요"),
+    # so only future windows qualify; attendance checks still work because the facility allowance is set to ±360 min.
     now_minute = kst_now.hour * 60 + kst_now.minute
-    for distance in range(0, 331, 15):
-        for candidate in ({now_minute + distance, now_minute - distance} if distance else {now_minute}):
-            start_minute = max(0, min(candidate - 5, 23 * 60 + 45))
-            end_minute = start_minute + 10
-            if all(end_minute <= busy_start or start_minute >= busy_end for busy_start, busy_end in occupied):
-                return f"{start_minute // 60:02d}:{start_minute % 60:02d}", f"{end_minute // 60:02d}:{end_minute % 60:02d}"
-    raise RuntimeError("Demo 1 has no free QA window within the attendance allowance")
+    for distance in range(15, 331, 15):
+        start_minute = now_minute + distance
+        end_minute = start_minute + 10
+        if end_minute > 23 * 60 + 55:
+            break
+        if all(end_minute <= busy_start or start_minute >= busy_end for busy_start, busy_end in occupied):
+            return f"{start_minute // 60:02d}:{start_minute % 60:02d}", f"{end_minute // 60:02d}:{end_minute % 60:02d}"
+    raise RuntimeError("Demo 1 has no free future QA window today (run earlier in the day)")
 
 
 results = []

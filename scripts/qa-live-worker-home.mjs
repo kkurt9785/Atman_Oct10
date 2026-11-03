@@ -20,7 +20,8 @@ try{
  await page.getByRole('button',{name:/근무 \d+건/}).first().waitFor();
  await page.screenshot({path:path.join(directory,'worker-agenda-390.png'),fullPage:true});
  const detail=page.locator('section[aria-label="내 근무 일정"] a[href*="#application-"]').first();
- if(await detail.count()) { await detail.click(); await page.waitForFunction(()=>document.querySelector('details')?.open===true); }
+ // The agenda's own '지난 일정' fold is the first <details> on the page, so check the fold that contains the targeted application.
+ if(await detail.count()) { await detail.click(); await page.waitForFunction(()=>{const id=location.hash.slice(1);return !!id&&document.getElementById(id)?.closest('details')?.open===true;}); }
  await page.goto('https://itdot.co.kr/shifts');await page.getByLabel('공고 정렬').waitFor();
  await page.screenshot({path:path.join(directory,'worker-discovery-390.png'),fullPage:true});
  await page.goto('https://itdot.co.kr/safety');await page.getByText('차단한 사용자가 없어요.',{exact:true}).waitFor();
