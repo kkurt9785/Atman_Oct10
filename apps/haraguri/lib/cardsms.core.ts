@@ -13,10 +13,10 @@ const ISSUERS: [RegExp, string][] = [
   [/카카오페이/, '카카오페이'], [/토스/, '토스'], [/네이버페이/, '네이버페이'], [/페이코/, '페이코'], [/새마을/, '새마을'], [/수협/, '수협'],
 ];
 const CATEGORY_RULES: [RegExp, string][] = [
-  [/마트|식자재|편의점|GS25|CU|세븐일레븐|이마트|홈플러스|코스트코|쿠팡이츠|배달|배민|요기요|식당|치킨|피자|카페|커피|스타벅스|투썸|빽다방|베이커리|빵|김밥|분식|정육|과일|반찬|추어정|추어탕|와플/i, '식비'],
-  [/약국|병원|의원|치과|한의원|메디|클리닉/, '의료'],
-  [/주유|충전소|택시|버스|지하철|코레일|SRT|주차|톨게이트|하이패스|카카오T|쏘카|그린카/i, '교통'],
-  [/쿠팡|네이버|11번가|지마켓|G마켓|옥션|SSG|무신사|다이소|올리브영|알리|테무|백화점|아울렛/i, '쇼핑'],
+  [/마트|식자재|편의점|GS25|CU|세븐일레븐|이마트|홈플러스|코스트코|쿠팡이츠|배달|배민|요기요|식당|음식점|치킨|피자|카페|커피|스타벅스|투썸|빽다방|바나프레소|메가커피|컴포즈|이디야|할리스|폴바셋|텐퍼센트|파스쿠찌|공차|던킨|파리바게뜨|뚜레쥬르|맥도날드|버거킹|롯데리아|맘스터치|서브웨이|교촌|BBQ|BHC|도미노|푸라닭|배스킨|설빙|베이커리|빵|김밥|분식|국밥|냉면|초밥|스시|족발|보쌈|횟집|정육|과일|반찬|추어정|추어탕|와플/i, '식비'],
+  [/약국|병원|의원|치과|한의원|소아과|청소년과|내과|외과|피부과|안과|이비인후과|정형외과|산부인과|가정의학과|보건소|메디|클리닉/, '의료'],
+  [/주유|주유소|석유|오일뱅크|SK에너지|GS칼텍스|S-?OIL|충전소|택시|버스|지하철|코레일|SRT|주차|파킹|parking|톨게이트|하이패스|카카오T|쏘카|그린카/i, '교통'],
+  [/쿠팡|네이버|11번가|지마켓|G마켓|옥션|SSG|무신사|다이소|올리브영|알리|테무|아마존|amazon|백화점|아울렛/i, '쇼핑'],
   [/SKT|SK텔레콤|KT\b|LG\s*U|유플러스|통신|알뜰폰/i, '통신'],
   [/학원|교육|문구|서점|교보|예스24|알라딘|학습지|어린이집|유치원/i, '교육'],
   [/보험/, '보험'], [/관리비|아파트|도시가스|한전|전기요금|수도/, '관리비'], [/세금|국세|지방세|위택스|홈택스/, '세금'],
@@ -51,7 +51,9 @@ export function detectChannel(text: string): Channel {
 // Benefit messages quote amounts and even "승인" (e.g. a merger approval).
 // Keep genuine payments with reward footnotes, but never turn a reward notice into an expense.
 export function nonTransactionReason(raw: string): string | null {
-  raw = raw.normalize('NFC');
+  raw = raw.normalize('NFKC'); // NFKC also folds full-width letters (Ａｍａｚｏｎ) and ㈜ so later rules see plain text
+  // Anything a sender labels as an advertisement (토스오더 coupons, card promotions) is never a transaction, whatever amounts it quotes.
+  if (/[(\[]\s*광고\s*[)\]]/.test(raw)) return '광고 안내';
   const benefit = /마일리지|포인트|적립률|적립\s*기준|적립금|캐시백|혜택/.test(raw);
   const rewardOffer = /(?:퀴즈|이벤트|출석|미션|응모|정답|참여)[\s\S]*(?:받아가|받으세요|받을\s*수|드려요|드립니다|당첨|추첨|증정)/.test(raw)
     || /친구가\s*떠나기\s*전에\s*눌러보세요|출석\s*티켓이\s*충전|복권\s*응모장|럭키볼\s*뽑기|동전\s*미션[\s\S]*동전을\s*모아보세요|클릭\s*한번에\s*응모하세요|카드로\s*커피값도\s*아낄\s*수\s*있어요/.test(raw);
@@ -69,9 +71,10 @@ export function nonTransactionReason(raw: string): string | null {
 }
 
 export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessage | null {
-  const text = raw.normalize('NFC').replace(/\r/g, '').replace(/\[?\s*Web발신\s*\]?/gi, ' ').trim();
+  const text = raw.normalize('NFKC').replace(/\r/g, '').replace(/\[?\s*Web발신\s*\]?/gi, ' ').trim();
   if (!text || nonTransactionReason(text)) return null;
-  const incoming = /^\[입금\]/.test(text) || (/입금/.test(text) && !/출금|승인|결제/.test(text));
+  // A [입금] marker counts wherever it sits: WON bank pushes lead with "입출금알림", whose 출금 must not override it.
+  const incoming = /\[입금\]/.test(text) || (/입금/.test(text) && !/출금|승인|결제/.test(text));
   // Running totals and balances are not the transaction amount.
   const cleaned = text.split('\n').filter(line => !nonTransactionReason(line)).join('\n').replace(/(누적|잔액|잔여|한도|가용|포인트|적립)\s*[:：]?\s*[\d,]+\s*원?/g, ' ');
   const amountMatch = cleaned.match(WON_AMOUNT) ?? cleaned.match(CURRENCY_AMOUNT); // Per-won reward rates are not transaction amounts.
@@ -124,7 +127,9 @@ export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessa
   const timestampMerchant = /^(?:\[(?:출금|입금)\]|MG\s*체크)/i.test(cleaned)
     ? cleaned.match(/\d{1,2}:\d{2}(?::\d{2})?\s+([^\n]+)$/)?.[1]?.trim() : undefined;
   const facepayMerchant = cleaned.match(/페이스페이\s*\([^)]*\)\s*[·•]\s*([^\n]+)/)?.[1]?.trim();
-  const merchant = (facepayMerchant || timestampMerchant || fragments[fragments.length - 1] || '').replace(/^[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').replace(/\s[가이은는을를의로에]$/, '').slice(0, 60)
+  // Shinhan approvals name the merchant explicitly ("가맹점명: 롯데마트 [신한카드 1544-7000]"); without this the trailing phone number won.
+  const namedMerchant = cleaned.match(/가맹점(?:명)?\s*[:：]\s*([^\[\]\n]+?)\s*(?=\[|\n|$)/)?.[1]?.trim();
+  const merchant = (namedMerchant || facepayMerchant || timestampMerchant || fragments[fragments.length - 1] || '').replace(/^[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').replace(/\s[가이은는을를의로에]$/, '').slice(0, 60)
     || (channel === 'bank_transfer' ? '계좌이체' : '카드 결제');
   return { amount: cancel ? -amount : amount, date, time, merchant, issuer, last4, cancel, installment, category: guessCategory(merchant), channel, incoming };
 }

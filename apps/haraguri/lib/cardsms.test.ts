@@ -24,6 +24,35 @@ suite('weekend notification regressions', () => {
   });
 });
 
+// Real formats from the 2026-11-03 ledger audit (REVIEW_LEDGER_2026-11-03.md): these were saved as 기타 or as false positives.
+suite('ledger audit regressions (2026-11-03)', () => {
+  it('reads the Shinhan approval merchant from 가맹점명 instead of the trailing phone number', () => {
+    const p = parseCardMessage('[신한카드(2987)승인] 김*한 - 승인금액: 13,000원(일시불) - 승인일시: 11/02 15:13 - 가맹점명: 롯데쇼핑(주)롯데마트 [신한카드 1544-7000]', new Date(2026, 10, 3, 12))!;
+    expect(p).toMatchObject({ amount: 13000, date: '2026-11-02', time: '15:13', merchant: '롯데쇼핑(주)롯데마트', issuer: '신한', last4: '2987', category: '식비' });
+  });
+  it.each([
+    ['삼성드림소아청소년과', '의료'], ['아이파킹 주식회사', '교통'], ['바나프레소 영등포문', '식비'], ['무지개약국', '의료'],
+  ])('categorizes the Shinhan merchant %s as %s', (merchant, category) => {
+    expect(parseCardMessage(`[신한카드(2987)승인] 김*한 - 승인금액: 4,900원(일시불) - 승인일시: 11/03 11:00 - 가맹점명: ${merchant} [신한카드 1544-7000]`, now)).toMatchObject({ merchant, category, issuer: '신한' });
+  });
+  it('folds full-width letters so a WON bank withdrawal keeps its merchant', () => {
+    expect(parseCardMessage('우리WON뱅킹 입출금알림 [출금] Ａｍａｚｏｎ＿Ａ 148원 1002-331-728***계좌 잔액 2,203,542원 11/02 10:14:10', now)).toMatchObject({ amount: 148, merchant: 'Amazon_A', category: '쇼핑', channel: 'bank_transfer', incoming: false });
+  });
+  it('treats a [입금] marker as incoming even after a 입출금알림 header', () => {
+    expect(parseCardMessage('우리WON뱅킹 입출금알림 [입금] 체크할인캐시백 8원 1002-331-728***계좌 잔액 2,165,550원 11/03 11:18:22', now)?.incoming).toBe(true);
+  });
+  it('files a fuel station under 교통 whether it comes as an MG card or an MG bank push', () => {
+    expect(parseCardMessage('MG새마을금고 [출금] 30,000원 9003-2867-****-8 잔액 8,656원 11/02 21:12 경일석유(주)덕', now)).toMatchObject({ amount: 30000, category: '교통' });
+    expect(parseCardMessage('MG체크카드(1*6*) 29,000원 승인 10/31 12:10 경일석유(주)덕', now)).toMatchObject({ amount: 29000, merchant: '경일석유(주)덕', category: '교통', issuer: '새마을' });
+  });
+  it('never saves an advertisement, even one quoting a card and an amount', () => {
+    const ad = '토스오더 (광고)[고미베이커 수원아이파크시티점] 고객 감사 할인 쿠폰 15,000원 이상 결제 시 휴대폰으로 11/10까지 씨티카드';
+    expect(nonTransactionReason(ad)).toBe('광고 안내');
+    expect(parseCardMessage(ad, now)).toBeNull();
+    expect(nonTransactionReason('[광고] 현대카드 롯데백화점 혜택 안내')).toBe('광고 안내');
+  });
+});
+
 suite('card approval message parsing', () => {
   it('reads the KB multi-line format', () => {
     const p = parseCardMessage('[Web발신]\nKB국민카드 1234승인\n김*한\n48,300원 일시불\n10/27 11:21\n동네마트\n누적1,234,567원', now)!;

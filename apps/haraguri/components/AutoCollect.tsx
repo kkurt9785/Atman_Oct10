@@ -41,6 +41,7 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
+  const [showIgnored, setShowIgnored] = useState(false);
   const [now, setNow] = useState(Date.now());
   const req = useRef(0);
   const url = token ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/ingest?token=${token.token}` : '';
@@ -115,8 +116,11 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
   if (!state.loaded) return <section className="autocollect-card"><p className="muted">수집 상태를 확인하고 있어요…</p></section>;
   const expired = !!link && link.expiresAt <= now;
   const major = iosMajor(ios);
-  const recent = current.slice(0, 3);
+  // Once payments flow, ignored alerts (rewards, events) only bury them; while waiting, the setup ping row is the reassurance.
+  const recent = (stage === 'collecting' ? current.filter(r => r.status !== 'ignored') : current).slice(0, 3);
   const unparsed = inbox.filter(r => r.status === 'unparsed');
+  const visibleInbox = showIgnored ? inbox : inbox.filter(r => r.status !== 'ignored');
+  const ignoredCount = inbox.length - inbox.filter(r => r.status !== 'ignored').length;
   const desktop = typeof navigator !== 'undefined' && !/iPhone|iPad|iPod|Android/.test(navigator.userAgent);
   const stepNo = ({ install: 1, enable: 2, pair: 3 } as Partial<Record<typeof stage, number>>)[stage];
   const name = release?.name ?? '하라구리 알림 수집';
@@ -207,7 +211,7 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
         <small className="muted">주소에 든 토큰은 비밀번호처럼 다뤄 주세요. 지금까지 {saved.toLocaleString('ko-KR')}건 저장{token.last_used_at ? ` · 마지막 수신 ${ago(token.last_used_at)}` : ''}</small>
       </> : <div className="actions"><button type="button" className="secondary" disabled={busy} onClick={() => { void createToken(); }}>자동 수집 주소 만들기</button><small className="muted">아이폰 단축어는 계정 연결 때 주소가 자동으로 만들어져요. 직접 설정할 때만 눌러 주세요.</small></div>}
       <div className="actions"><button type="button" className="text-button" onClick={() => { setFlag('installed', false); setFlag('enabled', false); }}>설치 안내 다시 보기</button></div>
-      {inbox.length > 0 && <><p className="muted">최근 수신 {Math.min(inbox.length, 8)}건</p>{list(inbox.slice(0, 8))}</>}
+      {inbox.length > 0 && <><p className="muted">최근 수신 {Math.min(visibleInbox.length, 8)}건{ignoredCount > 0 && <> · <button type="button" className="text-button inline" onClick={() => setShowIgnored(s => !s)}>{showIgnored ? '무시된 알림 숨기기' : `무시 ${ignoredCount}건 보기`}</button></>}</p>{visibleInbox.length > 0 && list(visibleInbox.slice(0, 8))}</>}
       {unparsed.length > 0 && <p className="muted">못 읽은 알림은 원문 그대로 남겨 두니, 가계부에 직접 적거나 원문을 복사해 알려 주시면 읽는 법을 더해요.</p>}
     </details>
     {error && <p className="recipe-warn" role="alert">{error}</p>}

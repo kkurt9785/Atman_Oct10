@@ -60,7 +60,12 @@ Deno.serve(async req => {
   const ignoreReason = nonTransactionReason(paymentText);
   if (ignoreReason) { await inbox('ignored', ignoreReason); return json({ ignored: 'benefit notice', inbox: 'ignored' }); }
   const parsed = parseCardMessage(paymentText, new Date(Date.now() + 9 * 3600 * 1000)); // KST "today" for messages without a year
-  if (!parsed) { await inbox('unparsed', '금액을 찾지 못함'); return json({ ignored: 'no amount found', inbox: 'unparsed' }); }
+  if (!parsed) {
+    // Marketing pushes that quote no money at all are noise, not parser failures; 'unparsed' stays reserved for texts with an amount we failed to read.
+    const quotesMoney = /\d[\d,]*\s*원|₩|KRW/i.test(text);
+    await inbox(quotesMoney ? 'unparsed' : 'ignored', quotesMoney ? '금액을 찾지 못함' : '금액 없는 알림');
+    return json({ ignored: 'no amount found', inbox: quotesMoney ? 'unparsed' : 'ignored' });
+  }
   if (parsed.incoming) { await inbox('ignored', '입금 알림'); return json({ ignored: 'incoming transfer', inbox: 'ignored' }); }
 
   const [{ data: cards }, { data: rules }] = await Promise.all([
