@@ -11,7 +11,7 @@ import { loadWorkerShellContext, type WorkerShell } from '@/lib/worker-mode';
 //   medical: 공고·지원·채팅·급여 + 병원·약국 근태·워크룸
 //   gig:     긱 근무지의 근태·워크룸만
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
+  return new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 }
 
 export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: WorkerShell; eyebrow: string; title: string; emptyHint: string; back?: { href: string; label: string } }) {

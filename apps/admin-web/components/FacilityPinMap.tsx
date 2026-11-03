@@ -17,6 +17,7 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
   const [error, setError] = useState('');
   const changeRef = useRef(onChange); changeRef.current = onChange;
   const readOnlyRef = useRef(readOnly); readOnlyRef.current = readOnly;
+  const positionRef = useRef({ lat, lng, radiusMeters }); positionRef.current = { lat, lng, radiusMeters };
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
@@ -26,10 +27,11 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
       window.kakao.maps.load(() => {
         try {
         if (!mapEl.current || mapRef.current) return;
-        const center = new window.kakao.maps.LatLng(lat, lng);
+        const latest = positionRef.current;
+        const center = new window.kakao.maps.LatLng(latest.lat, latest.lng);
         const map = new window.kakao.maps.Map(mapEl.current, { center, level: 2 }); // 30m 원이 보이도록 확대
         const marker = new window.kakao.maps.Marker({ map, position: center, draggable: !readOnlyRef.current });
-        const circle = new window.kakao.maps.Circle({ map, center, radius: radiusMeters, strokeWeight: 1, strokeColor: '#1B64DA', strokeOpacity: 0.8, fillColor: '#1B64DA', fillOpacity: 0.12 });
+        const circle = new window.kakao.maps.Circle({ map, center, radius: latest.radiusMeters, strokeWeight: 1, strokeColor: '#1B64DA', strokeOpacity: 0.8, fillColor: '#1B64DA', fillOpacity: 0.12 });
         window.kakao.maps.event.addListener(marker, 'dragend', () => {
           const p = marker.getPosition();
           circle.setPosition(p);
@@ -64,13 +66,14 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
   }, [lng, lat]);
 
   useEffect(() => { circleRef.current?.setRadius(radiusMeters); }, [radiusMeters]);
+  useEffect(() => { markerRef.current?.setDraggable(!readOnly); }, [readOnly]);
 
   return (
     <div className={className}>
       <div ref={mapEl} className="h-56 w-full rounded-xl bg-[#E8EDF2]" aria-label="사업장 위치 지도" />
       {!readOnly && <CurrentLocationButton className="mt-2" radiusMeters={radiusMeters} onChange={onChange} />}
       {error ? <p role="alert" className="mt-2 text-[0.75rem] text-warn">{error}</p>
-        : <p className="mt-2 text-[0.75rem] text-sub">사업장 안에서 위 버튼을 누르면 가장 정확해요. 핀을 끌거나 지도를 탭해 <b>출입구 위치</b>로 맞춰도 돼요. 원은 출퇴근 인증 반경 미리보기예요.</p>}
+        : <p className="mt-2 text-[0.75rem] text-sub">{readOnly ? '저장된 사업장 기준점이에요. 원은 출퇴근 인증 반경 미리보기예요.' : '현재 위치의 오차를 확인한 뒤 핀을 끌거나 지도를 탭해 출입구 위치로 맞춰 주세요. 원은 출퇴근 인증 반경 미리보기예요.'}</p>}
     </div>
   );
 }
