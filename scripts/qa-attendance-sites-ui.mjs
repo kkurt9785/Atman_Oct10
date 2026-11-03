@@ -33,12 +33,12 @@ for(const kind of ['settings','site','attendance']) {
    assert.equal(await page.locator('input[name="attendance_mode"]').inputValue(),'gps_or_qr');
   } else if(kind==='site') {
    await page.getByLabel('근무지 이름',{exact:true}).fill('검색 안 되는 행사장');
-   await page.getByRole('button',{name:'긱워커 근태 시작하기',exact:true}).click();
+   await page.getByRole('button',{name:'단기·행사 근태 시작하기',exact:true}).click();
    assert.equal(await page.evaluate(()=>window.saved.length),0);
    await page.getByRole('button',{name:'지도에서 현장 선택',exact:true}).click();
-   await page.getByRole('button',{name:'긱워커 근태 시작하기',exact:true}).click();
+   await page.getByRole('button',{name:'단기·행사 근태 시작하기',exact:true}).click();
    await page.getByRole('alert').filter({hasText:'테스트'}).waitFor();
-   await page.getByRole('button',{name:'긱워커 근태 시작하기',exact:true}).click();
+   await page.getByRole('button',{name:'단기·행사 근태 시작하기',exact:true}).click();
    const saved=await page.evaluate(()=>window.saved);assert.equal(saved.length,2);assert.equal(saved[0].lat,37.1);assert.equal(saved[0].addressText,null);assert.equal(saved[0].requestId,saved[1].requestId);
   } else {
    await page.getByRole('button',{name:'출근하기',exact:true}).dblclick();

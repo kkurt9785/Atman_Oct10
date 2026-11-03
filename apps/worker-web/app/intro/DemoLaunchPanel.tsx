@@ -12,8 +12,9 @@ export function DemoLaunchPanel() {
   const canvas = useRef<HTMLCanvasElement>(null);
   const url = `https://itdot.co.kr/intro?role=${role}&kind=${kind}`;
 
+  // 선택(역할·유형)이 바뀔 때만 안내문을 지운다. QR 열기/닫기는 공유 결과 안내문을 지우면 안 된다(클립보드 거부 폴백이 QR을 여는 흐름).
+  useEffect(() => { setMessage(''); }, [url]);
   useEffect(() => {
-    setMessage('');
     if (qrOpen && canvas.current) {
       void QRCode.toCanvas(canvas.current, url, { width: 176, margin: 2 })
         .catch(() => setMessage('QR을 만들지 못했어요. 아래 링크를 복사해 주세요.'));
@@ -53,7 +54,7 @@ export function DemoLaunchPanel() {
       <fieldset className="mt-4">
         <legend className="text-[13px] font-bold text-ink">{role === 'admin' ? '사업장 유형' : '근무 유형'}</legend>
         <div className="mt-2 grid grid-cols-2 gap-2">
-          {(role === 'admin' ? TYPES : [{ id: 'hospital' as const, label: '병원·약국 근무' }, { id: 'gigworker' as const, label: '단기·초대 근무' }]).map((item) => (
+          {(role === 'admin' ? TYPES : [{ id: 'hospital' as const, label: '병원·약국 근무' }, { id: 'gigworker' as const, label: '단기·행사 근무' }]).map((item) => (
             <button key={item.id} type="button" aria-pressed={role === 'worker' ? (item.id === 'gigworker') === gig : kind === item.id} onClick={() => setKind(item.id)} className={`min-h-11 rounded-xl border px-2 py-3 text-[13px] font-bold ${(role === 'worker' ? (item.id === 'gigworker') === gig : kind === item.id) ? 'border-primary bg-primary-light text-primary' : 'border-line text-sub'}`}>{item.label}</button>
           ))}
         </div>
@@ -63,8 +64,8 @@ export function DemoLaunchPanel() {
       <p className="mt-2 text-[11px] leading-4 text-sub">공용 시연 계정을 사용해요. 실제 개인정보는 입력하지 마세요.</p>
       <details className="mt-4 border-t border-line pt-3">
         <summary className="cursor-pointer py-2 text-[13px] font-bold text-ink">홈 화면에 앱 추가하기 · 선택사항</summary>
-        <p className="my-2 text-[12px] leading-5 text-sub">{role === 'admin' ? '관리자 앱으로 이동해 설치해요. 근무자 앱과 별개예요.' : '병원·약국과 단기 근무 모두 워커 앱 하나로 이용해요.'} 설치하지 않아도 웹에서 사용할 수 있어요.</p>
-        {role === 'admin' ? <a href="https://admin.itdot.co.kr/login?install=1" className="flex min-h-12 items-center justify-center rounded-xl border border-line text-[14px] font-bold text-primary">관리자 앱 설치 안내 →</a> : <InstallAppButton label="워커 앱 홈 화면에 추가" />}
+        <p className="my-2 text-[12px] leading-5 text-sub">{role === 'admin' ? '관리자 앱으로 이동해 설치해요. 근무자 앱과 별개예요.' : '병원·약국과 단기·행사 근무 모두 근무자 앱 하나로 이용해요.'} 설치하지 않아도 웹에서 사용할 수 있어요.</p>
+        {role === 'admin' ? <a href="https://admin.itdot.co.kr/login?install=1" className="flex min-h-12 items-center justify-center rounded-xl border border-line text-[14px] font-bold text-primary">관리자 앱 설치 안내 →</a> : <InstallAppButton label="근무자 앱 홈 화면에 추가" />}
       </details>
       <div className="mt-3 flex gap-2 border-t border-line pt-3">
         <button type="button" onClick={() => void share()} className="min-h-11 flex-1 rounded-xl bg-bg px-2 text-[12px] font-bold text-sub">선택한 시연 공유</button>

@@ -73,7 +73,7 @@ function GigLanding({ attendanceToken, facility }: { attendanceToken: string | n
         <KakaoGlyph />{attendanceToken ? '카카오로 로그인하고 출근 기록' : '이미 등록했어요 · 카카오로 로그인'}
       </button>
       {DEMO_ENABLED && <Link href="/gig/demo" className="mt-2 flex h-11 items-center justify-center text-[13px] font-bold text-sub">로그인 없이 시연 먼저 보기 →</Link>}
-      <div className="mt-2"><InstallAppButton label="잇닿 워커 앱으로 홈 화면에 추가" /></div>
+      <div className="mt-2"><InstallAppButton label="잇닿 근무자 앱으로 홈 화면에 추가" /></div>
       <p className="mt-4 text-center text-[11px] text-tertiary"><Link href="/" className="font-bold text-sub">근무 찾기로 시작</Link><span className="px-2">·</span>근무지 관리자이신가요? <a href="https://admin.itdot.co.kr" className="font-bold text-sub">관리자 앱 →</a></p>
     </div>
   </main>;

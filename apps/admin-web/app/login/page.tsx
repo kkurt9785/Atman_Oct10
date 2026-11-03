@@ -21,7 +21,7 @@ const DEMO_ACCOUNTS = [
   { key: 'hospital', email: 'sales-demo-1@demo.atman.co.kr', label: '병원', detail: 'W여성병원' },
   { key: 'pharmacy', email: 'sales-demo-2@demo.atman.co.kr', label: '약국', detail: '수원 온누리약국' },
   { key: 'care', email: 'sales-demo-3@demo.atman.co.kr', label: '요양병원', detail: '수원요양병원' },
-  { key: 'gigworker', email: 'sales-demo-1@demo.atman.co.kr', label: '단기 알바 근태', detail: '팝업스토어', demoKind: 'gigworker' },
+  { key: 'gigworker', email: 'sales-demo-1@demo.atman.co.kr', label: '단기·행사 근태', detail: '팝업스토어', demoKind: 'gigworker' },
 ];
 
 function LoginInner() {
@@ -179,7 +179,7 @@ function LoginInner() {
           </svg>
           {loading ? '시작하는 중...' : '카카오로 시작하기'}
         </button>
-        <p className="-mt-1 text-center text-[0.6875rem] leading-4 text-sub">처음이면 관리자 계정이 만들어져요. 긱워커 근태는 사업자 서류 없이 바로 시작할 수 있어요.</p>
+        <p className="-mt-1 text-center text-[0.6875rem] leading-4 text-sub">처음이면 관리자 계정이 만들어져요. 단기·행사 근태는 사업자 서류 없이 바로 시작할 수 있어요.</p>
 
         {showDemoLogin && (
           <section className="mt-1 rounded-2xl border border-line bg-white p-3" aria-labelledby="demo-title">
@@ -213,7 +213,7 @@ function LoginInner() {
           href="https://itdot.co.kr"
           className="mt-4 block rounded-xl border border-line bg-white py-3 text-center text-[0.8125rem] font-semibold text-sub active:opacity-70"
         >
-          근무하러 오셨나요? <span className="font-bold text-primary">잇닿 워커 앱으로 →</span>
+          근무하러 오셨나요? <span className="font-bold text-primary">잇닿 근무자 앱으로 →</span>
         </a>
         <a href="/privacy" className="flex min-h-11 items-center justify-center text-sm text-sub underline">개인정보 처리방침</a>
       </div>

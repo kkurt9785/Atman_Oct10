@@ -147,7 +147,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
           {gigInvite?'관리자이신가요?':'병원·약국 관리자이신가요?'} <span className="font-bold text-primary">관리자 페이지로 →</span>
         </a>
         <p className="text-center text-[13px] text-tertiary">
-          계속 진행하면 이용약관 및 개인정보처리방침에 동의하게 됩니다
+          계속 진행하면 이용약관 및 개인정보처리방침에 동의하게 돼요
         </p>
       </div>
     </div>

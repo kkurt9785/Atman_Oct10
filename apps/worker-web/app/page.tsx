@@ -11,7 +11,7 @@ import { KakaoGlyph, startKakaoLogin } from '@/lib/kakao-login';
 import { DEMO_LOGIN_ENABLED, MEDICAL_DEMOS, openDemoSession } from '@/lib/demo-session';
 import { InviteLinkPaste } from '@/components/invite/InviteLinkPaste';
 
-// 첫 화면은 가입 버튼 하나. 두 쓰임새(근무 찾기 = 병원·약국 직군, 초대 근무 = 단기 알바) 카드는 누르면 그 시연이 바로 열린다.
+// 첫 화면은 가입 버튼 하나. 두 쓰임새(근무 찾기 = 병원·약국 직군, 초대 근무 = 단기·행사 근무) 카드는 누르면 그 시연이 바로 열린다.
 // 시연 로그인이 꺼진 배포에서는 카드가 설명만 남는다.
 
 function RootInner() {
@@ -93,7 +93,7 @@ function RootInner() {
           </div>}
         </li>
         <li className="rounded-2xl bg-bg">
-          <FeatureCard icon={INVITE_ICON} title="초대 근무" tag="단기 알바" desc="사장님 링크로 연결, 입금까지 바로 확인"
+          <FeatureCard icon={INVITE_ICON} title="초대 근무" tag="단기·행사 근무" desc="사장님 링크로 연결, 입금까지 바로 확인"
             action={DEMO_LOGIN_ENABLED ? { label: demoLoading === 'gig' ? '여는 중...' : '써보기', onClick: () => { if (!demoLoading) void tryDemo('gig'); } } : undefined} />
         </li>
       </ul>

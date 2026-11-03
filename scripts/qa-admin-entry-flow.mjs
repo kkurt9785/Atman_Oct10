@@ -34,9 +34,9 @@ try {
   return route.fulfill({contentType:'application/json',body:JSON.stringify(url.pathname==='/api/demo-login'?{accessToken:'test',refreshToken:'test'}:{facilityId:'gig'})});
  });
  await page.goto('http://localhost:31999/login');await page.addScriptTag({content:bundle.outputFiles[0].text});
- await page.getByRole('button',{name:/단기 알바 근태/}).evaluate(button=>{button.click();button.click();});await page.getByRole('alert').waitFor();
+ await page.getByRole('button',{name:/단기·행사 근태/}).evaluate(button=>{button.click();button.click();});await page.getByRole('alert').waitFor();
  assert.equal(await page.evaluate(()=>window.sessions),1);assert.equal(await page.evaluate(()=>window.signouts),1);assert.equal(calls,4);assert.equal(new URL(page.url()).pathname,'/login');
- await page.evaluate(()=>window.real=true);page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('button',{name:/단기 알바 근태/}).click();assert.equal(calls,4);
- await page.evaluate(()=>window.real=false);failFacility=false;await page.getByRole('button',{name:/단기 알바 근태/}).click();await page.waitForURL('http://localhost:31999/');
+ await page.evaluate(()=>window.real=true);page.once('dialog',dialog=>dialog.dismiss());await page.getByRole('button',{name:/단기·행사 근태/}).click();assert.equal(calls,4);
+ await page.evaluate(()=>window.real=false);failFacility=false;await page.getByRole('button',{name:/단기·행사 근태/}).click();await page.waitForURL('http://localhost:31999/');
  console.log('PASS duplicate click lock, wrong-site failure cleanup, real-account cancellation, retry');await page.close();
 } finally {await browser.close();}

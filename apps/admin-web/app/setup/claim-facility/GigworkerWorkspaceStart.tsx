@@ -8,7 +8,8 @@ import type { FacilitySearchHit } from '@/app/api/facility-search/route';
 
 type Place = Pick<FacilitySearchHit, 'id' | 'name' | 'address' | 'lng' | 'lat'>;
 
-export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
+// 온보딩(시작 방식 선택)과 /sites/new(현장 추가)에서 같이 쓴다 — 문구는 호출처가 정한다
+export function GigworkerWorkspaceStart({ onBack, backLabel = '← 시작 방식 다시 선택', eyebrow = '단기·행사 근태 무료 베타' }: { onBack: () => void; backLabel?: string; eyebrow?: string }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
@@ -86,7 +87,7 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
         requestId: requestId.current!,
       });
       if (!result.ok) {
-        setError(result.error ?? '긱워커 근태를 시작하지 못했어요.');
+        setError(result.error ?? '단기·행사 근태를 시작하지 못했어요.');
         return;
       }
       window.location.assign('/staff?view=contract&entry=gigworker');
@@ -98,9 +99,9 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
   return (
     <main className="min-h-screen bg-surface px-4 py-8">
       <div className="mx-auto w-full max-w-md">
-        <button type="button" onClick={onBack} className="mb-7 text-[0.875rem] font-bold text-sub">← 시작 방식 다시 선택</button>
+        <button type="button" onClick={onBack} className="mb-7 text-[0.875rem] font-bold text-sub">{backLabel}</button>
         <div className="rounded-3xl bg-white p-5 shadow-card">
-          <p className="text-[0.8125rem] font-bold text-primary">긱워커 근태 무료 베타</p>
+          <p className="text-[0.8125rem] font-bold text-primary">{eyebrow}</p>
           <h1 className="mt-1 text-[1.5rem] font-extrabold text-ink">현장과 출퇴근 기준을 정해요</h1>
           <p className="mt-2 text-[0.8125rem] leading-5 text-sub">사업자등록이나 병원·약국 인증 없이, 단기근로자를 초대해 바로 근태를 시작할 수 있어요.</p>
 
@@ -132,7 +133,7 @@ export function GigworkerWorkspaceStart({ onBack }: { onBack: () => void }) {
           </section>
 
           {error && <p role="alert" className="mt-4 rounded-xl bg-red-50 px-3 py-3 text-[0.75rem] font-bold text-red-600">{error}</p>}
-          <button type="button" onClick={submit} disabled={isPending} className="mt-6 h-12 w-full rounded-xl bg-ink text-[0.9375rem] font-extrabold text-white disabled:opacity-50">{isPending ? '근태 공간을 만드는 중…' : '긱워커 근태 시작하기'}</button>
+          <button type="button" onClick={submit} disabled={isPending} className="mt-6 h-12 w-full rounded-xl bg-ink text-[0.9375rem] font-extrabold text-white disabled:opacity-50">{isPending ? '근태 공간을 만드는 중…' : '단기·행사 근태 시작하기'}</button>
           <p className="mt-3 text-center text-[0.6875rem] leading-4 text-sub">무료 베타에서는 최대 3명의 단기근로자를 연결할 수 있어요. 근무지와 출퇴근 기록은 계속 보관돼요.</p>
         </div>
       </div>

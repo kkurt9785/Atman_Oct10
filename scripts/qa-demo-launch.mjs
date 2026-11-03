@@ -1,4 +1,5 @@
 // Actual share-entry component; no production API or account writes.
+// /intro 는 10/23 부터 async 서버 페이지(searchParams)라 페이지 함수를 직접 호출해 결과 트리를 마운트한다.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -6,7 +7,7 @@ const require = createRequire(import.meta.url);
 const { chromium } = require(process.argv[2] || 'playwright-core');
 const { build } = require('../apps/worker-web/node_modules/esbuild');
 const app = path.resolve('apps/worker-web');
-const bundle = await build({ stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import Intro from './app/intro/page';import{usePwaInstall}from'./lib/pwa-install';function App(){usePwaInstall();return <Intro/>}createRoot(document.getElementById('root')).render(<App/>);`, loader: 'tsx', resolveDir: app }, bundle: true, write: false, platform: 'browser', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"development"' }, plugins: [{ name: 'next-link', setup(b) { b.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'mock'})); b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:"import React from 'react';export default function Link(props){return React.createElement('a',props)}",resolveDir:app})); } }] });
+const bundle = await build({ stdin: { contents: `import React from 'react';import{createRoot}from'react-dom/client';import Intro from './app/intro/page';import{usePwaInstall}from'./lib/pwa-install';function App({tree}){usePwaInstall();return tree}(async()=>{const q=Object.fromEntries(new URLSearchParams(location.search));const tree=await Intro({searchParams:Promise.resolve(q)});createRoot(document.getElementById('root')).render(<App tree={tree}/>);})();`, loader: 'tsx', resolveDir: app }, bundle: true, write: false, platform: 'browser', jsx: 'automatic', define: { 'process.env.NODE_ENV': '"development"' }, plugins: [{ name: 'next-link', setup(b) { b.onResolve({filter:/^next\/link$/},()=>({path:'link',namespace:'mock'})); b.onLoad({filter:/.*/,namespace:'mock'},()=>({contents:"import React from 'react';export default function Link(props){return React.createElement('a',props)}",resolveDir:app})); } }] });
 const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: true });
 try {
   for (const width of [360, 390, 1024]) {
@@ -35,7 +36,7 @@ try {
     await page.getByRole('button', { name: '근무자', exact: true }).click();
     assert.equal(await page.getByRole('textbox', { name: '공유 주소' }).inputValue(), 'https://itdot.co.kr/intro?role=worker&kind=gigworker');
     assert.equal(await page.getByRole('link', { name: '관리자 앱 설치 안내 →' }).count(), 0);
-    await page.getByRole('button', { name: '워커 앱 홈 화면에 추가', exact: true }).first().waitFor();
+    await page.getByRole('button', { name: '근무자 앱 홈 화면에 추가', exact: true }).first().waitFor();
     assert.equal(await page.locator('a[href*="admin.itdot.co.kr/login"]').count(), 0);
     assert.deepEqual(errors, []);
     console.log(`PASS ${width}px: shared selection, six demo routes, correct install origin, QR updates`);
@@ -57,7 +58,7 @@ try {
   assert.equal(captured,true);
   await page.getByRole('button',{name:'근무자',exact:true}).click();
   await page.getByText('홈 화면에 앱 추가하기 · 선택사항').click();
-  await page.getByRole('button',{name:'워커 앱 홈 화면에 추가',exact:true}).first().click();
+  await page.getByRole('button',{name:'근무자 앱 홈 화면에 추가',exact:true}).first().click();
   assert.equal(await page.evaluate(()=>window.prompts),1);
   console.log('PASS first-arrival install event retained across role switch');
   await page.close();

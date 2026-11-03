@@ -54,7 +54,7 @@ export function isGigOnlyPath(path: string) {
 
 // 사업장 종류별 아이콘·이름표. 전환기·목록·홈 헤더가 같은 표를 쓴다.
 export function facilityKindBadge(facility: FacilityLike | null | undefined) {
-  if (isGigworkerFacility(facility)) return { icon: '📍', label: '긱워커 근태' };
+  if (isGigworkerFacility(facility)) return { icon: '📍', label: '단기·행사 근태' };
   const type = facility?.facility_type ?? facility?.facilityType ?? null;
   if (type === 'pharmacy') return { icon: '💊', label: '약국' };
   if (type === 'care_hospital') return { icon: '🏥', label: '요양병원' };

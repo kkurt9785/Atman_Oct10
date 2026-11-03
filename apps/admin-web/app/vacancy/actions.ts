@@ -50,7 +50,7 @@ export async function fillVacancyAction(formData: FormData) {
   }
 
   const { data: facility } = await sb.from('facilities').select('facility_type,approved_at,registration_source').eq('id', context.facilityId).maybeSingle();
-  if (isGigworkerFacility(facility)) fail(source, '긱워커 근태 무료 베타에서는 결원 요청을 쓸 수 없어요.');
+  if (isGigworkerFacility(facility)) fail(source, '단기·행사 근태 무료 베타에서는 결원 요청을 쓸 수 없어요.');
 
   let shiftId = vacancy.shiftId;
   let createdShiftId: string | null = null;

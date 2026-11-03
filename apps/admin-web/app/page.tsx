@@ -42,7 +42,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + attendanceFailures.length;
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
   // 오늘 근태 화면(AttendanceDashboard)과 같은 기준 — 예전엔 등록 직원 전체를 '오늘 예정'으로 셌다
-  const todayCount=clinicStaff.filter((s)=>s.scheduledToday||s.attendanceStatus!=='off').length+shiftStaff.length;
+  const todayCount=clinicStaff.filter((s)=>s.attendanceStatus!=='leave'&&(s.scheduledToday||s.attendanceStatus!=='off')).length+shiftStaff.length; // 휴가자는 오늘 근무 예정에서 뺀다
   const activeStaffCount = clinicStaff.filter((row) => row.status !== 'ended').length;
   const targetStaffCount = shop.employeeCount ?? 0;
   const registeredShortage = targetStaffCount > 0 ? Math.max(0, targetStaffCount - activeStaffCount) : 0;

@@ -70,8 +70,8 @@ export default function WorkerDemoPage() {
 
         <section className="mt-3 rounded-2xl bg-primary/5 p-4">
           <p className="text-[13px] font-extrabold text-ink">시연 후에도 계속 사용하려면</p>
-          <p className="mt-1 text-[11px] leading-4 text-sub">근무 찾기와 초대 근무 모두 잇닿 워커 앱 하나로 써요.</p>
-          <div className="mt-3"><InstallAppButton label="잇닿 워커 앱 설치" /></div>
+          <p className="mt-1 text-[11px] leading-4 text-sub">근무 찾기와 초대 근무 모두 잇닿 근무자 앱 하나로 써요.</p>
+          <div className="mt-3"><InstallAppButton label="잇닿 근무자 앱 설치" /></div>
         </section>
 
         {!ENABLED && <p className="mt-4 rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>}

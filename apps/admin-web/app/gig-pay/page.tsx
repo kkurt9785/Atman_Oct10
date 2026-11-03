@@ -111,6 +111,6 @@ export default async function GigPayPage({ searchParams }: { searchParams: Promi
       {page < pageCount ? <Link className="inline-flex min-h-11 items-center px-3 font-bold text-primary" href={pageHref(page + 1)}>다음</Link> : <span />}
     </nav>}
     <WithholdingCalculator />
-    <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">근무자별 금액은 완료된 출퇴근 기록과 급여 기준(휴게 차감)으로 계산한 세전 금액이에요. 출퇴근을 정해 주고 시급을 주는 단기 알바는 보통 근로자(일용근로소득)라 하루 15만 원까지는 떼는 세금이 없어요. 3.3%(사업소득)는 프리랜서 계약일 때만 켜 주세요. 신고·보험은 세무사와 확인해 주세요.</p>
+    <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">근무자별 금액은 완료된 출퇴근 기록과 급여 기준(휴게 차감)으로 계산한 세전 금액이에요. 출퇴근을 정해 주고 시급을 주는 단기·행사 근무자는 보통 근로자(일용근로소득)라 하루 15만 원까지는 떼는 세금이 없어요. 3.3%(사업소득)는 프리랜서 계약일 때만 켜 주세요. 신고·보험은 세무사와 확인해 주세요.</p>
   </main>;
 }

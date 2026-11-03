@@ -170,7 +170,7 @@ export default function ClaimFacilityPage() {
 
         <section className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm" aria-label="시작 방식">
           <button type="button" onClick={()=>chooseEntry('gigworker')} aria-pressed={false} className="rounded-xl bg-bg px-3 py-3 text-left text-ink">
-            <p className="text-[0.875rem] font-extrabold">긱워커 근태 시작</p><p className="mt-1 text-[0.6875rem] leading-4 text-sub">외부 단기근로자 초대</p>
+            <p className="text-[0.875rem] font-extrabold">단기·행사 근태 시작</p><p className="mt-1 text-[0.6875rem] leading-4 text-sub">외부 단기근로자 초대</p>
           </button>
           <button type="button" onClick={()=>chooseEntry('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
             <p className="text-[0.875rem] font-extrabold">병원·약국 인력 모집</p><p className={`mt-1 text-[0.6875rem] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>공고 등록 · 지원자 관리</p>

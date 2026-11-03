@@ -194,13 +194,13 @@ export async function createGigworkerWorkspace(input: {
       p_lat: input.lat,
       p_request_id: input.requestId,
     });
-    if (error || !data) return { ok: false, error: (error?.message ?? '긱워커 근태를 시작하지 못했어요.').replace(/^.*?: /, '') };
+    if (error || !data) return { ok: false, error: (error?.message ?? '단기·행사 근태를 시작하지 못했어요.').replace(/^.*?: /, '') };
     await setFacilityContextCookie(data as string, session.user.id);
     revalidatePath('/');
     revalidatePath('/staff');
     return { ok: true, facilityId: data as string };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : '긱워커 근태를 시작하지 못했어요.' };
+    return { ok: false, error: error instanceof Error ? error.message : '단기·행사 근태를 시작하지 못했어요.' };
   }
 }
 
