@@ -6,7 +6,7 @@ import { ShortcutFileInstall } from './ShortcutFileInstall';
 
 export function ShortcutConnect({ familyId, initialized, onPrepared }: { familyId: string; initialized: boolean; onPrepared: () => Promise<void> }) {
   const [release, setRelease] = useState<ShortcutRelease | null>(null);
-  const [link, setLink] = useState<{ url: string; expiresAt: number } | null>(null);
+  const [link, setLink] = useState<{ url: string; expiresAt: number; code: string; normalization: 'NFC' | 'NFD'; retried?: boolean } | null>(null);
   const [installed, setInstalled] = useState(false);
   const [normalization, setNormalization] = useState<'NFC' | 'NFD'>('NFC');
   const [preparing, setPreparing] = useState(false);
@@ -22,7 +22,7 @@ export function ShortcutConnect({ familyId, initialized, onPrepared }: { familyI
   useEffect(() => {
     request.current++; setLink(null); setError(''); setPreparing(false);
     setInstalled(localStorage.getItem(`haraguri-shortcut-installed-${familyId}`) === '1');
-    const refresh = () => setNormalization(localStorage.getItem('haraguri-shortcut-normalization') === 'NFD' ? 'NFD' : 'NFC');
+    const refresh = () => { const saved = localStorage.getItem('haraguri-shortcut-normalization'); setNormalization(saved === 'NFC' || saved === 'NFD' ? saved : 'NFD'); };
     refresh(); window.addEventListener('focus', refresh);
     return () => window.removeEventListener('focus', refresh);
   }, [familyId]);
@@ -44,15 +44,37 @@ export function ShortcutConnect({ familyId, initialized, onPrepared }: { familyI
       if (result.error) throw new Error('연결을 준비하지 못했어요. 로그인 상태를 확인하고 다시 눌러 주세요.');
       const expiresAt = Date.parse(result.data?.expires_at);
       if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('연결 버튼을 다시 눌러 주세요.');
-      const url = shortcutPairingURL(result.data.code, release.name, 'NFC', window.location.origin);
+      const mode = localStorage.getItem('haraguri-shortcut-normalization') === 'NFC' ? 'NFC' : release.name_normalization ?? 'NFC';
+      const url = shortcutPairingURL(result.data.code, release.name, mode, window.location.origin);
       if (current !== request.current) return;
-      setNow(Date.now()); setLink({ url, expiresAt });
+      setNow(Date.now()); setNormalization(mode); setLink({ url, expiresAt, code: result.data.code, normalization: mode });
       await onPrepared();
     } catch (e) {
       if (current === request.current) setError(e instanceof Error ? e.message : '연결을 준비하지 못했어요. 다시 눌러 주세요.');
     } finally {
       if (current === request.current) setPreparing(false);
     }
+  }
+
+  async function retryName() {
+    if (!link || !release || !supabase || preparing || link.retried) return;
+    const current = ++request.current;
+    setPreparing(true); setError('');
+    try {
+      const status = await supabase.rpc('hg_shortcut_pairing_status', { pair_code: link.code });
+      if (status.error) throw new Error('연결 상태를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      if (current !== request.current) return;
+      if (status.data === 'claimed') { setLink(null); await onPrepared(); return; }
+      if (status.data !== 'pending' || link.expiresAt <= Date.now()) throw new Error('연결 버튼이 만료됐어요. 다시 받아 주세요.');
+      const key = `haraguri-pair-retried-${link.code}`;
+      if (localStorage.getItem(key) === '1') throw new Error('다른 이름으로 이미 시도했어요. 단축어 이름을 확인해 주세요.');
+      localStorage.setItem(key, '1');
+      const mode = link.normalization === 'NFD' ? 'NFC' : 'NFD';
+      const url = shortcutPairingURL(link.code, release.name, mode, window.location.origin, true);
+      setLink({ ...link, url, retried: true }); setNormalization(mode);
+      window.location.href = url;
+    } catch (e) { if (current === request.current) setError(e instanceof Error ? e.message : '연결하지 못했어요.'); }
+    finally { if (current === request.current) setPreparing(false); }
   }
 
   if (!release) return <p className="muted">간편 연결 파일을 준비하고 있어요. 아래 직접 설정 방법으로도 연결할 수 있어요.</p>;
@@ -71,7 +93,8 @@ export function ShortcutConnect({ familyId, initialized, onPrepared }: { familyI
         {link && !expired ? <a className="button-link primary" href={link.url}>내 계정 연결</a>
           : <button type="button" className="secondary" disabled={preparing} onClick={() => { void prepare(); }}>{preparing ? '준비 중…' : expired ? '연결 버튼 다시 받기' : '내 계정 연결 시작'}</button>}
         {link && !expired && <><small className="muted pairing-expiry">이 연결 버튼은 5분 동안 한 번 사용할 수 있어요.</small>
-          <button type="button" className="text-button" disabled={preparing} onClick={() => { void prepare(); }}>연결 버튼 다시 받기</button></>}
+          <button type="button" className="text-button" disabled={preparing} onClick={() => { void prepare(); }}>연결 버튼 다시 받기</button>
+          {!link.retried && <button type="button" className="text-button" disabled={preparing} onClick={() => { void retryName(); }}>단축어를 찾을 수 없을 때</button>}</>}
       </li>
       {collector && <li><b>{release.manual_trigger ? '알림 자동화 연결' : '앱 선택·자동화 켜기'}</b>
         {release.manual_trigger && <p className="muted">추가한 단축어를 열고 아래 검색에서 <b>앱에서 알림을 수신할 때</b>를 찾아 추가해 주세요.</p>}

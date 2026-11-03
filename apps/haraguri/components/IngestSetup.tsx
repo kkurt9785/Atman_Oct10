@@ -31,6 +31,8 @@ export function IngestSetup({ familyId, userId, busy, run }: { familyId: string;
   const [device, setDevice] = useState<Device>('iphone-push');
   const [ios, setIos] = useState<string | null>(null);
   const [apps, setApps] = useState<string[]>([]);
+  const [setupReceivedAt, setSetupReceivedAt] = useState<string | null>(null);
+  const deviceChosen = useRef(false);
   const [testing, setTesting] = useState(false);
   const [, setTick] = useState(0);
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -41,14 +43,17 @@ export function IngestSetup({ familyId, userId, busy, run }: { familyId: string;
   async function load() {
     if (!supabase) return;
     const request = ++loadRequest.current;
-    const [t, i] = await Promise.all([
+    const [t, i, setup] = await Promise.all([
       supabase.from('hg_ingest_tokens').select('token,created_at,received,last_used_at').eq('family_id', familyId).eq('user_id', userId).maybeSingle(),
       supabase.from('hg_inbox').select('id,received_at,via,app,raw,status,summary').eq('family_id', familyId).eq('user_id', userId).order('received_at', { ascending: false }).limit(30),
+      supabase.from('hg_inbox').select('received_at').eq('family_id', familyId).eq('user_id', userId).eq('via', 'ios-notification-setup').eq('status', 'ignored').order('received_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (request !== loadRequest.current || scope.current !== `${familyId}:${userId}` || t.error || i.error) return;
-    setToken(t.data ?? null); setInbox((i.data ?? []) as InboxRow[]); setLoaded(true);
+    setToken(t.data ?? null); setInbox((i.data ?? []) as InboxRow[]); setSetupReceivedAt(setup.data?.received_at ?? null);
+    if (!deviceChosen.current && (i.data ?? []).some(r => isCollectorDelivery(r as InboxRow, 'iphone-push'))) setDevice('iphone-push');
+    setLoaded(true);
   }
-  useEffect(() => { setLoaded(false); setToken(null); setInbox([]); load(); const d = detectDevice(navigator.userAgent); setDevice(d.device); setIos(d.ios); }, [familyId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { deviceChosen.current = false; setLoaded(false); setToken(null); setInbox([]); setSetupReceivedAt(null); load(); const d = detectDevice(navigator.userAgent); setDevice(d.device); setIos(d.ios); }, [familyId, userId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!supabase) return;
     const refresh = () => { if (document.visibilityState === 'visible') { setTick(x => x + 1); void load(); } };
@@ -78,7 +83,7 @@ export function IngestSetup({ familyId, userId, busy, run }: { familyId: string;
   const currentInbox = token ? inbox.filter(r => Date.parse(r.received_at) >= Date.parse(token.created_at)) : [];
   const proof = currentInbox.find(r => isCollectedPayment(r, device));
   const delivery = currentInbox.find(r => isCollectorDelivery(r, device));
-  const initialized = currentInbox.some(r => r.via === 'ios-notification-setup' && r.status === 'ignored');
+  const initialized = !!token && !!setupReceivedAt && Date.parse(setupReceivedAt) >= Date.parse(token.created_at);
   const connected = !!proof;
   const major = iosMajor(ios);
   const appList = apps.length ? apps.join(', ') : '카드앱';
@@ -104,7 +109,7 @@ export function IngestSetup({ familyId, userId, busy, run }: { familyId: string;
 
     <section className="wizard-step" aria-label="2단계 폰 자동화">
       <h4><span className="step-no">2</span>폰에 자동화 넣기{connected && <span className="step-done">✓</span>}</h4>
-      <div className="chips" role="group" aria-label="기기 선택">{(Object.keys(DEVICE_LABEL) as Device[]).map(d => <button type="button" key={d} className={`chip ${device === d ? 'on' : ''}`} aria-pressed={device === d} onClick={() => setDevice(d)}>{DEVICE_LABEL[d]}</button>)}</div>
+      <div className="chips" role="group" aria-label="기기 선택">{(Object.keys(DEVICE_LABEL) as Device[]).map(d => <button type="button" key={d} className={`chip ${device === d ? 'on' : ''}`} aria-pressed={device === d} onClick={() => { deviceChosen.current = true; setDevice(d); }}>{DEVICE_LABEL[d]}</button>)}</div>
       <details className="recipe" open={device !== 'iphone-push' && !connected}><summary>{device === 'iphone-push' ? '앱 알림 직접 설정 방법' : connected ? '설정 방법 다시 보기' : '설정 방법'}</summary>
         {device === 'iphone-push' && <>
           {ios && major !== null && major < IOS_NOTIFICATION_TRIGGER_MIN && <p className="recipe-warn">카드앱 알림 자동화는 <b>iOS {IOS_NOTIFICATION_TRIGGER_MIN}</b>부터 지원해요. 실제 버전은 아이폰 설정 → 일반 → 정보에서 확인해 주세요. 이전 버전은 <b>아이폰 · 문자</b> 방법을 사용할 수 있어요.</p>}
