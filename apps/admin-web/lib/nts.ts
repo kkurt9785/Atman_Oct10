@@ -8,8 +8,17 @@ export type BusinessStatusResult = { status: BusinessStatus; detail: string; che
 const CODE: Record<string, BusinessStatus> = { '01': 'active', '02': 'suspended', '03': 'closed' };
 export const BUSINESS_STATUS_LABEL: Record<string, string> = { active: '계속사업자', suspended: '휴업', closed: '폐업', unknown: '미등록·조회 불가' };
 
+// 공공데이터포털은 같은 키를 Encoding(%2F·%2B·%3D 가 보이는 형태)·Decoding 두 가지로 보여 준다. 어느 쪽을 넣어도 되게 한 번 풀어서 쓴다
+// (요청을 만들 때 encodeURIComponent 를 다시 적용하므로 Encoding 키를 그대로 쓰면 이중 인코딩으로 인증이 실패한다).
+export function normalizeServiceKey(raw: string | undefined | null): string {
+  const key = (raw ?? '').trim();
+  if (!key) return '';
+  if (/%[0-9A-Fa-f]{2}/.test(key)) { try { return decodeURIComponent(key); } catch { return key; } }
+  return key;
+}
+
 export async function checkBusinessStatus(brn: string): Promise<BusinessStatusResult | null> {
-  const key = process.env.NTS_BUSINESS_API_KEY;
+  const key = normalizeServiceKey(process.env.NTS_BUSINESS_API_KEY);
   const digits = brn.replace(/\D/g, '');
   if (!key || digits.length !== 10) return null;
   try {
