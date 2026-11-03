@@ -14,6 +14,7 @@ import { budgetFor, budgetStatus } from '../lib/budget';
 import { PushPrefs } from '../components/PushPrefs';
 import { AutoCollectBanner, AutoCollectCard, AutoCollectStatus, AutoCollectSummary } from '../components/AutoCollect';
 import { useAutoCollect } from '../lib/autocollect';
+import { sameMerchantTargets } from '../lib/classify';
 import { monthlyReport } from '../lib/report';
 import { SharedItems, sharedFlag, takeSharedItems } from '../lib/share';
 import { parseCardMessage } from '../lib/cardsms';
@@ -721,6 +722,15 @@ export default function Home() {
           const u=await supabase!.from('hg_expenses').update({card_id:r.data.id,payment_method:'card'}).in('id',s.expenseIds); if(u.error)throw u.error;
           await load(); setNotice(`${s.name} 등록 · 결제 ${s.expenseIds.length}건을 연결했어요. 혜택·실적 조건은 카드 수정에서 다듬을 수 있어요.`);
         })}
+        onClassify={(e,category)=>run(async()=>{
+          // Chip tap = category + confirmed, for this row and every open/기타 row from the same merchant; the family rule follows.
+          const peers=sameMerchantTargets(e,data.expenses); const ids=[e.id,...peers.map(x=>x.id)];
+          if(demo) setData(d=>({...d,expenses:d.expenses.map(x=>ids.includes(x.id)?{...x,category,reviewed:true}:x)}));
+          else { const r=await supabase!.from('hg_expenses').update({category,reviewed:true}).in('id',ids).select('id'); if(r.error)throw r.error; if(!r.data?.length)throw new Error('수정 권한이 없거나 이미 삭제된 기록이에요. 새로고침 후 다시 확인해 주세요.'); await load(); }
+          await learnRule(e.title,category,e.scope||'shared');
+          setNotice(peers.length?`${category}로 정리했어요 · 같은 가맹점 ${peers.length}건에도 적용`:`${category}로 정리했어요.`);
+        })}
+        rules={data.rules}
         budgets={data.budgets} onEditBudget={()=>{setError('');setForm('budget');}} members={data.members} envelopes={data.envelopes} envelopeEntries={data.envelopeEntries} settlements={data.settlements}
         onAddEnvelope={()=>{setError('');setForm('envelope');}} onEnvelopeEntry={(e,amount)=>run(()=>envelopeEntry(e,amount))} onDeleteEnvelope={e=>run(()=>deleteEnvelope(e))} onMarkSettled={m=>run(()=>setSettled(m,true))} onUnsettle={m=>run(()=>setSettled(m,false))}
         onCapture={()=>{setError('');setForm(null);setCaptureOpen(true);}} settlementOn={!!family.settings?.settlement}

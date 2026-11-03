@@ -73,3 +73,6 @@ input[readonly],select:disabled,textarea[readonly]{background:#f3f4ef;color:#6b7
 @media(max-width:760px){.today-line.with-review{grid-template-columns:1fr 1fr}}
 /* 확인 대기: 알림에 보인 카드 등록 제안 */
 .card-suggest{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.card-suggest .banner-actions{display:flex;flex-wrap:wrap;gap:6px}.card-suggest .banner-actions button{float:none;min-height:32px;padding:4px 10px;border-radius:8px;background:#fff;border:1px solid var(--green);color:var(--green);font-weight:600}
+/* 확인 대기·분류 미확인: 행 안 분류 칩 + 목록 상단 정리 스트립 */
+.cat-chips{margin:8px 0 0}.cat-chips .chip{min-height:30px;padding:3px 10px;font-size:12px}.cat-chips .chip.more{border-style:dashed;color:var(--muted)}
+.pending-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.pending-strip button{float:none;margin-left:auto;font-weight:600}

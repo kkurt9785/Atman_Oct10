@@ -10,6 +10,7 @@ const weekdayNames = ['일', '월', '화', '수', '목', '금', '토'];
 import { categories, cardProgress, qualifyingAmount, performanceMonth, shiftMonth } from '../lib/finance';
 import { ParsedCardMessage, describe, matchCard, parseCardMessage } from '../lib/cardsms';
 import { suggestCards, type CardSuggestion } from '../lib/cardsuggest';
+import { sameMerchantTargets, suggestCategories, unclassifiedExpenses } from '../lib/classify';
 import { Report } from '../lib/report';
 import { categoryLabel, matchesPaymentFilter, paymentLabel } from '../lib/payment-display';
 
@@ -18,16 +19,32 @@ const REGRET_TAG = false; // hidden: a novelty tag the family did not need; data
 export type FinanceView = 'list' | 'report' | 'recurring' | 'review';
 
 // Rows collected from phone messages wait here until a person confirms them.
-export function ReviewQueue({ items, cards, busy, onConfirm, onEdit, onDelete, suggestions = [], onRegisterCard }: { items: Expense[]; cards: Card[]; busy: boolean; onConfirm: (e: Expense) => void; onEdit: (e: Expense) => void; onDelete: (e: Expense) => void; suggestions?: CardSuggestion[]; onRegisterCard?: (s: CardSuggestion) => void }) {
-  // One tap registers a card the phone keeps reporting; the matching payments attach at once and later ones by themselves.
-  const strip = suggestions.length > 0 && onRegisterCard && <div role="status" className="banner card-suggest">💳 알림에 보인 카드를 등록하면 결제가 자동으로 연결돼요.<span className="banner-actions">{suggestions.map(s => <button key={s.key} type="button" disabled={busy} onClick={() => onRegisterCard(s)}>{s.name} 등록 · {s.expenseIds.length}건</button>)}</span></div>;
-  if (!items.length) return <>{strip}<div className="panel empty">확인할 자동 등록 건이 없어요. 결제 문자나 카드앱 알림이 폰에 오면 여기에 쌓여요.</div></>;
-  return <section className="panel">{strip}<div className="section-head"><h2>자동 등록 확인 <span className="count">{items.length}</span></h2></div>
-    <p className="muted">문자·알림에서 읽은 내용이에요. 맞으면 확인, 다르면 수정하세요. 카드가 비어 있으면 수정에서 골라 주세요.</p>
-    {items.map(e => { const card = cards.find(c => c.id === e.card_id); return <div className="review-row" key={e.id}>
-      <div><strong>{e.title}</strong><small>{e.date} · {categoryLabel(e)} · {card?.name ?? paymentLabel(e)}</small>{e.raw_text && <small className="raw-text">{e.raw_text}</small>}</div>
-      <div className="review-actions"><b>{money(e.amount)}</b><span><button className="primary" disabled={busy} onClick={() => onConfirm(e)}>확인</button><button className="text-button" disabled={busy} onClick={() => onEdit(e)}>수정</button><button className="text-button" disabled={busy} onClick={() => onDelete(e)}>삭제</button></span></div>
-    </div>; })}
+// One tap registers a card the phone keeps reporting; the matching payments attach at once and later ones by themselves.
+export function CardSuggestStrip({ suggestions, busy, onRegisterCard }: { suggestions: CardSuggestion[]; busy: boolean; onRegisterCard?: (s: CardSuggestion) => void }) {
+  if (!suggestions.length || !onRegisterCard) return null;
+  return <div role="status" className="banner card-suggest">💳 알림에 보인 카드를 등록하면 결제가 자동으로 연결돼요.<span className="banner-actions">{suggestions.map(s => <button key={s.key} type="button" disabled={busy} onClick={() => onRegisterCard(s)}>{s.name} 등록 · {s.expenseIds.length}건</button>)}</span></div>;
+}
+
+export function ReviewQueue({ items, unclassified = [], expenses = [], rules = [], cards, busy, onConfirm, onEdit, onDelete, onClassify, suggestions = [], onRegisterCard }: { items: Expense[]; unclassified?: Expense[]; expenses?: Expense[]; rules?: CategoryRule[]; cards: Card[]; busy: boolean; onConfirm: (e: Expense) => void; onEdit: (e: Expense) => void; onDelete: (e: Expense) => void; onClassify?: (e: Expense, category: string) => void; suggestions?: CardSuggestion[]; onRegisterCard?: (s: CardSuggestion) => void }) {
+  const [more, setMore] = useState<string | null>(null);
+  const strip = <CardSuggestStrip suggestions={suggestions} busy={busy} onRegisterCard={onRegisterCard}/>;
+  // A chip tap files the row (and every open or still-기타 row from the same merchant) and counts as confirmation — no edit modal.
+  const chips = (e: Expense) => onClassify && <div className="chips cat-chips" role="group" aria-label="분류 고르기">
+    {(more === e.id ? categories : suggestCategories(e, expenses, rules)).map(c => <button type="button" key={c} className={`chip ${e.category === c ? 'on' : ''}`} disabled={busy} onClick={() => onClassify(e, c)}>{categoryIcon[c] ?? ''} {c}</button>)}
+    {more !== e.id && <button type="button" className="chip more" disabled={busy} onClick={() => setMore(e.id)}>더보기</button>}
+  </div>;
+  const rowOf = (e: Expense, pending: boolean) => { const card = cards.find(c => c.id === e.card_id); const peers = onClassify ? sameMerchantTargets(e, expenses).length : 0; return <div className="review-row" key={e.id}>
+    <div><strong>{e.title}</strong><small>{e.date} · {categoryLabel(e)} · {card?.name ?? paymentLabel(e)}{peers > 0 && ` · 같은 가맹점 ${peers}건 함께 정리`}</small>{e.raw_text && <small className="raw-text">{e.raw_text}</small>}{chips(e)}</div>
+    <div className="review-actions"><b>{money(e.amount)}</b><span>{pending && <button className="primary" disabled={busy} onClick={() => onConfirm(e)}>확인</button>}<button className="text-button" disabled={busy} onClick={() => onEdit(e)}>수정</button><button className="text-button" disabled={busy} onClick={() => onDelete(e)}>삭제</button></span></div>
+  </div>; };
+  if (!items.length && !unclassified.length) return <>{strip}<div className="panel empty">확인할 자동 등록 건이 없어요. 결제 문자나 카드앱 알림이 폰에 오면 여기에 쌓여요.</div></>;
+  return <section className="panel">{strip}
+    {items.length > 0 && <><div className="section-head"><h2>자동 등록 확인 <span className="count">{items.length}</span></h2></div>
+      <p className="muted">문자·알림에서 읽은 내용이에요. 분류 칩을 누르면 확인까지 끝나요. 같은 가맹점은 한 번에 정리돼요.</p>
+      {items.map(e => rowOf(e, true))}</>}
+    {unclassified.length > 0 && <><div className="section-head"><h2>분류 미확인 <span className="count">{unclassified.length}</span></h2></div>
+      <p className="muted">확인은 됐지만 분류가 비어 리포트에서 ‘기타’로 묶이는 건이에요. 칩 하나면 끝나요.</p>
+      {unclassified.map(e => rowOf(e, false))}</>}
   </section>;
 }
 
@@ -189,9 +206,9 @@ export function ExpenseFields({ expense, cards, remembered, openAdvanced=false, 
     </div>
   </>;
 }
-export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onConfirmReview,onRegisterCard,budgets,onEditBudget,members,envelopes,envelopeEntries,settlements,onAddEnvelope,onEnvelopeEntry,onDeleteEnvelope,onMarkSettled,onUnsettle,onToggleRegret,onOpenChat,onAddRecurringFrom,onCapture,settlementOn=false}: {
+export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onConfirmReview,onRegisterCard,onClassify,rules:familyRules=[],budgets,onEditBudget,members,envelopes,envelopeEntries,settlements,onAddEnvelope,onEnvelopeEntry,onDeleteEnvelope,onMarkSettled,onUnsettle,onToggleRegret,onOpenChat,onAddRecurringFrom,onCapture,settlementOn=false}: {
   entries:Entry[];onOpenWork:(entry:Entry,date:string)=>void;cards:Card[];expenses:Expense[];uid:string;month:string;setMonth:(m:string)=>void;onAddCard:()=>void;onEditCard:(c:Card)=>void;onEditExpense:(e:Expense)=>void;onDeleteExpense:(e:Expense)=>void;busy:boolean;
-  view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onConfirmReview:(e:Expense)=>void;onRegisterCard?:(s:CardSuggestion)=>void;
+  view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onConfirmReview:(e:Expense)=>void;onRegisterCard?:(s:CardSuggestion)=>void;onClassify?:(e:Expense,category:string)=>void;rules?:CategoryRule[];
   budgets:Budget[];onEditBudget:()=>void;members:Member[];envelopes:Envelope[];envelopeEntries:EnvelopeEntry[];settlements:Settlement[];
   onAddEnvelope:()=>void;onEnvelopeEntry:(e:Envelope,amount:number)=>void;onDeleteEnvelope:(e:Envelope)=>void;onMarkSettled:(month:string)=>void;onUnsettle:(month:string)=>void;onToggleRegret:(e:Expense)=>void;onOpenChat:(e:Expense)=>void;onAddRecurringFrom:(c:{title:string;amount:number;day:number})=>void;onCapture:()=>void;settlementOn?:boolean;
 }) {
@@ -210,7 +227,7 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
   const tabs=<div className="payment-tabs finance-views" role="group" aria-label="가계부 보기"><button aria-pressed={view==='list'} onClick={()=>setView('list')}>내역</button><button aria-pressed={view==='report'} onClick={()=>setView('report')}>리포트</button><button aria-pressed={view==='recurring'} onClick={()=>setView('recurring')}>반복·적립</button><button aria-pressed={view==='review'} onClick={()=>setView('review')}>확인 대기{pending.length>0&&<b className="tab-badge">{pending.length}</b>}</button></div>;
   if(view==='report') return <>{tabs}<ReportPanel report={report} month={month} setMonth={setMonth} budget={status} onEditBudget={onEditBudget} expenses={expenses} members={members} cards={cards} settlements={settlements} onMarkSettled={onMarkSettled} onUnsettle={onUnsettle} settlementOn={settlementOn}/></>;
   if(view==='recurring') return <>{tabs}<RecurringPanel items={recurring} cards={cards} busy={busy} onAdd={onAddRecurring} onToggle={onToggleRecurring} onDelete={onDeleteRecurring} expenses={expenses} onAddFrom={onAddRecurringFrom}/><EnvelopePanel envelopes={envelopes} entries={envelopeEntries} members={members} uid={uid} busy={busy} onAdd={onAddEnvelope} onEntry={onEnvelopeEntry} onDelete={onDeleteEnvelope}/></>;
-  if(view==='review') return <>{tabs}<ReviewQueue items={pending} cards={cards} busy={busy} onConfirm={onConfirmReview} onEdit={onEditExpense} onDelete={onDeleteExpense} suggestions={suggestCards(expenses,cards)} onRegisterCard={onRegisterCard}/></>;
+  if(view==='review') return <>{tabs}<ReviewQueue items={pending} unclassified={unclassifiedExpenses(expenses)} expenses={expenses} rules={familyRules} cards={cards} busy={busy} onConfirm={onConfirmReview} onEdit={onEditExpense} onDelete={onDeleteExpense} onClassify={onClassify} suggestions={suggestCards(expenses,cards)} onRegisterCard={onRegisterCard}/></>;
   const selectableCards=cards.filter(c=>(scope==='all'||c.owner_user_id===uid)&&(methodFilter==='all'||(c.card_type || 'credit')===methodFilter));
   const visibleCards=selectableCards.filter(c=>cardId==='all'||c.id===cardId);
   const visibleExpenses=expenses.filter(e=>e.card_id?visibleCards.some(c=>c.id===e.card_id):cardId==='all'&&(scope==='all'||e.created_by===uid)&&matchesPaymentFilter(e,methodFilter));
@@ -244,7 +261,10 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
       <div className="finance-toolbar"><label>검색<input aria-label="내역 검색" value={q} onChange={e=>setQ(e.target.value)} placeholder="사용처·메모"/></label><label>사용자 범위<select value={scope} onChange={e=>{setScope(e.target.value);setCardId('all');}}><option value="all">가족 전체</option><option value="mine">내 카드·내 지출</option></select></label><label>카드 선택<select value={cardId} onChange={e=>setCardId(e.target.value)}><option value="all">전체 카드</option>{selectableCards.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label></div>
     </div>}
     <div className="fin-layout"><div className="fin-main">
-    {pending.length>0&&<div role="status" className="banner pending-strip">자동 등록 {pending.length}건이 확인을 기다려요<button onClick={()=>setView('review')}>보기 →</button></div>}
+    {(()=>{const unc=unclassifiedExpenses(expenses).length;return <>
+      {(pending.length>0||unc>0)&&<div role="status" className="banner pending-strip">{pending.length>0&&`자동 등록 ${pending.length}건 확인 대기`}{pending.length>0&&unc>0&&' · '}{unc>0&&`분류 미확인 ${unc}건`}<button onClick={()=>setView('review')}>정리하기 →</button></div>}
+      <CardSuggestStrip suggestions={suggestCards(expenses,cards)} busy={busy} onRegisterCard={onRegisterCard}/>
+    </>;})()}
     <section className="panel ledger"><div className="section-head"><h2>가계부 내역</h2><div className="payment-tabs mini" role="group" aria-label="내역 보기"><button aria-pressed={layout==='list'} onClick={()=>setLayout('list')}>목록</button><button aria-pressed={layout==='calendar'} onClick={()=>setLayout('calendar')}>달력</button></div><button type="button" className="text-button capture-link" onClick={onCapture} title="카드앱 이용내역 캡처에서 거래 가져오기">📷 캡처 가져오기</button><small className="muted">{rows.length}건</small></div>
       {layout==='calendar'&&<div className="spend-calendar" role="grid" aria-label="날짜별 지출 달력">{weekdayNames.map(w=><div className="weekday" key={w}>{w}</div>)}{Array.from({length:new Date(`${month}-01T12:00:00`).getDay()}).map((_,i)=><div key={`b${i}`}/>)}{daily.map(d=>{const date=`${month}-${String(d.day).padStart(2,'0')}`;return <button type="button" key={d.day} className={`cal-cell ${d.amount?'has':''} ${date===today()?'today':''}`} aria-label={`${date} ${money(d.amount)}`} onClick={()=>{setDayFilter(date);setLayout('list');}}><small>{d.day}</small>{d.amount!==0&&<b>{short(d.amount)}</b>}</button>;})}</div>}
       {dayFilter&&layout==='list'&&<div className="day-chip" role="status"><span>{dayLabel(dayFilter)}만 보는 중</span><button className="text-button" onClick={()=>setDayFilter(null)}>전체 보기</button></div>}
