@@ -47,6 +47,9 @@ try {
   const openLink = card.getByRole('link', { name: '단축어 열기', exact: true });
   // Interval polling: rAF-based polling stalls if headless Chromium marks the page hidden after a shortcuts:// launch attempt.
   const hrefChanged = previous => page.waitForFunction(p => Array.from(document.querySelectorAll('.autocollect-card a')).some(a => a.textContent === '단축어 열기' && a.getAttribute('href') !== p), previous, { polling: 500 });
+  // After any shortcuts:// launch attempt (the automatic /pair hop included) headless Chromium drops real pointer clicks; DOM-dispatched clicks still reach React.
+  // includeHidden: the name-fallback button lives inside the collapsed <details>.
+  const tap = name => card.getByRole('button', { name, exact: true, includeHidden: true }).dispatchEvent('click');
   const manifest = await page.request.get(new URL('/haraguri-notifications.json', page.url()).href);
   const release = await manifest.json();
   assert.equal(await page.getByRole('navigation', { name: '모바일 메뉴' }).getByRole('button').count(), 4, 'bottom nav keeps four tabs');
@@ -57,9 +60,16 @@ try {
   assert.equal(await install.getAttribute('href'), release.icloud_url);
   assert.equal(await card.getByRole('link', { name: '단축어 받기', exact: true }).count(), 0, 'no .shortcut download on an iCloud install');
   await card.getByRole('button', { name: '이미 추가했어요', exact: true }).click();
-  // 2 · 내 계정 연결: straight after install — no "automation on" confirmation step; one tap makes a code and offers the shortcuts:// link
   await card.getByRole('heading', { name: '내 계정 연결' }).waitFor();
-  await card.getByRole('button', { name: '연결하기', exact: true }).click();
+  // Coming back from the Shortcuts add sheet (the install link arms a session flag) sends the app to /pair by itself.
+  await page.evaluate(fid => { sessionStorage.setItem('haraguri-collect-autopair', fid); Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true }); document.dispatchEvent(new Event('visibilitychange')); }, familyId);
+  await page.waitForURL(/\/pair$/, { timeout: 10000 });
+  await page.getByRole('link', { name: '단축어로 연결 계속하기' }).waitFor({ timeout: 15000 });
+  assert.equal(await page.evaluate(() => sessionStorage.getItem('haraguri-collect-autopair')), null, 'the automatic hop fires once');
+  await page.goto(`${base}/?tab=money&collect=1`);
+  // 2 · 내 계정 연결 (fallback button): one tap makes a code and offers the shortcuts:// link
+  await card.getByRole('heading', { name: '내 계정 연결' }).waitFor();
+  await tap('연결하기');
   await openLink.waitFor();
   const first = new URL(await openLink.getAttribute('href'));
   assert.equal(first.protocol, 'shortcuts:');
@@ -68,9 +78,6 @@ try {
   assert.ok(/^[0-9a-f]{48}$/.test(code1), 'link carries a pairing code');
   assert.ok(code1 !== original.token, 'link never carries the existing SMS token');
   assert.equal(await card.locator('code.pair-code').textContent(), code1, 'the same code is shown for the clipboard path');
-  // After a shortcuts:// launch attempt headless Chromium drops real pointer clicks on the page; DOM-dispatched clicks still reach React.
-  // includeHidden: the name-fallback button lives inside the collapsed <details>.
-  const tap = name => card.getByRole('button', { name, exact: true, includeHidden: true }).dispatchEvent('click');
   await tap('새 코드로 다시');
   await hrefChanged(first.href);
   const second = new URL(await openLink.getAttribute('href'));

@@ -20,7 +20,11 @@ export function computeStage(i: { device: Device; installed: boolean; paired: bo
 
 // Tried and rejected (iOS 27.2, 2026-11-03): shortcuts://x-callback-url/import-shortcut?url=<iCloud link> opens Shortcuts but fails with
 // "파일이 올바른 포맷이 아닙니다" — import-shortcut only accepts .shortcut file URLs, and our signed file loses its notification trigger.
-// So installation stays on the iCloud share link (no return callback), and connecting stays a separate tap.
+// Installation therefore stays on the iCloud share link (no return callback). What iOS 27.2 did allow (verified the same day): /pair may
+// launch shortcuts://run-shortcut from its own page load, without a tap. So the card marks "left for the add sheet", and when the app
+// comes back to the foreground still unpaired it goes to /pair by itself — the connect tap disappears; the button stays as a fallback.
+export const AUTOPAIR_KEY = 'haraguri-collect-autopair';
+export function markLeftForInstall(familyId: string) { try { sessionStorage.setItem(AUTOPAIR_KEY, familyId); } catch { /* private mode */ } }
 
 export function ago(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -91,6 +95,18 @@ export function useAutoCollect(familyId: string, userId: string, active: boolean
   }, [familyId, userId, active, load]);
 
   const since = token ? Date.parse(token.created_at) : Infinity;
+  // Back from the Shortcuts add sheet and still not paired → let /pair mint a code and run the shortcut (one shot, iPhone only).
+  const pendingAutopair = loaded && device === 'iphone-push' && !((!!token && ((!!setupAt && Date.parse(setupAt) >= since) || flags.pairedAt >= since)));
+  useEffect(() => {
+    if (!active || !pendingAutopair) return;
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      try { if (sessionStorage.getItem(AUTOPAIR_KEY) !== familyId) return; sessionStorage.removeItem(AUTOPAIR_KEY); } catch { return; }
+      window.setTimeout(() => { window.location.assign('/pair'); }, 400);
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [active, pendingAutopair, familyId]);
   const current = inbox.filter(r => Date.parse(r.received_at) >= since);
   const proof = current.find(r => isCollectedPayment(r, device)) ?? null;
   const paired = !!token && ((!!setupAt && Date.parse(setupAt) >= since) || flags.pairedAt >= since);

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { IOS_NOTIFICATION_TRIGGER_MIN, type Device } from '../lib/device';
 import { shortcutOpenURL, shortcutPairingURL } from '../lib/shortcuts';
-import { ago, stageLabel, type AutoCollectState, type InboxRow } from '../lib/autocollect';
+import { ago, markLeftForInstall, stageLabel, type AutoCollectState, type InboxRow } from '../lib/autocollect';
 
 // 가계부 자동 수집. 한 줄 상태 → 카드 하나 → 단계마다 버튼 하나. 설정 탭의 3단계 마법사를 대신한다.
 // 수집 주소·기기별 레시피·수신함 전체는 '고급' 아래로 내려 두고 평소에는 보이지 않는다.
@@ -115,6 +115,8 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
 
   // Leaving for the Shortcuts add sheet: remember the family so /pair (the x-success return) connects the right one without asking.
   const markInstalled = () => { setFlag('installed', true); try { localStorage.setItem(`haraguri-space-${userId}`, familyId); } catch { /* private mode */ } };
+  // The install link actually leaves the app; "이미 추가했어요" does not — only the former arms the automatic /pair on return.
+  const leaveToInstall = () => { markInstalled(); markLeftForInstall(familyId); };
 
   if (!state.loaded) return <section className="autocollect-card"><p className="muted">수집 상태를 확인하고 있어요…</p></section>;
   const expired = !!link && link.expiresAt <= now;
@@ -141,9 +143,9 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
       <h3>단축어 추가</h3>
       <p className="muted">단축어 앱이 바로 열려요. <b>단축어 추가</b>를 누른 뒤, 그 단축어 맨 위 알림 카드의 <b>〉</b>에서 <b>자동화를 켜</b> 주세요. 받을 앱 목록은 미리 들어 있어요(안 쓰는 앱은 빼도 돼요). iOS {IOS_NOTIFICATION_TRIGGER_MIN} 이상.</p>
       {/* iCloud share link: iOS hands it to the Shortcuts add sheet itself. (shortcuts://import-shortcut only takes .shortcut file URLs — verified on iOS 27.2: "파일이 올바른 포맷이 아닙니다".) */}
-      <div className="actions">{release?.icloud_url ? <a className="button-link" href={release.icloud_url} onClick={markInstalled}>단축어 추가</a> : <span className="muted">단축어 파일을 준비하고 있어요…</span>}
+      <div className="actions">{release?.icloud_url ? <a className="button-link" href={release.icloud_url} onClick={leaveToInstall}>단축어 추가</a> : <span className="muted">단축어 파일을 준비하고 있어요…</span>}
         <button type="button" className="text-button" onClick={markInstalled}>이미 추가했어요</button></div>
-      <small className="muted">추가하고 자동화를 켠 뒤 하라구리로 돌아오면 바로 <b>연결하기</b>가 보여요.</small>
+      <small className="muted">추가하고 자동화를 켠 뒤 하라구리로 돌아오면 <b>연결이 저절로 이어져요</b>(허용 질문엔 항상 허용).</small>
     </>}
 
     {stage === 'pair' && <>
@@ -212,7 +214,7 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
           <button type="button" className="text-button danger" disabled={busy} onClick={disable}>끄기</button></div>
         <small className="muted">주소에 든 토큰은 비밀번호처럼 다뤄 주세요. 지금까지 {saved.toLocaleString('ko-KR')}건 저장{token.last_used_at ? ` · 마지막 수신 ${ago(token.last_used_at)}` : ''}</small>
       </> : <div className="actions"><button type="button" className="secondary" disabled={busy} onClick={() => { void createToken(); }}>자동 수집 주소 만들기</button><small className="muted">아이폰 단축어는 계정 연결 때 주소가 자동으로 만들어져요. 직접 설정할 때만 눌러 주세요.</small></div>}
-      <div className="actions"><button type="button" className="text-button" onClick={() => { setFlag('installed', false); setFlag('enabled', false); }}>설치 안내 다시 보기</button>{release?.icloud_url && <a className="text-button" href={release.icloud_url} onClick={markInstalled}>단축어 다시 설치</a>}<a className="text-button" href="/pair" onClick={markInstalled}>연결 다시 하기</a></div>
+      <div className="actions"><button type="button" className="text-button" onClick={() => { setFlag('installed', false); setFlag('enabled', false); }}>설치 안내 다시 보기</button>{release?.icloud_url && <a className="text-button" href={release.icloud_url} onClick={leaveToInstall}>단축어 다시 설치</a>}<a className="text-button" href="/pair" onClick={markInstalled}>연결 다시 하기</a></div>
       {inbox.length > 0 && <><p className="muted">최근 수신 {Math.min(visibleInbox.length, 8)}건{ignoredCount > 0 && <> · <button type="button" className="text-button inline" onClick={() => setShowIgnored(s => !s)}>{showIgnored ? '무시된 알림 숨기기' : `무시 ${ignoredCount}건 보기`}</button></>}</p>{visibleInbox.length > 0 && list(visibleInbox.slice(0, 8))}</>}
       {unparsed.length > 0 && <p className="muted">못 읽은 알림은 원문 그대로 남겨 두니, 가계부에 직접 적거나 원문을 복사해 알려 주시면 읽는 법을 더해요.</p>}
     </details>
