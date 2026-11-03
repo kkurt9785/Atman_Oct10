@@ -1,10 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPlatformAdminSession } from '@/lib/platform-admin';
-import { listSelfRegisteredFacilities, listRegistrationRequests, listTrialFollowUps, runHealthCheckNowAction } from '@/lib/actions/platform';
+import { listSelfRegisteredFacilities, listRegistrationRequests, listTrialFollowUps, listFacilityPublicFlags, runHealthCheckNowAction } from '@/lib/actions/platform';
 import { getLatestHealthRun } from '@/lib/ops-health';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { ApprovalCard, RequestCard } from './ApprovalCard';
+import { PublicFlagsCard } from './PublicFlagsCard';
 import { getPendingWorkers } from '@/lib/db/workers';
 import { WorkerApprovalCard } from '@/app/staff/WorkerApprovalCard';
 
@@ -14,14 +15,16 @@ export const dynamic = 'force-dynamic';
 export default async function PlatformFacilitiesPage() {
   const session = await getPlatformAdminSession();
   if (!session) notFound();
-  const [pending, recent, requests, pendingWorkers, trials, health] = await Promise.all([
+  const [pending, recent, requests, pendingWorkers, trials, health, publicFlags] = await Promise.all([
     listSelfRegisteredFacilities(true),
     listSelfRegisteredFacilities(false).then((rows) => rows.filter((r) => r.approved_at).slice(0, 10)),
     listRegistrationRequests(),
     getPendingWorkers(),
     listTrialFollowUps(),
     getLatestHealthRun(),
+    listFacilityPublicFlags(),
   ]);
+  const flagsStale = publicFlags.filter((f) => !f.public_flags_checked_at || Date.now() - Date.parse(f.public_flags_checked_at) > 35 * 86_400_000).length;
 
   return (
     <main className="min-h-screen bg-surface px-4 pb-24">
@@ -122,6 +125,18 @@ export default async function PlatformFacilitiesPage() {
         {pendingWorkers.length === 0
           ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">심사할 근무자가 없어요. 간호사·간호조무사·약사는 사업장이 채용 전 직접 확인하고, 약국 전산·사무직만 여기서 이력서를 확인해요.</p>
           : <div className="space-y-3">{pendingWorkers.map((w) => <WorkerApprovalCard key={w.id} worker={w} />)}</div>}
+      </section>
+
+      <section className="mt-8" id="public-flags">
+        <p className="mb-1 px-1 text-label font-bold text-sub">구인자 공표 정보 대조 · 직업안정법 §25 {flagsStale > 0 && <span className="ml-1 rounded-full bg-amber-50 px-2 py-0.5 text-[0.6875rem] text-amber-700">대조 필요 {flagsStale}곳</span>}</p>
+        <p className="mb-2 px-1 text-[0.75rem] leading-5 text-sub">
+          월 1회 고용노동부 <a className="underline" href="https://www.moel.go.kr/info/defaulter/defaulterList.do" target="_blank" rel="noreferrer">체불사업주 명단공개</a>와,
+          연 1회 고용노동부 보도자료의 <a className="underline" href="https://www.moel.go.kr" target="_blank" rel="noreferrer">산업재해 발생건수 공표 목록</a>과 사업장명·사업자등록번호를 대조해 기록해요.
+          표시하면 근무자 공고·사업장 정보에 바로 게재돼요(2026-12-10 시행 의무).
+        </p>
+        {publicFlags.length === 0
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">대조할 운영 사업장이 없거나, 마이그레이션 20261103100000 이 아직 적용되지 않았어요.</p>
+          : <ul className="divide-y divide-line rounded-2xl bg-white">{publicFlags.map((f) => <PublicFlagsCard key={f.id} facility={f} />)}</ul>}
       </section>
 
       {recent.length > 0 && (

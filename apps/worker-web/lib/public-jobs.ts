@@ -48,6 +48,15 @@ export async function getPublicShift(id: string): Promise<PublicShiftDetail | nu
   return rows[0] ?? null;
 }
 
+export type PublicShiftFlags = { wage_arrears: boolean; industrial_accident: boolean };
+
+// 직업안정법 §25(2026-12-10) — 체불사업주 명단 공개·산재 공표 사업장이면 구인광고에 그 사실을 게재한다.
+// RPC 가 아직 없으면 빈 배열 → null (표시 생략)
+export async function getPublicShiftFlags(id: string): Promise<PublicShiftFlags | null> {
+  const rows = await rpc<PublicShiftFlags>('get_public_shift_flags', { p_id: id });
+  return rows[0] ?? null;
+}
+
 export const roleLabel = (role: string) =>
   SHIFT_ROLE_LABEL[role as ShiftRole] ?? '의료 인력';
 

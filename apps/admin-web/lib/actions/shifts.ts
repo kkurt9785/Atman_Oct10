@@ -52,9 +52,14 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
     if (facility && facility.approved_at == null && String(facility.registration_source ?? '').startsWith('self_')) {
       return { ok: false, message: '사업장 확인이 끝나면 공고를 등록할 수 있어요. 보통 1영업일 안에 완료돼요.' };
     }
-    // 직업안정법 §25 — 국세청 조회에서 휴업·폐업이면 구인 공고를 열지 않는다
-    if (facility && ['closed', 'suspended'].includes(String((facility as { business_status?: string | null }).business_status ?? ''))) {
+    // 직업안정법 §25(2026-12-10 시행) — 사업자등록증 등으로 신원을 확인할 수 없는 구인광고는 게재 금지.
+    // 국세청 조회가 휴업·폐업이거나, 등록번호가 국세청에 없는(unknown) 사업장은 공고를 열지 않는다. 미조회(null)는 운영자 서류 확인으로 갈음.
+    const bizStatus = String((facility as { business_status?: string | null } | null)?.business_status ?? '');
+    if (facility && ['closed', 'suspended'].includes(bizStatus)) {
       return { ok: false, message: '국세청 조회에서 사업자 상태가 휴업·폐업으로 확인돼 공고를 올릴 수 없어요. 바뀌었다면 사업자 서류를 다시 제출해 주세요.' };
+    }
+    if (facility && bizStatus === 'unknown') {
+      return { ok: false, message: '국세청에서 사업자등록번호를 확인하지 못해 공고를 올릴 수 없어요. 설정 › 사업자 서류에서 등록번호와 등록증을 다시 제출해 주세요.' };
     }
     if (requiredRole === 'pharmacy_staff' && facility?.facility_type !== 'pharmacy') {
       return { ok: false, message: '약국 전산·사무직 공고는 약국 사업장에서만 등록할 수 있어요.' };

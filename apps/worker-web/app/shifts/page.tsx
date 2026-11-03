@@ -170,7 +170,7 @@ export default function ShiftsPage() {
   const [reviewPending, setReviewPending] = useState(false);
   const [selected, setSelected] = useState<Shift | null>(null);
   const [applied, setApplied] = useState<Set<string>>(new Set());
-  const [facilityInfo, setFacilityInfo] = useState<{ id: string; name: string } | null>(null);
+  const [facilityInfo, setFacilityInfo] = useState<{ id: string; name: string; shiftId?: string | null } | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   // 앞으로 7일 D·E·N 근무표 — 칸을 누르면 그 날·그 시간대 공고만. 간호사가 매일 보는 근무표 문법을 근무 찾기 입구로 쓴다
   const [rosterPick, setRosterPick] = useState<{ date: string; slot: RosterSlot } | null>(null);
@@ -416,7 +416,7 @@ export default function ShiftsPage() {
         <>
           <section aria-label="근무 공고">
             <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold">{sort==='date'?'날짜별 근무':sort==='distance'?'가까운 근무':'시급이 높은 근무'}</h2><span className="text-xs text-sub">{visibleCount}/{filtered.length}건 표시</span></div>
-            {sort==='date'?grouped.map(group=><div key={group.title} className="mb-5"><h3 className="mb-2 px-1 text-sm font-bold text-sub">{group.title}</h3>{group.shifts.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s)})} showRole={isGuest}/>)}</div>):visible.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s)})} showRole={isGuest}/>)}
+            {sort==='date'?grouped.map(group=><div key={group.title} className="mb-5"><h3 className="mb-2 px-1 text-sm font-bold text-sub">{group.title}</h3>{group.shifts.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s),shiftId:s.id})} showRole={isGuest}/>)}</div>):visible.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s),shiftId:s.id})} showRole={isGuest}/>)}
             {visibleLimit<filtered.length&&<button type="button" onClick={()=>setVisibleLimit(value=>value+10)} className="h-12 w-full rounded-xl border border-line bg-white text-base font-bold">10건 더 보기</button>}
           </section>
         </>
@@ -434,6 +434,7 @@ export default function ShiftsPage() {
         <FacilitySheet
           facilityId={facilityInfo.id}
           facilityName={facilityInfo.name}
+          shiftId={facilityInfo.shiftId ?? null}
           onClose={() => setFacilityInfo(null)}
         />
       )}

@@ -154,6 +154,41 @@ export async function recheckBusinessStatusAction(input: { facilityId: string })
   }
 }
 
+// 직업안정법 §25(2026-12-10) — 구인자 공표 정보. 운영자가 고용노동부 체불사업주 명단(월 1회)·산재 발생건수 공표(연 1회)와 대조해 기록하면
+// 근무자 사업장 시트·공개 공고 페이지에 그 사실이 게재된다. 컬럼이 아직 없으면(마이그레이션 전) 빈 목록.
+export type FacilityPublicFlags = {
+  id: string; name: string; business_registration_number: string | null;
+  public_flag_wage_arrears: boolean; public_flag_industrial_accident: boolean; public_flags_checked_at: string | null; public_flags_note: string | null;
+};
+export async function listFacilityPublicFlags(): Promise<FacilityPublicFlags[]> {
+  const { sb } = await requirePlatform();
+  const { data, error } = await sb.from('facilities')
+    .select('id,name,business_registration_number,public_flag_wage_arrears,public_flag_industrial_accident,public_flags_checked_at,public_flags_note')
+    .eq('is_demo', false).eq('is_active', true).is('deleted_at', null).order('name').limit(200);
+  if (error) return [];
+  return (data ?? []) as FacilityPublicFlags[];
+}
+
+export async function setFacilityPublicFlagsAction(input: { facilityId: string; wageArrears: boolean; industrialAccident: boolean; note: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { session, sb } = await requirePlatform();
+    if (!/^[0-9a-f-]{36}$/i.test(input.facilityId) || input.note.length > 500) return { ok: false, error: '입력을 확인해 주세요.' };
+    const { data: before } = await sb.from('facilities').select('public_flag_wage_arrears,public_flag_industrial_accident,public_flags_note').eq('id', input.facilityId).maybeSingle();
+    const now = new Date().toISOString();
+    const after = { public_flag_wage_arrears: input.wageArrears, public_flag_industrial_accident: input.industrialAccident, public_flags_note: input.note.trim() || null, public_flags_checked_at: now };
+    const { error } = await sb.from('facilities').update(after).eq('id', input.facilityId);
+    if (error) return { ok: false, error: '저장하지 못했어요. 마이그레이션 적용 여부를 확인해 주세요.' };
+    await sb.from('audit_logs').insert({
+      actor_type: 'admin', actor_id: session.user.id, action: 'facility.public_flags.update',
+      entity_type: 'facility', entity_id: input.facilityId, before_data: before ?? {}, after_data: after,
+    });
+    revalidatePath('/ops/facilities');
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : '저장하지 못했어요.' };
+  }
+}
+
 export async function rejectSelfRegisteredFacility(input: { facilityId: string; reason: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const { session, sb } = await requirePlatform();

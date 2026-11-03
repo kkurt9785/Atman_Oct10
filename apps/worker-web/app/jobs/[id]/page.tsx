@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { estimatedShiftPay } from '@/lib/shared/gig-pay/shift-pay';
 import {
-  getPublicShift, roleLabel, facilityLabel, formatDate, hhmm, shiftHours,
+  getPublicShift, getPublicShiftFlags, roleLabel, facilityLabel, formatDate, hhmm, shiftHours,
 } from '@/lib/public-jobs';
 import { PublicJobApplyLink } from './PublicJobApplyLink';
 
@@ -31,6 +31,7 @@ export default async function PublicJobDetail({ params }: Props) {
   const { id } = await params;
   const shift = await getPublicShift(id);
   if (!shift) notFound();
+  const flags = await getPublicShiftFlags(id);
 
   const hours = shiftHours(shift.start_time, shift.end_time);
   // 사장님 앱과 같은 식(휴게 차감). DB 값이 있으면 그대로, 없을 때만 계산
@@ -112,6 +113,13 @@ export default async function PublicJobDetail({ params }: Props) {
         </div>
       </dl>
 
+      {(flags?.wage_arrears || flags?.industrial_accident) && (
+        <section className="mt-4 space-y-2" aria-label="구인자 공표 정보">
+          {flags?.wage_arrears && <p className="rounded-card bg-amber-50 p-3 text-[13px] font-bold leading-5 text-amber-800">고용노동부가 임금체불 사업주 명단을 공개 중인 사업장이에요. 지원 전 근무 조건과 지급 방식을 꼭 확인하세요.</p>}
+          {flags?.industrial_accident && <p className="rounded-card bg-amber-50 p-3 text-[13px] font-bold leading-5 text-amber-800">최근 3년 산업재해 발생건수가 공표된 사업장이에요.</p>}
+        </section>
+      )}
+
       {shift.description && (
         <section className="mt-6">
           <h2 className="text-[15px] font-bold text-ink">근무 내용</h2>
@@ -123,7 +131,8 @@ export default async function PublicJobDetail({ params }: Props) {
 
       <p className="mt-6 rounded-card bg-bg p-4 text-[12px] leading-5 text-sub">
         임금은 사업장이 근무자에게 직접 지급하며, 잇닿은 채용 성사에 연동된 수수료를 받지
-        않습니다. 지원 여부와 채용은 사업장이 직접 결정합니다.
+        않습니다. 지원 여부와 채용은 사업장이 직접 결정합니다. 공고 내용이 사실과 다르면 로그인 후
+        공고의 사업장 정보에서 신고할 수 있어요.
       </p>
 
       <div className="fixed inset-x-0 bottom-0 mx-auto max-w-app border-t border-line bg-white px-5 py-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
