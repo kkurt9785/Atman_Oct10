@@ -74,9 +74,12 @@ export function detectIncreases(expenses: { title: string; amount: number; date:
   });
 }
 // What to remember from a saved merchant: the brand word ("스타벅스" from "스타벅스 강남점"), or the whole name when it is a single word.
+// Words that identify a bank, a channel or a sentence fragment rather than a merchant. Learning one of these as a rule
+// (the 11/3 audit found 아이→기타, won뱅킹→기타, mg→기타, 1544-7000→기타) silently re-categorizes unrelated payments.
+const RULE_STOPWORDS = /^(?:[a-z]{1,2}|mg|kb|nh|bc|won뱅킹|국민|신한|삼성|현대|롯데|우리|하나|농협|씨티|기업|토스|카카오|네이버|페이|pay|카드|체크|신용|은행|뱅킹|계좌이체|이체|출금|입금|승인|결제|간편|할인|주식회사|주|아이|님|고객|취소)$/i;
 export function learnKeyword(title: string) {
-  const cleaned = title.replace(/\(주\)|㈜|주식회사/g, ' ').replace(/\s+/g, ' ').trim();
-  const first = cleaned.split(' ')[0] ?? '';
-  const key = cleaned.includes(' ') && first.length >= 2 && !/^[\d.,-]+$/.test(first) ? first : cleaned;
+  const cleaned = title.normalize('NFKC').replace(/\(주\)|㈜|주식회사|\(유\)/g, ' ').replace(/[()[\]·•|]/g, ' ').replace(/\s+/g, ' ').trim();
+  // First meaningful token: branch suffixes (영등포문, 구로한) and numbers (1544-7000) never become the keyword.
+  const key = cleaned.split(' ').find(t => t.length >= 2 && !/^[\d.,:/*-]+$/.test(t) && !RULE_STOPWORDS.test(t)) ?? '';
   return key.toLowerCase().slice(0, 60);
 }

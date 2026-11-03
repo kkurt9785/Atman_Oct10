@@ -373,7 +373,8 @@ export default function Home() {
   }
   // Saving an expense teaches the family a rule: merchant keyword → category (and shared/personal). Demo keeps rules in memory.
   async function learnRule(title: string, category: string, scope: 'shared' | 'personal') {
-    const keyword = learnKeyword(title); if (!keyword || !category) return;
+    // '기타' is the parser's default, not a choice worth remembering: a 기타 rule would pin every later payment there.
+    const keyword = learnKeyword(title); if (!keyword || !category || category === '기타') return;
     if (demo) { setData(d => ({ ...d, rules: [...d.rules.filter(r => r.keyword !== keyword), { id: crypto.randomUUID(), family_id: 'demo', keyword, category, scope }] })); return; }
     await supabase!.from('hg_category_rules').upsert({ family_id: family!.id, keyword, category, scope, created_by: uid }, { onConflict: 'family_id,keyword' });
   }
@@ -712,6 +713,14 @@ export default function Home() {
         onToggleRecurring={r=>run(()=>update('recurring','hg_recurring_expenses',r.id,{active:!r.active}))}
         onDeleteRecurring={r=>{if(!window.confirm(`'${r.title}' 반복 지출을 삭제할까요? 이미 기록된 지출은 남아요.`))return;run(async()=>{if(demo)setData(d=>({...d,recurring:d.recurring.filter(x=>x.id!==r.id)}));else{const d=await supabase!.from('hg_recurring_expenses').delete().eq('id',r.id);if(d.error)throw d.error;await load();}});}}
         onConfirmReview={e=>run(async()=>{await update('expenses','hg_expenses',e.id,{reviewed:true}); if((e.kind??'expense')==='expense') await learnRule(e.title,e.category,e.scope||'shared');})}
+        onRegisterCard={s=>run(async()=>{
+          // Card seen in collected payments → register with defaults and attach those payments; budgets/benefits are tuned later in the card form.
+          const value={family_id:family!.id,name:s.name,holder:name(uid),budget:0,credit_limit:0,card_type:s.card_type,owner_user_id:uid};
+          if(demo){await insert('cards','hg_cards',value);setNotice(`${s.name}을(를) 등록했어요.`);return;}
+          const r=await supabase!.from('hg_cards').insert(value).select('id').single(); if(r.error)throw r.error;
+          const u=await supabase!.from('hg_expenses').update({card_id:r.data.id,payment_method:'card'}).in('id',s.expenseIds); if(u.error)throw u.error;
+          await load(); setNotice(`${s.name} 등록 · 결제 ${s.expenseIds.length}건을 연결했어요. 혜택·실적 조건은 카드 수정에서 다듬을 수 있어요.`);
+        })}
         budgets={data.budgets} onEditBudget={()=>{setError('');setForm('budget');}} members={data.members} envelopes={data.envelopes} envelopeEntries={data.envelopeEntries} settlements={data.settlements}
         onAddEnvelope={()=>{setError('');setForm('envelope');}} onEnvelopeEntry={(e,amount)=>run(()=>envelopeEntry(e,amount))} onDeleteEnvelope={e=>run(()=>deleteEnvelope(e))} onMarkSettled={m=>run(()=>setSettled(m,true))} onUnsettle={m=>run(()=>setSettled(m,false))}
         onCapture={()=>{setError('');setForm(null);setCaptureOpen(true);}} settlementOn={!!family.settings?.settlement}

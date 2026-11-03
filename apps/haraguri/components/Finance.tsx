@@ -9,6 +9,7 @@ const short = (n: number) => Math.abs(n) >= 10000 ? `${(n / 10000).toFixed(Math.
 const weekdayNames = ['일', '월', '화', '수', '목', '금', '토'];
 import { categories, cardProgress, qualifyingAmount, performanceMonth, shiftMonth } from '../lib/finance';
 import { ParsedCardMessage, describe, matchCard, parseCardMessage } from '../lib/cardsms';
+import { suggestCards, type CardSuggestion } from '../lib/cardsuggest';
 import { Report } from '../lib/report';
 import { categoryLabel, matchesPaymentFilter, paymentLabel } from '../lib/payment-display';
 
@@ -17,9 +18,11 @@ const REGRET_TAG = false; // hidden: a novelty tag the family did not need; data
 export type FinanceView = 'list' | 'report' | 'recurring' | 'review';
 
 // Rows collected from phone messages wait here until a person confirms them.
-export function ReviewQueue({ items, cards, busy, onConfirm, onEdit, onDelete }: { items: Expense[]; cards: Card[]; busy: boolean; onConfirm: (e: Expense) => void; onEdit: (e: Expense) => void; onDelete: (e: Expense) => void }) {
-  if (!items.length) return <div className="panel empty">확인할 자동 등록 건이 없어요. 결제 문자나 카드앱 알림이 폰에 오면 여기에 쌓여요.</div>;
-  return <section className="panel"><div className="section-head"><h2>자동 등록 확인 <span className="count">{items.length}</span></h2></div>
+export function ReviewQueue({ items, cards, busy, onConfirm, onEdit, onDelete, suggestions = [], onRegisterCard }: { items: Expense[]; cards: Card[]; busy: boolean; onConfirm: (e: Expense) => void; onEdit: (e: Expense) => void; onDelete: (e: Expense) => void; suggestions?: CardSuggestion[]; onRegisterCard?: (s: CardSuggestion) => void }) {
+  // One tap registers a card the phone keeps reporting; the matching payments attach at once and later ones by themselves.
+  const strip = suggestions.length > 0 && onRegisterCard && <div role="status" className="banner card-suggest">💳 알림에 보인 카드를 등록하면 결제가 자동으로 연결돼요.<span className="banner-actions">{suggestions.map(s => <button key={s.key} type="button" disabled={busy} onClick={() => onRegisterCard(s)}>{s.name} 등록 · {s.expenseIds.length}건</button>)}</span></div>;
+  if (!items.length) return <>{strip}<div className="panel empty">확인할 자동 등록 건이 없어요. 결제 문자나 카드앱 알림이 폰에 오면 여기에 쌓여요.</div></>;
+  return <section className="panel">{strip}<div className="section-head"><h2>자동 등록 확인 <span className="count">{items.length}</span></h2></div>
     <p className="muted">문자·알림에서 읽은 내용이에요. 맞으면 확인, 다르면 수정하세요. 카드가 비어 있으면 수정에서 골라 주세요.</p>
     {items.map(e => { const card = cards.find(c => c.id === e.card_id); return <div className="review-row" key={e.id}>
       <div><strong>{e.title}</strong><small>{e.date} · {categoryLabel(e)} · {card?.name ?? paymentLabel(e)}</small>{e.raw_text && <small className="raw-text">{e.raw_text}</small>}</div>
@@ -186,9 +189,9 @@ export function ExpenseFields({ expense, cards, remembered, openAdvanced=false, 
     </div>
   </>;
 }
-export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onConfirmReview,budgets,onEditBudget,members,envelopes,envelopeEntries,settlements,onAddEnvelope,onEnvelopeEntry,onDeleteEnvelope,onMarkSettled,onUnsettle,onToggleRegret,onOpenChat,onAddRecurringFrom,onCapture,settlementOn=false}: {
+export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMonth,onAddCard,onEditCard,onEditExpense,onDeleteExpense,busy,view,setView,report,recurring,onAddRecurring,onToggleRecurring,onDeleteRecurring,onConfirmReview,onRegisterCard,budgets,onEditBudget,members,envelopes,envelopeEntries,settlements,onAddEnvelope,onEnvelopeEntry,onDeleteEnvelope,onMarkSettled,onUnsettle,onToggleRegret,onOpenChat,onAddRecurringFrom,onCapture,settlementOn=false}: {
   entries:Entry[];onOpenWork:(entry:Entry,date:string)=>void;cards:Card[];expenses:Expense[];uid:string;month:string;setMonth:(m:string)=>void;onAddCard:()=>void;onEditCard:(c:Card)=>void;onEditExpense:(e:Expense)=>void;onDeleteExpense:(e:Expense)=>void;busy:boolean;
-  view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onConfirmReview:(e:Expense)=>void;
+  view:FinanceView;setView:(v:FinanceView)=>void;report:Report;recurring:RecurringExpense[];onAddRecurring:()=>void;onToggleRecurring:(r:RecurringExpense)=>void;onDeleteRecurring:(r:RecurringExpense)=>void;onConfirmReview:(e:Expense)=>void;onRegisterCard?:(s:CardSuggestion)=>void;
   budgets:Budget[];onEditBudget:()=>void;members:Member[];envelopes:Envelope[];envelopeEntries:EnvelopeEntry[];settlements:Settlement[];
   onAddEnvelope:()=>void;onEnvelopeEntry:(e:Envelope,amount:number)=>void;onDeleteEnvelope:(e:Envelope)=>void;onMarkSettled:(month:string)=>void;onUnsettle:(month:string)=>void;onToggleRegret:(e:Expense)=>void;onOpenChat:(e:Expense)=>void;onAddRecurringFrom:(c:{title:string;amount:number;day:number})=>void;onCapture:()=>void;settlementOn?:boolean;
 }) {
@@ -207,7 +210,7 @@ export function FinancePanel({entries,onOpenWork,cards,expenses,uid,month,setMon
   const tabs=<div className="payment-tabs finance-views" role="group" aria-label="가계부 보기"><button aria-pressed={view==='list'} onClick={()=>setView('list')}>내역</button><button aria-pressed={view==='report'} onClick={()=>setView('report')}>리포트</button><button aria-pressed={view==='recurring'} onClick={()=>setView('recurring')}>반복·적립</button><button aria-pressed={view==='review'} onClick={()=>setView('review')}>확인 대기{pending.length>0&&<b className="tab-badge">{pending.length}</b>}</button></div>;
   if(view==='report') return <>{tabs}<ReportPanel report={report} month={month} setMonth={setMonth} budget={status} onEditBudget={onEditBudget} expenses={expenses} members={members} cards={cards} settlements={settlements} onMarkSettled={onMarkSettled} onUnsettle={onUnsettle} settlementOn={settlementOn}/></>;
   if(view==='recurring') return <>{tabs}<RecurringPanel items={recurring} cards={cards} busy={busy} onAdd={onAddRecurring} onToggle={onToggleRecurring} onDelete={onDeleteRecurring} expenses={expenses} onAddFrom={onAddRecurringFrom}/><EnvelopePanel envelopes={envelopes} entries={envelopeEntries} members={members} uid={uid} busy={busy} onAdd={onAddEnvelope} onEntry={onEnvelopeEntry} onDelete={onDeleteEnvelope}/></>;
-  if(view==='review') return <>{tabs}<ReviewQueue items={pending} cards={cards} busy={busy} onConfirm={onConfirmReview} onEdit={onEditExpense} onDelete={onDeleteExpense}/></>;
+  if(view==='review') return <>{tabs}<ReviewQueue items={pending} cards={cards} busy={busy} onConfirm={onConfirmReview} onEdit={onEditExpense} onDelete={onDeleteExpense} suggestions={suggestCards(expenses,cards)} onRegisterCard={onRegisterCard}/></>;
   const selectableCards=cards.filter(c=>(scope==='all'||c.owner_user_id===uid)&&(methodFilter==='all'||(c.card_type || 'credit')===methodFilter));
   const visibleCards=selectableCards.filter(c=>cardId==='all'||c.id===cardId);
   const visibleExpenses=expenses.filter(e=>e.card_id?visibleCards.some(c=>c.id===e.card_id):cardId==='all'&&(scope==='all'||e.created_by===uid)&&matchesPaymentFilter(e,methodFilter));

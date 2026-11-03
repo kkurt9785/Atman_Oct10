@@ -3,7 +3,7 @@
 //   POST /functions/v1/ingest?token=…   body: {"text": "..."} or {"title","subtitle","body","app","via"} | text/plain | form field "text"   (or header x-ingest-token)
 //   Every delivery is recorded in hg_inbox with its outcome (saved / duplicate / ignored / unparsed).
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule, nonTransactionReason } from '../_shared/cardsms.core.ts';
+import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule, nonTransactionReason, selfTransferWallet } from '../_shared/cardsms.core.ts';
 
 type Card = { id: string; name: string; holder: string; benefit_note: string | null; card_type: 'credit' | 'debit' | null };
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -85,9 +85,11 @@ Deno.serve(async req => {
   }
   const cardId = matchCard(parsed, (cards ?? []) as Card[]);
   const payment = parsed.channel === 'bank_transfer' ? 'bank_transfer' : cardId ? 'card' : 'other';
+  // Topping up the family's own pay wallet (토스 김기한) is a transfer between pockets; it still lands in review so it can be corrected.
+  const wallet = selfTransferWallet(text);
   const row = {
-    family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : parsed.merchant, amount: parsed.amount, date: parsed.date, category: rule?.category ?? parsed.category,
-    scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
+    family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : wallet ? `${wallet} 충전` : parsed.merchant, amount: parsed.amount, date: parsed.date, category: rule?.category ?? parsed.category,
+    kind: wallet ? 'transfer' : 'expense', scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
   };
   const inserted = await admin.from('hg_expenses').insert(row).select('id').single();
   if (inserted.error) {

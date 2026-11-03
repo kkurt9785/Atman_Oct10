@@ -1,5 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { cardProgress, parseThresholds, qualifyingAmount, shiftMonth, validateQualifyingAmount } from './finance';
+import { cardProgress, learnKeyword, parseThresholds, qualifyingAmount, shiftMonth, validateQualifyingAmount } from './finance';
+
+describe('rule keyword learning (2026-11-03 audit)', () => {
+  it.each([
+    ['롯데쇼핑(주)롯데마트', '롯데쇼핑'], ['우지커피 구로한', '우지커피'], ['바나프레소 영등포문', '바나프레소'], ['경일석유(주)덕', '경일석유'],
+    ['삼성드림소아청소년과', '삼성드림소아청소년과'], ['GS25 구로점', 'gs25'], ['CU 편의점', '편의점'],
+  ])('learns a merchant word from %s', (title, keyword) => { expect(learnKeyword(title)).toBe(keyword); });
+  it.each(['1544-7000', 'MG', 'WON뱅킹 입', '계좌이체', '간편 할인', 'CU'])('refuses to learn a bank, channel or fragment: %s', title => {
+    expect(learnKeyword(title)).toBe('');
+  });
+});
 import type { Card, Expense } from './model';
 const card:Card={id:'card',family_id:'f',name:'test',holder:'',budget:1000000,credit_limit:3000000,performance_thresholds:[300000,500000],excluded_categories:['세금']};
 const expense=(amount:number,extra:Partial<Expense>={}):Expense=>({id:'x',family_id:'f',card_id:'card',title:'test',amount,date:'2026-10-10',category:'식비',created_by:'me',...extra});
