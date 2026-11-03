@@ -11,9 +11,10 @@ export function paymentLabel(row: PaymentRow): string {
   if (row.kind === 'transfer') return '본인 계좌 간 이동';
   if (row.payment_method === 'cash') return '현금';
   const parsed = inferredPayment(row);
+  // No "카드 미등록" nag: the feed describes what happened; registering a card is an optional step under 카드.
   if (parsed?.channel === 'credit' || parsed?.channel === 'debit') {
     const type = parsed.channel === 'debit' ? '체크카드' : '신용카드';
-    return `${parsed.issuer ? `${parsed.issuer} ` : ''}${type} · 카드 미등록`;
+    return `${parsed.issuer ? `${parsed.issuer} ` : ''}${type}`;
   }
   if (row.payment_method === 'bank_transfer') return '계좌이체';
   if (row.payment_method === 'card') return '카드';
@@ -22,7 +23,7 @@ export function paymentLabel(row: PaymentRow): string {
 
 export function categoryLabel(row: PaymentRow): string {
   if (row.kind === 'transfer') return '자금 이동';
-  return row.category === '기타' && ['push', 'sms', 'ocr'].includes(row.source ?? '') ? '분류 미확인' : row.category;
+  return row.category; // 기타 is just 기타 — never a "분류 미확인" chore
 }
 
 export function matchesPaymentFilter(row: PaymentRow, filter: string): boolean {

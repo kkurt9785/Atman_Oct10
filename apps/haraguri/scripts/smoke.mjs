@@ -41,7 +41,11 @@ try {
   await page.getByRole('heading',{name:'우리의 하루를 함께.'}).waitFor();
   const dialog = page.getByRole('dialog');
   const moreFields = async () => { const b = dialog.getByRole('button',{name:/^자세히/}); if (await b.count()) await b.click(); }; // expense form hides date/method/card until asked
-  const openFold = async name => { const fold = page.locator('details.fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); };
+  // The money tab shows one feed; 리포트·반복·적립·카드 sit behind '더 보기'. Card folds live in the 카드 view.
+  const views = page.getByRole('group',{name:'가계부 보기'});
+  const openMore = async () => { const b = views.getByRole('button',{name:'더 보기 ▾'}); if (await b.count()) await b.click(); };
+  const toView = async name => { await openMore(); await views.getByRole('button',{name,exact:true}).click(); };
+  const openFold = async name => { await toView('카드'); const fold = page.locator('details.fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); };
   // The shared card message is offered as an expense and pre-fills the form.
   await dialog.getByRole('heading',{name:'공유받은 항목'}).waitFor();
   await dialog.getByRole('button',{name:'₩ 카드 결제로 가계부에 기록'}).click();
@@ -132,10 +136,13 @@ try {
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.getByText('190,000원 남았어요',{exact:true}).waitFor();
   // One switch per transaction: counts toward the card's performance or not.
+  await toView('피드');
   await page.getByRole('button',{name:'실적 테스트 수정'}).click();
   await dialog.getByLabel(/이 거래는 카드 실적에서 제외/).check();
   await dialog.getByRole('button',{name:'저장하기'}).click();
+  await toView('카드');
   await page.getByText('300,000원 남았어요',{exact:true}).waitFor();
+  await toView('피드');
   await page.getByRole('button',{name:'실적 테스트 수정'}).click();
   assert.equal(await dialog.getByLabel(/이 거래는 카드 실적에서 제외/).isChecked(),true);
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
@@ -147,6 +154,7 @@ try {
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('500000');
   await dialog.getByLabel('날짜',{exact:true}).fill('2026-03-11');
   await dialog.getByRole('button',{name:'저장하기'}).click();
+  await toView('피드');
   await page.getByRole('button',{name:/^필터/}).click(); // filters are folded away by default
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'계좌이체',exact:true}).click();
   await page.getByText('월세 이체',{exact:true}).waitFor();
@@ -157,6 +165,7 @@ try {
   await page.getByRole('button',{name:'우리 생활비 카드 설정'}).click();
   await dialog.locator('select[name=card_type]').selectOption('debit');
   await dialog.getByRole('button',{name:'저장하기'}).click();
+  await toView('피드');
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'체크카드',exact:true}).click();
   await page.getByText('실적 테스트',{exact:true}).waitFor();
   assert.equal(await page.getByText('월세 이체',{exact:true}).count(),0);
@@ -174,9 +183,8 @@ try {
   await page.getByRole('group',{name:'결제 수단 필터'}).getByRole('button',{name:'전체',exact:true}).click();
   await page.getByLabel('가계부 조회 월').fill(smsMonth); // the list shows the month being viewed, not the month just saved
   await page.getByText('동네마트',{exact:true}).waitFor();
-  await page.getByText('확인을 기다려요',{exact:false}).waitFor(); // pending strip + inline confirm on the unreviewed row
-  if (smsMonth === todayStr.slice(0,7)) await page.getByRole('button',{name:'편의점 CU 확인'}).waitFor();
-  // Ledger views: report numbers, recurring add, review queue confirm.
+  if (smsMonth === todayStr.slice(0,7)) await page.locator('.finance-expense').filter({hasText:'편의점 CU'}).waitFor(); // collected rows sit in the feed like any other — no review queue
+  await openMore();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
   await page.getByText(`${smsMonth} 총지출`,{exact:true}).waitFor();
   await page.getByRole('heading',{name:'자주 쓴 곳 TOP 5'}).waitFor();
@@ -188,11 +196,15 @@ try {
   await dialog.locator('select[name=payment_method]').selectOption('cash');
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.getByText('넷플릭스',{exact:true}).waitFor();
-  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:/확인 대기/}).click();
-  await page.getByText('편의점 CU',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'확인',exact:true}).click();
-  await page.getByText('확인할 자동 등록 건이 없어요',{exact:false}).waitFor();
-  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
+  // In-place classification: the category tag on a feed row opens chips; one tap files it (same-merchant rows follow).
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'피드'}).click();
+  await page.getByLabel('가계부 조회 월').fill(todayStr.slice(0,7)); // the demo's collected row is dated today
+  const cuRow=page.locator('.finance-expense').filter({hasText:'편의점 CU'});
+  await cuRow.getByRole('button',{name:/식비/}).click();
+  await cuRow.getByRole('button',{name:'더보기',exact:true}).click();
+  await cuRow.getByRole('group',{name:'분류 고르기'}).getByRole('button',{name:/생활/}).click();
+  await page.getByRole('status').filter({hasText:'생활로 정리했어요'}).waitFor();
+  await cuRow.getByRole('button',{name:/생활/}).waitFor();
   await page.getByLabel('가계부 조회 월').fill('2026-03');
   await page.getByRole('button',{name:'다음 달',exact:true}).click(); // one tap per month instead of opening the picker
   assert.equal(await page.getByLabel('가계부 조회 월').inputValue(),'2026-04');
@@ -226,10 +238,11 @@ try {
   await dialog.getByRole('button',{name:'저장하기'}).click();
   await page.locator('.finance-expense').filter({hasText:'본인 계좌 간 이동'}).getByText('자금 이동 · 집계 제외',{exact:true}).waitFor();
   assert.equal(await page.locator('.fin-figures > div').nth(0).locator('strong').innerText(),spentBefore,'Own-account movement must not change spending');
+  await openMore();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'리포트'}).click();
   await page.getByText('수입 · 남는 돈',{exact:true}).waitFor();
   await page.getByText('예산 2,000,000원 중',{exact:false}).waitFor();
-  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'피드'}).click();
   // Learned rule: saving '스타벅스 강남' as 교통 teaches the family; the next '스타벅스 …' pre-selects 교통.
   await page.getByRole('button',{name:'지출 기록',exact:true}).click();
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('4500');
@@ -266,6 +279,7 @@ try {
   await page.locator('.finance-expense').filter({hasText:'이마트 성수점'}).waitFor();
   await page.locator('.finance-expense').filter({hasText:'다이소'}).waitFor();
   // Envelopes: the demo envelope takes a deposit through the amount prompt (50,000).
+  await openMore();
   await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'반복·적립'}).click();
   await page.locator('.envelope').filter({hasText:'자동차세'}).getByRole('button',{name:'＋ 넣기'}).click();
   await page.locator('.envelope').filter({hasText:'자동차세'}).getByText('150,000원',{exact:true}).waitFor();
@@ -274,7 +288,7 @@ try {
   await page.getByRole('heading',{name:'월말 정산'}).waitFor();
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button',{name:'CSV 내려받기'}).click()]);
   assert.equal(download.suggestedFilename(),'haraguri-2026-03.csv');
-  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'내역'}).click();
+  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'피드'}).click();
 
 
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
@@ -308,7 +322,8 @@ try {
   await page.locator('.reply-preview').filter({hasText:'가족 기본방 테스트'}).waitFor();
   await page.getByLabel('메시지',{exact:true}).fill('답장이에요');
   await page.getByRole('button',{name:'보내기',exact:true}).click();
-  await page.locator('.chat-line').filter({hasText:'답장이에요'}).locator('.quote').filter({hasText:'가족 기본방 테스트'}).waitFor();
+  await page.locator('.chat-bubble:not(.pending)').filter({hasText:'답장이에요'}).waitFor(); // the pending bubble lingers a few hundred ms after the real row lands
+  await page.locator('.chat-line').filter({hasText:'답장이에요'}).filter({hasNot:page.locator('.chat-bubble.pending')}).locator('.quote').filter({hasText:'가족 기본방 테스트'}).waitFor();
   await baseMsg.locator('.chat-bubble:not(.pending)').click({button:'right'});
   await baseMsg.getByRole('menuitem',{name:'👍 반응',exact:true}).click();
   await baseMsg.locator('.reaction-chips button').filter({hasText:'👍 1'}).waitFor();

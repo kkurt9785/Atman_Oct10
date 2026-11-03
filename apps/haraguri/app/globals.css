@@ -76,3 +76,9 @@ input[readonly],select:disabled,textarea[readonly]{background:#f3f4ef;color:#6b7
 /* 확인 대기·분류 미확인: 행 안 분류 칩 + 목록 상단 정리 스트립 */
 .cat-chips{margin:8px 0 0}.cat-chips .chip{min-height:30px;padding:3px 10px;font-size:12px}.cat-chips .chip.more{border-style:dashed;color:var(--muted)}
 .pending-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.pending-strip button{float:none;margin-left:auto;font-weight:600}
+/* 돈 탭 = 피드 하나 + '더 보기'. 행은 누가·언제·어떻게, 분류는 조용한 태그(기타면 '분류 넣기') */
+.finance-views{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.view-pill{min-height:34px;padding:4px 14px;border-radius:17px;border:1px solid #d7dbd2;background:#fff;color:#4b534d;font-size:13px}.view-pill.on{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}.view-pill.more{border-style:dashed;color:var(--muted)}
+.feed-row .who{width:30px;height:30px;border-radius:50%;background:#eef2ea;color:#3f5a4a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;margin-right:6px}
+.cat-tag{display:inline;min-height:0;padding:0 2px;font-size:12px;vertical-align:baseline}.cat-tag.empty{color:var(--green);text-decoration:underline dotted}.feed-row .cat-chips{margin-top:6px}.feed-row .cat-chips .peers{flex-basis:100%;font-size:11px}
+/* 가족 채팅에 흐르는 결제 한 줄 */
+.chat-expense{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:14px;background:#f6f8f3;border:1px dashed #d7dbd2;font-size:13px;max-width:100%}.chat-expense b{display:block;font-size:13px;overflow-wrap:anywhere}.chat-expense small{color:var(--muted);font-size:11px}.chat-expense .text-button{margin-left:auto;min-height:28px;font-size:12px;white-space:nowrap}

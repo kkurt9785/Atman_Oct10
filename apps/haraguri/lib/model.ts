@@ -14,7 +14,7 @@ export type Card = {
 export type Expense = {
   id: string; family_id: string; card_id: string | null; title: string; amount: number; date: string; category: string; created_by: string;
   entry_id?: string | null; occurrence?: string | null; payment_method?: 'card' | 'bank_transfer' | 'cash' | 'other'; qualifying_amount?: number | null; performance_month?: string | null;
-  source?: 'manual' | 'sms' | 'recurring' | 'ocr' | 'ai' | 'push'; reviewed?: boolean; raw_text?: string | null; kind?: 'expense' | 'income' | 'transfer';
+  created_at?: string; source?: 'manual' | 'sms' | 'recurring' | 'ocr' | 'ai' | 'push'; reviewed?: boolean; raw_text?: string | null; kind?: 'expense' | 'income' | 'transfer';
   note?: string; cancels?: string | null; canceled_by?: string | null; scope?: 'shared' | 'personal'; regret?: boolean;
 };
 export type CategoryRule = { id: string; family_id: string; keyword: string; category: string; scope?: 'shared' | 'personal' | null };
