@@ -46,6 +46,7 @@ try {
   const openMore = async () => { const b = views.getByRole('button',{name:'더 보기 ▾'}); if (await b.count()) await b.click(); };
   const toView = async name => { await openMore(); await views.getByRole('button',{name,exact:true}).click(); };
   const openFold = async name => { await toView('카드'); const fold = page.locator('details.fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); };
+  const openSettingsFold = async name => { const fold = page.locator('details.settings-fold').filter({hasText:name}); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); }; // 가족 초대·다른 모임 are folded in 설정
   const openReportDetail = async () => { const fold = page.locator('details.report-detail'); if (!(await fold.evaluate(el => el.open))) await fold.locator(':scope > summary').click(); }; // 리포트 = card first, tables under '자세히'
   // The shared card message is offered as an expense and pre-fills the form.
   await dialog.getByRole('heading',{name:'공유받은 항목'}).waitFor();
@@ -375,6 +376,7 @@ try {
   await page.locator('.member-row').filter({hasText:'(나)'}).getByRole('button',{name:'이름 바꾸기'}).click();
   await page.locator('.member-row').filter({hasText:'테스트 이름 (나)'}).waitFor();
   // Owner-side invite tools: nickname/email target form and the link/code section both render.
+  await openSettingsFold('가족 초대');
   await page.getByLabel('카카오 닉네임 또는 이메일').waitFor();
   await page.getByRole('heading',{name:'초대 링크·코드'}).waitFor();
   await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'우리집'}).click();
