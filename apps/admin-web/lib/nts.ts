@@ -17,6 +17,12 @@ export function normalizeServiceKey(raw: string | undefined | null): string {
   return key;
 }
 
+// 진단용: 저장된 키의 형태만(길이·base64 여부). 정상 공공데이터포털 키는 디코딩 기준 88자 base64('=='로 끝남). 값은 절대 돌려주지 않는다.
+export function serviceKeyShape(raw: string | undefined | null): { length: number; base64: boolean } {
+  const key = normalizeServiceKey(raw);
+  return { length: key.length, base64: key.length > 0 && /^[A-Za-z0-9+/]+={0,2}$/.test(key) };
+}
+
 // 점검용: 실패 이유까지 돌려준다(키 값은 절대 담지 않음). odcloud 오류 예 — HTTP 401 {code:-4,"등록되지 않은 인증키"}(오타·활성 전), {code:-401}(키 없음)
 export async function probeBusinessStatus(brn: string): Promise<{ ok: true; result: BusinessStatusResult } | { ok: false; reason: string }> {
   const key = normalizeServiceKey(process.env.NTS_BUSINESS_API_KEY);

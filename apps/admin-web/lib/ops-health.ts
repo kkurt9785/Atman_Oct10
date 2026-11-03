@@ -3,7 +3,7 @@ import { adminClient } from './supabase';
 import { platformAdminEmails, platformAdminUserIds } from './platform-admin';
 import { nudgeNotificationDispatch } from './notify-nudge';
 import { todayKST } from './date';
-import { probeBusinessStatus, BUSINESS_STATUS_LABEL } from './nts';
+import { probeBusinessStatus, serviceKeyShape, BUSINESS_STATUS_LABEL } from './nts';
 
 // 국세청 조회 점검용 번호 — 잇닿(케셰르) 자기 사업자등록번호(사이트 하단에 공개). 키가 살아 있으면 '계속사업자'가 나와야 한다.
 const NTS_PROBE_BRN = process.env.NTS_PROBE_BRN ?? '4814401177';
@@ -16,7 +16,8 @@ async function complianceChecks(sb: NonNullable<ReturnType<typeof adminClient>>)
   } else {
     const probe = await probeBusinessStatus(NTS_PROBE_BRN);
     out.push(!probe.ok
-      ? { key: 'nts', label: '국세청 사업자 조회', level: 'error', count: null, detail: `조회 실패 · ${probe.reason}${probe.reason.includes('코드 -4') ? ' (키 오타이거나 발급 직후 활성 대기)' : ''}` }
+      ? (() => { const shape = serviceKeyShape(process.env.NTS_BUSINESS_API_KEY); const shapeNote = shape.length === 88 && shape.base64 ? '키 형태 정상(88자)' : `키 형태 이상(${shape.length}자${shape.base64 ? '' : '·허용 외 문자'}) — 포털 키를 다시 복사해 넣어 주세요`;
+          return { key: 'nts', label: '국세청 사업자 조회', level: 'error' as const, count: null, detail: `조회 실패 · ${probe.reason} · ${shapeNote}${probe.reason.includes('코드 -4') && shape.length === 88 && shape.base64 ? ' · 발급 직후 활성 대기일 가능성이 커요' : ''}` }; })()
       : probe.result.status === 'active'
         ? { key: 'nts', label: '국세청 사업자 조회', level: 'ok', count: null, detail: `점검용 번호 ${BUSINESS_STATUS_LABEL.active}` }
         : { key: 'nts', label: '국세청 사업자 조회', level: 'warn', count: null, detail: `조회는 되지만 점검용 번호가 ${BUSINESS_STATUS_LABEL[probe.result.status] ?? probe.result.status}` });
