@@ -17,8 +17,10 @@ export async function GET(request: NextRequest) {
   try {
     const run = await runHealthCheck('cron');
     const problems = run.checks.filter((c) => c.level !== 'ok').map((c) => `${c.level}:${c.key}`);
+    // CRON_SECRET 로 보호된 응답이라 문제 항목의 사유도 함께 돌려준다(사유 문자열에는 비밀값이 들어가지 않는다)
+    const details = Object.fromEntries(run.checks.filter((c) => c.level !== 'ok').map((c) => [c.key, c.detail]));
     console.log('[cron/health-check]', run.status, problems);
-    return NextResponse.json({ ok: true, status: run.status, problems });
+    return NextResponse.json({ ok: true, status: run.status, problems, details });
   } catch (error) {
     console.error('[cron/health-check]', error);
     return NextResponse.json({ error: 'Health check failed' }, { status: 500 });

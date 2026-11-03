@@ -17,6 +17,27 @@ export function normalizeServiceKey(raw: string | undefined | null): string {
   return key;
 }
 
+// 점검용: 실패 이유까지 돌려준다(키 값은 절대 담지 않음). odcloud 오류 예 — HTTP 401 {code:-4,"등록되지 않은 인증키"}(오타·활성 전), {code:-401}(키 없음)
+export async function probeBusinessStatus(brn: string): Promise<{ ok: true; result: BusinessStatusResult } | { ok: false; reason: string }> {
+  const key = normalizeServiceKey(process.env.NTS_BUSINESS_API_KEY);
+  const digits = brn.replace(/\D/g, '');
+  if (!key) return { ok: false, reason: '키 미설정' };
+  if (digits.length !== 10) return { ok: false, reason: '점검용 번호 형식 오류' };
+  try {
+    const res = await fetch(`https://api.odcloud.kr/api/nts-businessman/v1/status?serviceKey=${encodeURIComponent(key)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ b_no: [digits] }), cache: 'no-store', signal: AbortSignal.timeout(8000),
+    });
+    const body = await res.json().catch(() => null) as { code?: number; msg?: string; data?: Array<{ b_stt?: string; b_stt_cd?: string; tax_type?: string }> } | null;
+    if (!res.ok) return { ok: false, reason: `HTTP ${res.status}${body?.code != null ? ` · 코드 ${body.code}` : ''}${body?.msg ? ` · ${String(body.msg).slice(0, 40)}` : ''}` };
+    const row = body?.data?.[0];
+    if (!row) return { ok: false, reason: '응답에 조회 결과 없음' };
+    return { ok: true, result: { status: CODE[row.b_stt_cd ?? ''] ?? 'unknown', detail: [row.b_stt, row.tax_type].filter(Boolean).join(' · ') || '조회 결과 없음', checkedAt: new Date().toISOString() } };
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error && error.name === 'TimeoutError' ? '8초 안에 응답 없음' : '접속 실패' };
+  }
+}
+
 export async function checkBusinessStatus(brn: string): Promise<BusinessStatusResult | null> {
   const key = normalizeServiceKey(process.env.NTS_BUSINESS_API_KEY);
   const digits = brn.replace(/\D/g, '');

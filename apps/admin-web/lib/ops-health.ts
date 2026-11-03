@@ -3,7 +3,7 @@ import { adminClient } from './supabase';
 import { platformAdminEmails, platformAdminUserIds } from './platform-admin';
 import { nudgeNotificationDispatch } from './notify-nudge';
 import { todayKST } from './date';
-import { checkBusinessStatus, BUSINESS_STATUS_LABEL } from './nts';
+import { probeBusinessStatus, BUSINESS_STATUS_LABEL } from './nts';
 
 // 국세청 조회 점검용 번호 — 잇닿(케셰르) 자기 사업자등록번호(사이트 하단에 공개). 키가 살아 있으면 '계속사업자'가 나와야 한다.
 const NTS_PROBE_BRN = process.env.NTS_PROBE_BRN ?? '4814401177';
@@ -14,12 +14,12 @@ async function complianceChecks(sb: NonNullable<ReturnType<typeof adminClient>>)
   if (!process.env.NTS_BUSINESS_API_KEY) {
     out.push({ key: 'nts', label: '국세청 사업자 조회', level: 'error', count: null, detail: 'NTS_BUSINESS_API_KEY 미설정 · 휴·폐업 사업장 자동 차단이 멈춰 있어요' });
   } else {
-    const probe = await checkBusinessStatus(NTS_PROBE_BRN);
-    out.push(!probe
-      ? { key: 'nts', label: '국세청 사업자 조회', level: 'error', count: null, detail: '국세청 응답 없음 · 키 활성 전(발급 후 약 1시간)·만료·장애 중 하나' }
-      : probe.status === 'active'
+    const probe = await probeBusinessStatus(NTS_PROBE_BRN);
+    out.push(!probe.ok
+      ? { key: 'nts', label: '국세청 사업자 조회', level: 'error', count: null, detail: `조회 실패 · ${probe.reason}${probe.reason.includes('코드 -4') ? ' (키 오타이거나 발급 직후 활성 대기)' : ''}` }
+      : probe.result.status === 'active'
         ? { key: 'nts', label: '국세청 사업자 조회', level: 'ok', count: null, detail: `점검용 번호 ${BUSINESS_STATUS_LABEL.active}` }
-        : { key: 'nts', label: '국세청 사업자 조회', level: 'warn', count: null, detail: `조회는 되지만 점검용 번호가 ${BUSINESS_STATUS_LABEL[probe.status] ?? probe.status}` });
+        : { key: 'nts', label: '국세청 사업자 조회', level: 'warn', count: null, detail: `조회는 되지만 점검용 번호가 ${BUSINESS_STATUS_LABEL[probe.result.status] ?? probe.result.status}` });
   }
   const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
   const monthAgo = new Date(Date.now() - 35 * 86_400_000).toISOString();
