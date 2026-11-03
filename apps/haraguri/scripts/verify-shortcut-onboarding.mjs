@@ -54,7 +54,10 @@ try {
   // 1 · 단축어 추가: jumps straight into the Shortcuts add sheet; the iCloud page stays as a fallback link
   const install = card.getByRole('link', { name: '단축어 추가', exact: true });
   await install.waitFor();
-  assert.equal(await install.getAttribute('href'), `shortcuts://import-shortcut?url=${encodeURIComponent(release.icloud_url)}`);
+  const importUrl = new URL(await install.getAttribute('href'));
+  assert.equal(importUrl.protocol + importUrl.host + importUrl.pathname, 'shortcuts:x-callback-url/import-shortcut', 'install goes straight to the Shortcuts add sheet');
+  assert.equal(importUrl.searchParams.get('url'), release.icloud_url);
+  assert.equal(importUrl.searchParams.get('x-success'), `${new URL(page.url()).origin}/pair`, 'after 추가, iOS returns to /pair which connects without another button');
   assert.equal(await card.getByRole('link', { name: 'iCloud에서 열기', exact: true }).getAttribute('href'), release.icloud_url);
   assert.equal(await card.getByRole('link', { name: '단축어 받기', exact: true }).count(), 0, 'no .shortcut download on an iCloud install');
   await card.getByRole('button', { name: '이미 추가했어요', exact: true }).click();
@@ -108,9 +111,17 @@ try {
   assert.equal(await card.getByRole('heading', { name: '수집 중 ✓' }).count(), 0, 'old payments cannot confirm a new address');
   await card.getByRole('button', { name: '연결하기', exact: true }).waitFor();
   assert.equal(check(await client.from('hg_inbox').select('id').eq('family_id', familyId), 'historical inbox').length, 34, 'rotating an address preserves the historical inbox');
+  const origin = new URL(page.url()).origin;
+  // The x-success landing: /pair with no code, one family → mints a code and offers the run link by itself (the automatic launch is the same URL).
+  await page.goto(`${origin}/pair`);
+  const autoLink = page.getByRole('link', { name: '단축어로 연결 계속하기' });
+  await autoLink.waitFor({ timeout: 15000 });
+  const auto = new URL(await autoLink.getAttribute('href'));
+  assert.equal(auto.protocol, 'shortcuts:');
+  assert.ok(/^[0-9a-f]{48}$/.test(auto.searchParams.get('text')), '/pair minted a fresh pairing code without a tap');
+  assert.equal(await page.getByRole('link', { name: '하라구리 가계부로 돌아가기' }).getAttribute('href'), '/?tab=money&collect=1');
   // Error callback retries the same unused code in NFD once, never after claim.
   const retry = check(await client.rpc('hg_create_shortcut_pairing', { family: familyId }), 'retry code');
-  const origin = new URL(page.url()).origin;
   await page.goto(`${origin}/pair?pairRetry=nfd&code=${retry.code}`);
   const retryLink = page.getByRole('link', { name: '단축어로 연결 계속하기' });
   await retryLink.waitFor();
@@ -123,7 +134,7 @@ try {
   assert.equal(await retryLink.count(), 0, 'second callback does not launch again');
   assert.equal((await post(`${cfg.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/shortcut-pair`, { code: retry.code })).status, 200);
   await page.goto(`${origin}/pair?pairRetry=nfd&code=${retry.code}`);
-  await page.getByRole('status').filter({ hasText: '연결 정보가 단축어에 전달됐어요' }).waitFor();
+  await page.getByRole('status').filter({ hasText: '연결됐어요 ✓' }).waitFor();
   assert.equal(await retryLink.count(), 0, 'a consumed code is not relaunched');
   assert.deepEqual(errors, []);
   console.log('PASS: four-tab nav + 설정 button; 가계부 card walks 추가 → 연결하기 (two steps) with a fresh code per tap and one name fallback; setup ping ≠ payment; 수집 중 ✓ survives thirty alerts; rotated address needs fresh evidence; /pair callback retries once.');

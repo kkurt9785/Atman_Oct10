@@ -54,7 +54,7 @@ export default function PairPage() {
         if (status.error) throw new Error('연결 상태를 확인하지 못했어요. 자동 재시도는 중단했어요.');
         if (status.data === 'claimed') {
           localStorage.setItem('haraguri-shortcut-normalization', callback.get('shortcutNormalization') === 'NFD' ? 'NFD' : callback.get('shortcutNormalization') === 'NFC' ? 'NFC' : localStorage.getItem(`haraguri-pair-mode-${code}`) || 'NFC');
-          setMessage('연결 정보가 단축어에 전달됐어요. 가족 설정의 수신함에서 연결 테스트와 실제 알림 도착을 확인해 주세요.'); return;
+          setMessage('연결됐어요 ✓ 가계부 탭으로 돌아가면 “연결됨”이 보이고, 다음 카드 알림부터 자동으로 올라와요.'); return;
         }
         const key = `haraguri-pair-retried-${code}`;
         if (canRetryPairing(status.data, localStorage.getItem(key) === '1', callback.get('pairRetry'))) {
@@ -90,6 +90,6 @@ export default function PairPage() {
     {login && <form onSubmit={e => { e.preventDefault(); void signIn(); }}><label>이메일<input type="email" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)}/></label><button disabled={busy} type="submit">로그인 메일 받기</button></form>}
     {!login && !link && families.length > 0 && <ul>{families.map(f => <li key={f.id}><button disabled={busy} onClick={() => { void create(f.id); }}>{f.name}에 연결</button></li>)}</ul>}
     {link && <a className="button-link primary" href={link}>단축어로 연결 계속하기</a>}
-    <p><a href="/">하라구리로 돌아가기</a></p>
+    <p><a href="/?tab=money&collect=1">하라구리 가계부로 돌아가기</a></p>
   </main>;
 }

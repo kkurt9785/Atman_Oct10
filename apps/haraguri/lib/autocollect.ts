@@ -18,8 +18,12 @@ export function computeStage(i: { device: Device; installed: boolean; paired: bo
   return i.installed ? 'pair' : 'install';
 }
 
-// Deep link into the Shortcuts app's add sheet for an iCloud-shared shortcut (skips the Safari page).
-export const shortcutImportURL = (icloudUrl: string) => `shortcuts://import-shortcut?url=${encodeURIComponent(icloudUrl)}`;
+// Deep link into the Shortcuts app's add sheet for an iCloud-shared shortcut (skips the Safari page). With an origin, the
+// x-callback form brings the person straight back to /pair after they tap 추가, and /pair mints a code and runs the shortcut —
+// so "connect" happens without a second button. x-cancel returns to the card.
+export const shortcutImportURL = (icloudUrl: string, origin?: string) => origin
+  ? `shortcuts://x-callback-url/import-shortcut?url=${encodeURIComponent(icloudUrl)}&x-success=${encodeURIComponent(`${origin}/pair`)}&x-cancel=${encodeURIComponent(`${origin}/?tab=money&collect=1`)}`
+  : `shortcuts://import-shortcut?url=${encodeURIComponent(icloudUrl)}`;
 
 export function ago(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
