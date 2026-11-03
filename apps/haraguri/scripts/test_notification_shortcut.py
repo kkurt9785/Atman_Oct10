@@ -144,10 +144,13 @@ class NotificationShortcutTests(unittest.TestCase):
         self.assertIn('"WFDictionaryKey": "token"', json.dumps(workflow))
         self.assertNotIn('haraguri.collect.url.v1', json.dumps(workflow))
 
-    def test_unlinked_collector_opens_pair_page_instead_of_popup(self):
+    def test_unlinked_collector_stays_silent(self):
+        # Every notification from a chosen app runs the shortcut; before pairing it must neither pop an alert nor open Safari.
         workflow = builder.build_workflow(source_fixture())
-        self.assertIn('https://haraguri.vercel.app/pair', json.dumps(workflow))
-        self.assertNotIn('먼저 하라구리에서', json.dumps(workflow, ensure_ascii=False))
+        dumped = json.dumps(workflow, ensure_ascii=False)
+        self.assertNotIn('https://haraguri.vercel.app/pair', dumped)
+        self.assertNotIn('먼저 하라구리에서', dumped)
+        self.assertNotIn('is.workflow.actions.alert', dumped)
 
     def test_rebuilding_a_complete_source_skips_the_literal_setup_ping(self):
         first = builder.build_workflow(source_fixture())

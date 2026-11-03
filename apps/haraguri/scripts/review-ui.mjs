@@ -13,11 +13,11 @@ try{
  page.on('pageerror',e=>errors.push(e.message));
  await page.goto(process.env.BASE_URL||'http://127.0.0.1:3015');
  await page.getByRole('button',{name:'로그인 없이 미리보기'}).click();
- const tabs=['우리집','일정·할 일','가계부','대화','가족 설정'];
+ const tabs=['우리집','일정·할 일','가계부','대화','설정']; // 설정은 탭이 아니라 상단 ⚙ / 사이드바 버튼
  for(const width of [320,390,768,1440]){
   await page.setViewportSize({width,height:width>=768?1000:844});
   for(let i=0;i<tabs.length;i++){
-   await page.locator('nav:visible').getByRole('button',{name:tabs[i],exact:true}).first().click();
+   await (tabs[i]==='설정'?page.getByRole('button',{name:'설정',exact:true}):page.locator('nav:visible').getByRole('button',{name:tabs[i],exact:true})).first().click();
    await page.waitForTimeout(120);
    const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2);
    let violations=[];

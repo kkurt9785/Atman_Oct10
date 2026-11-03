@@ -352,7 +352,7 @@ try {
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   await page.getByRole('group',{name:'진행 상태'}).getByRole('button',{name:/진행 중/}).click();
   // Settings: rename yourself (prompt → '테스트 이름').
-  await page.getByRole('navigation',{name:'모바일 메뉴'}).getByRole('button',{name:'가족 설정'}).click();
+  await page.getByRole('button',{name:'설정',exact:true}).first().click();
   await page.locator('.member-row').filter({hasText:'(나)'}).getByRole('button',{name:'이름 바꾸기'}).click();
   await page.locator('.member-row').filter({hasText:'테스트 이름 (나)'}).waitFor();
   // Owner-side invite tools: nickname/email target form and the link/code section both render.

@@ -160,7 +160,7 @@ def build_workflow(source=None, manual_trigger=False):
         present, _, present_end = conditional(output(combined, 'Text'))
         actions.extend([stored, linked, *prefix, text, combined, present,
                         post(INGEST_URL, {'title': title, 'body': token(output(text, 'Text')), 'via': 'ios-notification'}, token(output(stored, 'Stored Content'))), present_end,
-                        unlinked, action('openurl', WFInput='https://haraguri.vercel.app/pair'), linked_end])
+                        unlinked, linked_end])  # not linked yet: stay silent — the app's 가계부 card tells the user what to do
     else:
         actions.append(action('showresult', Text='하라구리 설정에서 내 계정 연결 버튼으로 실행해 주세요.'))
     actions.append(end)

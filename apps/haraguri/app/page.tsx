@@ -12,7 +12,8 @@ import { CaptureImport, ImportRow } from '../components/CaptureImport';
 import type { OcrRow } from '../lib/ocr';
 import { budgetFor, budgetStatus } from '../lib/budget';
 import { PushPrefs } from '../components/PushPrefs';
-import { IngestSetup } from '../components/IngestSetup';
+import { AutoCollectBanner, AutoCollectCard, AutoCollectStatus, AutoCollectSummary } from '../components/AutoCollect';
+import { useAutoCollect } from '../lib/autocollect';
 import { monthlyReport } from '../lib/report';
 import { SharedItems, sharedFlag, takeSharedItems } from '../lib/share';
 import { parseCardMessage } from '../lib/cardsms';
@@ -33,7 +34,8 @@ type FormKind = 'entry' | 'expense' | 'card' | 'recurring' | 'budget' | 'envelop
 type InviteRow = { family_id: string; family_name: string; invited_by_name: string; matched: string };
 type TargetRow = { id: string; target: string; expires_at: string };
 type UnreadRow = { family_id: string; family_name: string; entry_id: string | null; occurrence: string | null; room_title: string; unread: number; latest_at: string; latest_body: string | null; latest_author: string | null };
-const tabs: [Tab, string, string][] = [['home', '⌂', '우리집'], ['calendar', '▦', '일정·할 일'], ['money', '₩', '가계부'], ['chat', '◌', '대화'], ['settings', '⚙', '가족 설정']];
+// 설정은 탭이 아니라 상단 ⚙ 버튼(모바일)·사이드바 맨 아래(데스크톱)로 간다. 하단 탭은 매일 쓰는 네 개만.
+const tabs: [Tab, string, string][] = [['home', '⌂', '우리집'], ['calendar', '▦', '일정·할 일'], ['money', '₩', '가계부'], ['chat', '◌', '대화']];
 // Snapshot tables: [key, table, order column, ascending, tiebreak column for stable paging]. Newest first so the 2,000-row window keeps recent records.
 const tables: [keyof Data, string, string, boolean, string | null][] = [['entries', 'hg_entries', 'date', false, 'id'], ['members', 'hg_members', 'user_id', true, null], ['receipts', 'hg_receipts', 'occurrence', false, 'id'], ['cards', 'hg_cards', 'name', true, 'id'], ['expenses', 'hg_expenses', 'date', false, 'id'], ['rooms', 'hg_rooms', 'occurrence', false, 'entry_id'], ['recurring', 'hg_recurring_expenses', 'day_of_month', true, 'id'], ['budgets', 'hg_budgets', 'month', false, null], ['rules', 'hg_category_rules', 'keyword', true, 'id'], ['envelopes', 'hg_envelopes', 'created_at', false, 'id'], ['envelopeEntries', 'hg_envelope_entries', 'date', false, 'id'], ['settlements', 'hg_settlements', 'month', false, null]];
 const tableLabel: Record<keyof Data, string> = { entries: '일정·할 일', members: '멤버', receipts: '확인 기록', cards: '카드', expenses: '지출', rooms: '대화 상태', recurring: '반복 지출', budgets: '예산', rules: '분류 규칙', envelopes: '적립 봉투', envelopeEntries: '적립 기록', settlements: '정산' };
@@ -84,9 +86,10 @@ export default function Home() {
   const [shared,setShared]=useState<SharedItems|null>(null);
   const [shareDest,setShareDest]=useState('general');
   const [push,setPush]=useState<PushState>('unsupported');
-  const [deepLink,setDeepLink]=useState<{tab?:Tab;open?:string}|null>(null);
+  const [deepLink,setDeepLink]=useState<{tab?:Tab;open?:string;collect?:boolean}|null>(null);
   const [plannerFocus,setPlannerFocus]=useState<string|null>(null);
   const [financeView,setFinanceView]=useState<FinanceView>('list');
+  const [collectOpen,setCollectOpen]=useState(false);
   const [pendingInvite,setPendingInvite]=useState<string>('');
   const [invites,setInvites]=useState<InviteRow[]>([]); // 모임 주인이 내 닉네임·이메일을 적어 둔 초대 — 로그인하면 바로 보인다
   const [targets,setTargets]=useState<TargetRow[]>([]);
@@ -171,7 +174,7 @@ export default function Home() {
     if (inviteParam && /^[0-9a-f-]{36}$/i.test(inviteParam)) { try { localStorage.setItem('haraguri-invite', inviteParam); } catch { /* private mode */ } }
     try { const stored = localStorage.getItem('haraguri-invite'); if (stored) setPendingInvite(stored); } catch { /* ignore */ }
     if (inviteParam) window.history.replaceState(null, '', '/');
-    if (params.get('tab') || params.get('open') || params.get('review')) { if (params.get('review')) setFinanceView('review'); setDeepLink({ tab: (params.get('tab') as Tab | null) ?? (params.get('review') ? 'money' : undefined), open: params.get('open') ?? undefined }); window.history.replaceState(null, '', '/'); }
+    if (params.get('tab') || params.get('open') || params.get('review') || params.get('collect')) { if (params.get('review')) setFinanceView('review'); setDeepLink({ tab: (params.get('tab') as Tab | null) ?? (params.get('review') || params.get('collect') ? 'money' : undefined), open: params.get('open') ?? undefined, collect: !!params.get('collect') }); window.history.replaceState(null, '', '/'); }
     refreshPush();
     // Items handed over from the Android share sheet (service worker POST /share → cache → here).
     const flag = sharedFlag(window.location.search);
@@ -278,6 +281,7 @@ export default function Home() {
   useEffect(()=>{
     if(!deepLink||!family||loading)return;
     if(deepLink.tab&&['home','calendar','money','chat','settings'].includes(deepLink.tab))setTab(deepLink.tab);
+    if(deepLink.collect)setCollectOpen(true);
     if(deepLink.open){const [id,date]=deepLink.open.split(':');const entry=data.entries.find(e=>e.id===id);if(entry)setSelected({entry,date:date||entry.date});}
     setDeepLink(null);
   },[deepLink,family,loading,data.entries]);
@@ -288,6 +292,7 @@ export default function Home() {
   const detailSocialLive=useRoomSocial({familyId:family?.id ?? '',room:selected,commentIds:detail.comments.map(c=>c.id),demo,version:chatVersion,enabled:!!family&&!!selected});
   const roomKeyOf=(room:Room)=>`${room?.entry.id ?? 'general'}:${room?.date ?? ''}`;
   const socialFor=(room:Room,live:typeof generalSocialLive)=>demo?{reactions:demoSocial.reactions,reads:[],pin:demoSocial.pins[roomKeyOf(room)]??null}:live;
+  const collect=useAutoCollect(family?.id ?? '',uid,!demo&&!!family&&!!user);
   const [highlightId,setHighlightId]=useState<string|null>(null);
   // Reactions toggle, pins replace per room, search is a plain ilike over the family's messages; demo keeps them in memory.
   async function react(commentId:string,emoji:string){
@@ -679,25 +684,28 @@ export default function Home() {
 
   const chatFull = tab==='chat' && chatView==='general' && !selected; // mobile: the general chat takes the whole screen, like a messenger
   return <div className="shell">
-    <aside className="sidebar"><a className="brand" href="/">HARAGURI<span>우리 가족의 하루</span></a><div className="family-label">{family.name}<span>{data.members.length}명이 함께해요</span></div><nav aria-label="주 메뉴">{tabs.map(([key, icon, title]) => <button key={key} aria-label={title} aria-current={tab === key ? 'page' : undefined} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}><span>{icon}</span>{title}{key==='chat'&&unreadFamilyTotal>0&&<b aria-label={`안 읽은 메시지 ${unreadFamilyTotal}개`}>{unreadFamilyTotal}</b>}</button>)}</nav><div className="sidebar-note">작은 일도 함께 나누면<br/>조금 더 가벼워지니까.</div><div className="profile"><span className="avatar" style={{ background: memberColor(data.members, uid).bg, color: memberColor(data.members, uid).fg }}>{name(uid).slice(0, 1)}</span><div>{name(uid)}<small>오늘도 반가워요</small></div></div></aside>
+    <aside className="sidebar"><a className="brand" href="/">HARAGURI<span>우리 가족의 하루</span></a><div className="family-label">{family.name}<span>{data.members.length}명이 함께해요</span></div><nav aria-label="주 메뉴">{tabs.map(([key, icon, title]) => <button key={key} aria-label={title} aria-current={tab === key ? 'page' : undefined} className={tab === key ? 'active' : ''} onClick={() => setTab(key)}><span>{icon}</span>{title}{key==='chat'&&unreadFamilyTotal>0&&<b aria-label={`안 읽은 메시지 ${unreadFamilyTotal}개`}>{unreadFamilyTotal}</b>}</button>)}<button aria-label="설정" aria-current={tab==='settings'?'page':undefined} className={tab==='settings'?'active':''} onClick={()=>setTab('settings')}><span>⚙</span>설정</button></nav><div className="sidebar-note">작은 일도 함께 나누면<br/>조금 더 가벼워지니까.</div><div className="profile"><span className="avatar" style={{ background: memberColor(data.members, uid).bg, color: memberColor(data.members, uid).fg }}>{name(uid).slice(0, 1)}</span><div>{name(uid)}<small>오늘도 반가워요</small></div></div></aside>
     <main className={`main ${chatFull?'chat-full':''}`}>
-      <header className="topbar"><span className="mobile-brand">HARAGURI</span><button className="text-button" aria-label={`알림 ${unseen.length || ''} 확인`} onClick={()=>{setTab('home');window.setTimeout(()=>document.getElementById('due-section')?.scrollIntoView({behavior:'smooth',block:'start'}),60);}}>알림 {unseen.length || ''}</button><span className="date-label">{new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}</span><div className="avatars">{data.members.map(m => { const c = memberColor(data.members, m.user_id); return <span className="avatar" style={{ background: c.bg, color: c.fg }} title={m.display_name} key={m.user_id}>{m.display_name.slice(0, 1)}</span>; })}</div></header>
+      <header className="topbar"><span className="mobile-brand">HARAGURI</span><button className="text-button" aria-label={`알림 ${unseen.length || ''} 확인`} onClick={()=>{setTab('home');window.setTimeout(()=>document.getElementById('due-section')?.scrollIntoView({behavior:'smooth',block:'start'}),60);}}>알림 {unseen.length || ''}</button><span className="date-label">{new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}</span><button type="button" className="icon-settings" aria-label="설정" aria-current={tab==='settings'?'page':undefined} onClick={()=>setTab('settings')}>⚙</button><div className="avatars">{data.members.map(m => { const c = memberColor(data.members, m.user_id); return <span className="avatar" style={{ background: c.bg, color: c.fg }} title={m.display_name} key={m.user_id}>{m.display_name.slice(0, 1)}</span>; })}</div></header>
       {spaces.length>1&&<div className="space-switcher"><label>현재 모임<select aria-label="현재 모임" value={family.id} disabled={busy||demo} onChange={e=>switchSpace(e.target.value)}>{spaces.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><button className="text-button" onClick={()=>setTab('settings')}>＋ 모임 만들기·참여</button></div>}
       {demo && <div className="demo-banner">미리보기 · 입력한 내용은 새로고침하면 초기화됩니다.<button onClick={() => { setDemo(false); setFamily(null); setData(emptyData); setDemoRooms({comments:[],attachments:[]}); setSelected(null); setForm(null); }}>로그인하기 ↗</button></div>}
       {banners}
       {invites.map(i => <div role="status" className="banner invite-banner" key={i.family_id}>📨 {i.invited_by_name}님이 ‘{i.family_name}’ 모임에 초대했어요.<button disabled={busy} onClick={() => run(() => acceptInvite(i))}>참여하기 →</button></div>)}
       {truncated.length > 0 && <div role="status" className="banner">기록이 많아 {truncated.map(k => tableLabel[k]).join('·')}은(는) 최근 {ROW_CAP.toLocaleString('ko-KR')}건까지만 표시해요. 합계는 표시된 범위 기준이에요.</div>}
-      <div className={`page-heading ${tab==="home"?"":"compact"}`}><div><div className="eyebrow">OUR LITTLE FAMILY SPACE</div><h1>{tab === 'home' ? '우리의 하루를 함께.' : tabs.find(t => t[0] === tab)?.[2]}</h1><p>{tab === 'home' ? '챙겨야 할 일도, 기억하고 싶은 순간도 여기에.' : tab === 'money' ? '오늘의 지출을 기록하고, 이번 달 생활비를 함께 살펴봐요.' : tab === 'calendar' ? '매달 돌아오는 할 일과 소중한 약속을 놓치지 않게.' : tab === 'chat' ? '가족 기본 채팅과 일정·구매별 대화를 함께 살펴봐요.' : '가족을 초대하고 함께 쓰는 공간을 관리해요.'}</p></div>{(tab === 'home' || tab === 'calendar') && <button className="primary" onClick={() => {setEntryDate('');setForm('entry');}}>＋ 일정·할 일</button>}{tab === 'money' && <button className="primary" onClick={() => openExpense()}>＋ 지출 기록</button>}</div>
+      <div className={`page-heading ${tab==="home"?"":"compact"}`}><div><div className="eyebrow">OUR LITTLE FAMILY SPACE</div><h1>{tab === 'home' ? '우리의 하루를 함께.' : tabs.find(t => t[0] === tab)?.[2] ?? '설정'}</h1><p>{tab === 'home' ? '챙겨야 할 일도, 기억하고 싶은 순간도 여기에.' : tab === 'money' ? '오늘의 지출을 기록하고, 이번 달 생활비를 함께 살펴봐요.' : tab === 'calendar' ? '매달 돌아오는 할 일과 소중한 약속을 놓치지 않게.' : tab === 'chat' ? '가족 기본 채팅과 일정·구매별 대화를 함께 살펴봐요.' : '가족을 초대하고 함께 쓰는 공간을 관리해요.'}</p></div>{(tab === 'home' || tab === 'calendar') && <button className="primary" onClick={() => {setEntryDate('');setForm('entry');}}>＋ 일정·할 일</button>}{tab === 'money' && <button className="primary" onClick={() => openExpense()}>＋ 지출 기록</button>}</div>
       {loading && <p role="status" className="muted">최신 기록을 불러오는 중…</p>}
       {tab === 'home' && <>
         <div className="week-strip" role="group" aria-label="이번 주">{weekOf(today()).map(d=>{const items=monthEntries(data.entries,d.slice(0,7)).filter(r=>r.date===d);const overdue=d<today()&&items.some(r=>!done(r.entry.id,r.date));const holiday=holidayName(d);return <button key={d} className={`${dayTone(d)} ${d===today()?'today':''} ${overdue?'has-overdue':''}`} aria-label={`${d} ${holiday?holiday.slice(0,3):['일','월','화','수','목','금','토'][new Date(`${d}T12:00:00`).getDay()]}${Number(d.slice(8))} 일정 ${items.length}개`} title={holiday||undefined} onClick={()=>{setPlannerFocus(d);setTab('calendar');}}><small>{holiday?holiday.slice(0,3):['일','월','화','수','목','금','토'][new Date(`${d}T12:00:00`).getDay()]}</small><strong>{Number(d.slice(8))}</strong><span className="year-dots">{[...new Set(items.map(r=>r.entry.kind))].map(k=><i key={k} className={k}/>)}</span></button>;})}</div>
         {(()=>{const b=budgetStatus(data.budgets,data.expenses,today().slice(0,7),today());return <section className={`today-line ${b.total>0&&b.percent>=80?'warn':''}`} aria-label="오늘 한눈에"><button type="button" onClick={()=>document.getElementById('due-section')?.scrollIntoView({behavior:'smooth',block:'start'})}><span>오늘 챙길 일</span><b>{due.length}개</b></button><button type="button" onClick={()=>setTab('money')}><span>오늘 쓴 돈</span><b>{money(total(data.expenses,today()))}</b></button><button type="button" onClick={()=>{setError('');setMonth(today().slice(0,7));setForm('budget');}}><span>{b.total>0?`남은 예산 · ${b.percent}% 사용`:'예산'}</span><b>{b.total>0?(b.remaining>=0?`${money(b.remaining)} · 오늘 ${money(b.perDay)}까지`:`${money(-b.remaining)} 초과`):'정하기 →'}</b></button>{b.total>0&&<progress value={Math.min(100,b.percent)} max={100} className={b.percent>=80?'warn':''} aria-label="예산 사용률"/>}</section>;})()}
+        {!demo&&<AutoCollectBanner state={collect} onOpen={()=>{setCollectOpen(true);setTab('money');}}/>}
         <WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} unread={unreadMap} summaries={roomSummaries} photos={homePhotos} month={today().slice(0,7)} compact onMore={()=>{setTab('chat');setChatView('work');}} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>
         <div className="home-grid"><section className="panel" id="due-section"><div className="section-head"><h2>놓치지 말고 챙겨요 <span className="count">{due.length}</span></h2><button className="text-button" onClick={() => setTab('calendar')}>전체 보기 ↗</button></div>{due.length ? due.slice(0, 5).map(({ entry, date }) => renderEntry(entry, date)) : <div className="empty">오늘까지 할 일을 모두 챙겼어요 🌿</div>}<div className="gentle-note">확인과 완료는 따로 기록해요.<br/>반복되는 할 일도 매달 새롭게 체크할 수 있어요.</div></section>
         <section className="panel"><div className="section-head"><h2>최근 지출</h2><button className="text-button" onClick={() => setTab('money')}>가계부 ↗</button></div>{data.expenses.filter(e=>e.kind!=='income'&&e.kind!=='transfer').sort((a,b) => b.date.localeCompare(a.date)).slice(0,4).map(e => <div className="expense-row" key={e.id}><span className="expense-icon">₩</span><div><strong>{e.title}</strong><small>{e.date.slice(5)} · {e.category}</small></div><b>{money(e.amount)}</b></div>)}{!data.expenses.length && <div className="empty">첫 생활비를 기록해 보세요.</div>}<button className="wide-button" onClick={() => openExpense()}>＋ 지출 기록하기</button></section></div>
         <section className="panel"><div className="section-head"><h2>이번 달 함께할 순간</h2><span className="muted">{today().slice(0,7).replace('-', '. ')}</span></div>{currentRows.filter(r => r.date >= today()).slice(0,4).map(({ entry, date }) => renderEntry(entry, date))}{!currentRows.some(r => r.date >= today()) && <div className="empty">가족과 함께할 다음 일정을 등록해 보세요.</div>}</section>
       </>}
       {tab === 'calendar' && <Planner data={data} month={month} setMonth={setMonth} focusDay={plannerFocus} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={date=>{setEntryDate(date);setForm('entry');}}/>}
+      {tab === 'money' && !demo && <AutoCollectStatus state={collect} open={collectOpen} onToggle={()=>setCollectOpen(o=>!o)}/>}
+      {tab === 'money' && !demo && collectOpen && <AutoCollectCard state={collect} busy={busy} run={run} onClose={()=>setCollectOpen(false)}/>}
       {tab === 'money' && <FinancePanel entries={data.entries} onOpenWork={(entry,date)=>setSelected({entry,date})} cards={data.cards} expenses={data.expenses} uid={uid} month={month} setMonth={setMonth} busy={busy} onAddCard={()=>openCard()} onEditCard={openCard} onEditExpense={openExpense}
         view={financeView} setView={setFinanceView} report={monthlyReport(data.expenses,data.members,month,today())} recurring={data.recurring}
         onAddRecurring={()=>{setRecurringPrefill(null);setError('');setForm('recurring');}}
@@ -719,7 +727,7 @@ export default function Home() {
         <div className="payment-tabs" role="group" aria-label="대화 종류"><button aria-pressed={chatView==='general'} onClick={()=>setChatView('general')}>가족 기본 채팅{unreadGeneral>0&&<b className="tab-badge">{unreadGeneral}</b>}</button><button aria-pressed={chatView==='work'} onClick={()=>setChatView('work')}>일정·구매별 대화{unreadFamilyTotal-unreadGeneral>0&&<b className="tab-badge">{unreadFamilyTotal-unreadGeneral}</b>}</button></div>
         {chatView==='work'?<WorkBoard title={family.name.includes('가족')?'우리집 일':'모임의 일'} data={data} unread={unreadMap} month={month} onOpen={(entry,date)=>setSelected({entry,date})} onCreate={()=>{setEntryDate('');setForm('entry');}}/>:!selected&&<div className="panel"><Chat key={`general-${family.id}`} room={null} unreadCount={unreadGeneral} comments={general.comments} attachments={general.attachments} hasMore={general.hasMore} loadingOlder={general.loading} loadError={general.error} onOlder={general.loadOlder} entries={data.entries} uid={uid} name={name} busy={busy} sync={sync} onOpen={(entry,date)=>setSelected({entry,date})} onSend={(body,replyTo)=>run(()=>sendComment({family_id:family.id,entry_id:null,occurrence:null,body,created_by:uid,reply_to:replyTo??null}))} {...socialFor(null,generalSocialLive)} othersCount={Math.max(0,data.members.length-1)} onReact={(id,e)=>run(()=>react(id,e))} onPin={id=>run(()=>pinMessage(null,id))} onUnpin={()=>run(()=>unpin(null))} onPhotoUrl={photoUrl} onSearch={searchMessages} onJump={jumpToHit} highlightId={highlightId} onEdit={(id,body)=>run(()=>editComment(id,body))} onDelete={id=>run(()=>deleteComment(id))} onUpload={files=>run(()=>upload(files,null))} onFile={file=>run(()=>openFile(file))}/></div>}
       </>}
-      {tab === 'settings' && <section className="panel settings">{!demo&&<p><a className="button-link secondary" href="/pair" onClick={()=>{localStorage.setItem(`haraguri-space-${uid}`,family.id);}}>알림 수집 계정 연결</a></p>}<h2>모임 공간</h2><p>가족·친구·행사별로 독립된 공간을 만들어요. 대화, 일정, 카드와 지출은 선택한 모임 멤버끼리만 공유합니다.</p>
+      {tab === 'settings' && <section className="panel settings"><h2>모임 공간</h2><p>가족·친구·행사별로 독립된 공간을 만들어요. 대화, 일정, 카드와 지출은 선택한 모임 멤버끼리만 공유합니다.</p>
         {invites.length > 0 && <><h2 className="list-title">초대받은 모임</h2>{inviteCards}</>}
         <h3>새 모임 만들기</h3>
         <form key={spaceAction} onSubmit={e=>{e.preventDefault();const v=new FormData(e.currentTarget);run(async()=>{
@@ -749,7 +757,7 @@ export default function Home() {
 {push==='needs-install'&&<p>iPhone은 Safari 공유 메뉴 → ‘홈 화면에 추가’로 설치한 뒤 그 앱에서 알림을 켤 수 있어요(iOS 16.4 이상).</p>}
 {push==='denied'&&<p>이 브라우저에서 알림이 차단돼 있어요. 주소창 자물쇠 → 알림 → 허용으로 바꾼 뒤 새로고침해 주세요.</p>}
 {push==='unsupported'&&<p>이 브라우저는 푸시 알림을 지원하지 않아요. 앱 안의 알림 모음은 그대로 쓸 수 있어요.</p>}</div>
-<h2 className="list-title">가계부 자동 수집</h2>{demo?<p className="muted">로그인하면 결제 문자·카드앱 알림을 자동으로 받아오는 주소를 만들 수 있어요.</p>:<IngestSetup familyId={family.id} userId={uid} busy={busy} run={run}/>}
+<h2 className="list-title">가계부 자동 수집</h2>{demo?<p className="muted">로그인하면 결제 문자·카드앱 알림을 자동으로 가계부에 받아올 수 있어요.</p>:<AutoCollectSummary state={collect} onOpen={()=>{setCollectOpen(true);setTab('money');}}/>}
 <h2 className="list-title">로그인 계정</h2>{user?.email&&<p>{user.email}</p>}{user?.identities?.some(i=>i.provider==='kakao')?<p>카카오 계정이 연결되어 있어요.</p>:<><p>기존 기록을 유지하려면 현재 계정에 카카오 로그인을 연결하세요.</p><button className="kakao-button" disabled={busy} onClick={()=>run(()=>startKakaoLogin(true))}><KakaoGlyph/>카카오 계정 연결</button></>}</>}<h2 className="list-title">홈 화면에 설치</h2><p>iPhone은 Safari 공유 메뉴에서 ‘홈 화면에 추가’를, Android는 브라우저 메뉴의 ‘앱 설치’를 선택하세요.</p><h2 className="list-title">기록 공유</h2><p>가족 공간의 일정, 지출, 댓글과 첨부파일은 참여한 가족 모두에게 공유됩니다.</p><button className="secondary" disabled={busy} onClick={() => run(async () => { if(!demo) { const r = await supabase!.auth.signOut(); if(r.error) throw r.error; } setDemo(false); setFamily(null); setSpaces([]); setActiveSpace(''); setData(emptyData); setSelected(null); setInvite(''); })}>{demo ? '미리보기 나가기' : '로그아웃'}</button></section>}
       <footer>HARAGURI <span>우리 가족의 작은 기록들</span></footer>
     </main>
