@@ -90,3 +90,5 @@ input[readonly],select:disabled,textarea[readonly]{background:#f3f4ef;color:#6b7
 .inline-label.child-name{display:grid;gap:6px;align-items:start}.inline-label.child-name input{width:100%;max-width:320px}.inline-label.child-name small{display:block;line-height:1.5}
 /* 가계부 피드는 한 단(카드별 실적·그래프는 '카드' 보기로 이동) */
 .fin-layout{grid-template-columns:1fr}@media(min-width:1101px){.fin-layout{grid-template-columns:1fr}}
+/* 설정: 가끔 쓰는 것(다른 모임·초대)은 접어 둔다 */
+.settings-fold{margin:8px 0 14px;border-top:1px solid var(--line);padding-top:4px}.settings-fold>summary{cursor:pointer;color:var(--green);font-weight:600;font-size:14px;min-height:42px;display:flex;align-items:center;list-style:none}.settings-fold>summary::before{content:'▸';margin-right:8px;font-size:12px}.settings-fold[open]>summary::before{content:'▾'}.settings-fold .payment-tabs{margin:4px 0 10px}
