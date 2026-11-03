@@ -18,12 +18,9 @@ export function computeStage(i: { device: Device; installed: boolean; paired: bo
   return i.installed ? 'pair' : 'install';
 }
 
-// Deep link into the Shortcuts app's add sheet for an iCloud-shared shortcut (skips the Safari page). With an origin, the
-// x-callback form brings the person straight back to /pair after they tap 추가, and /pair mints a code and runs the shortcut —
-// so "connect" happens without a second button. x-cancel returns to the card.
-export const shortcutImportURL = (icloudUrl: string, origin?: string) => origin
-  ? `shortcuts://x-callback-url/import-shortcut?url=${encodeURIComponent(icloudUrl)}&x-success=${encodeURIComponent(`${origin}/pair`)}&x-cancel=${encodeURIComponent(`${origin}/?tab=money&collect=1`)}`
-  : `shortcuts://import-shortcut?url=${encodeURIComponent(icloudUrl)}`;
+// Tried and rejected (iOS 27.2, 2026-11-03): shortcuts://x-callback-url/import-shortcut?url=<iCloud link> opens Shortcuts but fails with
+// "파일이 올바른 포맷이 아닙니다" — import-shortcut only accepts .shortcut file URLs, and our signed file loses its notification trigger.
+// So installation stays on the iCloud share link (no return callback), and connecting stays a separate tap.
 
 export function ago(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();

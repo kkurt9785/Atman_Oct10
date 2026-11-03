@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeStage, shortcutImportURL, stageLabel } from './autocollect';
+import { computeStage, stageLabel } from './autocollect';
 
 describe('auto-collect stage machine', () => {
   const base = { device: 'iphone-push' as const, installed: false, paired: false, collecting: false };
@@ -8,13 +8,6 @@ describe('auto-collect stage machine', () => {
     expect(computeStage({ ...base, installed: true })).toBe('pair');
     expect(computeStage({ ...base, installed: true, paired: true })).toBe('waiting');
     expect(computeStage({ ...base, collecting: true })).toBe('collecting');
-  });
-  it('opens the Shortcuts add sheet directly for an iCloud link, and chains back to /pair when given an origin', () => {
-    expect(shortcutImportURL('https://www.icloud.com/shortcuts/273c25287f24405b913d5237fd9f5168')).toBe('shortcuts://import-shortcut?url=https%3A%2F%2Fwww.icloud.com%2Fshortcuts%2F273c25287f24405b913d5237fd9f5168');
-    const chained = new URL(shortcutImportURL('https://www.icloud.com/shortcuts/273c25287f24405b913d5237fd9f5168', 'https://haraguri.vercel.app'));
-    expect(chained.protocol + chained.host + chained.pathname).toBe('shortcuts:x-callback-url/import-shortcut');
-    expect(chained.searchParams.get('x-success')).toBe('https://haraguri.vercel.app/pair');
-    expect(chained.searchParams.get('x-cancel')).toBe('https://haraguri.vercel.app/?tab=money&collect=1');
   });
   it('a paired or collecting phone never falls back to install prompts', () => {
     expect(computeStage({ ...base, paired: true })).toBe('waiting');

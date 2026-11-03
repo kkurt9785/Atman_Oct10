@@ -51,14 +51,10 @@ try {
   const release = await manifest.json();
   assert.equal(await page.getByRole('navigation', { name: '모바일 메뉴' }).getByRole('button').count(), 4, 'bottom nav keeps four tabs');
   await page.getByRole('button', { name: '설정', exact: true }).first().waitFor();
-  // 1 · 단축어 추가: jumps straight into the Shortcuts add sheet; the iCloud page stays as a fallback link
+  // 1 · 단축어 추가: the iCloud share link (iOS opens the Shortcuts add sheet from it; import-shortcut rejects iCloud links)
   const install = card.getByRole('link', { name: '단축어 추가', exact: true });
   await install.waitFor();
-  const importUrl = new URL(await install.getAttribute('href'));
-  assert.equal(importUrl.protocol + importUrl.host + importUrl.pathname, 'shortcuts:x-callback-url/import-shortcut', 'install goes straight to the Shortcuts add sheet');
-  assert.equal(importUrl.searchParams.get('url'), release.icloud_url);
-  assert.equal(importUrl.searchParams.get('x-success'), `${new URL(page.url()).origin}/pair`, 'after 추가, iOS returns to /pair which connects without another button');
-  assert.equal(await card.getByRole('link', { name: 'iCloud에서 열기', exact: true }).getAttribute('href'), release.icloud_url);
+  assert.equal(await install.getAttribute('href'), release.icloud_url);
   assert.equal(await card.getByRole('link', { name: '단축어 받기', exact: true }).count(), 0, 'no .shortcut download on an iCloud install');
   await card.getByRole('button', { name: '이미 추가했어요', exact: true }).click();
   // 2 · 내 계정 연결: straight after install — no "automation on" confirmation step; one tap makes a code and offers the shortcuts:// link
