@@ -5,18 +5,21 @@ import { isCollectedPayment, parseShortcutRelease, type IngestDelivery, type Sho
 
 // Auto-collect (결제 알림 → 가계부) setup state. One hook feeds the money-tab status line,
 // the home banner and the setup card so every surface agrees on where the user is.
-export type Stage = 'install' | 'enable' | 'pair' | 'waiting' | 'collecting' | 'other';
+// Two steps the person actually does: add the shortcut (and flip its automation on, inside the Shortcuts app), then connect.
+// There is no "I did it" confirmation stage — tapping 추가 moves on, and the server tells us the rest (pairing ping, first saved payment).
+export type Stage = 'install' | 'pair' | 'waiting' | 'collecting' | 'other';
 export type Token = { token: string; created_at: string; received: number; last_used_at: string | null };
 export type InboxRow = IngestDelivery & { id: string; received_at: string; summary: string };
 
-export function computeStage(i: { device: Device; installed: boolean; enabled: boolean; paired: boolean; collecting: boolean }): Stage {
+export function computeStage(i: { device: Device; installed: boolean; paired: boolean; collecting: boolean }): Stage {
   if (i.collecting) return 'collecting';
   if (i.device !== 'iphone-push') return 'other';
   if (i.paired) return 'waiting';
-  if (!i.installed) return 'install';
-  if (!i.enabled) return 'enable';
-  return 'pair';
+  return i.installed ? 'pair' : 'install';
 }
+
+// Deep link into the Shortcuts app's add sheet for an iCloud-shared shortcut (skips the Safari page).
+export const shortcutImportURL = (icloudUrl: string) => `shortcuts://import-shortcut?url=${encodeURIComponent(icloudUrl)}`;
 
 export function ago(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -91,8 +94,8 @@ export function useAutoCollect(familyId: string, userId: string, active: boolean
   const proof = current.find(r => isCollectedPayment(r, device)) ?? null;
   const paired = !!token && ((!!setupAt && Date.parse(setupAt) >= since) || flags.pairedAt >= since);
   // token.received only counts saved payments (ingest bumps it after insert), so it keeps '수집 중' true even when the last 30 rows are all ignored alerts.
-  const stage = computeStage({ device, installed: flags.installed || paired, enabled: flags.enabled || paired, paired, collecting: !!proof || (token?.received ?? 0) > 0 });
+  const stage = computeStage({ device, installed: flags.installed || paired, paired, collecting: !!proof || (token?.received ?? 0) > 0 });
   const lastAt = proof?.received_at ?? token?.last_used_at ?? null;
-  return { familyId, userId, loaded, token, inbox, current, proof, release, device, setDevice, ios, stage, paired, lastAt, saved: token?.received ?? 0, flags, setFlag, refresh: load };
+  return { familyId, userId, loaded, token, inbox, current, proof, release, device, setDevice, ios, stage, paired, pairedAt: setupAt, lastAt, saved: token?.received ?? 0, flags, setFlag, refresh: load };
 }
 export type AutoCollectState = ReturnType<typeof useAutoCollect>;

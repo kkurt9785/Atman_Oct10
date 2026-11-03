@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { IOS_NOTIFICATION_TRIGGER_MIN, iosMajor, type Device } from '../lib/device';
 import { shortcutOpenURL, shortcutPairingURL } from '../lib/shortcuts';
-import { ago, stageLabel, type AutoCollectState, type InboxRow } from '../lib/autocollect';
+import { ago, shortcutImportURL, stageLabel, type AutoCollectState, type InboxRow } from '../lib/autocollect';
 
 // 가계부 자동 수집. 한 줄 상태 → 카드 하나 → 단계마다 버튼 하나. 설정 탭의 3단계 마법사를 대신한다.
 // 수집 주소·기기별 레시피·수신함 전체는 '고급' 아래로 내려 두고 평소에는 보이지 않는다.
@@ -122,7 +122,8 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
   const visibleInbox = showIgnored ? inbox : inbox.filter(r => r.status !== 'ignored');
   const ignoredCount = inbox.length - inbox.filter(r => r.status !== 'ignored').length;
   const desktop = typeof navigator !== 'undefined' && !/iPhone|iPad|iPod|Android/.test(navigator.userAgent);
-  const stepNo = ({ install: 1, enable: 2, pair: 3 } as Partial<Record<typeof stage, number>>)[stage];
+  const stepNo = ({ install: 1, pair: 2 } as Partial<Record<typeof stage, number>>)[stage];
+  const pairedHours = state.pairedAt ? (Date.now() - Date.parse(state.pairedAt)) / 3_600_000 : 0;
   const name = release?.name ?? '하라구리 알림 수집';
   const list = (rows: InboxRow[]) => <ul className="inbox-list">{rows.map(r => <li key={r.id} className={`inbox-row ${r.status}`}>
     <span className={`inbox-status ${r.status}`}>{STATUS_LABEL[r.status]}</span>
@@ -132,27 +133,24 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
   </li>)}</ul>;
 
   return <section className="autocollect-card" aria-label="결제 알림 자동 수집">
-    {stepNo && <p className="stage-step">{stepNo} / 3 단계{desktop && ' · 아이폰의 하라구리에서 이 화면을 열면 2분이면 돼요'}</p>}
+    {stepNo && <p className="stage-step">{stepNo} / 2 단계{desktop && ' · 아이폰의 하라구리에서 이 화면을 열면 2분이면 돼요'}</p>}
 
     {stage === 'install' && <>
       <h3>단축어 추가</h3>
-      <p className="muted">버튼을 누르면 단축어 앱이 열려요. <b>단축어 추가</b>를 누르고 알림을 받을 카드앱을 고르면 돼요. 이름은 <b>{name}</b> 그대로 두세요. iOS {IOS_NOTIFICATION_TRIGGER_MIN} 이상이 필요해요.</p>
+      <p className="muted">단축어 앱이 바로 열려요. <b>단축어 추가</b>를 누른 뒤, 그 단축어 맨 위 알림 카드의 <b>〉</b>에서 <b>자동화를 켜</b> 주세요. 받을 앱 목록은 미리 들어 있어요(안 쓰는 앱은 빼도 돼요). iOS {IOS_NOTIFICATION_TRIGGER_MIN} 이상.</p>
       {ios && major !== null && major < IOS_NOTIFICATION_TRIGGER_MIN && <p className="recipe-warn">이 아이폰은 iOS {ios}예요. 카드앱 알림 자동화는 iOS {IOS_NOTIFICATION_TRIGGER_MIN}부터 돼요. 아래 고급에서 <b>아이폰 · 문자</b> 방법을 쓸 수 있어요.</p>}
-      <div className="actions">{release?.icloud_url ? <a className="button-link" href={release.icloud_url} onClick={() => setFlag('installed', true)}>단축어 추가</a> : <span className="muted">단축어 파일을 준비하고 있어요…</span>}
+      <div className="actions">{release?.icloud_url ? <><a className="button-link" href={shortcutImportURL(release.icloud_url)} onClick={() => setFlag('installed', true)}>단축어 추가</a><a className="text-button" href={release.icloud_url} onClick={() => setFlag('installed', true)}>iCloud에서 열기</a></> : <span className="muted">단축어 파일을 준비하고 있어요…</span>}
         <button type="button" className="text-button" onClick={() => setFlag('installed', true)}>이미 추가했어요</button></div>
-    </>}
-
-    {stage === 'enable' && <>
-      <h3>카드앱 고르고 자동화 켜기</h3>
-      <p className="muted">추가할 때 앱을 골랐다면 바로 <b>다 했어요</b>를 누르세요. 아니면 단축어를 열어 알림 카드의 파란 앱 이름(또는 ＋)을 눌러 앱을 고르고, 카드의 〉에서 자동화를 켜 주세요. 우리은행 알림은 <b>우리WON뱅킹</b>이에요.</p>
-      <BankAppChoices/>
-      <div className="actions"><a className="button-link secondary-link" href={shortcutOpenURL(release?.name, release?.name_normalization)}>단축어 열기</a><button type="button" className="primary" onClick={() => setFlag('enabled', true)}>다 했어요 →</button></div>
-      <small className="muted">정보 ⓘ → 개인정보 보호에서 <b>잠겨 있는 동안 실행 허용</b>도 켜 두면 화면이 꺼져 있어도 모여요.</small>
     </>}
 
     {stage === 'pair' && <>
       <h3>내 계정 연결</h3>
-      <p className="muted">버튼을 누르면 연결 코드를 복사하고 단축어를 실행해요. 허용 질문이 나오면 <b>항상 허용</b>을 눌러 주세요. 잠시 뒤 이 화면에 <b>연결됨 ✓</b>이 떠요.</p>
+      <p className="muted">단축어를 추가하고 자동화를 켰다면 누르세요. 연결 코드를 복사하고 단축어를 실행해요 — 허용 질문엔 <b>항상 허용</b>. 잠시 뒤 여기에 <b>연결됨 ✓</b>이 떠요.</p>
+      <details className="recipe"><summary>앱 고르기 · 자동화 켜는 법</summary>
+        <BankAppChoices/>
+        <p className="muted">단축어 앱 → <b>{name}</b> → 맨 위 알림 카드의 파란 앱 이름(또는 ＋)으로 앱을 고르고, 카드의 〉에서 <b>자동화 켬</b>. 우리은행 알림은 <b>우리WON뱅킹</b>이에요. 정보 ⓘ → 개인정보 보호 → <b>잠겨 있는 동안 실행 허용</b>도 켜 두면 화면이 꺼져 있어도 모여요.</p>
+        <a className="button-link secondary-link" href={shortcutOpenURL(release?.name, release?.name_normalization)}>단축어 앱에서 열기</a>
+      </details>
       <div className="actions">
         {link && !expired ? <a className="button-link" href={link.url}>단축어 열기</a> : <button type="button" className="primary" disabled={working || !release} onClick={() => { void connect(); }}>{working ? '준비 중…' : '연결하기'}</button>}
         {link && !expired && <button type="button" className="text-button" disabled={working} onClick={() => { void connect(); }}>새 코드로 다시</button>}
@@ -171,6 +169,7 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
     {stage === 'waiting' && <>
       <h3>연결됨 ✓ · 첫 결제 알림 기다리는 중</h3>
       <p className="muted">카드앱 알림이 오면 가계부 피드와 가족 채팅에 바로 올라와요. 바로 확인하려면 카드앱에서 알림을 하나 받아 보세요.</p>
+      {pairedHours >= 6 && <p className="recipe-warn">연결한 지 {Math.floor(pairedHours)}시간이 지났는데 아직 알림이 안 왔어요. 단축어 맨 위 알림 카드의 <b>자동화</b>가 켜져 있는지 확인해 주세요. <a href={shortcutOpenURL(release?.name, release?.name_normalization)}>단축어 앱에서 열기</a></p>}
       {recent.length > 0 && list(recent)}
     </>}
 

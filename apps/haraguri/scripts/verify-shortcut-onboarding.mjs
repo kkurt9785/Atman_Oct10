@@ -51,16 +51,14 @@ try {
   const release = await manifest.json();
   assert.equal(await page.getByRole('navigation', { name: '모바일 메뉴' }).getByRole('button').count(), 4, 'bottom nav keeps four tabs');
   await page.getByRole('button', { name: '설정', exact: true }).first().waitFor();
-  // 1 · 단축어 추가
+  // 1 · 단축어 추가: jumps straight into the Shortcuts add sheet; the iCloud page stays as a fallback link
   const install = card.getByRole('link', { name: '단축어 추가', exact: true });
   await install.waitFor();
-  assert.equal(await install.getAttribute('href'), release.icloud_url);
+  assert.equal(await install.getAttribute('href'), `shortcuts://import-shortcut?url=${encodeURIComponent(release.icloud_url)}`);
+  assert.equal(await card.getByRole('link', { name: 'iCloud에서 열기', exact: true }).getAttribute('href'), release.icloud_url);
   assert.equal(await card.getByRole('link', { name: '단축어 받기', exact: true }).count(), 0, 'no .shortcut download on an iCloud install');
   await card.getByRole('button', { name: '이미 추가했어요', exact: true }).click();
-  // 2 · 자동화 켜기
-  await card.getByRole('heading', { name: '카드앱 고르고 자동화 켜기' }).waitFor();
-  await card.getByRole('button', { name: '다 했어요 →', exact: true }).click();
-  // 3 · 내 계정 연결: one tap makes a code and offers the shortcuts:// link
+  // 2 · 내 계정 연결: straight after install — no "automation on" confirmation step; one tap makes a code and offers the shortcuts:// link
   await card.getByRole('heading', { name: '내 계정 연결' }).waitFor();
   await card.getByRole('button', { name: '연결하기', exact: true }).click();
   await openLink.waitFor();
@@ -128,7 +126,7 @@ try {
   await page.getByRole('status').filter({ hasText: '연결 정보가 단축어에 전달됐어요' }).waitFor();
   assert.equal(await retryLink.count(), 0, 'a consumed code is not relaunched');
   assert.deepEqual(errors, []);
-  console.log('PASS: four-tab nav + 설정 button; 가계부 card walks 추가 → 자동화 → 연결하기 with a fresh code per tap and one name fallback; setup ping ≠ payment; 수집 중 ✓ survives thirty alerts; rotated address needs fresh evidence; /pair callback retries once.');
+  console.log('PASS: four-tab nav + 설정 button; 가계부 card walks 추가 → 연결하기 (two steps) with a fresh code per tap and one name fallback; setup ping ≠ payment; 수집 중 ✓ survives thirty alerts; rotated address needs fresh evidence; /pair callback retries once.');
 } catch (e) {
   // Diagnostics on failure: card text with any 48-hex code masked, plus page/console errors.
   const text = await card?.innerText().catch(() => '') ?? '';
