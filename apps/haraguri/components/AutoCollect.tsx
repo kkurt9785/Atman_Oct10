@@ -170,7 +170,7 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
 
     {stage === 'waiting' && <>
       <h3>연결됨 ✓ · 첫 결제 알림 기다리는 중</h3>
-      <p className="muted">카드앱 알림이 오면 자동으로 가계부 <b>확인 대기</b>에 올라와요. 바로 확인하려면 카드앱에서 알림을 하나 받아 보세요.</p>
+      <p className="muted">카드앱 알림이 오면 가계부 피드와 가족 채팅에 바로 올라와요. 바로 확인하려면 카드앱에서 알림을 하나 받아 보세요.</p>
       {recent.length > 0 && list(recent)}
     </>}
 

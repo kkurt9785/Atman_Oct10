@@ -68,14 +68,10 @@ input[readonly],select:disabled,textarea[readonly]{background:#f3f4ef;color:#6b7
 .autocollect-card{margin:0 0 14px;padding:14px 16px;border:1px solid #e0e5d8;border-radius:12px;background:#fff;font-size:13px;line-height:1.6}.autocollect-card h3{margin:0 0 6px;font-size:15px}.autocollect-card .stage-step{margin:0 0 6px;font-size:11px;color:#6b746d}.autocollect-card .actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}.autocollect-card .pair-code{display:block;margin:6px 0;padding:6px 8px;border-radius:6px;background:#f1f3ee;font-size:11px;word-break:break-all}.autocollect-card ol.recipe{padding-left:18px;margin:6px 0}.autocollect-card details.advanced{margin-top:12px;padding-top:8px;border-top:1px solid #e6e8e1}.autocollect-card details.advanced label{display:block;margin-top:8px}.autocollect-card .secondary-link{background:#fff;color:var(--green);border:1px solid var(--green)}
 .autocollect-banner{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.autocollect-banner .banner-actions{margin-left:auto;display:flex;gap:4px}.autocollect-banner .banner-actions button{float:none;min-height:32px}
 .topbar .icon-settings{border:0;background:none;font-size:20px;line-height:1;min-width:40px;min-height:40px;padding:0;margin-right:10px;color:#59685f;cursor:pointer}.topbar .icon-settings[aria-current]{color:var(--green)}
-/* 홈 today-line: 자동 등록 확인 대기 칸(있을 때만 4칸) */
-.today-line.with-review{grid-template-columns:auto auto auto minmax(0,1fr)}.today-line .review-nudge{background:#fff8ec}.today-line .review-nudge b{color:#8a5a00}
-@media(max-width:760px){.today-line.with-review{grid-template-columns:1fr 1fr}}
-/* 확인 대기: 알림에 보인 카드 등록 제안 */
+/* 카드 보기: 알림에 보인 카드 등록 제안 */
 .card-suggest{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.card-suggest .banner-actions{display:flex;flex-wrap:wrap;gap:6px}.card-suggest .banner-actions button{float:none;min-height:32px;padding:4px 10px;border-radius:8px;background:#fff;border:1px solid var(--green);color:var(--green);font-weight:600}
-/* 확인 대기·분류 미확인: 행 안 분류 칩 + 목록 상단 정리 스트립 */
+/* 피드 행 안 분류 칩 */
 .cat-chips{margin:8px 0 0}.cat-chips .chip{min-height:30px;padding:3px 10px;font-size:12px}.cat-chips .chip.more{border-style:dashed;color:var(--muted)}
-.pending-strip{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}.pending-strip button{float:none;margin-left:auto;font-weight:600}
 /* 돈 탭 = 피드 하나 + '더 보기'. 행은 누가·언제·어떻게, 분류는 조용한 태그(기타면 '분류 넣기') */
 .finance-views{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.view-pill{min-height:34px;padding:4px 14px;border-radius:17px;border:1px solid #d7dbd2;background:#fff;color:#4b534d;font-size:13px}.view-pill.on{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}.view-pill.more{border-style:dashed;color:var(--muted)}
 .feed-row .who{width:30px;height:30px;border-radius:50%;background:#eef2ea;color:#3f5a4a;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;flex-shrink:0;margin-right:6px}
@@ -90,3 +86,7 @@ input[readonly],select:disabled,textarea[readonly]{background:#f3f4ef;color:#6b7
 /* 채팅에 흐르는 월간 카드 · 주간 한 줄 */
 .chat-line.digest{align-self:center;max-width:100%;width:100%}.chat-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:13px;display:grid;gap:6px}.chat-card>b{font-size:13px}.chat-card>strong{font-size:22px;line-height:1.1}.chat-card ul{margin:0;padding-left:16px;line-height:1.6;color:#3f4742}.chat-card-actions{display:flex;gap:4px;justify-content:flex-end}.chat-card .text-button{min-height:28px;font-size:12px}
 .chat-card.week{grid-template-columns:1fr auto;align-items:center;padding:8px 12px;background:#f6f8f3;border-style:dashed}.chat-card.week>b{font-weight:500}
+/* 설정 > 아이 이름: 세로 쌓임(체크박스용 inline-label 과 달리 입력칸 + 설명) */
+.inline-label.child-name{display:grid;gap:6px;align-items:start}.inline-label.child-name input{width:100%;max-width:320px}.inline-label.child-name small{display:block;line-height:1.5}
+/* 가계부 피드는 한 단(카드별 실적·그래프는 '카드' 보기로 이동) */
+.fin-layout{grid-template-columns:1fr}@media(min-width:1101px){.fin-layout{grid-template-columns:1fr}}
