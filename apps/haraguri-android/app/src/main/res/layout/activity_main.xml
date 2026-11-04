@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/brand"
+            android:textColor="@color/green"
+            android:letterSpacing="0.25"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/headline"
+            android:textColor="@color/ink"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/subline"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+
+        <!-- 1. Connection -->
+        <TextView style="@style/SectionTitle" android:text="@string/section_connection" />
+        <TextView android:id="@+id/tv_connection" style="@style/SectionBody" />
+        <LinearLayout
+            android:id="@+id/pair_box"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+            <TextView style="@style/SectionBody" android:text="@string/pair_hint" />
+            <EditText
+                android:id="@+id/et_code"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/code_hint"
+                android:importantForAutofill="no"
+                android:inputType="textVisiblePassword|textNoSuggestions"
+                android:maxLines="2" />
+            <Button
+                android:id="@+id/btn_claim"
+                style="@style/Primary"
+                android:text="@string/btn_claim" />
+        </LinearLayout>
+        <Button android:id="@+id/btn_unpair" style="@style/Secondary" android:text="@string/btn_unpair" />
+
+        <!-- 2. Notification access -->
+        <TextView style="@style/SectionTitle" android:text="@string/section_access" />
+        <TextView android:id="@+id/tv_access" style="@style/SectionBody" />
+        <Button android:id="@+id/btn_access" style="@style/Primary" android:text="@string/btn_access" />
+
+        <!-- 3. Apps -->
+        <TextView style="@style/SectionTitle" android:text="@string/section_apps" />
+        <TextView android:id="@+id/tv_apps" style="@style/SectionBody" />
+        <Button android:id="@+id/btn_apps" style="@style/Secondary" android:text="@string/btn_apps" />
+
+        <!-- 4. Battery -->
+        <TextView style="@style/SectionTitle" android:text="@string/section_battery" />
+        <TextView android:id="@+id/tv_battery" style="@style/SectionBody" />
+        <Button android:id="@+id/btn_battery" style="@style/Secondary" android:text="@string/btn_battery" />
+
+        <!-- 5. Log -->
+        <TextView style="@style/SectionTitle" android:text="@string/section_log" />
+        <TextView
+            android:id="@+id/tv_hidden"
+            style="@style/SectionBody"
+            android:background="@color/warn_bg"
+            android:padding="10dp"
+            android:textColor="@color/warn"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/tv_log"
+            style="@style/SectionBody"
+            android:fontFamily="monospace"
+            android:textSize="12sp" />
+        <Button android:id="@+id/btn_test" style="@style/Secondary" android:text="@string/btn_test" />
+    </LinearLayout>
+</ScrollView>

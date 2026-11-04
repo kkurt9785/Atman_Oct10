@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">하라구리 알림</string>
+    <string name="brand">HARAGURI</string>
+    <string name="headline">결제 알림을 가계부로</string>
+    <string name="subline">카드·은행 앱 알림이 오면 우리 가족 가계부에 자동으로 올라가요.</string>
+
+    <string name="section_connection">1 · 하라구리 계정</string>
+    <string name="not_connected">아직 연결 전이에요.</string>
+    <string name="connecting">연결하는 중…</string>
+    <string name="connected">연결됨 ✓ · 지금까지 %1$d건 올렸어요</string>
+    <string name="pair_hint">하라구리 앱 → 가계부 → ‘갤럭시 앱으로 연결’을 누르면 자동으로 연결돼요. 안 되면 거기서 복사한 연결 코드를 아래에 붙여넣으세요.</string>
+    <string name="code_hint">연결 코드 붙여넣기</string>
+    <string name="code_empty">연결 코드를 붙여넣어 주세요.</string>
+    <string name="btn_claim">연결하기</string>
+    <string name="btn_unpair">연결 끊기</string>
+
+    <string name="section_access">2 · 알림 읽기 허용</string>
+    <string name="access_on">허용됨 ✓</string>
+    <string name="access_off">아직 허용 전이에요. 버튼을 누르고 ‘하라구리 알림’ 스위치를 켜 주세요.</string>
+    <string name="btn_access">알림 접근 허용하기</string>
+
+    <string name="section_apps">3 · 알림을 보낼 앱</string>
+    <string name="apps_unset">카드·은행·페이 앱을 자동으로 골라 둘게요. 눌러서 확인하세요.</string>
+    <plurals name="apps_count">
+        <item quantity="one">%d개 앱 선택됨</item>
+        <item quantity="other">%d개 앱 선택됨</item>
+    </plurals>
+    <string name="apps_title">알림을 보낼 앱 고르기</string>
+    <string name="btn_apps">앱 고르기</string>
+
+    <string name="section_battery">4 · 잠들지 않게</string>
+    <string name="battery_ok">배터리 절전 제외됨 ✓</string>
+    <string name="battery_warn">절전 모드가 앱을 재우면 알림을 놓쳐요. 한 번만 허용해 주세요.</string>
+    <string name="btn_battery">배터리 절전에서 제외</string>
+
+    <string name="section_log">최근 전송</string>
+    <string name="hidden_warn">폰이 결제 알림 %1$d건의 내용을 숨겨서 보내지 못했어요. 안드로이드 15의 ‘민감한 알림 보호’ 때문이에요. 가족 설정 도움말의 1회 허용 절차(USB)를 따라 주세요.</string>
+    <string name="log_empty">아직 보낸 알림이 없어요. 다음 결제 알림부터 여기 쌓여요.</string>
+    <string name="btn_test">연결 테스트 보내기</string>
+    <string name="test_sent">보냈어요. 하라구리 가계부 카드에 ‘연결 테스트 ✓’가 뜨면 성공이에요.</string>
+</resources>

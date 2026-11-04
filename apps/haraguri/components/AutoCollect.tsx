@@ -2,12 +2,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { IOS_NOTIFICATION_TRIGGER_MIN, type Device } from '../lib/device';
-import { shortcutOpenURL, shortcutPairingURL } from '../lib/shortcuts';
+import { ANDROID_APK_PATH, androidPairingURL, shortcutOpenURL, shortcutPairingURL } from '../lib/shortcuts';
 import { ago, markLeftForInstall, stageLabel, type AutoCollectState, type InboxRow } from '../lib/autocollect';
 
 // 가계부 자동 수집. 한 줄 상태 → 카드 하나 → 단계마다 버튼 하나. 설정 탭의 3단계 마법사를 대신한다.
 // 수집 주소·기기별 레시피·수신함 전체는 '고급' 아래로 내려 두고 평소에는 보이지 않는다.
-const VIA_LABEL: Record<string, string> = { 'ios-shortcut': '아이폰 단축어', 'ios-notification': '아이폰 앱 알림', 'notification-replay': '알림 원문 복구', 'ios-shortcut-pairing': '아이폰 계정 연결', 'ios-notification-setup': '아이폰 연결 확인', 'mac-relay-sms': 'Mac 중계기 · 문자', 'mac-relay-notif': 'Mac 중계기 · 알림', 'mac-relay': 'Mac 중계기', android: '갤럭시', test: '연결 테스트', '': '문자' };
+const VIA_LABEL: Record<string, string> = { 'ios-shortcut': '아이폰 단축어', 'ios-notification': '아이폰 앱 알림', 'notification-replay': '알림 원문 복구', 'ios-shortcut-pairing': '아이폰 계정 연결', 'ios-notification-setup': '아이폰 연결 확인', 'mac-relay-sms': 'Mac 중계기 · 문자', 'mac-relay-notif': 'Mac 중계기 · 알림', 'mac-relay': 'Mac 중계기', android: '갤럭시 앱 알림', 'android-setup': '갤럭시 앱 연결 확인', test: '연결 테스트', '': '문자' };
 const STATUS_LABEL: Record<InboxRow['status'], string> = { saved: '가계부에 올렸어요', duplicate: '이미 있는 결제', ignored: '건너뜀', unparsed: '못 읽음' };
 const DEVICE_LABEL: Record<Device, string> = { 'iphone-push': '아이폰 · 카드앱 알림', 'iphone-sms': '아이폰 · 문자', galaxy: '갤럭시' };
 const appName = (app: string) => (app.includes('.') ? app.split('.').pop() ?? app : app);
@@ -102,6 +102,25 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
     finally { if (n === req.current) setWorking(false); }
   }
 
+  // Galaxy: the companion app claims the same kind of code. No clipboard dance — the intent link carries it, and the
+  // app's own 연결 코드 field covers the case where the link does not open it.
+  async function connectAndroid() {
+    if (!supabase) return;
+    const n = ++req.current;
+    setWorking(true); setError('');
+    try {
+      const r = await supabase.rpc('hg_create_shortcut_pairing', { family: familyId });
+      if (r.error) throw new Error('연결을 준비하지 못했어요. 로그인 상태를 확인하고 다시 눌러 주세요.');
+      const expiresAt = Date.parse(r.data?.expires_at);
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw new Error('연결하기를 다시 눌러 주세요.');
+      if (n !== req.current) return;
+      const u = androidPairingURL(String(r.data.code), window.location.origin);
+      setNow(Date.now()); setLink({ code: String(r.data.code), url: u, expiresAt, normalization: 'NFC', copied: false });
+      window.location.href = u;
+    } catch (e) { if (n === req.current) setError(e instanceof Error ? e.message : '연결하지 못했어요. 다시 눌러 주세요.'); }
+    finally { if (n === req.current) setWorking(false); }
+  }
+
   async function sendTest() {
     if (!url) return;
     setTesting(true);
@@ -186,19 +205,37 @@ export function AutoCollectCard({ state, busy, run, onClose }: { state: AutoColl
 
     {stage === 'other' && <>
       <h3>{DEVICE_LABEL[device]}로 받기</h3>
-      {!token ? <div className="actions"><button type="button" className="primary" disabled={busy} onClick={() => { void createToken(); }}>자동 수집 주소 만들기</button><small className="muted">주소를 만든 뒤 아래 방법대로 폰에 넣어 주세요.</small></div> : <>
+      {device === 'galaxy' && (state.paired ? <p className="recipe-ok">갤럭시 앱 연결됨 ✓ · 첫 결제 알림 기다리는 중</p> : <>
+        <p className="muted">하라구리 갤럭시 앱을 설치하고 <b>갤럭시 앱으로 연결</b>을 누르면 연결돼요. 앱에서는 <b>알림 접근 허용</b> 한 번만 켜 주세요.</p>
+        <div className="actions">
+          <a className="button-link secondary-link" href={ANDROID_APK_PATH}>갤럭시 앱 설치</a>
+          {link && !expired ? <a className="button-link" href={link.url}>갤럭시 앱 열기</a> : <button type="button" className="primary" disabled={working} onClick={() => { void connectAndroid(); }}>{working ? '준비 중…' : '갤럭시 앱으로 연결'}</button>}
+          {link && !expired && <button type="button" className="text-button" disabled={working} onClick={() => { void connectAndroid(); }}>새 코드로 다시</button>}
+        </div>
+        {link && !expired && <details className="recipe"><summary>앱이 안 열리면</summary>
+          <ol>
+            <li>연결 코드를 복사하세요: <button type="button" className="text-button inline" onClick={() => { void copy(link.code, 'code'); }}>{copied === 'code' ? '복사했어요 ✓' : '복사'}</button><code className="pair-code">{link.code}</code></li>
+            <li><b>하라구리 알림</b> 앱을 열고 코드를 붙여넣은 뒤 <b>연결하기</b>.</li>
+          </ol>
+          <small className="muted pairing-expiry">코드는 5분 동안 한 번 쓸 수 있어요 · 남은 시간 {Math.max(0, Math.ceil((link.expiresAt - now) / 1000))}초</small>
+        </details>}
+        {expired && <p className="muted">연결 코드가 만료됐어요. <b>갤럭시 앱으로 연결</b>을 다시 눌러 주세요.</p>}
+      </>)}
+      {device !== 'galaxy' && !token ? <div className="actions"><button type="button" className="primary" disabled={busy} onClick={() => { void createToken(); }}>자동 수집 주소 만들기</button><small className="muted">주소를 만든 뒤 아래 방법대로 폰에 넣어 주세요.</small></div> : <>
         {device === 'iphone-sms' && <ol className="recipe">
           <li><b>단축어 받기</b> — 두 버튼을 차례로 누르면 단축어 앱이 열리고 “내 수집 주소” 질문이 떠요. 그 칸에 <b>붙여넣기</b> → <b>단축어 추가</b>.
             <div className="actions"><button type="button" className="secondary" onClick={() => { void copy(url, 'url'); }}>{copied === 'url' ? '복사했어요 ✓' : '① 주소 복사'}</button><a className="button-link" href="/haraguri-collect.shortcut" target="_blank" rel="noopener" download="하라구리 수집.shortcut">② 단축어 받기</a></div></li>
           <li><b>자동화 연결</b> — 단축어 앱 → 자동화 → ＋ → <b>메시지</b> → “메시지에 다음 포함”에 <code>승인</code> (또는 <code>원</code>) → <b>즉시 실행</b> → 다음 → <b>하라구리 수집</b> 선택.</li>
           <li>다음 승인 문자가 오면 여기 <b>수집 중 ✓</b>이 떠요.</li>
         </ol>}
-        {device === 'galaxy' && <ol className="recipe">
-          <li>Play 스토어에서 <b>MacroDroid</b> 설치 → 매크로 추가</li>
-          <li>트리거 <b>알림 수신</b> → 카드앱·카카오톡 선택. 문자도 받으려면 트리거 <b>SMS 수신</b>(내용에 “승인”/“출금”)을 하나 더 추가</li>
-          <li>동작 <b>HTTP 요청</b> → POST → URL에 수집 주소 <button type="button" className="text-button inline-copy" onClick={() => { void copy(url, 'url'); }}>{copied === 'url' ? '복사했어요 ✓' : '주소 복사'}</button> → 콘텐츠 유형 JSON → 본문 <code>{'{"title":"[not_title]","body":"[not_text]","app":"[not_app_name]","via":"android"}'}</code> <button type="button" className="text-button inline-copy" onClick={() => { void copy('{"title":"[not_title]","body":"[not_text]","app":"[not_app_name]","via":"android"}', 'gx'); }}>{copied === 'gx' ? '복사했어요 ✓' : '본문 복사'}</button></li>
-          <li>문자 트리거의 본문은 <code>{'{"text":"[sms_message]","via":"android"}'}</code></li>
-        </ol>}
+        {device === 'galaxy' && <details className="recipe"><summary>앱 대신 MacroDroid로 직접 설정</summary>
+          {!token ? <div className="actions"><button type="button" className="secondary" disabled={busy} onClick={() => { void createToken(); }}>자동 수집 주소 만들기</button></div> : <ol className="recipe">
+            <li>Play 스토어에서 <b>MacroDroid</b> 설치 → 매크로 추가</li>
+            <li>트리거 <b>알림 수신</b> → 카드앱·카카오톡 선택. 문자도 받으려면 트리거 <b>SMS 수신</b>(내용에 “승인”/“출금”)을 하나 더 추가</li>
+            <li>동작 <b>HTTP 요청</b> → POST → URL에 수집 주소 <button type="button" className="text-button inline-copy" onClick={() => { void copy(url, 'url'); }}>{copied === 'url' ? '복사했어요 ✓' : '주소 복사'}</button> → 콘텐츠 유형 JSON → 본문 <code>{'{"title":"[not_title]","body":"[not_text]","app":"[not_app_name]","via":"android"}'}</code> <button type="button" className="text-button inline-copy" onClick={() => { void copy('{"title":"[not_title]","body":"[not_text]","app":"[not_app_name]","via":"android"}', 'gx'); }}>{copied === 'gx' ? '복사했어요 ✓' : '본문 복사'}</button></li>
+            <li>문자 트리거의 본문은 <code>{'{"text":"[sms_message]","via":"android"}'}</code></li>
+          </ol>}
+        </details>}
         {device === 'iphone-push' && <p className="muted">아이폰 카드앱 알림 방법은 위 단계를 따라 주세요.</p>}
         {recent.length > 0 && list(recent)}
       </>}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A small house with a bell: the family app's roof, the notification it listens for. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F6F4EE"
+        android:pathData="M54,30 L30,50 L30,78 L46,78 L46,62 L62,62 L62,78 L78,78 L78,50 Z" />
+    <path
+        android:fillColor="#2F5D4A"
+        android:pathData="M54,40 L39,52 L39,70 L69,70 L69,52 Z" />
+    <path
+        android:fillColor="#F6F4EE"
+        android:pathData="M54,46 C49,46 47,50 47,54 L47,59 L45,61 L63,61 L61,59 L61,54 C61,50 59,46 54,46 Z M51,63 C51,65 52.5,66 54,66 C55.5,66 57,65 57,63 Z" />
+</vector>

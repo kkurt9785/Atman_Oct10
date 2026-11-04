@@ -41,6 +41,16 @@ export function shortcutPairingURL(code: string, name: ShortcutRelease['name'] =
   return `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(name.normalize(normalization))}&input=text&text=${code}&x-error=${encodeURIComponent(callback.href)}&x-success=${encodeURIComponent(success.href)}`;
 }
 
+// Galaxy companion app (apps/haraguri-android): same pairing code, delivered as an Android intent link.
+// Chrome and Samsung Internet open the app when it is installed and fall back to the install page when it is not.
+export const ANDROID_PACKAGE = 'app.haraguri.collect';
+export const ANDROID_APK_PATH = '/haraguri-collect.apk';
+export function androidPairingURL(code: string, origin = 'https://haraguri.vercel.app') {
+  if (!/^[0-9a-f]{48}$/.test(code)) throw new Error('잘못된 연결 코드예요. 다시 시도해 주세요.');
+  const fallback = new URL('/?tab=money&collect=1&android=install', origin);
+  return `intent://pair?code=${code}#Intent;scheme=haraguri;package=${ANDROID_PACKAGE};S.browser_fallback_url=${encodeURIComponent(fallback.href)};end`;
+}
+
 export function canRetryPairing(status: string, attempted: boolean, phase: string | null) {
   return (phase === 'nfd' || phase === 'nfc') && status === 'pending' && !attempted;
 }

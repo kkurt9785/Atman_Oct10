@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { isCollectedPayment, isCollectorDelivery, NOTIFICATION_SHORTCUT_NAME, PAIRING_SHORTCUT_NAME, parseShortcutRelease, shortcutPairingURL, canRetryPairing, type IngestDelivery } from './shortcuts';
+import { ANDROID_PACKAGE, androidPairingURL, isCollectedPayment, isCollectorDelivery, NOTIFICATION_SHORTCUT_NAME, PAIRING_SHORTCUT_NAME, parseShortcutRelease, shortcutPairingURL, canRetryPairing, type IngestDelivery } from './shortcuts';
 
 const delivery = (patch: Partial<IngestDelivery> = {}): IngestDelivery => ({ via: 'ios-notification', app: '', raw: '스타벅스 10,000원 결제', status: 'saved', ...patch });
+
+describe('galaxy app pairing link', () => {
+  it('opens the companion app with the code and falls back to the install page', () => {
+    const code = 'cd'.repeat(24);
+    const url = androidPairingURL(code, 'https://haraguri.vercel.app');
+    expect(url.startsWith(`intent://pair?code=${code}#Intent;`)).toBe(true);
+    expect(url).toContain('scheme=haraguri;');
+    expect(url).toContain(`package=${ANDROID_PACKAGE};`);
+    expect(decodeURIComponent(url.split('S.browser_fallback_url=')[1].split(';end')[0])).toBe('https://haraguri.vercel.app/?tab=money&collect=1&android=install');
+    expect(url).not.toContain('supabase');
+    expect(() => androidPairingURL('nope')).toThrow();
+  });
+});
 
 describe('shortcut pairing link', () => {
   it('passes a one-time code to the named shortcut without a collection address', () => {

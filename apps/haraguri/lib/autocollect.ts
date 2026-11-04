@@ -69,7 +69,8 @@ export function useAutoCollect(familyId: string, userId: string, active: boolean
     const [t, i, s] = await Promise.all([
       supabase.from('hg_ingest_tokens').select('token,created_at,received,last_used_at').eq('family_id', familyId).eq('user_id', userId).maybeSingle(),
       supabase.from('hg_inbox').select('id,received_at,via,app,raw,status,summary').eq('family_id', familyId).eq('user_id', userId).order('received_at', { ascending: false }).limit(30),
-      supabase.from('hg_inbox').select('received_at').eq('family_id', familyId).eq('user_id', userId).eq('via', 'ios-notification-setup').eq('status', 'ignored').order('received_at', { ascending: false }).limit(1).maybeSingle(),
+      // The setup ping: the iPhone shortcut sends it right after pairing, the Galaxy app right after claiming its code.
+      supabase.from('hg_inbox').select('received_at').eq('family_id', familyId).eq('user_id', userId).in('via', ['ios-notification-setup', 'android-setup']).eq('status', 'ignored').order('received_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
     if (n !== req.current || t.error || i.error) return;
     setToken((t.data as Token | null) ?? null); setInbox((i.data ?? []) as InboxRow[]); setSetupAt(s.data?.received_at ?? null); setLoaded(true);
