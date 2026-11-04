@@ -127,12 +127,15 @@ export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessa
   const fragments = stripped.split(/\n/).flatMap(line => line.split(/\s{2,}/)).map(s => s.replace(/\s+/g, ' ').trim()).filter(s => /[가-힣A-Za-z0-9]{2,}/.test(s));
   // Bank and MG notices place their merchant after the timestamp. Preserve it
   // before issuer removal (현대아울렛 and 네이버페이 are merchant names here).
-  const timestampMerchant = /^(?:\[(?:출금|입금)\]|MG\s*체크)/i.test(cleaned)
+  const timestampMerchant = /^(?:MG\s*새마을금고\s*)?(?:\[(?:출금|입금)\]|MG\s*체크)/i.test(cleaned)
     ? cleaned.match(/\d{1,2}:\d{2}(?::\d{2})?\s+([^\n]+)$/)?.[1]?.trim() : undefined;
+  // WON bank pushes put the counterparty right after [출금] ("[출금] 카카오페이 44,000원"), before the amount and the masked account.
+  // Read it there, before provider names (카카오페이·네이버페이) get stripped below as issuer words.
+  const bankMerchant = cleaned.match(/\[출금\]\s*([^\d\n]{2,}?)\s*[\d,]+\s*원/)?.[1]?.trim();
   const facepayMerchant = cleaned.match(/페이스페이\s*\([^)]*\)\s*[·•]\s*([^\n]+)/)?.[1]?.trim();
   // Shinhan approvals name the merchant explicitly ("가맹점명: 롯데마트 [신한카드 1544-7000]"); without this the trailing phone number won.
   const namedMerchant = cleaned.match(/가맹점(?:명)?\s*[:：]\s*([^\[\]\n]+?)\s*(?=\[|\n|$)/)?.[1]?.trim();
-  const merchant = (namedMerchant || facepayMerchant || timestampMerchant || fragments[fragments.length - 1] || '').replace(/^[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').replace(/\s[가이은는을를의로에]$/, '').slice(0, 60)
+  const merchant = (namedMerchant || bankMerchant || facepayMerchant || timestampMerchant || fragments[fragments.length - 1] || '').replace(/^[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').replace(/\s[가이은는을를의로에]$/, '').slice(0, 60)
     || (channel === 'bank_transfer' ? '계좌이체' : '카드 결제');
   return { amount: cancel ? -amount : amount, date, time, merchant, issuer, last4, cancel, installment, category: guessCategory(merchant), channel, incoming };
 }

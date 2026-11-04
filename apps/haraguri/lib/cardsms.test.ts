@@ -38,6 +38,10 @@ suite('ledger audit regressions (2026-11-03)', () => {
   it('folds full-width letters so a WON bank withdrawal keeps its merchant', () => {
     expect(parseCardMessage('우리WON뱅킹 입출금알림 [출금] Ａｍａｚｏｎ＿Ａ 148원 1002-331-728***계좌 잔액 2,203,542원 11/02 10:14:10', now)).toMatchObject({ amount: 148, merchant: 'Amazon_A', category: '쇼핑', channel: 'bank_transfer', incoming: false });
   });
+  it('keeps a pay-provider counterparty in WON bank and MG card pushes instead of a bank-word leftover', () => {
+    expect(parseCardMessage('우리WON뱅킹 입출금알림 [출금] 카카오페이 44,000원 1002-331-728***계좌 잔액 2,016,950원 11/03 23:14:34', now)).toMatchObject({ amount: 44000, merchant: '카카오페이', channel: 'bank_transfer' });
+    expect(parseCardMessage('MG새마을금고 MG체크카드(1*6*) 60,000원 승인 11/03 15:01 네이버페이', now)).toMatchObject({ amount: 60000, merchant: '네이버페이', issuer: '새마을', category: '쇼핑' });
+  });
   it('treats a [입금] marker as incoming even after a 입출금알림 header', () => {
     expect(parseCardMessage('우리WON뱅킹 입출금알림 [입금] 체크할인캐시백 8원 1002-331-728***계좌 잔액 2,165,550원 11/03 11:18:22', now)?.incoming).toBe(true);
   });
