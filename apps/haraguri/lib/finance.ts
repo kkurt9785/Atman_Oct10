@@ -1,6 +1,8 @@
 import type { Card, Expense } from './model';
 
-export const categories = ['식비','카페','생활','교육','교통','의료','여행','쇼핑','통신','보험','관리비','세금','상품권','기타'];
+export const categories = ['식비','카페','생활','교육','교통','의료','여행','쇼핑','통신','보험','관리비','세금','상품권','투자','기타'];
+// 투자 rows carry kind 'transfer' so every spending total already skips them; the label and icon are what the family sees.
+export const isInvestment = (e: { kind?: string; category: string }) => e.category === '투자';
 export function shiftMonth(month: string, offset: number) {
   const [year, m] = month.split('-').map(Number);
   const date = new Date(year, m - 1 + offset, 1, 12);
@@ -46,7 +48,7 @@ export function validateQualifyingAmount(amount: number, qualifying: number | nu
 }
 
 // Category glyphs are plain emoji (no third-party icon sets); fixed costs are recurring rows or these categories.
-export const categoryIcon: Record<string, string> = { '식비': '🍚', '카페': '☕', '생활': '🧺', '교육': '📚', '교통': '🚌', '의료': '💊', '여행': '✈️', '쇼핑': '🛍️', '통신': '📱', '보험': '🛡️', '관리비': '🏠', '세금': '🧾', '상품권': '🎫', '기타': '•', '자금 이동': '↔', '월급': '💰', '부수입': '💼', '용돈': '🎁', '환급': '↩️', '이자·배당': '🏦', '기타 수입': '＋' };
+export const categoryIcon: Record<string, string> = { '식비': '🍚', '카페': '☕', '생활': '🧺', '교육': '📚', '교통': '🚌', '의료': '💊', '여행': '✈️', '쇼핑': '🛍️', '통신': '📱', '보험': '🛡️', '관리비': '🏠', '세금': '🧾', '상품권': '🎫', '투자': '📈', '기타': '•', '자금 이동': '↔', '월급': '💰', '부수입': '💼', '용돈': '🎁', '환급': '↩️', '이자·배당': '🏦', '기타 수입': '＋' };
 export const FIXED_CATEGORIES = ['관리비', '보험', '통신', '세금'];
 export const isFixed = (e: { source?: string; category: string }) => e.source === 'recurring' || FIXED_CATEGORIES.includes(e.category);
 export const normalizeKeyword = (title: string) => title.replace(/\s+/g, ' ').trim().toLowerCase().slice(0, 60);

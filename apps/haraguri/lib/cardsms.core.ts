@@ -1,6 +1,7 @@
 // Pure parser for Korean card/bank payment messages. No imports: the same file is copied to
 // supabase/functions/_shared/cardsms.core.ts for the ingest function (a test asserts both copies are identical).
-export const CATEGORY_LABELS = ['식비','카페','생활','교육','교통','의료','여행','쇼핑','통신','보험','관리비','세금','상품권','기타'];
+// '투자' is money moved into stocks/funds: it carries kind 'transfer' (never counted as spending) but keeps its own label and icon.
+export const CATEGORY_LABELS = ['식비','카페','생활','교육','교통','의료','여행','쇼핑','통신','보험','관리비','세금','상품권','투자','기타'];
 export type Channel = 'credit' | 'debit' | 'bank_transfer' | 'unknown';
 export type ParsedCardMessage = {
   amount: number; date: string; time?: string; merchant: string; issuer?: string; last4?: string;
@@ -13,6 +14,7 @@ const ISSUERS: [RegExp, string][] = [
   [/카카오페이/, '카카오페이'], [/토스/, '토스'], [/네이버페이/, '네이버페이'], [/페이코/, '페이코'], [/새마을/, '새마을'], [/수협/, '수협'],
 ];
 const CATEGORY_RULES: [RegExp, string][] = [
+  [/증권|키움|미래에셋|NH투자|한국투자|삼성증권|KB증권|신한투자|대신증권|유안타|토스증권|카카오페이증권|업비트|빗썸|코인원|주식(?!회사)|펀드|ETF|적립식/i, '투자'], // 주식회사 is a company suffix, not a trade
   // 카페 is split out of 식비 (2026-11-04): coffee is the family's most frequent small spend and was invisible inside 식비.
   [/카페|커피|coffee|cafe|스타벅스|투썸|빽다방|바나프레소|메가커피|컴포즈|이디야|할리스|폴바셋|텐퍼센트|파스쿠찌|공차|던킨|배스킨|설빙|베이커리|빵|파리바게뜨|뚜레쥬르|와플|디저트|케이크|도넛|마카롱|빙수/i, '카페'],
   [/마트|식자재|편의점|GS25|CU|세븐일레븐|이마트|홈플러스|코스트코|쿠팡이츠|배달|배민|요기요|식당|음식점|치킨|피자|맥도날드|버거킹|롯데리아|맘스터치|서브웨이|교촌|BBQ|BHC|도미노|푸라닭|김밥|분식|국밥|냉면|초밥|스시|족발|보쌈|횟집|정육|과일|반찬|추어정|추어탕|고기|삼겹|갈비|한식|중식|일식|포차|술집|호프|맥주|소주/i, '식비'],

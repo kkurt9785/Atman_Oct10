@@ -12,7 +12,7 @@ export type MonthCard = {
   topMerchants: { title: string; count: number; amount: number }[];
   firstVisits: { title: string; amount: number }[];
   biggest: { title: string; amount: number; date: string } | null;
-  refunds: number; fixed: number; variable: number;
+  refunds: number; fixed: number; variable: number; invest: number;
   child: { label: string; amount: number; count: number; places: string[] };
 };
 export type Digest =
@@ -47,6 +47,7 @@ export function monthCard(expenses: Expense[], members: Member[], budgets: Budge
     firstVisits: [...first.values()].sort((a, b) => b.amount - a.amount).slice(0, 3),
     biggest: biggestRow ? { title: biggestRow.title, amount: Number(biggestRow.amount), date: biggestRow.date } : null,
     refunds: r.refunds, fixed: r.fixed, variable: r.variable,
+    invest: expenses.filter(e => e.kind === 'transfer' && e.category === '투자' && !e.canceled_by && e.date.startsWith(month)).reduce((s, e) => s + Number(e.amount), 0),
     child: { label: childName, amount: childRows.reduce((s, e) => s + Number(e.amount), 0), count: childRows.length, places: [...new Set(childRows.map(e => e.title))].slice(0, 3) },
   };
 }
@@ -64,6 +65,7 @@ export function cardLines(c: MonthCard): string[] {
   if (c.child.count) lines.push(`${c.child.label}에게 쓴 돈 · ${won(c.child.amount)} (${c.child.count}건${c.child.places.length ? ` · ${c.child.places.join('·')}` : ''})`);
   if (c.fixed > 0) lines.push(`고정비 ${won(c.fixed)} 빼면 생활비 ${won(c.variable)}`);
   if (c.refunds > 0) lines.push(`환불·취소 ${won(c.refunds)}`);
+  if (c.invest > 0) lines.push(`투자로 ${won(c.invest)} 옮김 · 지출 합계엔 안 들어가요`);
   if (c.days > 0 && c.total > 0) lines.push(`하루 ${won(c.perDay)}이면 ${c.closed ? '지난달' : '이번 달'}과 같아요`);
   return lines;
 }

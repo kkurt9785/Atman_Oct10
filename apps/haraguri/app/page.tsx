@@ -597,7 +597,7 @@ export default function Home() {
         else await insert('entries', 'hg_entries', { ...common, ...fields, ...schedule });
       } else if (form === 'expense') {
         const amount = Number(str('amount'));
-        const kind = str('kind') === 'transfer' ? 'transfer' : str('kind') === 'income' ? 'income' : 'expense';
+        const kind = str('kind') === 'transfer' || str('category') === '투자' ? 'transfer' : str('kind') === 'income' ? 'income' : 'expense'; // 투자 is always a transfer
         if (!str('title') || !Number.isSafeInteger(amount) || amount === 0 || Math.abs(amount) > 1000000000) throw new Error('사용처와 올바른 원 단위 금액을 입력해 주세요.');
         if (kind !== 'expense' && amount <= 0) throw new Error('수입은 0보다 큰 금액으로 입력해 주세요.');
         const qualifying = str('card_id') && str('perf_exclude') === 'on' ? 0 : null; // one switch: counts toward card performance or not
@@ -608,7 +608,7 @@ export default function Home() {
         const scopeValue = str('scope') === 'personal' ? 'personal' : 'shared';
         const value = {entry_id: entry?.id || null, occurrence: entry?str('occurrence'):null, payment_method: str('payment_method'), title: str('title'), amount, date: str('date'), category: str('category'), card_id: str('card_id') || null, qualifying_amount: qualifying, performance_month: null, kind, note: str('note').slice(0, 200), scope: scopeValue, regret: kind === 'expense' && str('regret') === 'on'};
         if (kind !== 'expense') { value.card_id = null; value.qualifying_amount = null; value.performance_month = null; if (value.payment_method === 'card' || !value.payment_method) value.payment_method = 'bank_transfer'; }
-        if (kind === 'transfer') { value.payment_method = 'bank_transfer'; value.category = '자금 이동'; value.scope = 'personal'; value.entry_id = null; value.occurrence = null; }
+        if (kind === 'transfer') { value.payment_method = 'bank_transfer'; value.category = str('category') === '투자' ? '투자' : '자금 이동'; value.scope = 'personal'; value.entry_id = null; value.occurrence = null; }
         if (editingExpense) await update('expenses','hg_expenses',editingExpense.id,editingExpense.reviewed===false?{...value,reviewed:true}:value);
         else { await insert('expenses','hg_expenses',{...common,...value}); try{localStorage.setItem(lastPayKey,JSON.stringify({payment_method:value.payment_method,card_id:value.card_id||''}));}catch{} }
         if (kind === 'expense') await learnRule(value.title, value.category, scopeValue);
@@ -727,8 +727,10 @@ export default function Home() {
         onClassify={(e,category)=>run(async()=>{
           // Chip tap = category + confirmed, for this row and every open/기타 row from the same merchant; the family rule follows.
           const peers=sameMerchantTargets(e,data.expenses); const ids=[e.id,...peers.map(x=>x.id)];
-          if(demo) setData(d=>({...d,expenses:d.expenses.map(x=>ids.includes(x.id)?{...x,category,reviewed:true}:x)}));
-          else { const r=await supabase!.from('hg_expenses').update({category,reviewed:true}).in('id',ids).select('id'); if(r.error)throw r.error; if(!r.data?.length)throw new Error('수정 권한이 없거나 이미 삭제된 기록이에요. 새로고침 후 다시 확인해 주세요.'); await load(); }
+          // 투자 rides on kind 'transfer' (excluded from spending); moving a row out of 투자 makes it an expense again.
+          const patch:Record<string,unknown>={category,reviewed:true,...(category==='투자'?{kind:'transfer'}:e.kind==='transfer'&&e.category==='투자'?{kind:'expense'}:{})};
+          if(demo) setData(d=>({...d,expenses:d.expenses.map(x=>ids.includes(x.id)?{...x,...patch}:x)}));
+          else { const r=await supabase!.from('hg_expenses').update(patch).in('id',ids).select('id'); if(r.error)throw r.error; if(!r.data?.length)throw new Error('수정 권한이 없거나 이미 삭제된 기록이에요. 새로고침 후 다시 확인해 주세요.'); await load(); }
           await learnRule(e.title,category,e.scope||'shared');
           setNotice(peers.length?`${category}로 정리했어요 · 같은 가맹점 ${peers.length}건에도 적용`:`${category}로 정리했어요.`);
         })}

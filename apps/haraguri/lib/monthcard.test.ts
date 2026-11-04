@@ -10,6 +10,7 @@ const expenses = [
   row('5', '2026-11-03', '삼성드림소아청소년과', 4900), row('6', '2026-11-03', '무지개약국', 2000, 'dad', { note: '지유 감기약' }),
   row('7', '2026-11-03', '아파트 관리비', 180000, 'mom', { category: '관리비', source: 'recurring' }),
   row('8', '2026-11-01', '급여', 3500000, 'dad', { kind: 'income' }), row('9', '2026-11-02', '토스 충전', 30000, 'dad', { kind: 'transfer' }),
+  row('10', '2026-11-03', '카카오페이', 44000, 'dad', { kind: 'transfer', category: '투자' }),
 ];
 const budgets: Budget[] = [{ family_id: 'f', month: '2026-11-01', total: 1000000, by_category: {} }];
 
@@ -26,6 +27,11 @@ describe('month card', () => {
     expect(c.firstVisits.map(f => f.title)).toEqual(['아파트 관리비', '롯데쇼핑(주)롯데마트', '우지커피 구로한']);
     expect(c.child).toEqual({ label: '지유', amount: 6900, count: 2, places: ['삼성드림소아청소년과', '무지개약국'] });
     expect(c.fixed).toBe(180000); expect(c.variable).toBe(27900);
+  });
+  it('keeps investments out of spending but says how much moved', () => {
+    expect(c.total).not.toBeGreaterThan(300000); // the 44,000 투자 transfer is not spending
+    expect(c.invest).toBe(44000);
+    expect(cardLines(c)).toContain('투자로 4.4만 옮김 · 지출 합계엔 안 들어가요');
   });
   it('has no first visits in the very first month', () => {
     expect(monthCard(expenses, members, budgets, '2026-10', '2026-11-03').firstVisits).toEqual([]);

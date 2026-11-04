@@ -87,9 +87,10 @@ Deno.serve(async req => {
   const payment = parsed.channel === 'bank_transfer' ? 'bank_transfer' : cardId ? 'card' : 'other';
   // Topping up the family's own pay wallet (토스 김기한) is a transfer between pockets; it still lands in review so it can be corrected.
   const wallet = selfTransferWallet(text);
+  const category = rule?.category ?? parsed.category;
   const row = {
-    family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : wallet ? `${wallet} 충전` : parsed.merchant, amount: parsed.amount, date: parsed.date, category: rule?.category ?? parsed.category,
-    kind: wallet ? 'transfer' : 'expense', scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
+    family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : wallet ? `${wallet} 충전` : parsed.merchant, amount: parsed.amount, date: parsed.date, category,
+    kind: wallet || category === '투자' ? 'transfer' : 'expense', scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, // 투자 (stocks, funds) never counts as spending source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
   };
   const inserted = await admin.from('hg_expenses').insert(row).select('id').single();
   if (inserted.error) {

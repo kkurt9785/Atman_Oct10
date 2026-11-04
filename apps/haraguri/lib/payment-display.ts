@@ -8,7 +8,7 @@ export function inferredPayment(row: PaymentRow) {
 }
 
 export function paymentLabel(row: PaymentRow): string {
-  if (row.kind === 'transfer') return '본인 계좌 간 이동';
+  if (row.kind === 'transfer') return row.category === '투자' ? '투자' : '본인 계좌 간 이동';
   if (row.payment_method === 'cash') return '현금';
   const parsed = inferredPayment(row);
   // No "카드 미등록" nag: the feed describes what happened; registering a card is an optional step under 카드.
@@ -22,7 +22,7 @@ export function paymentLabel(row: PaymentRow): string {
 }
 
 export function categoryLabel(row: PaymentRow): string {
-  if (row.kind === 'transfer') return '자금 이동';
+  if (row.kind === 'transfer') return row.category === '투자' ? '투자' : '자금 이동';
   return row.category; // 기타 is just 기타 — never a "분류 미확인" chore
 }
 
