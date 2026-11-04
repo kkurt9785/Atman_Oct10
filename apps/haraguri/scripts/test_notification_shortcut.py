@@ -51,6 +51,10 @@ class NotificationShortcutTests(unittest.TestCase):
         store = next(a for a in workflow['WFWorkflowActions'] if a['WFWorkflowActionIdentifier'].endswith('.setstoredcontent'))
         self.assertEqual(store['WFWorkflowActionParameters']['WFStoredContentKey'], builder.STORAGE_KEY)
         self.assertIs(store['WFWorkflowActionParameters']['WFStoredContentGlobalValue'], True)
+        # Must be the text-token form: iOS 27 leaves a plain attachment unbound in the Stored Content input.
+        store_input = store['WFWorkflowActionParameters']['WFInput']
+        self.assertEqual(store_input['WFSerializationType'], 'WFTextTokenString')
+        self.assertEqual(store_input['Value']['attachmentsByRange']['{0, 1}']['OutputName'], 'Dictionary Value')
 
     def test_complete_template_preserves_body_and_removes_private_address_and_app_choices(self):
         source = source_fixture()

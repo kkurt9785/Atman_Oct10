@@ -133,7 +133,10 @@ def build_workflow(source=None, manual_trigger=False):
     claim = post(PAIR_URL, {'code': token(output(match, 'Matches'))})
     collect_url = action('getvalueforkey', WFGetDictionaryValueType='Value', WFDictionaryKey='token', WFInput=attachment(output(claim, 'Contents of URL')))
     valid, invalid, valid_end = conditional(output(collect_url, 'Dictionary Value'))
-    store = action('setstoredcontent', WFInput=attachment(output(collect_url, 'Dictionary Value')), WFStoredContentKey=STORAGE_KEY, WFStoredContentGlobalValue=True)
+    # The Stored Content input is a text field: iOS 27 only binds a WFTextTokenString here. A bare attachment
+    # (as other actions take) shows an empty '콘텐츠' slot on device, so pairing "completes" without storing anything
+    # and every notification then takes the not-linked branch (seen 11/4, fixed by hand in the editor).
+    store = action('setstoredcontent', WFInput=token(output(collect_url, 'Dictionary Value')), WFStoredContentKey=STORAGE_KEY, WFStoredContentGlobalValue=True)
     ping = post(INGEST_URL, {'body': '하라구리 연결 테스트', 'via': 'ios-notification-setup'}, token(output(collect_url, 'Dictionary Value')))
     actions = [match, start, claim, collect_url, valid, store, ping,
                action('showresult', Text='하라구리 계정 연결이 완료됐어요. 실제 앱 알림 수신 확인은 별도로 진행해 주세요.'),
