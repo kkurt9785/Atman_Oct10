@@ -8,7 +8,7 @@ const rule = (keyword: string, category: string): CategoryRule => ({ id: keyword
 describe('one-tap classification', () => {
   it('ranks the current category, then a family rule, then how the merchant was filed before, then merchant words', () => {
     const all = [row('a', '우지커피 구로한'), row('b', '우지커피 구로한', { category: '식비', reviewed: true }), row('c', '행복학원', { category: '교육', reviewed: true })];
-    expect(suggestCategories(row('x', '우지커피 양평'), all, [])).toEqual(['식비', '교육', '생활']);
+    expect(suggestCategories(row('x', '우지커피 양평'), all, [])).toEqual(['식비', '카페', '교육']); // how the family filed it before, then the merchant word
     expect(suggestCategories(row('x', '무지개약국', { category: '의료' }), all, [rule('무지개', '생활')])).toEqual(['의료', '생활', '식비']);
     expect(suggestCategories(row('x', '1544-7000'), [], [])).toEqual(['식비', '생활', '쇼핑']);
   });

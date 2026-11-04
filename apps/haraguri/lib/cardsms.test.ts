@@ -20,7 +20,7 @@ suite('weekend notification regressions', () => {
     expect(parseCardMessage('[출금] 31,300원 9002-000-000*** 잔액 11,856원 10/27 17:57 현대아울렛 스페', now)?.merchant).toBe('현대아울렛 스페');
   });
   it('reads a FacePay payment when the amount is in the notification title', () => {
-    expect(parseCardMessage('38,300원 결제\n페이스페이 (올바른POINT체크, 일시불) · 와플 베르비에', now)).toMatchObject({ amount: 38300, merchant: '와플 베르비에', category: '식비', channel: 'debit' });
+    expect(parseCardMessage('38,300원 결제\n페이스페이 (올바른POINT체크, 일시불) · 와플 베르비에', now)).toMatchObject({ amount: 38300, merchant: '와플 베르비에', category: '카페', channel: 'debit' });
   });
 });
 
@@ -31,7 +31,7 @@ suite('ledger audit regressions (2026-11-03)', () => {
     expect(p).toMatchObject({ amount: 13000, date: '2026-11-02', time: '15:13', merchant: '롯데쇼핑(주)롯데마트', issuer: '신한', last4: '2987', category: '식비' });
   });
   it.each([
-    ['삼성드림소아청소년과', '의료'], ['아이파킹 주식회사', '교통'], ['바나프레소 영등포문', '식비'], ['무지개약국', '의료'],
+    ['삼성드림소아청소년과', '의료'], ['아이파킹 주식회사', '교통'], ['바나프레소 영등포문', '카페'], ['무지개약국', '의료'], ['나이스 카페인 클럽 코오롱타워점', '카페'], ['지에스더프레시 양평', '기타'], ['다이소 양평점', '생활'],
   ])('categorizes the Shinhan merchant %s as %s', (merchant, category) => {
     expect(parseCardMessage(`[신한카드(2987)승인] 김*한 - 승인금액: 4,900원(일시불) - 승인일시: 11/03 11:00 - 가맹점명: ${merchant} [신한카드 1544-7000]`, now)).toMatchObject({ merchant, category, issuer: '신한' });
   });
@@ -68,7 +68,7 @@ suite('card approval message parsing', () => {
     expect(p).toMatchObject({ amount: 220000, date: '2026-10-01', merchant: '행복학원', issuer: '신한', last4: '5678', category: '교육' });
   });
   it('reads Samsung and Hyundai orderings', () => {
-    expect(parseCardMessage('[삼성카드]김*한님 10/27 11:21 15,900원 일시불 승인 스타벅스 역삼점', now)).toMatchObject({ amount: 15900, merchant: '스타벅스 역삼점', issuer: '삼성', category: '식비' });
+    expect(parseCardMessage('[삼성카드]김*한님 10/27 11:21 15,900원 일시불 승인 스타벅스 역삼점', now)).toMatchObject({ amount: 15900, merchant: '스타벅스 역삼점', issuer: '삼성', category: '카페' });
     expect(parseCardMessage('현대카드 승인 김*한 64,000원 3개월 10/26 18:02 올리브영 강남', now)).toMatchObject({ amount: 64000, installment: '3개월', merchant: '올리브영 강남', category: '쇼핑', date: '2026-10-26' });
   });
   it('turns cancellations into refunds and keeps the merchant', () => {
@@ -163,7 +163,7 @@ suite('reward promotion notifications', () => {
 suite('channel rules and the shared copy', () => {
   it('reads a WON bank withdrawal without confusing the masked account or balance with the merchant or amount', () => {
     const raw = '[출금] 커피앤메이트 1,700원\n1002-000-000***계좌 잔액\n99,999원 10/30 12:48:42';
-    expect(parseCardMessage(raw, new Date('2026-10-30T13:00:00+09:00'))).toMatchObject({ amount: 1700, merchant: '커피앤메이트', channel: 'bank_transfer', category: '식비', date: '2026-10-30', time: '12:48' });
+    expect(parseCardMessage(raw, new Date('2026-10-30T13:00:00+09:00'))).toMatchObject({ amount: 1700, merchant: '커피앤메이트', channel: 'bank_transfer', category: '카페', date: '2026-10-30', time: '12:48' });
   });
   it('uses a bank fallback when a withdrawal contains only account metadata', () => {
     expect(parseCardMessage('[출금] 1,700원\n1002-000-000***계좌 잔액 99,999원', now)).toMatchObject({ amount: 1700, merchant: '계좌이체' });
@@ -269,7 +269,7 @@ suite('benefit notices are not payments', () => {
 suite('card-app push notification parsing', () => {
   it('reads KB Pay style: name, date, merchant, then amount with a sentence ending', () => {
     const p = parseCardMessage('KB국민카드 홍*동님 10/27 12:34 스타벅스 10,000원 승인되었습니다', now)!;
-    expect(p).toMatchObject({ amount: 10000, date: '2026-10-27', time: '12:34', merchant: '스타벅스', issuer: '국민', cancel: false, category: '식비' });
+    expect(p).toMatchObject({ amount: 10000, date: '2026-10-27', time: '12:34', merchant: '스타벅스', issuer: '국민', cancel: false, category: '카페' });
   });
   it('reads Shinhan SOL style with installment and a two-word merchant', () => {
     const p = parseCardMessage('신한카드 승인 홍*동 4,500원 일시불 10/27 08:15 스타벅스 역삼점', now)!;
