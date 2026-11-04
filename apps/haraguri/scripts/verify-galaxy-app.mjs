@@ -51,12 +51,14 @@ try {
   // RECEIVE_SENSITIVE_NOTIFICATIONS. The grant is adb-only; a real phone needs it once over USB too.
   adb('shell', 'appops', 'set', '--uid', PKG, 'RECEIVE_SENSITIVE_NOTIFICATIONS', 'allow');
   adb('shell', 'am', 'force-stop', PKG);
-  const prefs = join(tmpdir(), 'haraguri-prefs.xml');
-  writeFileSync(prefs, `<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n<map>\n    <set name="packages">\n        <string>com.android.shell</string>\n    </set>\n</map>\n`);
-  adb('push', prefs, '/data/local/tmp/haraguri-prefs.xml');
-  // adb joins arguments with spaces, so the remote command must travel as one quoted string.
-  adb('shell', `run-as ${PKG} sh -c 'mkdir -p shared_prefs && cp /data/local/tmp/haraguri-prefs.xml shared_prefs/haraguri.xml'`);
-  pass('listener allowed · packages preset');
+  if (process.env.SMOKE !== '1') { // run-as only works on a debuggable build
+    const prefs = join(tmpdir(), 'haraguri-prefs.xml');
+    writeFileSync(prefs, `<?xml version='1.0' encoding='utf-8' standalone='yes' ?>\n<map>\n    <set name="packages">\n        <string>com.android.shell</string>\n    </set>\n</map>\n`);
+    adb('push', prefs, '/data/local/tmp/haraguri-prefs.xml');
+    // adb joins arguments with spaces, so the remote command must travel as one quoted string.
+    adb('shell', `run-as ${PKG} sh -c 'mkdir -p shared_prefs && cp /data/local/tmp/haraguri-prefs.xml shared_prefs/haraguri.xml'`);
+  }
+  pass(process.env.SMOKE === '1' ? 'listener allowed' : 'listener allowed · packages preset');
 
   // Pairing: the code the web app would mint, handed over as the deep link the intent:// URL resolves to.
   const pairing = check(await client.rpc('hg_create_shortcut_pairing', { family: familyId }), 'mint pairing code');
@@ -65,6 +67,8 @@ try {
   assert.ok(status); pass('deep link pairing claimed');
   const setup = await until('android-setup ping', async () => (await inbox('android-setup'))[0]);
   assert.equal(setup.status, 'ignored'); assert.match(setup.summary, /연결 테스트/); pass('setup ping received', setup.summary);
+  // SMOKE=1: a signed release build cannot take the run-as prefs injection below, so stop at a proven pairing.
+  if (process.env.SMOKE === '1') { console.log('\nSMOKE PASS (install · pairing · setup ping)'); throw Object.assign(new Error('smoke-done'), { smoke: true }); }
 
   // A card-approval push, as a bank app would post it. Title = app-ish, body = the approval text.
   const body = '[신한카드(2987)승인] 김*한 - 승인금액: 4,500원(일시불) - 승인일시: 11/04 17:20 - 가맹점명: 스타벅스 수원역점';
@@ -93,9 +97,11 @@ try {
   console.log(`screenshot: ${shot}`);
   console.log('\nALL PASS');
 } catch (e) {
+  if (e.smoke) { /* finished early on purpose */ } else {
   console.error('\nFAIL', e.message);
   try { console.error(adb('logcat', '-d', '-s', 'HaraguriListener', 'AndroidRuntime').split('\n').slice(-12).join('\n')); } catch { /* no logcat */ }
   process.exitCode = 1;
+  }
 } finally {
   if (familyId) check(await admin.from('hg_families').delete().eq('id', familyId), 'clean temporary family');
   if (userId) check(await admin.auth.admin.deleteUser(userId), 'clean temporary user');

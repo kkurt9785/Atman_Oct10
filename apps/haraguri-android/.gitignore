@@ -7,3 +7,5 @@ local.properties
 .kotlin/
 *.jks
 *.keystore
+keystore/
+keystore.properties

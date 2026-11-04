@@ -27,5 +27,7 @@ node scripts/verify-galaxy-app.mjs            # 임시 계정 → 설치 → 딥
 ```
 실기기(삼성)에서는 설정 → 배터리 → 절전 예외와 '알림 접근 허용'이 실제로 유지되는지 따로 본다.
 
-## 배포
-APK를 웹앱 `public/haraguri-collect.apk`에 두면 가계부 카드의 **갤럭시 앱 설치**가 그 파일을 연다(설치 시 '알 수 없는 앱' 허용 1회). Play 스토어는 나중.
+## 서명·배포
+- 서명 키: `keystore/haraguri-release.jks` + `keystore.properties`(둘 다 gitignore, 이 Mac에만 있음). **분실하면 같은 서명으로 업데이트를 못 하니(기존 설치자는 삭제 후 재설치) iCloud 등에 백업해 둘 것.** 비밀번호는 properties 파일 안에만.
+- `./gradlew assembleRelease` → `app/build/outputs/apk/release/app-release.apk`(키가 없으면 디버그 서명으로 떨어짐). `apksigner verify --print-certs`로 DN `CN=HARAGURI` 확인.
+- 배포: APK를 웹앱 `public/haraguri-collect.apk`로 복사 → 웹앱 vercel 배포 → 가계부 카드 **갤럭시 앱 설치**가 그 파일을 연다(설치 시 '알 수 없는 앱' 허용 1회). 업데이트는 `versionCode`를 올리고 같은 절차. Play 스토어는 나중.

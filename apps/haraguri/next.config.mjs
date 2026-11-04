@@ -21,6 +21,12 @@ export default {
       { key: 'Content-Type', value: 'application/octet-stream' },
       { key: 'Content-Disposition', value: `attachment; filename="${source.slice(1)}"; filename*=UTF-8''${encodeURIComponent(name + '.shortcut')}` },
       { key: 'Cache-Control', value: 'public, max-age=300' },
-    ] })), { source: '/haraguri-notifications.json', headers: [{ key: 'Cache-Control', value: 'no-store' }] }];
+    ] })), { source: '/haraguri-notifications.json', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+    // Galaxy companion app (apps/haraguri-android, signed release). The MIME type makes Chrome offer "install" instead of showing bytes.
+    { source: '/haraguri-collect.apk', headers: [
+      { key: 'Content-Type', value: 'application/vnd.android.package-archive' },
+      { key: 'Content-Disposition', value: 'attachment; filename="haraguri-collect.apk"' },
+      { key: 'Cache-Control', value: 'public, max-age=300' },
+    ] }];
   },
 };
