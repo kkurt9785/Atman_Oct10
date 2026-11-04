@@ -90,7 +90,9 @@ Deno.serve(async req => {
   const category = rule?.category ?? parsed.category;
   const row = {
     family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : wallet ? `${wallet} 충전` : parsed.merchant, amount: parsed.amount, date: parsed.date, category,
-    kind: wallet || category === '투자' ? 'transfer' : 'expense', scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId, // 투자 (stocks, funds) never counts as spending source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
+    kind: wallet || category === '투자' ? 'transfer' : 'expense', // 투자 (stocks, funds) never counts as spending
+    scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId,
+    source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
   };
   const inserted = await admin.from('hg_expenses').insert(row).select('id').single();
   if (inserted.error) {
