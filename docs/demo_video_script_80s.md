@@ -55,20 +55,54 @@ ffmpeg -y -ss 0.5 -i apps/worker-web/public/demo/itdot-worker-demo.mp4 -frames:v
 | 9 | `10-notifications` | `/notifications` | 새 시프트와 채용 확정, 사업장 메시지와 지급 상태는 알림으로 이어집니다. 다음 근무를 놓치지 않고 자연스럽게 다시 시작할 수 있습니다. |
 | 10 | `11-next-shifts` | `/home` (마무리, 주간 근무표) | 잇닿에서는 앱을 열면 이번 주 근무표와 내 지역에서 갈 수 있는 근무가 바로 보입니다. 원하는 근무를 고르고, 일한 시간과 지급 상태도 내가 직접 확인합니다. |
 
-## 긱워커 영상 (6장면 · 약 70초) — 2026-10-01 신설, `/gig/demo` 페이지에 임베드
+## 단기·행사(초대 근무) 영상 (6장면 · 약 65초) — 2026-10-01 신설, `/gig/demo`·`/intro?kind=gigworker`에 임베드
+
+> **2026-11-05 나레이션 개정안 — 아직 렌더 안 함.** 지금 배포된 `itdot-gig-demo.mp4`는 10/01 렌더본이라 '간편모드'·'잇기·닿기 버튼'·'관리자'를 말하고 포스터에도 '긱워커 간편모드 시연'이 찍혀 있다. 아래 표가 새 문안이며, **`scripts/render_demo_videos.mjs`의 `stories.gig`는 아직 옛 문안**이다(의료 영상 재녹화 작업과 같은 파일이라 손대지 않음). 재제작 때 아래 문안을 `stories.gig` 4번째 칸에 옮긴 뒤 렌더한다. 화면 위 제목·부제(2·3번째 칸)는 렌더에 쓰이지 않는다.
 
 캡처: `node scripts/capture_demo_screens.mjs worker-gig-live` (GIG2026 시연 계정 → 초대 수락까지 자동) + 인트로는 `public-live`의 `03-gig-demo.png`를 `00-gig-intro.png`로 복사. 렌더: `node scripts/render_demo_videos.mjs gig`.
 
-| # | 프레임 | 화면 | 나레이션 |
-|---|---|---|---|
-| 1 | `00-gig-intro` | `/gig/demo` | 잇닿 워커 안의 긱워커 간편모드입니다. 팝업스토어나 행사, 단기 알바처럼 초대받은 근무의 출퇴근 기록과 지급 확인에만 집중합니다. 별도 앱 없이 잇닿 워커 하나로 씁니다. |
-| 2 | `00-gig-invite` | `/gig/join?token=` (수락 전) | 관리자가 보낸 초대 링크를 열면 근무 기간과 일정, 업무, 급여 조건이 먼저 보입니다. 전화번호나 카카오 친구 추가 없이, 잇기 버튼으로 수락하면 바로 연결됩니다. |
-| 3 | `01-gig-home` | `/gig` (닿기) | 근무 당일에는 닿기 버튼을 1초간 길게 누르면 출근이 기록됩니다. 위치는 누른 순간에만 확인하고, 실내처럼 위치가 불안정하면 관리자의 동적 큐알로 인증합니다. 퇴근도 같은 방식입니다. |
-| 4 | `02-gig-workroom` | `/gig/workroom` | 출퇴근 기록은 관리자 대화에 바로 쌓이고, 공지와 근무 메시지도 여기서 주고받습니다. 개인 전화번호는 표시되지 않고, 이 대화는 나와 근무지 관리자만 볼 수 있습니다. |
-| 5 | `03-gig-settlement` | `/gig/settlement` | 지급 계좌는 근무 시작 전에 전달해 둡니다. 계좌는 이 근무지의 지급 권한이 있는 관리자만 볼 수 있고, 여기서 기록된 근태와 지급 현황을 내가 직접 확인합니다. |
-| 6 | `05-gig-settings` | `/gig/settings` (마무리) | 출근 알림을 켜 두면 근무 시간을 놓치지 않습니다. 병원이나 약국 근무도 같은 계정에서 이어서 시작할 수 있습니다. 긱워커도 잇닿 하나로 충분합니다. |
+> ⚠️ `worker-gig`·`worker-gig-live` 캡처는 **운영 DB에 쓴다**(타깃 이름과 상관없이 `https://itdot.co.kr/api/demo-login`을 부른다). `reset_gigworker_invite_demo` → 긱 시연 사업장의 지급·계좌 전달·근태·인증 로그·알림, 워크룸 공지·대화·출석 확인 전부, 방문자가 만든 초대·근무자·빈 근무 건을 지우고 고정 초대를 새로 만든다. 이어서 `prepare_my_demo_worker`(시연 근무 시간 갱신)와 브라우저의 '초대 수락' 클릭(`claim_facility_staff_invite`·계좌 전달·조건 스냅샷)까지 쓴다. 출근은 누르지 않는다. 시연 계정·시연 사업장(`DEMO-GIGWORKER-2026`) 데이터만 건드리지만, 그 시각 다른 사람의 단기 시연(사장님 `login?demo=gigworker` 포함)은 지워진다. 최근 1시간 안에 시연이 진행됐으면 초기화를 건너뛰고 고정 토큰을 돌려줘 `00-gig-invite`가 '이미 수락' 화면으로 찍히니, 그때는 1시간 뒤 다시 한다. `public-live`는 공개 페이지만 열어 쓰기 없음.
 
-`04-gig-notifications`는 시연 계정에 알림이 없어(빈 화면) 쓰지 않는다.
+| # | 프레임 | 화면 | 나레이션 (11/05 개정안) |
+|---|---|---|---|
+| 1 | `00-gig-intro` | `/gig/demo` | 잇닿 근무자 앱의 초대 근무 화면이에요. 팝업스토어나 행사처럼 사장님이 초대한 근무의 출퇴근 기록과 지급 확인을 한곳에서 해요. 따로 앱을 설치하지 않아도 써 볼 수 있어요. |
+| 2 | `00-gig-invite` | `/gig/join?token=` (수락 전) | 사장님이 보낸 초대 링크를 열면 근무 기간과 일정, 업무, 급여 조건이 먼저 보여요. 전화번호나 카카오톡 친구 추가 없이, 초대 수락을 누르면 이 근무와 바로 연결돼요. |
+| 3 | `01-gig-home` | `/gig` (오늘 근무 · 출근하기) | 근무 당일에는 오늘 근무 화면에서 출근하기를 1초간 길게 누르면 출근이 기록돼요. 위치는 누른 순간에만 확인하고, 실내처럼 위치가 불안정하면 사장님 화면의 동적 큐알로 인증해요. 퇴근도 같은 방식이에요. |
+| 4 | `02-gig-workroom` | `/gig/workroom` (사장님과 근무 대화) | 사장님과 근무 대화에서는 공지와 출석 확인, 근무 메시지를 한곳에서 주고받아요. 개인 전화번호는 보이지 않고, 내 대화는 다른 근무자에게 보이지 않아요. |
+| 5 | `03-gig-settlement` | `/gig/settlement` (근태·지급) | 근태·지급 화면에서는 지급 계좌를 사장님께 전달하고, 내 근태와 지급 현황을 직접 확인해요. 계좌는 이 근무지에서 지급 권한이 있는 사람만 볼 수 있고, 임금은 사장님이 직접 지급해요. |
+| 6 | `05-gig-settings` | `/gig/settings` (마무리) | 앱 설정에서 이 기기의 출근 알림을 켜 두면 근무 30분 전에 안내를 받아요. 초대 링크 하나로 시작하는 단기 근무, 잇닿 근무자 앱 하나면 충분해요. |
+
+### 단기 영상 재제작 순서 (대표 승인 후, 기계 시간 약 3분 + 확인 10분)
+
+```bash
+# 전제: 오늘 단기 문구 수정(worker-web)이 itdot.co.kr 에 배포돼 있을 것 — -live 캡처는 운영 화면을 찍는다.
+#       최근 1시간 안에 단기 시연이 없었고, 지금 시연 중인 사람이 없을 것. 9333 포트를 다른 Chrome 이 쓰지 않을 것.
+cd ~/atman
+# 0) scripts/render_demo_videos.mjs 의 stories.gig 나레이션(4번째 칸)을 위 표로 바꾸고, date 를 '20261105' 로
+# 1) 공개 페이지 캡처 — 읽기만 (약 30초)
+node scripts/capture_demo_screens.mjs public-live
+# 2) 단기 근무자 화면 캡처 — ⚠️ 운영 DB 쓰기(시연 초기화 + 초대 수락) (약 40초)
+node scripts/capture_demo_screens.mjs worker-gig-live
+# 3) 인트로 프레임: /gig/demo 아래쪽에 옛 영상 포스터('긱워커 간편모드 시연')가 찍히므로 '영상으로 보기' 위에서 자른다 (2x 기준 780×1090)
+ffmpeg -y -i /private/tmp/atman-video-public-live/03-gig-demo.png -vf crop=780:1090:0:0 /private/tmp/atman-video-worker-gig-live/00-gig-intro.png
+# 4) 프레임 6장 눈으로 확인: 00-gig-invite 가 '수락 전' 화면인지, 01-gig-home 에 '출근하기'가 보이는지
+open /private/tmp/atman-video-worker-gig-live
+# 5) 렌더 — say -v Yuna + ffmpeg (약 1~2분) → ~/Downloads/itdot_gig_demo_<date>_latest.mp4
+node scripts/render_demo_videos.mjs gig
+# 6) 배포 위치로 복사 + 포스터 갱신
+cp ~/Downloads/itdot_gig_demo_20261105_latest.mp4 apps/worker-web/public/demo/itdot-gig-demo.mp4
+ffmpeg -y -ss 0.5 -i apps/worker-web/public/demo/itdot-gig-demo.mp4 -frames:v 1 -q:v 3 apps/worker-web/public/demo/itdot-gig-demo-poster.jpg
+# 7) 캡처용 Chrome 프로필에 시연 근무자 세션이 남으니 지운다
+rm -rf /private/tmp/atman-video-worker-gig-live/profile /private/tmp/atman-video-public-live/profile
+# 8) 커밋 → worker-web vercel --prod (대표)
+```
+
+`04-gig-notifications`는 시연 계정에 알림이 없어(빈 화면) 쓰지 않는다. 옛 6번 문안의 "병원이나 약국 근무도 같은 계정에서"는 뺐다 — 근무 찾기는 의료 직군 전용이라 단기 근무자에게는 맞지 않는다.
+
+<details><summary>10/01 렌더본 문안 (지금 배포된 영상)</summary>
+
+1 잇닿 워커 안의 긱워커 간편모드입니다… / 2 관리자가 보낸 초대 링크를 열면… 잇기 버튼으로 수락하면… / 3 닿기 버튼을 1초간 길게… 관리자의 동적 큐알로… / 4 출퇴근 기록은 관리자 대화에… / 5 지급 계좌는 근무 시작 전에… 관리자만 볼 수 있고… / 6 출근 알림을 켜 두면… 병원이나 약국 근무도 같은 계정에서… 긱워커도 잇닿 하나로 충분합니다.
+</details>
 
 ## 나레이션 원칙
 
@@ -84,3 +118,4 @@ ffmpeg -y -ss 0.5 -i apps/worker-web/public/demo/itdot-worker-demo.mp4 -frames:v
 - 2026-09-07 프로덕션 재캡처(9/4·9/7 UI 반영), 워커 1장면 나레이션 축약, 이 문서를 mjs 기준으로 동기화
 - 2026-10-01 (3차): 9/7 이후 UI 변경(닿기 버튼·내 근무 탭·주간 근무표·홈 운영 카드·로그인 화면) 반영해 양쪽 재제작. **관리자 편 '0. 사업장 등록' 2장면 제거** — `app/setup/layout.tsx`가 사업장을 소유한 관리자를 홈으로 돌려보내는데 시연 관리자 3계정 모두 사업장을 가져 `/setup/claim-facility`를 찍을 수 없음. 대신 `/login` 1장면으로 "카카오 로그인 한 번 + 처음 한 번 사업장 등록"을 말로 전달. 워커 채팅 장면은 확정 근무가 여러 건이라 빈 방이 먼저 잡히던 문제를 '말풍선 가장 많은 방 선택'으로 해결.
 - 2026-10-01 (3차 추가): **긱워커 편 신설**(6장면) → `/gig/demo`에 임베드. 캡처 타깃 `worker-gig-live` 추가(초대 확인·근무 알림 프레임 포함).
+- 2026-11-05: 단기 편 나레이션 개정안(초대 수락·출근하기·사장님, '간편모드'·'잇기·닿기'·'관리자' 삭제, 해요체)과 재제작 순서·운영 DB 쓰기 범위 기록. **렌더·mjs 반영은 안 함**(대표 승인 대기). `/intro?kind=gigworker`도 이 영상을 쓰기 시작.

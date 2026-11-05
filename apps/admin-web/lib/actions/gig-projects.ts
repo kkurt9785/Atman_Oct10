@@ -5,7 +5,8 @@ import { hourlyWageError, lastWorkDate } from '../pay';
 import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
-import { requireStaffCapacity } from '../billing-gates';
+import { getStaffCapacity, requireGigBetaActive, requireStaffCapacity } from '../billing-gates';
+import { GIG_INVITE_BATCH_MAX } from '../gig-invite-lines';
 
 // 근무 건(프로젝트) 관리. 사람이 아니라 근무를 먼저 만들고 여러 명을 넣는다. 급여는 근무 건의 시급이 기준이다.
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
@@ -67,6 +68,8 @@ export async function createGigProjectAction(form: FormData) {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  // 무료 베타 한 달이 끝난 현장은 새 근무를 만들 수 없다(기록은 보관, 2026-11-05 결정)
+  await requireGigBetaActive(sb, context.facilityId);
   const schedule = readSchedule(form);
   const { data, error } = await sb.from('gig_projects').insert({ ...schedule, facility_id: context.facilityId, created_by: context.user.id }).select('id').single();
   if (error || !data) throw new Error('근무 건을 만들지 못했어요.');
@@ -111,6 +114,7 @@ export async function addGigParticipantsAction(form: FormData) {
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const projectId = text(form, 'project_id');
+  await requireGigBetaActive(sb, context.facilityId);
   const project = await requireProject(sb, context.facilityId, projectId);
   const staffIds = [...new Set(form.getAll('staff_ids').map(String).filter(Boolean))];
   if (staffIds.length === 0) throw new Error('추가할 근무자를 골라 주세요.');
@@ -134,8 +138,59 @@ export async function inviteGigParticipantAction(form: FormData) {
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const projectId = text(form, 'project_id');
   const project = await requireProject(sb, context.facilityId, projectId);
-  const name = text(form, 'name');
-  const phone = text(form, 'phone') || null;
+  const result = await registerGigInvite(sb, context, projectId, project, text(form, 'name'), text(form, 'phone'));
+  touch(projectId);
+  return result;
+}
+
+export type GigInviteResult = { name: string; ok: boolean; inviteToken?: string; error?: string; overCapacity?: boolean };
+export type GigInviteBatch = { results: GigInviteResult[]; limit: number };
+
+// 새 사람 여러 명을 한 번에 이 근무 건으로 초대한다. 사람마다 한 명 초대와 같은 등록·인원 한도 검사(registerGigInvite)를 순서대로 거치고,
+// 한 명이 실패해도 나머지는 등록한 뒤 사람별 결과를 돌려준다. 한도가 찬 뒤의 사람은 시도하지 않고 overCapacity 로 알려 준다.
+export async function inviteGigParticipantsAction(form: FormData): Promise<GigInviteBatch> {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  const projectId = text(form, 'project_id');
+  const project = await requireProject(sb, context.facilityId, projectId);
+  let people: Array<{ name: string; phone: string }>;
+  try { people = JSON.parse(text(form, 'people')); } catch { throw new Error('초대할 사람 목록을 읽지 못했어요. 새로고침해 주세요.'); }
+  if (!Array.isArray(people) || people.length === 0) throw new Error('초대할 사람의 이름을 입력해 주세요.');
+  if (people.length > GIG_INVITE_BATCH_MAX) throw new Error(`한 번에 ${GIG_INVITE_BATCH_MAX}명까지 초대할 수 있어요.`);
+  if (people.some((person) => typeof person?.name !== 'string' || typeof (person.phone ?? '') !== 'string')) throw new Error('초대할 사람 목록이 올바르지 않아요. 새로고침해 주세요.');
+  const capacity = await getStaffCapacity(sb, context.facilityId);
+  // 자리 수가 아닌 이유(무료 베타 기간 종료 등)로 막힌 현장은 기존 게이트 문구 그대로 전체를 거절한다
+  if ('betaLocked' in capacity && capacity.betaLocked) await requireStaffCapacity(sb, context.facilityId);
+  let left = capacity.remaining;
+  const results: GigInviteResult[] = [];
+  for (const person of people) { // 순서대로: 사람마다 한도를 다시 확인한다
+    const name = person.name.trim();
+    if (left <= 0) { results.push({ name, ok: false, overCapacity: true }); continue; }
+    try {
+      const { inviteToken } = await registerGigInvite(sb, context, projectId, project, name, String(person.phone ?? '').trim());
+      results.push({ name, ok: true, inviteToken });
+      left -= 1;
+    } catch (error) {
+      results.push({ name, ok: false, error: error instanceof Error ? error.message : '등록하지 못했어요.' });
+      // 등록 중간에 실패해도 자리를 차지했을 수 있어 실제 남은 자리를 다시 읽는다
+      left = await getStaffCapacity(sb, context.facilityId).then((now) => now.remaining, () => left);
+    }
+  }
+  touch(projectId); // 실패한 사람도 등록까지는 됐을 수 있어 목록을 항상 새로 그린다
+  return { results, limit: capacity.limit };
+}
+
+// 한 사람 등록 + 참여 + 일회용 초대. 인원 한도는 사람마다 여기서 확인한다(일괄 초대도 이 검사를 건너뛰지 않는다).
+async function registerGigInvite(
+  sb: NonNullable<ReturnType<typeof adminClient>>,
+  context: Awaited<ReturnType<typeof requireAdminContext>>,
+  projectId: string,
+  project: Awaited<ReturnType<typeof requireProject>>,
+  name: string,
+  phoneText: string,
+) {
+  const phone = phoneText || null;
   const normalizedPhone = phone?.replace(/\D/g, '') ?? '';
   if (!name || name.length > 80) throw new Error('이름을 확인해 주세요.');
   if (phone && !/^010\d{8}$/.test(normalizedPhone)) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
@@ -157,7 +212,6 @@ export async function inviteGigParticipantAction(form: FormData) {
   }).select('token').single();
   if (inviteError || !invite?.token) throw new Error('근무자는 등록됐지만 초대 링크를 만들지 못했어요. 근무자 관리에서 다시 발급해 주세요.');
   const inviteToken = invite.token as string;
-  touch(projectId);
   return { staffId: created.id as string, inviteToken };
 }
 
@@ -179,12 +233,12 @@ export async function removeGigParticipantAction(form: FormData) {
   touch(assignment.project_id as string);
 }
 
-export type GigProjectActionKind = 'create' | 'update' | 'cancel' | 'add_participants' | 'invite_participant' | 'remove_participant';
+export type GigProjectActionKind = 'create' | 'update' | 'cancel' | 'add_participants' | 'invite_participant' | 'invite_participants' | 'remove_participant';
 export async function runGigProjectAction(kind: GigProjectActionKind, form: FormData): Promise<{ ok: boolean; error?: string; data?: unknown }> {
   try {
     const actions: Record<GigProjectActionKind, (data: FormData) => Promise<unknown>> = {
       create: createGigProjectAction, update: updateGigProjectAction, cancel: cancelGigProjectAction,
-      add_participants: addGigParticipantsAction, invite_participant: inviteGigParticipantAction, remove_participant: removeGigParticipantAction,
+      add_participants: addGigParticipantsAction, invite_participant: inviteGigParticipantAction, invite_participants: inviteGigParticipantsAction, remove_participant: removeGigParticipantAction,
     };
     const data = await actions[kind](form);
     return { ok: true, data };

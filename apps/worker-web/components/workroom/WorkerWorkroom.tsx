@@ -98,6 +98,9 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     const filtered = all.filter((room) => isGigKind(room.worker_kind) === isGig);
     setRooms(filtered);
     const next = filtered.find((room) => room.facility_id === requestedFacility)?.facility_id ?? filtered[0]?.facility_id ?? '';
+    // 초대 근무: 출퇴근 실패 카드의 '사장님께 확인 요청'에서 온 첫 문장을 입력칸에 채워 둔다 (보내기는 근무자가 직접)
+    const prefill = isGig ? params.get('draft')?.trim().slice(0, 2000) : '';
+    if (prefill && next && !drafts.current.has(next)) drafts.current.set(next, prefill);
     setSelectedId(next);
     } catch (caught) { if (active) { setRoomLoadFailed(true); setError(caught instanceof Error ? caught.message : '워크룸을 불러오지 못했어요.'); } }
     finally { if (active) setLoading(false); }

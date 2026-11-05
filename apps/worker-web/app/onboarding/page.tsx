@@ -63,8 +63,8 @@ function OnboardingInner() {
     }
   };
 
-  // bank 가 null 이면 계좌를 건너뛴 것이다. 병원·약국 직원 초대는 계좌 없이
-  // 시작할 수 있지만, 긱 초대는 첫 가입에서 지급 계좌까지 미리 저장한다.
+  // bank 가 null 이면 계좌를 건너뛴 것이다. 병원·약국 직원 초대는 계좌 단계 없이 끝나고,
+  // 긱 초대는 계좌 단계를 보여 주되 '나중에'를 허용한다(수락 뒤 근태·지급 탭에서 등록·전달).
   async function handleSubmit(bank: BankAccountValue | null, infoOverride: BasicInfoValue | null = basicInfo, roleOverride: WorkerRole | null = role, areasOverride: AreaPref[] = areas) {
     if (submitting) return;
     if (!terms || !roleOverride || !infoOverride) {
@@ -208,7 +208,7 @@ function OnboardingInner() {
       {step === 'info' && terms && <BasicInfo birthDate={terms.birthDate} attendanceInvite={attendanceInvite} submitting={submitting} submitError={submitError} onNext={(value) => { setBasicInfo(value); if (inviteVariant === 'gig') { go('bank'); } else if (attendanceInvite) { void handleSubmit(null, value, 'other'); } else { go('area'); } }} />}
       {step === 'area' && submitError && <p role="alert" className="mx-6 mt-16 rounded-xl bg-red-50 px-4 py-3 text-[13px] font-bold text-red-600">{submitError}</p>}
       {step === 'area' && <ActivityArea buttonLabel={submitting ? '가입하는 중...' : '가입 완료'} onNext={(value) => { setAreas(value); void handleSubmit(null, basicInfo, role, value); }} onSkip={() => { setAreas([]); void handleSubmit(null, basicInfo, role, []); }} />}
-      {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={inviteVariant === 'gig' ? undefined : () => handleSubmit(null)} submitting={submitting} submitError={submitError} shareOnInviteAccept={inviteVariant === 'gig'} />}
+      {step === 'bank' && <BankAccount onNext={handleSubmit} onSkip={() => handleSubmit(null)} submitting={submitting} submitError={submitError} shareOnInviteAccept={inviteVariant === 'gig'} skipLabel={inviteVariant === 'gig' ? '계좌는 나중에 등록할게요' : undefined} skipHint={inviteVariant === 'gig' ? '지급 받을 계좌는 나중에 근태·지급에서 등록해도 돼요.' : undefined} />}
       {step === 'notification' && <NotificationSetup onNext={() => go(completionStep)} />}
       {step === 'review' && <ReviewPending onHome={finishOnboarding} />}
       {step === 'approval' && <Approval role={role} onStart={finishOnboarding} onBrowse={finishOnboarding} />}

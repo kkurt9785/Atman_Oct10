@@ -17,7 +17,7 @@ const FULLSCREEN_PREFIX = ['/checkin', '/chats/'];
 
 // facilityMode: 현재 사업장이 병원·약국(medical)인지 긱워커 근무지(gig)인지. 서버 레이아웃이 계산한다.
 // 사업장 전환기가 router.refresh() 를 부르면 레이아웃이 다시 렌더되어 탭·가드가 함께 바뀐다.
-export function Shell({ children, facilityMode, initialFacility }: { children: React.ReactNode; facilityMode: FacilityMode | null; initialFacility?:SwitcherFacility|null }) {
+export function Shell({ children, facilityMode, gigBetaLocked = false, initialFacility }: { children: React.ReactNode; facilityMode: FacilityMode | null; gigBetaLocked?: boolean; initialFacility?:SwitcherFacility|null }) {
   const pathname = usePathname();
   const router = useRouter();
   const isPublic = pathname === '/privacy' || PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
@@ -47,12 +47,12 @@ export function Shell({ children, facilityMode, initialFacility }: { children: R
   if (isFullscreen) {
     // /checkin 은 카메라 화면이라 전폭, 채팅 상세는 다른 화면과 같은 앱 폭으로(PC에서 1440px로 퍼지던 문제)
     const keepAppWidth = pathname.startsWith('/chats/');
-    return <AuthGuard><FacilityModeGuard mode={facilityMode} />{keepAppWidth ? <div className="mx-auto min-h-screen max-w-app bg-bg">{children}</div> : children}</AuthGuard>;
+    return <AuthGuard><FacilityModeGuard mode={facilityMode} gigBetaLocked={gigBetaLocked} />{keepAppWidth ? <div className="mx-auto min-h-screen max-w-app bg-bg">{children}</div> : children}</AuthGuard>;
   }
 
   return (
     <AuthGuard>
-      <FacilityModeGuard mode={facilityMode} />
+      <FacilityModeGuard mode={facilityMode} gigBetaLocked={gigBetaLocked} />
       <div className={`mx-auto min-h-screen bg-bg pb-[calc(var(--bottom-nav-height)+2rem+env(safe-area-inset-bottom))] ${facilityMode==='gig'?'max-w-5xl':'max-w-app'}`}>
         <header className="sticky top-0 z-10 flex h-16 items-center gap-2 bg-bg/90 px-4 backdrop-blur">
           <span className="shrink-0 whitespace-nowrap"><Wordmark size={17} suffix={null} /></span>

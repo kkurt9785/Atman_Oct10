@@ -28,7 +28,8 @@ export function useDemoSelection() {
 
 export function SelectedDemoActions({ dark = false }: { dark?: boolean }) {
   const { role, kind, demoHref } = useDemoSelection();
-  const label = role === 'admin' ? `${TYPES.find(type => type.id === kind)?.label} 관리자` : kind === 'gigworker' ? '단기·행사 근무자' : '병원·약국 근무자';
+  // 단기·행사는 앱 문구와 같이 '사장님'(병원·약국·요양병원은 그대로 '관리자')
+  const label = role === 'admin' ? (kind === 'gigworker' ? '단기·행사 사장님' : `${TYPES.find(type => type.id === kind)?.label} 관리자`) : kind === 'gigworker' ? '단기·행사 근무자' : '병원·약국 근무자';
   return <div className="mt-4" aria-label="선택한 시연 계속하기">
     <p className={`text-[13px] font-bold ${dark ? 'text-white' : 'text-ink'}`}>{label} 화면을 선택했어요</p>
     <a href={demoHref} className="mt-3 flex min-h-12 items-center justify-center rounded-xl bg-primary px-3 py-3 text-[14px] font-bold text-white">선택한 시연 계속하기 →</a>

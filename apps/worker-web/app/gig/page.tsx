@@ -17,6 +17,7 @@ import { ModeSwitch } from '@/components/worker/ModeSwitch';
 import { GigInviteAction } from '@/components/invite/GigInviteAction';
 import { currentGigAttendances, type GigAttendanceRecord } from '@/lib/attendance-feedback';
 import { upcomingGigAssignments } from '@/lib/gig-upcoming';
+import { attendanceWindow, attendanceWindowLine, type AttendanceWindowSettings } from '@/lib/attendance-window';
 
 const DEMO_ENABLED = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';
 
@@ -112,6 +113,14 @@ function isScheduledToday(staff: Staff) {
   const day = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
   return weekdays.includes(day);
 }
+// 출퇴근 버튼 아래 안내 한 줄 (공용 버튼의 인증 안내 줄을 끄고 여기서 한 번만 말한다)
+function tapHint(mode: AttendanceMode) {
+  if (mode === 'admin') return '사장님이 직접 출퇴근을 기록하는 근무지예요.';
+  if (mode === 'network') return '근무지 Wi-Fi에 연결한 뒤 1초간 누르면 기록돼요.';
+  if (mode === 'qr') return '사장님 화면의 동적 QR을 찍고 1초간 누르면 기록돼요.';
+  if (mode === 'gps_qr') return '근무지에서 사장님 화면의 동적 QR을 찍고 1초간 눌러요. 위치는 누른 순간에만 확인해요.';
+  return '근무지에서 1초간 누르면 기록돼요. 위치는 누른 순간에만 확인해요.';
+}
 function timeLabel(value: string | null | undefined) {
   return value ? new Date(value).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }) : '—';
 }
@@ -126,6 +135,7 @@ function GigTodayContent() {
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [attendance, setAttendance] = useState<Record<string, AttendanceState>>({});
   const [attendanceModes, setAttendanceModes] = useState<Record<string, AttendanceMode>>({});
+  const [windowSettings, setWindowSettings] = useState<Record<string, AttendanceWindowSettings>>({});
   const [hasMedicalLink, setHasMedicalLink] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
@@ -161,12 +171,14 @@ function GigTodayContent() {
     if (linked.length) {
       const facilityIds = [...new Set(linked.map((item) => facilityOf(item)?.id).filter(Boolean))] as string[];
       const [{ data: settings, error: settingsError }, { data: records, error: recordsError }] = await Promise.all([
-        supabase.from('facility_attendance_settings').select('facility_id,authentication_mode').in('facility_id', facilityIds),
+        // 출퇴근 가능 시간(분)도 같은 행에서 읽는다 — 서버 판정과 같은 값으로 버튼 위에 미리 보여 준다
+        supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_before_minutes,check_in_after_minutes,check_out_before_minutes,check_out_after_minutes').in('facility_id', facilityIds),
         supabase.from('staff_attendances').select('staff_id,check_in_at,check_out_at,work_date,status,break_minutes')
           .in('staff_id', linked.map((item) => item.id)).gte('work_date', new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString().slice(0, 10)).order('work_date', { ascending: false }),
       ]);
       if(settingsError||recordsError)throw settingsError??recordsError;
       setAttendanceModes(Object.fromEntries((settings ?? []).map((row) => [row.facility_id, row.authentication_mode as AttendanceMode])));
+      setWindowSettings(Object.fromEntries((settings ?? []).map((row) => [row.facility_id, row as AttendanceWindowSettings])));
       const today = kstDate();
       const currentRecords=currentGigAttendances((records ?? []) as AttendanceState[], today);
       setAttendance(currentRecords);
@@ -186,6 +198,11 @@ function GigTodayContent() {
   const canRecord = Boolean(current?.check_in_at) || scheduledToday;
   const done = Boolean(current?.check_out_at);
   const pending = current?.status === 'checkout_pending';
+  // 누르기 전에 출퇴근 가능 시간을 알린다. 서버(record_unified_attendance)는 근무 건 시간이 아니라 근무자 기본 시간
+  // (default_start/end_time)과 근무지 설정의 앞뒤 허용 분으로 판정하므로 같은 값으로 계산한다.
+  const windowLine = staff && facility && canRecord && !done && !pending && mode !== 'admin'
+    ? attendanceWindowLine(attendanceWindow(staff.default_start_time, staff.default_end_time, windowSettings[facility.id]), current?.check_in_at ? 'check_out' : 'check_in')
+    : null;
   const upcoming = staffList.flatMap(item => upcomingGigAssignments(item.gig_assignments ?? [], kstDate()).map(shift => ({ ...shift, staffId: item.id, facilityName: facilityOf(item)?.name ?? '근무지' })))
     .sort((a, b) => a.nextDate.localeCompare(b.nextDate) || a.start_time.localeCompare(b.start_time));
 
@@ -229,6 +246,7 @@ function GigTodayContent() {
             <div><p className="text-[11px] font-extrabold tracking-[0.1em] text-primary">{scheduledToday || current?.check_in_at ? assignment?.title??'근무 예정' : '오늘 일정 없음'}</p><h2 className="mt-1 text-[20px] font-extrabold text-ink">{facility?.name ?? '근무지'}</h2>{(scheduledToday || current?.check_in_at) && <p className="mt-1 text-[13px] text-sub">{(assignment?.start_time??staff.default_start_time).slice(0, 5)} – {(assignment?.end_time??staff.default_end_time).slice(0, 5)}{assignment?.ends_on?` · ${assignment.ends_on}까지`:staff.contract_end?` · ${staff.contract_end}까지`:''}</p>}</div>
             <span className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold ${done ? 'bg-emerald-50 text-emerald-600' : pending ? 'bg-amber-50 text-amber-700' : current?.check_in_at ? 'bg-primary/10 text-primary' : 'bg-bg text-sub'}`}>{done ? '근무 완료' : pending ? '승인 대기' : current?.check_in_at ? '근무 중' : '출근 전'}</span>
           </div>
+          {windowLine && <p className="mt-3 rounded-xl bg-primary/5 px-3 py-2 text-[12px] font-bold leading-5 text-primary">{windowLine}</p>}
 
           {(current?.check_in_at || current?.check_out_at) && <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-bg p-3 text-center"><div><p className="text-[10px] text-sub">출근</p><p className="mt-0.5 text-[15px] font-extrabold text-ink">{timeLabel(current.check_in_at)}</p></div><div><p className="text-[10px] text-sub">퇴근</p><p className="mt-0.5 text-[15px] font-extrabold text-ink">{timeLabel(current.check_out_at)}</p></div></div>}
 
@@ -238,7 +256,7 @@ function GigTodayContent() {
                 <TouchToCheckButton
                   key={`${staff.id}:${current?.check_in_at ? 'check_out' : 'check_in'}`} targetType="staff" targetId={staff.id}
                   action={current?.check_in_at ? 'check_out' : 'check_in'} qrToken={attendanceToken} mode={mode}
-                  helpHref={`/gig/workroom${facility?.id ? `?facility=${encodeURIComponent(facility.id)}` : ''}`}
+                  helpHref={`/gig/workroom${facility?.id ? `?facility=${encodeURIComponent(facility.id)}` : ''}`} prefillHelpDraft hideModeHint
                   onSuccess={(response: AttendanceResult) => {
                     const now = new Date().toISOString();
                     const checkingOut = Boolean(current?.check_in_at);
@@ -251,7 +269,7 @@ function GigTodayContent() {
                     } }));
                   }}
                 />
-                <p className="mt-1 text-center text-[12px] leading-5 text-sub">근무지에서 1초간 누르면 기록돼요.<br />필요하면 사장님 화면의 동적 QR로 인증해요.</p>
+                <p className="mt-2 text-center text-[12px] leading-5 text-sub">{tapHint(mode)}</p>
               </div>
             : <p className="mt-4 rounded-xl bg-bg p-3 text-center text-[13px] text-sub">오늘은 초대받은 근무일이 아니에요.</p>}
         </section>

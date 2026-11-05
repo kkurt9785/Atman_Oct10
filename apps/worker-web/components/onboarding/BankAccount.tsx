@@ -19,7 +19,8 @@ export type BankAccountValue = { bankCode: string; bankName: string; accountNumb
 // onSkip 이 오면 계좌 없이 가입을 끝낼 수 있다. 사업장이 초대한 직원은 급여를
 // 사업장에서 직접 받으므로 가입 첫날 계좌를 요구할 이유가 없다.
 // compact: 설정 화면 안에 끼워 넣을 때 (온보딩용 제목·여백 없이 은행·계좌번호·저장 버튼만)
-export function BankAccount({ onNext, onSkip, submitting, submitError, compact = false, shareOnInviteAccept = false }: { onNext: (value: BankAccountValue) => void; onSkip?: () => void; submitting?: boolean; submitError?: string; compact?: boolean; shareOnInviteAccept?: boolean }) {
+// skipLabel·skipHint: 건너뛰기 버튼 문구와 그 아래 한 줄 (긱 초대 가입은 '근태·지급에서 나중에 등록'을 알려 준다)
+export function BankAccount({ onNext, onSkip, submitting, submitError, compact = false, shareOnInviteAccept = false, skipLabel = '계좌 없이 시작하기 · 나중에 등록', skipHint }: { onNext: (value: BankAccountValue) => void; onSkip?: () => void; submitting?: boolean; submitError?: string; compact?: boolean; shareOnInviteAccept?: boolean; skipLabel?: string; skipHint?: string }) {
   const [bankCode, setBankCode] = useState('');
   const [account, setAccount] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -49,9 +50,10 @@ export function BankAccount({ onNext, onSkip, submitting, submitError, compact =
         <Button onClick={() => selected && onNext({ bankCode: selected.code, bankName: selected.name, accountNumber: account })} disabled={!selected || account.length < 8 || submitting}>{submitting ? '처리 중...' : shareOnInviteAccept ? '계좌 저장하고 초대로 돌아가기' : '등록하고 시작하기'}</Button>
         {onSkip && (
           <button type="button" onClick={onSkip} disabled={submitting} className="mt-3 h-11 w-full text-[14px] font-bold text-sub disabled:opacity-50">
-            계좌 없이 시작하기 · 나중에 등록
+            {skipLabel}
           </button>
         )}
+        {onSkip && skipHint && <p className="mt-1 text-center text-[12px] leading-5 text-sub">{skipHint}</p>}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { DemoLaunchPanel } from './DemoLaunchPanel';
 import { DemoSelectionProvider, SelectedDemoActions } from './DemoSelection';
+import { ForGigKind } from './ForGigKind';
 import { parseDemoSelection } from './demo-selection-params';
 
 // QR 카드·카톡 링크의 목적지. 로그인 없이 열린다. ?role=&kind= 를 서버에서 읽어 첫 HTML 부터 선택·CTA 를 맞추므로 요청마다 렌더한다.
@@ -42,6 +43,30 @@ const POINTS = [
   },
 ];
 
+// 단기·행사(긱 모드) 사장님용 — 지금 실제로 되는 것만. 공고·구인, 송금, 신고 자료(CSV)는 긱 모드에 없으니 쓰지 않는다.
+const GIG_POINTS = [
+  {
+    icon: '🗓️',
+    title: '근무 만들기는 기간·요일·시급만',
+    body: '하루 행사든 7일 팝업이든 기간과 요일, 출퇴근 시간, 시급을 정하면 1인·전체 예상 인건비가 바로 보여요(주휴수당 별도).',
+  },
+  {
+    icon: '🔗',
+    title: '근무자는 초대 링크·QR로 연결',
+    body: '카톡으로 초대 링크를 보내거나 QR을 보여 주면, 근무자는 앱 설치 없이 근무 조건을 먼저 보고 카카오로 가입해 수락해요. 전화번호는 서로 공개되지 않아요.',
+  },
+  {
+    icon: '📍',
+    title: '출근하기 한 번으로 출퇴근 기록',
+    body: '근무자가 현장에서 출근하기를 길게 누르면 위치로 기록되고, 실내처럼 위치가 불안정하면 사장님 화면의 QR로 보완해요. 지각·미출근은 근태 화면에서 바로 확인해요.',
+  },
+  {
+    icon: '₩',
+    title: '지급 기록과 공지·대화까지 한곳에서',
+    body: '정산 기간을 고르면 근무시간과 시급으로 금액이 계산돼 있고, 지급 완료·지급 예정을 기록하면 근무자도 앱에서 바로 확인해요. 공지와 근무자별 대화도 같은 앱에서 해요. 임금은 사장님이 직접 지급해요.',
+  },
+];
+
 type IntroSearchParams = Promise<{ role?: string | string[]; kind?: string | string[] }>;
 
 export default async function IntroPage({ searchParams }: { searchParams: IntroSearchParams }) {
@@ -57,29 +82,59 @@ export default async function IntroPage({ searchParams }: { searchParams: IntroS
         <a href="#admin-demo" className="mt-4 block text-center text-[13px] font-bold text-sub">먼저 1분 소개 영상 보기 ↓</a>
       </header>
       <section id="admin-demo" className="border-y border-line bg-bg px-6 py-10 scroll-mt-4" aria-labelledby="admin-demo-title">
-        <p className="text-[13px] font-bold text-primary">의료 사업장 관리자 · 참고 영상</p>
-        <h2 id="admin-demo-title" className="mt-1 text-[20px] font-extrabold text-ink">
-          공고부터 지급 확인까지,
-          <br />
-          실제 화면으로 보세요
-        </h2>
-        <p className="mt-2 text-[13px] leading-5 text-sub">
-          빈 근무 공고를 만들고 근무자를 수락한 뒤, 출퇴근 기록과 지급 확인까지 이어지는 관리자 흐름이에요.
-        </p>
-        <div className="mt-5 overflow-hidden rounded-card border border-line bg-black shadow-card">
-          <video
-            className="block aspect-[9/16] w-full bg-black"
-            controls
-            playsInline
-            preload="metadata"
-            poster="/demo/itdot-admin-demo-poster.jpg"
-            aria-label="잇닿 관리자 서비스 시연 영상"
-          >
-            <source src="/demo/itdot-admin-demo.mp4" type="video/mp4" />
-            이 브라우저에서는 영상을 재생할 수 없어요.
-          </video>
-        </div>
-        <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 10초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+        <ForGigKind
+          gig={<>
+            {/* 단기 사장님 영상은 아직 없다 — 근무자 화면 영상(/gig/demo 와 같은 파일)이라고 그대로 밝힌다 */}
+            <p className="text-[13px] font-bold text-primary">단기·행사 · 근무자 화면 참고 영상</p>
+            <h2 id="admin-demo-title" className="mt-1 text-[20px] font-extrabold text-ink">
+              초대부터 지급 확인까지,
+              <br />
+              근무자 화면으로 보세요
+            </h2>
+            <p className="mt-2 text-[13px] leading-5 text-sub">
+              사장님이 보낸 초대 링크를 근무자가 열어 수락하고, 출근하기와 사장님과의 대화, 지급 확인까지 이어지는 근무자 쪽 화면이에요.
+            </p>
+            <div className="mt-5 overflow-hidden rounded-card border border-line bg-black shadow-card">
+              <video
+                className="block aspect-[9/16] w-full bg-black"
+                controls
+                playsInline
+                preload="metadata"
+                poster="/demo/itdot-gig-demo-poster.jpg"
+                aria-label="잇닿 단기·행사 근무자 화면 시연 영상"
+              >
+                <source src="/demo/itdot-gig-demo.mp4" type="video/mp4" />
+                이 브라우저에서는 영상을 재생할 수 없어요.
+              </video>
+            </div>
+            <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+          </>}
+          other={<>
+            <p className="text-[13px] font-bold text-primary">의료 사업장 관리자 · 참고 영상</p>
+            <h2 id="admin-demo-title" className="mt-1 text-[20px] font-extrabold text-ink">
+              공고부터 지급 확인까지,
+              <br />
+              실제 화면으로 보세요
+            </h2>
+            <p className="mt-2 text-[13px] leading-5 text-sub">
+              빈 근무 공고를 만들고 근무자를 수락한 뒤, 출퇴근 기록과 지급 확인까지 이어지는 관리자 흐름이에요.
+            </p>
+            <div className="mt-5 overflow-hidden rounded-card border border-line bg-black shadow-card">
+              <video
+                className="block aspect-[9/16] w-full bg-black"
+                controls
+                playsInline
+                preload="metadata"
+                poster="/demo/itdot-admin-demo-poster.jpg"
+                aria-label="잇닿 관리자 서비스 시연 영상"
+              >
+                <source src="/demo/itdot-admin-demo.mp4" type="video/mp4" />
+                이 브라우저에서는 영상을 재생할 수 없어요.
+              </video>
+            </div>
+            <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 10초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+          </>}
+        />
         <div className="mt-5 rounded-card bg-white p-5 shadow-card">
           <p className="text-[12px] font-extrabold text-primary">시연이 마음에 드셨나요?</p>
           <h3 className="mt-1 text-[18px] font-extrabold text-ink">선택한 화면으로 이어서 확인하세요</h3>
@@ -88,27 +143,53 @@ export default async function IntroPage({ searchParams }: { searchParams: IntroS
       </section>
 
       <section className="px-6 py-10">
-        <p className="text-[13px] font-bold text-primary">하나의 운영 흐름</p>
-        <h2 className="mt-1 text-[20px] font-extrabold text-ink">사람을 구한 뒤의 일까지 버튼 몇 번으로</h2>
-        <div className="mt-5 space-y-3">
-          {POINTS.map((p) => (
-            <div key={p.title} className="flex gap-3 rounded-card bg-bg p-4">
-              <span className="text-[20px] leading-none">{p.icon}</span>
-              <div>
-                <p className="text-[15px] font-bold text-ink">{p.title}</p>
-                <p className="mt-1 text-[13px] leading-5 text-sub">{p.body}</p>
-              </div>
+        <ForGigKind
+          gig={<>
+            <p className="text-[13px] font-bold text-primary">단기·행사 현장 운영 흐름</p>
+            <h2 className="mt-1 text-[20px] font-extrabold text-ink">근무 만들기부터 지급 기록까지 버튼 몇 번으로</h2>
+            <div className="mt-5 space-y-3">
+              {GIG_POINTS.map((p) => (
+                <div key={p.title} className="flex gap-3 rounded-card bg-bg p-4">
+                  <span className="text-[20px] leading-none">{p.icon}</span>
+                  <div>
+                    <p className="text-[15px] font-bold text-ink">{p.title}</p>
+                    <p className="mt-1 text-[13px] leading-5 text-sub">{p.body}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>}
+          other={<>
+            <p className="text-[13px] font-bold text-primary">하나의 운영 흐름</p>
+            <h2 className="mt-1 text-[20px] font-extrabold text-ink">사람을 구한 뒤의 일까지 버튼 몇 번으로</h2>
+            <div className="mt-5 space-y-3">
+              {POINTS.map((p) => (
+                <div key={p.title} className="flex gap-3 rounded-card bg-bg p-4">
+                  <span className="text-[20px] leading-none">{p.icon}</span>
+                  <div>
+                    <p className="text-[15px] font-bold text-ink">{p.title}</p>
+                    <p className="mt-1 text-[13px] leading-5 text-sub">{p.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>}
+        />
       </section>
 
       <section className="px-6 pb-10">
         <h2 className="text-[20px] font-extrabold text-ink">지금은 함께 만드는 단계예요</h2>
         <div className="mt-4 rounded-card border border-line p-5">
           <ul className="space-y-2.5 text-[13px] leading-5 text-sub">
-            <li>· 의료 사업장 관리자 가입 시 <b className="text-ink">30일 무료 체험</b>을 제공하며, 자동으로 유료 전환되지 않아요. 단기근무 요금·제공 범위는 해당 앱의 이용 안내를 확인해 주세요.</li>
-            <li>· 도입을 함께하는 <b className="text-ink">시범 사업장</b>은 초기 세팅과 3개월 이용을 지원해요</li>
+            <ForGigKind
+              gig={<li>· 단기·행사 근태는 <b className="text-ink">한 달 무료 베타</b>로 현장별 근무자 <b className="text-ink">10명</b>까지 써 볼 수 있어요. 더 많은 인원이나 계속 쓰실 땐 <a href="tel:01090455699" className="font-bold text-primary underline">010-9045-5699</a>로 문의해 주세요.</li>}
+              other={<li>· 의료 사업장 관리자 가입 시 <b className="text-ink">30일 무료 체험</b>을 제공하며, 자동으로 유료 전환되지 않아요. 단기근무 요금·제공 범위는 해당 앱의 이용 안내를 확인해 주세요.</li>}
+            />
+            {/* 단기 무료 베타는 한 달(2026-11-05 결정) — 병원 쪽 '시범 사업장 3개월'과 섞이지 않게 단기에선 기간 뒤 처리를 알린다 */}
+            <ForGigKind
+              gig={<li>· 한 달이 지나면 근무 만들기·초대는 잠기고, 근무지와 출퇴근 기록은 <b className="text-ink">그대로 보관</b>돼요</li>}
+              other={<li>· 도입을 함께하는 <b className="text-ink">시범 사업장</b>은 초기 세팅과 3개월 이용을 지원해요</li>}
+            />
             <li>· 채용이 성사돼도 <b className="text-ink">채용 수수료는 0원</b>입니다</li>
             <li>· 임금은 사업장이 근무자에게 직접 지급해요 (잇닿은 임금을 보관하지 않아요)</li>
           </ul>

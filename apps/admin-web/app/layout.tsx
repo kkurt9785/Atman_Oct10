@@ -4,6 +4,8 @@ import type { Metadata, Viewport } from 'next';
 import { Shell } from '@/components/Shell';
 import { getShop } from '@/lib/db/shop';
 import { getAdminContext } from '@/lib/admin-auth';
+import { adminClient } from '@/lib/supabase';
+import { getGigBetaStatus } from '@/lib/billing-gates';
 
 // Admin pages depend on authenticated, facility-scoped data and must never be prerendered.
 export const dynamic = 'force-dynamic';
@@ -37,11 +39,14 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // 현재 사업장의 모드(병원·약국 / 긱워커 근무지)를 한 번만 계산해 탭·가드에 내려준다. 로그인 전이면 null.
   const shop = await getShop().catch(() => null);
   const context = await getAdminContext().catch(()=>null);
+  // 단기·행사 무료 베타 한 달이 지난 현장은 이용 현황·설정·지급 정리만 열어 둔다(FacilityModeGuard).
+  const sb = shop?.mode === 'gig' && !shop.isDemo && context ? adminClient() : null;
+  const gigBetaLocked = sb && context ? await getGigBetaStatus(sb, context.facilityId).then((s) => s.locked).catch(() => false) : false;
   return (
     <html lang="ko">
       <head><script dangerouslySetInnerHTML={{ __html: noFlash }} /></head>
       <body>
-        <Shell facilityMode={shop?.mode ?? null} initialFacility={shop&&context?{id:context.facilityId,name:shop.name,facility_type:shop.facilityType,registration_source:shop.registrationSource,address_text:'',access_role:context.accessRole}:null}>{children}</Shell>
+        <Shell facilityMode={shop?.mode ?? null} gigBetaLocked={gigBetaLocked} initialFacility={shop&&context?{id:context.facilityId,name:shop.name,facility_type:shop.facilityType,registration_source:shop.registrationSource,address_text:'',access_role:context.accessRole}:null}>{children}</Shell>
       </body>
     </html>
   );

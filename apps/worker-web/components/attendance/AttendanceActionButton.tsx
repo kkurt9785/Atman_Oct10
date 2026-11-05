@@ -1,10 +1,11 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { isLocationAllowed } from '@/lib/consents';
 import { BrandMark } from '@/components/brand/BrandMark';
 import Link from 'next/link';
 import { attendanceLocationHelp, canOfferAttendanceQr } from '@/lib/attendance-feedback';
+import { attendanceHelpDraft } from '@/lib/attendance-window';
 
 export type AttendanceResult={ok:boolean;message?:string;reason?:string;method?:string;distanceM?:number;accuracyM?:number;action?:string;checkInAt?:string;checkOutAt?:string;status?:'approved'|'pending';lateMinutes?:number;earlyLeaveMinutes?:number};
 export type AttendanceMode='gps'|'gps_qr'|'qr'|'network'|'admin'|'gps_or_qr';
@@ -28,6 +29,8 @@ async function nudgeAdminNotifications(){
 
 export type AttendanceActionProps={
   targetType:'staff'|'shift';targetId:string;action:'check_in'|'check_out';qrToken?:string|null;mode?:AttendanceMode;helpHref?:string;onSuccess?:(result:AttendanceResult)=>void;
+  // 초대 근무(/gig) 전용: 실패 시 '사장님께 확인 요청' 대화 입력칸에 첫 문장을 미리 채운다 · 버튼 아래 인증 안내 줄은 화면이 따로 보여 준다
+  prefillHelpDraft?:boolean;hideModeHint?:boolean;
 };
 
 // 출퇴근 기록 한 번: 위치(필요하면) → record_unified_attendance → 결과. 버튼 모양과 무관하게 같은 절차를 쓴다.
@@ -82,8 +85,14 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
   return {run,loading,result,locationIssue,mode:effectiveMode,qrFallback};
 }
 
-function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,dark=false,helpHref,qrFallback}:{action:'check_in'|'check_out';result:AttendanceResult|null;locationIssue:string|null;qrToken?:string|null;mode:AttendanceMode;onRetry:()=>void;dark?:boolean;helpHref?:string;qrFallback:boolean}){
+function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,dark=false,helpHref,qrFallback,prefillHelpDraft=false,hideModeHint=false}:{action:'check_in'|'check_out';result:AttendanceResult|null;locationIssue:string|null;qrToken?:string|null;mode:AttendanceMode;onRetry:()=>void;dark?:boolean;helpHref?:string;qrFallback:boolean;prefillHelpDraft?:boolean;hideModeHint?:boolean}){
   const [qrHelp,setQrHelp]=useState(false);
+  // 실패한 그 시각으로 문장을 만든다 (다시 그려져도 시각이 바뀌지 않게 결과마다 한 번)
+  const helpLink=useMemo(()=>{
+    const base=helpHref??'/workroom';
+    if(!prefillHelpDraft||!result||result.ok)return base;
+    return `${base}${base.includes('?')?'&':'?'}draft=${encodeURIComponent(attendanceHelpDraft(action,new Date()))}`;
+  },[helpHref,prefillHelpDraft,result,action]);
   return <>
     {result&&<div role="status" className={`mt-3 rounded-xl p-3 text-[12px] font-bold ${result.ok?(result.status==='pending'?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'):'bg-red-50 text-red-600'}`}>
       <p>{result.ok?(action==='check_out'&&result.status==='pending'?'조기 퇴근 승인을 요청했어요.':action==='check_in'?'출근했어요.':'퇴근했어요. 오늘도 수고 많으셨어요.'):result.message}</p>
@@ -92,11 +101,11 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,da
       {!result.ok&&result.reason==='QR_EXPIRED'&&<p className="mt-1 font-medium">관리자 화면의 새 QR을 다시 찍어 주세요. QR은 화면에서 60초마다 바뀌어요.</p>}
       {result.ok&&result.status==='pending'&&<p className="mt-1 font-medium">관리자가 승인하면 퇴근 시간과 근무시간이 확정돼요.</p>}
       {result.ok&&<p className="mt-1 font-medium">{new Date(result.checkOutAt??result.checkInAt??Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'})} · {METHOD[result.method??'']??result.method}{typeof result.distanceM==='number'?` · 사업장에서 ${result.distanceM}m`:''}{typeof result.accuracyM==='number'?` · 위치 오차 ±${Math.round(result.accuracyM)}m`:''}</p>}
-      {!result.ok&&<div className="mt-2 flex flex-wrap gap-2">{mode!=='admin'&&<button type="button" onClick={onRetry} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">다시 확인</button>}{!qrToken&&canOfferAttendanceQr(result.reason,mode,qrFallback)&&<button type="button" onClick={()=>setQrHelp(true)} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">동적 QR로 인증</button>}<Link href={helpHref??'/workroom'} className="flex h-11 items-center rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">사장님께 확인 요청</Link></div>}
+      {!result.ok&&<div className="mt-2 flex flex-wrap gap-2">{mode!=='admin'&&<button type="button" onClick={onRetry} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">다시 확인</button>}{!qrToken&&canOfferAttendanceQr(result.reason,mode,qrFallback)&&<button type="button" onClick={()=>setQrHelp(true)} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">동적 QR로 인증</button>}<Link href={helpLink} className="flex h-11 items-center rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">사장님께 확인 요청</Link></div>}
     </div>}
     {locationIssue&&!result?.ok&&<p role="alert" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-700">{locationIssue}</p>}
     {qrHelp&&<div className="mt-2 rounded-xl border border-primary/20 bg-white p-3 text-[12px] leading-5 text-sub"><b className="text-ink">사업장 QR로 인증하는 방법</b><ol className="mt-1 list-decimal pl-4"><li>사업장 접수대·관리자 화면의 동적 출퇴근 QR을 확인해요.</li><li>아이폰은 기본 카메라, 갤럭시는 카메라의 QR 스캔으로 비춥니다.</li><li>권한 창이 나오면 카메라 허용을 누르고 열린 잇닿 화면에서 출퇴근 버튼을 누릅니다.</li></ol><button onClick={()=>setQrHelp(false)} className="mt-2 font-bold text-primary">확인</button></div>}
-    <p className={`mt-2 text-center text-[11px] ${dark?'text-white/55':'text-sub'}`}>{mode==='gps_or_qr'?'누르면 사용 가능한 방법을 자동으로 확인해요.':`현재 인증: ${MODE_LABEL[mode]}`}{(mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr')?' 위치는 누른 순간에만 확인해요.':''}</p>
+    {!hideModeHint&&<p className={`mt-2 text-center text-[11px] ${dark?'text-white/55':'text-sub'}`}>{mode==='gps_or_qr'?'누르면 사용 가능한 방법을 자동으로 확인해요.':`현재 인증: ${MODE_LABEL[mode]}`}{(mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr')?' 위치는 누른 순간에만 확인해요.':''}</p>}
   </>;
 }
 
@@ -107,7 +116,7 @@ export function AttendanceActionButton(props:AttendanceActionProps){
     <button onClick={run} disabled={loading} className={`h-12 w-full rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50 ${props.action==='check_in'?'bg-primary':'bg-ink'}`}>
       {loading?`${MODE_LABEL[mode]} 확인 중...`:props.action==='check_in'?'출근하기':'퇴근하기'}
     </button>
-    <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={run} helpHref={props.helpHref}/>
+    <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={run} helpHref={props.helpHref} prefillHelpDraft={props.prefillHelpDraft} hideModeHint={props.hideModeHint}/>
   </div>;
 }
 
@@ -170,7 +179,7 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
       </span>
     </button>
     <div className="w-full">
-      <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={run} dark={props.dark} helpHref={props.helpHref}/>
+      <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={run} dark={props.dark} helpHref={props.helpHref} prefillHelpDraft={props.prefillHelpDraft} hideModeHint={props.hideModeHint}/>
     </div>
   </div>;
 }

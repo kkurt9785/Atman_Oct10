@@ -13,6 +13,7 @@ import { DemoEndSheet } from '@/components/DemoSignup';
 import { LINKED_NOTICE_KEY } from '@/components/invite/LinkedNotice';
 import { LINKED_INSTALL_KEY } from '@/lib/linked-install';
 import { startKakaoLogin } from '@/lib/kakao-login';
+import { clearInviteAutoclaim, hasInviteAutoclaim, rememberInviteAutoclaim } from '@/lib/invite-autoclaim';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
 // (미리보기 → 카카오 가입 → claim)을 쓰되, 초대가 어느 제품 것인지는 서버(isGigworker)가 정한다.
@@ -92,6 +93,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   const [retry,setRetry]=useState(0);
   const [canRetry,setCanRetry]=useState(false);
   const claiming=useRef(false);
+  // 긱 초대 자동 수락은 화면당 한 번만 (StrictMode 이중 실행·다시 불러오기에도)
+  const autoClaimTried=useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -114,6 +117,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       if(previewError)throw previewError;
       if(authError&&authError.name!=='AuthSessionMissingError')throw authError;
       if (!invite?.ok) {
+        if (isGig) clearInviteAutoclaim();
         setDemoOnly(invite?.reason === 'DEMO_ONLY');
         setStatus('error');
         setMessage(invite?.message ?? '초대 정보를 불러오지 못했어요. 사장님께 새 링크를 요청해 주세요.');
@@ -154,12 +158,14 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     if (!token) return;
     rememberWorkerShell(variant);
     window.localStorage.setItem('atman_auth_next', `${routes.join}?token=${encodeURIComponent(token)}`);
+    // 긱 초대: 이미 '수락'을 눌렀으니 가입을 마치고 이 화면으로 돌아오면 같은 초대를 자동으로 수락한다
+    if (isGig) rememberInviteAutoclaim(token);
     // 초대 화면에서 이미 카카오 계속하기를 눌렀으므로 온보딩 스플래시에서 같은 버튼을 다시 묻지 않는다.
     if (!signedIn) { startKakaoLogin(); return; }
     window.location.href = '/onboarding?step=terms';
   }
 
-  async function claimInvite() {
+  async function claimInvite(auto = false) {
     if (!token || claiming.current) return;
     if (!signedIn || !hasWorker) {
       startRegistration();
@@ -168,7 +174,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     claiming.current=true;
     setCanRetry(false);
     setStatus('claiming');
-    setMessage('근무 초대를 연결하고 있어요...');
+    setMessage(auto ? '아까 누른 초대를 이어서 수락하고 있어요...' : '근무 초대를 연결하고 있어요...');
     try {
     const { data: staffId, error } = await supabase.rpc('claim_facility_staff_invite', { p_token: token });
     if (error) {
@@ -200,6 +206,18 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     } catch {setStatus('error');setCanRetry(true);setMessage('연결 결과를 확인하지 못했어요. 이미 연결됐을 수 있으니 내 근무를 먼저 확인하거나 초대를 다시 불러와 주세요.');}
     finally {claiming.current=false;}
   }
+
+  // 긱 초대에서 '가입하고 초대 수락'을 누른 뒤 가입·로그인을 마치고 돌아오면 버튼을 또 누르지 않아도 그 초대를 수락한다.
+  // 표시는 그 토큰에만 남고(다른 초대·만료 표시는 hasInviteAutoclaim 이 지운다), 시도 전에 지워 성공·실패와 무관하게 한 번만 돈다.
+  useEffect(() => {
+    if (!isGig || !token || status !== 'preview' || autoClaimTried.current) return;
+    if (!hasInviteAutoclaim(token)) return;
+    if (!signedIn || !hasWorker) return; // 아직 가입 전 — 버튼을 다시 누르면 표시가 새로 남는다
+    autoClaimTried.current = true;
+    clearInviteAutoclaim();
+    void claimInvite(true);
+    // claimInvite 는 이 렌더의 preview·bankLabel 을 쓴다 — 미리보기를 다 받은 뒤(status=preview)에만 부른다
+  }, [isGig, token, status, signedIn, hasWorker]);
 
   // 초대 화면에서 나가기 — 시연 계정이면 로그아웃 대신 '시연을 끝낼까요?'(가입으로 잇기), 아니면 처음 화면(로그인돼 있으면 내 홈)으로
   async function leaveInvite() {

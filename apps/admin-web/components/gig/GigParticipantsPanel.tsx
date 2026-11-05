@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
 import { GigActionForm } from './GigActionForm';
+import { GigInviteBatchForm } from './GigInviteBatchForm';
 import { CopyInviteButton } from '@/app/staff/CopyInviteButton';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { UnlinkWorkerButton } from '@/app/staff/UnlinkWorkerButton';
@@ -13,10 +13,8 @@ const STATUS: Record<string, [string, string]> = {
   checkout_pending: ['조기 퇴근 승인', 'bg-amber-50 text-amber-700'], completed: ['오늘 완료', 'bg-bg text-sub'], absent: ['결근', 'bg-red-50 text-red-600'],
 };
 
-// 근무 건의 참여자. 기존 긱 근무자를 고르거나 새 사람을 바로 초대한다.
+// 근무 건의 참여자. 기존 긱 근무자를 고르거나 새 사람을 바로 초대한다(여러 명 한 번에 가능).
 export function GigParticipantsPanel({ project, candidates, workerOrigin }: { project: GigProject; candidates: GigCandidate[]; workerOrigin: string }) {
-  const [inviteUrl, setInviteUrl] = useState('');
-  const [invitedName, setInvitedName] = useState('');
   return <section className="mt-4 rounded-2xl bg-white p-5 shadow-card">
     <div className="flex items-end justify-between"><div><p className="text-[0.6875rem] font-bold text-primary">누가 하나요?</p><h2 className="mt-0.5 text-[1.125rem] font-extrabold text-ink">참여자 {project.participants.length}명</h2></div><span className="text-[0.75rem] text-sub">필요 {project.headcount}명</span></div>
 
@@ -48,16 +46,6 @@ export function GigParticipantsPanel({ project, candidates, workerOrigin }: { pr
       <button className="mt-3 h-10 w-full rounded-xl bg-ink text-[0.75rem] font-extrabold text-white">선택한 사람 잇기</button>
     </GigActionForm>}
 
-    <GigActionForm kind="invite_participant" values={{ project_id: project.id }} resetOnSuccess className="mt-3 rounded-xl border border-line p-3"
-      onSuccess={(raw) => { const result = (raw ?? {}) as { inviteToken?: string | null }; setInvitedName('등록했어요 · 근무자가 직접 수락할 초대를 보내 주세요'); setInviteUrl(result.inviteToken ? `${workerOrigin}/gig/join?token=${result.inviteToken}` : ''); }}>
-      <p className="text-[0.75rem] font-extrabold text-ink">새 사람 잇기 (초대)</p>
-      <p className="mt-1 text-[0.6875rem] leading-4 text-sub">이 근무 일정·시급으로 등록되고 일회용 초대가 만들어져요. 전화번호는 선택 정보이며 자동 연결에 사용하지 않아요.</p>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        <input name="name" required maxLength={80} placeholder="이름" className="h-11 rounded-xl border border-line bg-white px-3 text-[0.8125rem]" />
-        <input name="phone" inputMode="tel" placeholder="휴대전화 · 선택" className="h-11 rounded-xl border border-line bg-white px-3 text-[0.8125rem]" />
-      </div>
-      <button className="mt-2 h-10 w-full rounded-xl bg-primary text-[0.75rem] font-extrabold text-white">등록하고 일회용 초대 만들기</button>
-      {invitedName && <div className="mt-3 rounded-xl border border-success/30 bg-success/5 p-3"><p className="text-[0.75rem] font-extrabold text-ink">{invitedName}</p>{inviteUrl && <div className="mt-2"><CopyInviteButton url={inviteUrl} primary /></div>}</div>}
-    </GigActionForm>
+    <GigInviteBatchForm projectId={project.id} workerOrigin={workerOrigin} />
   </section>;
 }
