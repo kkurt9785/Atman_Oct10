@@ -23,15 +23,42 @@ function safeNotificationPath(value) {
   } catch { return null; }
 }
 
+// 푸시 알림을 눌렀을 때 열 화면 — 앱 안 알림 목록(lib/notification-destination.ts)과 같은 규칙.
+// 서비스워커는 TS 모듈을 읽지 못해 여기 다시 적는다. lib/__tests__/push-destination.test.ts 가 이 파일을 실행해 두 규칙이 같은지 확인한다.
+function pickString(data, keys) {
+  for (const key of keys) { const value = data[key]; if (typeof value === 'string' && value) return value; }
+  return null;
+}
+
+function pushKindDestination(data) {
+  const type = pickString(data, ['type']) || '';
+  const event = pickString(data, ['eventType', 'event_type']) || '';
+  const kind = pickString(data, ['kind']) || event;
+  const shiftId = pickString(data, ['shiftId', 'shift_id']);
+  const applicationId = pickString(data, ['applicationId', 'application_id']);
+  const myApplication = applicationId ? `/applications#application-${encodeURIComponent(applicationId)}` : '/applications';
+  if (type === 'chat' || event === 'chat.message') return applicationId ? `/chat/${encodeURIComponent(applicationId)}` : '/applications';
+  // 반복근무 요청은 data.type 이 새 공고와 같은 new_shift 지만 수락은 '내 근무'에서 한다
+  if (event === 'shift.invited') return myApplication;
+  if (type === 'new_shift' || type === 'urgent_shift' || event === 'shift.created' || event === 'shift.urgent') return shiftId ? `/shifts?highlight=${encodeURIComponent(shiftId)}` : '/shifts';
+  if (type === 'new_shift_batch') return '/shifts';
+  if (['shift.cover_requested', 'shift.cover_claim_rejected', 'shift.cover_cancelled'].includes(event)) return '/cover';
+  if (type === 'accepted' || type === 'vacancy_invited' || type === 'checkout' || event.startsWith('shift.') || event.startsWith('shift_application.') || event.startsWith('credential.')) return myApplication;
+  if (kind.startsWith('attendance.')) return '/workplace';
+  return null;
+}
+
+function pushDestination(data) {
+  const explicit = safeNotificationPath(data.url);
+  const fallback = pushKindDestination(data);
+  // 목록 주소만 적힌 알림(/shifts, /applications)은 같은 목록 안에서 그 공고·지원을 바로 연다
+  if (explicit && fallback && (explicit === '/shifts' || explicit === '/applications') && fallback.startsWith(explicit)) return fallback;
+  return explicit || fallback || '/shifts';
+}
+
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const data = event.notification.data || {};
-  const requestedTarget = safeNotificationPath(data.url);
-  const target = requestedTarget ?? (data.type === 'chat' && data.applicationId
-    ? `/chat/${encodeURIComponent(data.applicationId)}`
-    : data.type === 'accepted' && data.applicationId
-      ? '/applications'
-      : '/shifts');
+  const target = pushDestination(event.notification.data || {});
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })

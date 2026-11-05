@@ -5,6 +5,7 @@ import { sendWebPush } from './push';
 type OutboxRow = {
   id: string;
   worker_auth_user_id: string;
+  event_type?: string | null;
   title: string;
   body: string;
   data: Record<string, unknown>;
@@ -51,7 +52,8 @@ export async function dispatchPendingNotifications(limit = 25) {
     }
     const results = await Promise.all(subscriptions.map(async (subscription) => ({
       subscriptionId: subscription.id,
-      result: await sendWebPush(subscription.subscription, { title: row.title, body: row.body, data: { ...row.data, notificationId: row.id } }),
+      // eventType 은 근무자 앱 서비스워커가 앱 안 알림 목록과 같은 규칙으로 열 화면을 정하는 데 쓴다(data.url 없는 알림)
+      result: await sendWebPush(subscription.subscription, { title: row.title, body: row.body, data: { ...row.data, notificationId: row.id, eventType: row.event_type ?? null } }),
     })));
     const expiredIds: string[] = [];
     let delivered = false;
