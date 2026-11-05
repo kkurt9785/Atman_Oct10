@@ -1,14 +1,14 @@
 // Turns OCR text of a card/bank app "이용내역" screenshot into candidate transactions. Pure: unit-tested, shared by on-device OCR and the AI fallback.
 export type OcrRow = { date: string; merchant: string; amount: number; cancel: boolean; raw: string };
 
-const SKIP = /잔액|누적|합계|총\s*(?:이용|사용|결제)|이용한도|결제예정|예정금액|포인트|적립|할인액|청구|이자|연회비|한도|가용/;
+const SKIP = /잔액|누적|합계|총\s*(?:이용|사용|결제)|이용\s*한도|결제\s*예정|예정\s*금액|청구\s*예정|포인트|적립|할인액|청구|이자|연회비|한도|가용/;
 const CANCEL = /취소|환불|승인\s*취소/;
-const LABELS = /승인\s*번호\s*\d*|\b\d{6,}\b|승인취소|승인|일시불|할부|\d+\s*개월|체크|신용|국내|해외|거래|결제|완료|이용|사용|매출|정상|카드|원\b/g;
+const LABELS = /승인\s*번호\s*\d*|\b\d{6,}\b|승인취소|결제취소|취소|환불|자동\s*납부|자동이체|승인|일시불|할부|\d+\s*개월|체크|신용|국내|해외|거래|결제|완료|이용|사용|매출|정상|카드|원\b/g;
 const FULL_DATE = /(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*일?/;
 const SHORT_DATE = /(?<![\d:])(\d{1,2})\s*[./]\s*(\d{1,2})(?![\d:.])/;
 const KOREAN_DATE = /(\d{1,2})\s*월\s*(\d{1,2})\s*일/;
 const TIME = /\b\d{1,2}:\d{2}(?::\d{2})?\b/g;
-const AMOUNT = /(-|−|–)?\s*(\d{1,3}(?:,\d{3})+|\d{4,9})\s*(원|won)?/gi;
+const AMOUNT = /(-|−|–|\+)?\s*(\d{1,3}(?:,\d{3})+|\d{4,9})\s*(원|won)?/gi;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -37,23 +37,33 @@ export function findDate(line: string, now: Date): string | null {
 }
 
 // The rightmost money-looking token is the amount column; approval numbers (long, no commas) are not money.
-function findAmount(line: string): { value: number; negative: boolean; token: string } | null {
+type Amount = { value: number; negative: boolean; plus: boolean; token: string };
+function findAmount(line: string): Amount | null {
   const cleaned = line.replace(TIME, ' ').replace(FULL_DATE, ' ').replace(SHORT_DATE, ' ').replace(KOREAN_DATE, ' ');
-  let best: { value: number; negative: boolean; token: string } | null = null;
+  let best: Amount | null = null;
   for (const m of cleaned.matchAll(AMOUNT)) {
     const digits = m[2].replace(/,/g, '');
     if (!m[2].includes(',') && !m[3]) continue; // apps print thousands separators; a bare number is an approval/phone/date number
     const value = Number(digits);
     if (!Number.isFinite(value) || value < 100 || value > 100000000) continue;
-    best = { value, negative: !!m[1], token: m[0] };
+    best = { value, negative: !!m[1] && m[1] !== '+', plus: m[1] === '+', token: m[0] };
   }
   return best;
+}
+
+// Card apps print a purchase as "4,500원" and a cancellation as "-4,500원". Toss's 소비 tab and bank histories are signed
+// ledgers instead: every purchase is "-4,500" and money coming in is "+30,000". Tell the two apart per screenshot.
+function isSignedLedger(lines: string[]) {
+  const amounts = lines.filter(l => !SKIP.test(l)).map(l => ({ a: findAmount(l), cancel: CANCEL.test(l) })).filter(x => x.a);
+  const minus = amounts.filter(x => x.a!.negative && !x.cancel).length;
+  return amounts.some(x => x.a!.plus) || (minus >= 2 && minus >= amounts.length * 0.6);
 }
 
 export function parseOcrText(text: string, now = new Date()): OcrRow[] {
   const lines = text.split(/\r?\n/).map(l => fixDigits(l.replace(/\s+/g, ' ').trim())).filter(Boolean);
   const rows: (OcrRow & { dated: boolean })[] = [];
   let currentDate: string | null = null;
+  const ledger = isSignedLedger(lines);
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const date = findDate(line, now);
@@ -67,7 +77,10 @@ export function parseOcrText(text: string, now = new Date()): OcrRow[] {
     }
     if (!amount) continue;
     if (SKIP.test(line)) continue;
-    const cancel = CANCEL.test(line) || amount.negative;
+    const said = CANCEL.test(line);
+    // In a signed ledger "+" is money in (skip it unless it says 취소/환불) and "-" is an ordinary purchase.
+    if (ledger && amount.plus && !said) continue;
+    const cancel = said || (!ledger && amount.negative);
     let merchant = line.replace(amount.token, ' ').replace(FULL_DATE, ' ').replace(SHORT_DATE, ' ').replace(KOREAN_DATE, ' ').replace(TIME, ' ').replace(LABELS, ' ').replace(/[()[\]{}|·•*_\-–—:,.]+/g, ' ').replace(/\s+/g, ' ').trim();
     if (merchant.length < 2) {
       // Merchant printed on its own line above (or below) the amount line.

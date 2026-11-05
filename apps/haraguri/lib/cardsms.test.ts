@@ -109,7 +109,7 @@ suite('reward promotion notifications', () => {
   it('uses the NH card header instead of the insurer name as the issuer', () => {
     const raw = '[Web발신]\nNH카드8*6*승인\r\n김*한\r\n25,580원 (일시불)\r\n10/28 17:06\r\n현대해상화재보험(주)';
     const parsed = parseCardMessage(raw, now)!;
-    expect(parsed).toMatchObject({ amount: 25580, issuer: '농협', merchant: '현대해상화재보험 주', category: '보험' });
+    expect(parsed).toMatchObject({ amount: 25580, issuer: '농협', merchant: '현대해상화재보험(주)', category: '보험' });
     expect(matchCard(parsed, [card('nh', '농협카드'), card('hyundai', '현대카드')])).toBe('nh');
   });
   it.each([

@@ -12,9 +12,11 @@
       "hana-sms-last-year",
       "hyundai-push",
       "hyundai-sms-installment",
+      "hyundai-statement-due",
       "kakaobank-check-push",
       "kakaopay-dateless",
       "kakaopay-push",
+      "kakaopay-refund",
       "kb-otp",
       "kb-push",
       "kb-push-cancel",
@@ -29,14 +31,17 @@
       "naverpay-push",
       "nfd-payment",
       "nh-dotted-date",
+      "nh-sms-insurer",
       "point-arrived-nfd",
       "price-drop",
       "reward-3won",
       "reward-footer-kept",
+      "samsung-autopay-scheduled",
       "samsung-push",
       "samsung-push-cancel",
       "samsung-sms",
       "shinhan-installment-6",
+      "shinhan-limit-up",
       "shinhan-mileage-policy",
       "shinhan-point-accrual",
       "shinhan-sms-dash-clinic",
@@ -47,6 +52,9 @@
       "toss-cashback-event",
       "toss-push",
       "toss-push-app-prefix",
+      "toss-transfer-received",
+      "tossbank-check-push",
+      "won-bank-cashback-deposit",
       "won-bank-fullwidth",
       "won-bank-pay-withdraw",
       "woori-bank-rent",
@@ -54,36 +62,39 @@
       "woori-card-sms"
     ],
     "screens": [
+      "bank-history-with-deposit",
       "card-app-rows-with-detail-line",
       "date-header-with-cancel",
       "hyundai-style-blocks",
+      "naverpay-history",
       "ocr-noise-letters-and-dots",
       "overlapping-captures",
-      "summary-lines-and-digit-slips"
+      "samsung-style-with-due-total",
+      "summary-lines-and-digit-slips",
+      "toss-spending-minus"
     ]
   },
   "accuracy": {
     "messages": {
       "detect": 100,
       "amount": 100,
-      "merchant": 91.1,
+      "merchant": 100,
       "date": 100,
       "time": 100,
       "issuer": 100,
       "last4": 100,
       "cancel": 100,
       "installment": 100,
-      "category": 96.4,
+      "category": 100,
       "channel": 100,
-      "incoming": 83.3,
-      "reject": 72.7
+      "incoming": 100,
+      "reject": 100
     },
     "screens": {
-      "row": 81,
+      "row": 100,
       "date": 100,
-      "merchant": 88.2,
-      "cancel": 100,
-      "extra": 6
+      "merchant": 100,
+      "cancel": 100
     }
   }
 }

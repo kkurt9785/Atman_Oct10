@@ -66,20 +66,25 @@ export function nonTransactionReason(raw: string): string | null {
     || /[\d,]+\s*원[을를]?[\s\S]*통장[\s\S]*넣어드렸어요/.test(raw);
   const priceNotice = /[\d,]+\s*원에서\s*[\d,]+\s*원으로\s*내렸어요/.test(raw);
   const serviceNotice = /날씨\s*체크\s*알림|납부\s*기한이\s*\d+일\s*남았어요/.test(raw);
-  if (!benefit && !rewardOffer && !receivedReward && !serviceNotice && !priceNotice) return null;
+  // Statements, scheduled debits and limit changes quote big amounts but no money has moved yet (golden set 2026-11-05:
+  // 결제예정금액 1,234,560원 · 한도 5,000,000원 상향 · 자동납부 예정 65,000원 were all being saved as spending).
+  const scheduleNotice = /결제\s*예정\s*(?:금액|액)|청구\s*(?:예정\s*)?금액|(?:자동\s*납부|자동\s*이체|출금|납부|결제)\s*예정\s*(?:안내|일|금액)?|명세서|(?:이용\s*)?한도[가를이는]?\s*(?:[\d,]+\s*원?\s*(?:으로|로)?\s*)?(?:상향|하향|변경|조정|증액|감액|안내)/.test(raw);
+  if (!benefit && !rewardOffer && !receivedReward && !serviceNotice && !priceNotice && !scheduleNotice) return null;
   const text = raw.replace(/(누적|잔액|잔여|한도|가용|포인트|적립)\s*[:：]?\s*[\d,]+\s*원?/g, ' ');
   const hasAmount = WON_AMOUNT.test(text) || CURRENCY_AMOUNT.test(text);
   const cardApproval = /(?:카드|페이|Pay)\s*(?:\(?[\d*]{2,12}\)?\s*)?(?:해외\s*)?승인(?:취소)?/i.test(text);
   const markedTransaction = /\[(?:출금|입금|승인(?:취소)?|결제(?:취소)?)\]/.test(text);
   if (hasAmount && (cardApproval || markedTransaction || PAID_AMOUNT.test(text) || TRANSFER_AMOUNT.test(text) || COMPLETED_AMOUNT.test(text))) return null;
-  return benefit ? '마일리지·포인트 혜택 안내' : rewardOffer ? '이벤트·리워드 안내' : receivedReward ? '입금·리워드 안내' : priceNotice ? '가격 인하 안내' : '생활·납부 예정 안내';
+  return benefit ? '마일리지·포인트 혜택 안내' : rewardOffer ? '이벤트·리워드 안내' : receivedReward ? '입금·리워드 안내' : priceNotice ? '가격 인하 안내' : scheduleNotice ? '결제 예정·한도 안내' : '생활·납부 예정 안내';
 }
 
 export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessage | null {
   const text = raw.normalize('NFKC').replace(/\r/g, '').replace(/\[?\s*Web발신\s*\]?/gi, ' ').trim();
   if (!text || nonTransactionReason(text)) return null;
   // A [입금] marker counts wherever it sits: WON bank pushes lead with "입출금알림", whose 출금 must not override it.
-  const incoming = /\[입금\]/.test(text) || (/입금/.test(text) && !/출금|승인|결제/.test(text));
+  // Money someone sent the family ("김*한님이 30,000원을 보냈어요", "…원을 받았어요") is income, not a purchase.
+  const incoming = /\[입금\]/.test(text) || (/입금/.test(text) && !/출금|승인|결제/.test(text))
+    || (/님이\s*(?:송금한\s*)?[\d,]+\s*원[을를]?\s*(?:보냈|송금했|입금했)|[\d,]+\s*원[을를]\s*받았/.test(text) && !/승인|결제/.test(text));
   // Running totals and balances are not the transaction amount.
   const cleaned = text.split('\n').filter(line => !nonTransactionReason(line)).join('\n').replace(/(누적|잔액|잔여|한도|가용|포인트|적립)\s*[:：]?\s*[\d,]+\s*원?/g, ' ');
   const amountMatch = cleaned.match(WON_AMOUNT) ?? cleaned.match(CURRENCY_AMOUNT); // Per-won reward rates are not transaction amounts.
@@ -123,8 +128,9 @@ export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessa
     .replace(/\(\d{4}\)|\*+\d{4}|\d{4}(?=\s*(?:승인|사용|결제|취소))|끝\s*\d{4}/g, ' ')
     .replace(/[가-힣]\*+[가-힣]*\s*님?|고객님|님/g, ' ')
     .replace(/(KB\s*국민|KB\s*Pay|KBPay|SOL\s*페이|쏠페이|NH\s*농협|IBK\s*기업|카카오뱅크|토스뱅크|카카오페이|네이버페이|케이뱅크|국민|신한|삼성|현대(?!해상)|롯데|우리|하나|농협|비씨|BC|씨티|시티|기업|토스|페이코|새마을|수협)\s*(체크|신용)?\s*(카드|은행|페이|Pay)?/gi, ' ')
-    .replace(/해외승인|승인취소|결제취소|승인|취소|일시불|\d{1,2}개월|할부|체크|신용|카드|결제|완료|사용|출금|자동이체|이체|송금|입금|알림|안내|\[|\]|\(|\)|【|】/g, ' ')
-    .replace(/되었습니다|됐습니다|되었어요|됐어요|하였습니다|했습니다|되었음|감사합니다|입니다|에서|으로|님의/g, ' ') // push-notification sentence endings
+    // "(주)" is part of a company name (현대해상화재보험(주)), so only other brackets are removed.
+    .replace(/해외승인|승인취소|결제취소|승인|취소|환불|일시불|\d{1,2}개월|할부|체크|신용|카드|결제|완료|사용|출금|자동이체|이체|송금|입금|알림|안내|\[|\]|\((?!주\))|(?<!\(주)\)|【|】/g, ' ')
+    .replace(/되었습니다|됐습니다|되었어요|됐어요|하였습니다|했습니다|했어요|되었음|감사합니다|입니다|에서|으로|님의/g, ' ') // push-notification sentence endings
     .replace(/[|·•▶►>]/g, ' ');
   const fragments = stripped.split(/\n/).flatMap(line => line.split(/\s{2,}/)).map(s => s.replace(/\s+/g, ' ').trim()).filter(s => /[가-힣A-Za-z0-9]{2,}/.test(s));
   // Bank and MG notices place their merchant after the timestamp. Preserve it
@@ -133,11 +139,11 @@ export function parseCardMessage(raw: string, now = new Date()): ParsedCardMessa
     ? cleaned.match(/\d{1,2}:\d{2}(?::\d{2})?\s+([^\n]+)$/)?.[1]?.trim() : undefined;
   // WON bank pushes put the counterparty right after [출금] ("[출금] 카카오페이 44,000원"), before the amount and the masked account.
   // Read it there, before provider names (카카오페이·네이버페이) get stripped below as issuer words.
-  const bankMerchant = cleaned.match(/\[출금\]\s*([^\d\n]{2,}?)\s*[\d,]+\s*원/)?.[1]?.trim();
+  const bankMerchant = cleaned.match(/\[(?:출금|입금)\]\s*([^\d\n]{2,}?)\s*[\d,]+\s*원/)?.[1]?.trim();
   const facepayMerchant = cleaned.match(/페이스페이\s*\([^)]*\)\s*[·•]\s*([^\n]+)/)?.[1]?.trim();
   // Shinhan approvals name the merchant explicitly ("가맹점명: 롯데마트 [신한카드 1544-7000]"); without this the trailing phone number won.
   const namedMerchant = cleaned.match(/가맹점(?:명)?\s*[:：]\s*([^\[\]\n]+?)\s*(?=\[|\n|$)/)?.[1]?.trim();
-  const merchant = (namedMerchant || bankMerchant || facepayMerchant || timestampMerchant || fragments[fragments.length - 1] || '').replace(/^[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').replace(/\s[가이은는을를의로에]$/, '').slice(0, 60)
+  const merchant = (namedMerchant || bankMerchant || facepayMerchant || timestampMerchant || fragments[fragments.length - 1] || '').replace(/^(?!\(주\))[^가-힣A-Za-z0-9]+|[^가-힣A-Za-z0-9)]+$/g, '').replace(/\s[가이은는을를의로에]$/, '').slice(0, 60)
     || (channel === 'bank_transfer' ? '계좌이체' : '카드 결제');
   return { amount: cancel ? -amount : amount, date, time, merchant, issuer, last4, cancel, installment, category: guessCategory(merchant), channel, incoming };
 }
