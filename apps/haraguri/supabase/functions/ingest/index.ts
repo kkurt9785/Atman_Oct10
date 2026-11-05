@@ -3,7 +3,7 @@
 //   POST /functions/v1/ingest?token=…   body: {"text": "..."} or {"title","subtitle","body","app","via"} | text/plain | form field "text"   (or header x-ingest-token)
 //   Every delivery is recorded in hg_inbox with its outcome (saved / duplicate / ignored / unparsed).
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule, nonTransactionReason, selfTransferWallet } from '../_shared/cardsms.core.ts';
+import { describe, fingerprintOf, parseCardMessage, type ParsedCardMessage, matchRule, nonTransactionReason, walletTransfer } from '../_shared/cardsms.core.ts';
 
 type Card = { id: string; name: string; holder: string; benefit_note: string | null; card_type: 'credit' | 'debit' | null };
 const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -68,10 +68,17 @@ Deno.serve(async req => {
   }
   if (parsed.incoming) { await inbox('ignored', '입금 알림'); return json({ ignored: 'incoming transfer', inbox: 'ignored' }); }
 
-  const [{ data: cards }, { data: rules }] = await Promise.all([
+  const [{ data: cards }, { data: rules }, { data: members }] = await Promise.all([
     admin.from('hg_cards').select('id,name,holder,benefit_note,card_type').eq('family_id', owner.family_id),
     admin.from('hg_category_rules').select('keyword,category,scope').eq('family_id', owner.family_id),
+    admin.from('hg_members').select('user_id,display_name').eq('family_id', owner.family_id),
   ]);
+  // The names a bank prints for this family: each member's sign-in (Kakao) name plus what they call themselves here.
+  const ownNames = (await Promise.all(((members ?? []) as { user_id: string; display_name: string }[]).map(async m => {
+    const { data } = await admin.auth.admin.getUserById(m.user_id).catch(() => ({ data: null }));
+    const meta = (data?.user?.user_metadata ?? {}) as Record<string, unknown>;
+    return [m.display_name, meta.name, meta.full_name, meta.preferred_username, meta.nickname].filter((v): v is string => typeof v === 'string');
+  }))).flat();
   const rule = matchRule(parsed.merchant, rules as { keyword: string; category: string; scope: string | null }[] | null);
   // A cancellation message nets out the matching purchase (same amount, last 60 days, similar merchant or same card digits).
   let cancels: string | null = null;
@@ -85,12 +92,13 @@ Deno.serve(async req => {
   }
   const cardId = matchCard(parsed, (cards ?? []) as Card[]);
   const payment = parsed.channel === 'bank_transfer' ? 'bank_transfer' : cardId ? 'card' : 'other';
-  // Topping up the family's own pay wallet (토스 김기한) is a transfer between pockets; it still lands in review so it can be corrected.
-  const wallet = selfTransferWallet(text);
-  const category = rule?.category ?? parsed.category;
+  // Money sent through a pay wallet: to a family member's own name (토스 김기한) it is a move between pockets, to anyone else (토스 임환소) it is spending.
+  const wallet = walletTransfer(text, ownNames);
+  const category = rule?.category ?? (wallet?.own ? '자금 이동' : parsed.category);
+  const title = parsed.cancel ? `취소 · ${parsed.merchant}` : wallet ? `${wallet.wallet} ${wallet.own ? '이체' : '송금'} · ${wallet.to}` : parsed.merchant;
   const row = {
-    family_id: owner.family_id, created_by: owner.user_id, title: parsed.cancel ? `취소 · ${parsed.merchant}` : wallet ? `${wallet} 충전` : parsed.merchant, amount: parsed.amount, date: parsed.date, category,
-    kind: wallet || category === '투자' ? 'transfer' : 'expense', // 투자 (stocks, funds) never counts as spending
+    family_id: owner.family_id, created_by: owner.user_id, title, amount: parsed.amount, date: parsed.date, category,
+    kind: wallet?.own || category === '투자' ? 'transfer' : 'expense', // 투자 (stocks, funds) never counts as spending
     scope: rule?.scope ?? 'shared', cancels, payment_method: payment, card_id: cardId,
     source: /Web발신/i.test(text) ? 'sms' : payload.structured || /notif|push|android/i.test(via) ? 'push' : 'sms', reviewed: false, raw_text: text, fingerprint: fingerprintOf(parsed),
   };

@@ -55,10 +55,13 @@ suite('ledger audit regressions (2026-11-03)', () => {
     expect(parseCardMessage(ad, now)).toBeNull();
     expect(nonTransactionReason('[광고] 현대카드 롯데백화점 혜택 안내')).toBe('광고 안내');
   });
-  it('recognizes a top-up of the family\'s own pay wallet but not a payment to a merchant through it', () => {
-    expect(selfTransferWallet('우리WON뱅킹 입출금알림 [출금] 토스 김기한 30,000원 1002-331-728***계좌 잔액 2,165,542원 11/02 21:11:23')).toBe('토스');
-    expect(selfTransferWallet('우리WON뱅킹 입출금알림 [출금] 토스 수원아이 289,510원 1002-331-728***계좌 잔액 1,876,032원 10/30 09:00:00')).toBeNull();
-    expect(selfTransferWallet('우리WON뱅킹 입출금알림 [출금] 우지커피 구로한 8,000원 1002-331-728***계좌 잔액 2,195,542원 11/02 10:33:51')).toBeNull();
+  it('tells a pay-wallet transfer to a family member (own pockets) from one sent to someone else', () => {
+    const own = ['김기한', '김정은'];
+    expect(walletTransfer('우리WON뱅킹 입출금알림 [출금] 토스 김기한 30,000원 1002-331-728***계좌 잔액 2,165,542원 11/02 21:11:23', own)).toEqual({ wallet: '토스', to: '김기한', own: true });
+    expect(walletTransfer('[출금] 토스　임환소　　　　 2,000원 1002-331-728***계좌 잔액 1,915,006원 11/05 17:23:25', own)).toEqual({ wallet: '토스', to: '임환소', own: false });
+    expect(walletTransfer('우리WON뱅킹 입출금알림 [출금] 토스 김기한 30,000원 1002-331-728***계좌 잔액 2,165,542원 11/02 21:11:23')).toEqual({ wallet: '토스', to: '김기한', own: true }); // no names known: surname fallback
+    expect(walletTransfer('우리WON뱅킹 입출금알림 [출금] 토스 수원아이 289,510원 1002-331-728***계좌 잔액 1,876,032원 10/30 09:00:00', own)).toBeNull();
+    expect(walletTransfer('우리WON뱅킹 입출금알림 [출금] 우지커피 구로한 8,000원 1002-331-728***계좌 잔액 2,195,542원 11/02 10:33:51', own)).toBeNull();
   });
 });
 
@@ -103,7 +106,7 @@ suite('card approval message parsing', () => {
 });
 
 import { readFileSync } from 'node:fs';
-import { detectChannel, fingerprintOf, nonTransactionReason, selfTransferWallet } from './cardsms.core';
+import { detectChannel, fingerprintOf, nonTransactionReason, walletTransfer } from './cardsms.core';
 
 suite('reward promotion notifications', () => {
   it('uses the NH card header instead of the insurer name as the issuer', () => {

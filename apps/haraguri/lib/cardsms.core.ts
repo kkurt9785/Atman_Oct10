@@ -159,12 +159,17 @@ export function describe(parsed: ParsedCardMessage) {
   return [where, `${Math.abs(parsed.amount).toLocaleString('ko-KR')}원${parsed.cancel ? ' 취소' : ''}`, parsed.date.slice(5).replace('-', '/') + (parsed.time ? ` ${parsed.time}` : ''), parsed.merchant].filter(Boolean).join(' · ');
 }
 
-// A bank withdrawal to the family's own pay wallet ("[출금] 토스 김기한 30,000원": wallet + a personal name) is money
-// moved between pockets, not spending. Names are a surname plus 1–2 syllables; longer words are merchants (토스 수원아이…).
+// A bank withdrawal through a pay wallet ("[출금] 토스 임환소 2,000원") prints the wallet and the person the money went to.
+// Sent to a family member's own name (top-up, own account at another bank) it is money moved between pockets; sent to
+// anyone else it is spending. Without known names fall back to "surname + 1–2 syllables"; longer words are merchants (토스 수원아이…).
 const SURNAMES = '김이박최정강조윤장임한오서신권황안송류전홍고문양손배백허유남심노하곽성차주우구라진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용';
-export function selfTransferWallet(raw: string): string | null {
+export type WalletTransfer = { wallet: string; to: string; own: boolean };
+export function walletTransfer(raw: string, ownNames: readonly string[] = []): WalletTransfer | null {
   const m = raw.normalize('NFKC').match(/\[출금\]\s*(토스|카카오페이|네이버페이|페이코|카카오뱅크|토스뱅크|케이뱅크)\s*([가-힣]{2,3})\s+[\d,]+\s*원/);
-  return m && SURNAMES.includes(m[2][0]) ? m[1] : null;
+  if (!m) return null;
+  const to = m[2];
+  const names = ownNames.map(n => n.normalize('NFKC').replace(/\s+/g, '')).filter(Boolean);
+  return { wallet: m[1], to, own: names.length ? names.includes(to) : SURNAMES.includes(to[0]) };
 }
 
 // Family-taught rules: the longest keyword contained in the merchant name wins.
