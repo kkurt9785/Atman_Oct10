@@ -113,5 +113,6 @@ cd ~/atman/apps/worker-web && npm run dev   # localhost:3003
 - **15분 크론 `refresh_demo_worker_readiness()`는 보조**: 긱 페르소나(초대 근무 시연)의 근무시간을 '지금~45분 뒤'로 맞춰 출근·퇴근이 바로 되게 하고, 라이브 시연(`LIVE-SALES-DEMO-%`) 공고 시각만 지금 기준으로 옮긴다. 일반 시연 공고(`DEMO-SHOWCASE-OPEN-%`)의 D·E·N 시간은 건드리지 않는다(2026-10-14 오후 한때 3곳 공고를 45분짜리로 옮기던 버전은 되돌림).
 - 예전 SQL 크론(`demo_showcase_refresh_0005kst` 등)은 비활성 그대로 둔다. 재시드 경로는 08:30 revive 하나다. `supabase/restore_demo_crons.sql` 은 실행하지 않는다.
 - 급한 전체 초기화는 인증된 `POST /api/cron/revive-demo` 에 `{"confirmReset":"RESET_DEMO_DATA"}` (`GET` 은 405).
+- **2026-11-05부터 공개 시연 계정(`@demo.atman.co.kr`)에서는 '시연 초기화'(운영 화면·`/live-demo`)가 막힌다**(누구나 들어오는 공용 계정이라 다른 방문자의 시연을 지울 수 있음). 시연 데이터는 매일 08:30 자동 재생성. 시연 근무자 이름 '데모워커' → '시연 근무자'.
 
 철수 검증에는 기존 로그인 세션, 미발송 알림·푸시 구독, 마스터 초대코드, 수동 초기화 함수의 실행 권한까지 포함해야 한다. 위 철수 절차만으로 이 검증이 완료된 것은 아니다. 변경된 정책의 적용 상태와 잔여 검증은 `docs/review/2026-10-14_MD_잔여검증.md`를 따른다.
