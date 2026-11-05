@@ -3,10 +3,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // 직업안정법 §25(2026-12-10 시행) — 신원을 확인할 수 없는 사업장의 구인광고(공개 공고)는 게재하지 않는다.
 // 공개 공고를 만들거나 공개로 바꾸는 모든 경로(일반 등록·조건 복사·반복 생성·7일 공백·추천 승인·노쇼 대체·결원 공개)가
 // 이 판정 하나를 쓴다. 2026-11-05 QA 전에는 일반 등록에만 있어 나머지 5경로로 우회됐다.
-export type PostingFacility = { approved_at: string | null; registration_source: string | null; business_status: string | null };
+export type PostingFacility = { approved_at: string | null; registration_source: string | null; business_status: string | null; posting_suspended_at?: string | null };
 
 export function publicPostingBlockReason(facility: PostingFacility | null): string | null {
   if (!facility) return '사업장 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.';
+  // 운영자 게재 중지(허위·과장 신고 확인) — 해제 전까지 새 공고·공개 전환을 막는다
+  if (facility.posting_suspended_at) return '잇닿 운영 확인으로 공고 게재가 멈춰 있어요. 고객센터로 문의해 주세요.';
   // 셀프 등록 사업장은 잇닿 확인(approved_at) 전까지 공고를 열지 않는다 — 초대코드 사업장은 등록 시점에 이미 확인됨
   if (facility.approved_at == null && String(facility.registration_source ?? '').startsWith('self_')) {
     return '사업장 확인이 끝나면 공고를 등록할 수 있어요. 보통 1영업일 안에 완료돼요.';
@@ -22,9 +24,9 @@ export function publicPostingBlockReason(facility: PostingFacility | null): stri
   return null;
 }
 
+// '*' 로 읽는다 — posting_suspended_at 마이그레이션 적용 전에도 조회가 실패하지 않게(서버 전용 service role 조회)
 export async function loadPublicPostingBlock(sb: SupabaseClient, facilityId: string): Promise<string | null> {
-  const { data, error } = await sb.from('facilities')
-    .select('approved_at, registration_source, business_status').eq('id', facilityId).maybeSingle();
+  const { data, error } = await sb.from('facilities').select('*').eq('id', facilityId).maybeSingle();
   if (error) return '사업장 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.';
   return publicPostingBlockReason(data as PostingFacility | null);
 }

@@ -21,6 +21,11 @@ describe('publicPostingBlockReason', () => {
     expect(publicPostingBlockReason({ ...ok, business_status: 'unknown' })).toMatch(/확인하지 못해/);
   });
 
+  it('운영자 게재 중지면 막고, 해제(null)면 통과', () => {
+    expect(publicPostingBlockReason({ ...ok, posting_suspended_at: '2026-11-05T05:00:00Z' })).toMatch(/게재가 멈춰/);
+    expect(publicPostingBlockReason({ ...ok, posting_suspended_at: null })).toBeNull();
+  });
+
   it('사업장 정보를 못 읽으면 막는다(실패 시 닫힘)', async () => {
     expect(publicPostingBlockReason(null)).toMatch(/확인하지 못했어요/);
     const failing = { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: { message: 'down' } }) }) }) }) };

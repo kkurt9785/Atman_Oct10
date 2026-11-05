@@ -135,7 +135,7 @@ INSERT INTO workers (
 )
 SELECT
   d.kakao_id,
-  d.area_label || ' 데모워커 ' || lpad(d.i::text, 2, '0'),
+  d.area_label || ' 시연 근무자 ' || lpad(d.i::text, 2, '0'),
   '010-77' || lpad((abs(hashtext(d.kakao_id)) % 100)::text, 2, '0') || '-' ||
     lpad((1000 + abs(hashtext(d.kakao_id || 'phone')) % 9000)::text, 4, '0'),
   d.kakao_id || '@demo.atman.local',

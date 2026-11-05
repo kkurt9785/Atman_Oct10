@@ -49,7 +49,8 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   const context = await requireAdminContext(['owner','operator','super']);
   const sb = adminClient();
   if (sb) {
-    const { data: facility } = await sb.from('facilities').select('facility_type, approved_at, registration_source, business_status').eq('id', context.facilityId).maybeSingle();
+    // 게재 판정 컬럼이 늘어도(posting_suspended_at) 마이그레이션 전후 모두 읽히게 '*'
+    const { data: facility } = await sb.from('facilities').select('*').eq('id', context.facilityId).maybeSingle();
     if (isGigworkerFacility(facility)) {
       return { ok: false, message: '단기·행사 근태 무료 베타는 출퇴근 관리 전용이에요. 인력 모집은 병원·약국 사업장을 등록한 뒤 이용해 주세요.' };
     }

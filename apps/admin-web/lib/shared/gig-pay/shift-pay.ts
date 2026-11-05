@@ -1,5 +1,6 @@
 // 공고(단기 근무) 예상 지급액 — 사장님 앱·근무자 앱·시연 시드가 같은 식을 쓴다.
-// 휴게: 8시간 이상 60분, 4시간 이상 30분(근로기준법 §54). 야간 가산은 포함하지 않는다.
+// 휴게: 근무 구간 8시간 30분 이상 60분, 4시간 이상 30분 — 근로기준법 §54 법정 최소(8시간 미만 근로는 30분이면 충족, 법제처 15-0847).
+// 8:00 구간에 60분을 빼면 실근로 7:30을 7:00으로 계산하게 된다(2026-11-05 결정). 야간 가산은 포함하지 않는다. DB estimated_shift_pay·정산과 같은 경계.
 // 원 단위 반올림은 (분×시급)/60 순서 — DB 트리거 round(minutes*rate/60)와 같은 값이 나온다.
 // (minutes/60)*rate 는 130분×12,345원처럼 .5 경계에서 1원 어긋나 지급 기록이 거부된다.
 
@@ -9,7 +10,7 @@ export function parseClockToMinutes(time: string | null | undefined): number | n
 }
 
 export function calcBreakMinutes(workedMinutes: number): number {
-  if (workedMinutes >= 480) return 60;
+  if (workedMinutes >= 510) return 60;
   if (workedMinutes >= 240) return 30;
   return 0;
 }

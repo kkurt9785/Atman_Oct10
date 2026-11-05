@@ -39,7 +39,9 @@ function builder(table: string) {
 }
 vi.mock('../../../admin-web/lib/supabase', () => ({ adminClient: () => ({ from: builder }) }));
 
-import { cancelShiftAction } from '../../../admin-web/lib/actions/shifts';
+// 관리자 앱 별칭(@/lib/...)은 관리자 tsconfig 가 검사한다 — 근무자 tsc 가 따라가지 않게 경로를 변수로(payroll-integrity 테스트와 같은 방식)
+const actionModule = '../../../admin-web/lib/actions/shifts';
+const { cancelShiftAction } = await import(actionModule) as { cancelShiftAction: (shiftId: string) => Promise<{ ok: false; message: string } | void> };
 
 describe('cancelShiftAction', () => {
   beforeEach(() => { mocks.calls.length = 0; mocks.started = false; });

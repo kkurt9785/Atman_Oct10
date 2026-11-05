@@ -45,6 +45,15 @@ describe('월 급여 집계 및 상태 전환 무결성',()=>{
     setData({facility_staff:[staff],staff_attendances:[attendance,{...attendance,check_in_at:'2026-09-03T19:00:00+09:00',check_out_at:'2026-09-03T20:00:00+09:00',break_minutes:0}]});
     expect((await getStaffWagePayments('2026-09'))[0]).toMatchObject({workedMinutes:540,workedDays:1,grossAmount:108000});
   });
+  it('근태 0일 월급 직원은 전액 유지 + 확인 필요, 사업장이 근태를 안 쓰면 표시하지 않는다(2026-11-05 결정 4b)',async()=>{
+    const monthly={...staff,id:'monthly',name:'월급 직원',pay_basis:'monthly',pay_rate:3000000};
+    setData({facility_staff:[staff,monthly],staff_attendances:[attendance]});
+    const rows=await getStaffWagePayments('2026-09');
+    expect(rows.find(r=>r.staffId==='monthly')).toMatchObject({workedDays:0,grossAmount:3000000,needsAttendanceCheck:true});
+    expect(rows.find(r=>r.staffId==='staff')?.needsAttendanceCheck).toBe(false);
+    setData({facility_staff:[monthly],staff_attendances:[]});
+    expect((await getStaffWagePayments('2026-09'))[0]).toMatchObject({grossAmount:3000000,needsAttendanceCheck:false});
+  });
   it.each(['facility_staff','staff_attendances','staff_wage_payments'])('%s 조회 실패는 빈 급여가 아니다',async table=>{
     setData({facility_staff:[staff],staff_attendances:[attendance]},table);
     await expect(getStaffWagePayments('2026-09')).rejects.toThrow('계산을 중단');

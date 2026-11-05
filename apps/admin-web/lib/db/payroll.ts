@@ -23,6 +23,8 @@ export type StaffWagePaymentRow = {
   saved:boolean;
   /** 이 달에 퇴근까지 찍혔지만 상태가 완료가 아닌 기록 수(지각·승인 대기 등) — 급여에서 빠지는 이유를 보여 준다 */
   excludedRecords:number;
+  /** 월급 직원인데 이 달 근태가 하나도 없음 — 기록 누락인지 결근인지 사업장이 확인해야 한다(2026-11-05 결정: 전액 유지 + 확인 필요) */
+  needsAttendanceCheck:boolean;
 };
 
 function validMonth(value?:string){
@@ -64,6 +66,8 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
     records.push(row);attendanceMap.set(row.staff_id,records);
   }
   const paymentMap=new Map((payments??[]).map((row:any)=>[row.staff_id,row]));
+  // 사업장이 이 달 근태를 아예 안 쓰면 행마다 '확인 필요'를 달지 않는다(화면 상단 한 줄 안내)
+  const facilityUsesAttendance=(attendance??[]).length>0;
   const excludedMap=new Map<string,number>();
   for(const row of (excluded??[]) as Array<{staff_id:string}>) excludedMap.set(row.staff_id,(excludedMap.get(row.staff_id)??0)+1);
   return ((staff??[]) as any[]).filter(row=>{
@@ -79,6 +83,7 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
     const startsMidMonth=Boolean(row.contract_start&&row.contract_start>periodMonth&&row.contract_start<=endDate);
     const endsMidMonth=Boolean(row.contract_end&&row.contract_end>=periodMonth&&row.contract_end<endDate);
     const needsProration=row.pay_basis==='monthly'&&(startsMidMonth||endsMidMonth);
+    const needsAttendanceCheck=!frozen&&row.pay_basis==='monthly'&&Boolean(rate)&&facilityUsesAttendance&&work.days===0&&(excludedMap.get(row.id)??0)===0;
     const prorationReason=startsMidMonth&&endsMidMonth?'입·퇴사일이 모두 급여기간 안에 있어요':startsMidMonth?'급여기간 중 계약이 시작됐어요':endsMidMonth?'급여기간 중 계약이 종료됐어요':null;
     return {staffId:row.id,workerName:row.name,engagementType:row.engagement_type,periodMonth,
       payBasis:frozen?saved.pay_basis:row.pay_basis,payRate:frozen?saved.pay_rate:rate,workedMinutes:frozen?saved.worked_minutes:work.minutes,
@@ -86,7 +91,7 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
       netAmount:frozen?saved.net_amount:calculated,status:frozen?saved.status:!rate?'config_required':saved?.status??(selectedMonth===now.toISOString().slice(0,7)?'collecting':'draft'),
       bankName:row.bank_name??null,accountLast4:row.account_last4??null,
       needsProration,prorationReason,accountReady:Boolean(row.bank_name&&/^\d{4}$/.test(row.account_last4??'')),
-      saved:Boolean(saved),excludedRecords:excludedMap.get(row.id)??0};
+      saved:Boolean(saved),excludedRecords:excludedMap.get(row.id)??0,needsAttendanceCheck};
   });
 }
 

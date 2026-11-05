@@ -22,9 +22,9 @@ export default async function PlatformFacilitiesPage() {
     getPendingWorkers(),
     listTrialFollowUps(),
     getLatestHealthRun(),
-    listFacilityPublicFlags(),
+    listFacilityPublicFlags().catch(() => null),
   ]);
-  const flagsStale = publicFlags.filter((f) => !f.public_flags_checked_at || Date.now() - Date.parse(f.public_flags_checked_at) > 35 * 86_400_000).length;
+  const flagsStale = (publicFlags ?? []).filter((f) => !f.public_flags_checked_at || Date.now() - Date.parse(f.public_flags_checked_at) > 35 * 86_400_000).length;
 
   return (
     <main className="min-h-screen bg-surface px-4 pb-24">
@@ -134,8 +134,10 @@ export default async function PlatformFacilitiesPage() {
           연 1회 고용노동부 보도자료의 <a className="underline" href="https://www.moel.go.kr" target="_blank" rel="noreferrer">산업재해 발생건수 공표 목록</a>과 사업장명·사업자등록번호를 대조해 기록해요.
           표시하면 근무자 공고·사업장 정보에 바로 게재돼요(2026-12-10 시행 의무).
         </p>
-        {publicFlags.length === 0
-          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">대조할 운영 사업장이 없거나, 마이그레이션 20261103100000 이 아직 적용되지 않았어요.</p>
+        {publicFlags === null
+          ? <p role="alert" className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">공표 대조 목록을 불러오지 못했어요. 잠시 후 새로고침해 주세요.</p>
+          : publicFlags.length === 0
+          ? <p className="rounded-2xl bg-white p-5 text-center text-[0.875rem] text-sub">대조할 운영 사업장이 없어요.</p>
           : <ul className="divide-y divide-line rounded-2xl bg-white">{publicFlags.map((f) => <PublicFlagsCard key={f.id} facility={f} />)}</ul>}
       </section>
 

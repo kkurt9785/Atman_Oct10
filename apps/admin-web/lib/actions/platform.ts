@@ -160,28 +160,40 @@ export type FacilityPublicFlags = {
   id: string; name: string; business_registration_number: string | null;
   public_flag_wage_arrears: boolean; public_flag_industrial_accident: boolean; public_flags_checked_at: string | null; public_flags_note: string | null;
 };
+// 대조 대상 전부(200건에서 잘리지 않게 500건씩), 단기·행사(긱) 현장 제외. 조회 실패는 빈 목록이 아니라 오류로 — '대조할 곳 없음'으로 오해하지 않게
 export async function listFacilityPublicFlags(): Promise<FacilityPublicFlags[]> {
   const { sb } = await requirePlatform();
-  const { data, error } = await sb.from('facilities')
-    .select('id,name,business_registration_number,public_flag_wage_arrears,public_flag_industrial_accident,public_flags_checked_at,public_flags_note')
-    .eq('is_demo', false).eq('is_active', true).is('deleted_at', null).order('name').limit(200);
-  if (error) return [];
-  return (data ?? []) as FacilityPublicFlags[];
+  const rows: FacilityPublicFlags[] = [];
+  for (let from = 0; ; from += 500) {
+    const { data, error } = await sb.from('facilities')
+      .select('id,name,business_registration_number,public_flag_wage_arrears,public_flag_industrial_accident,public_flags_checked_at,public_flags_note')
+      .eq('is_demo', false).eq('is_active', true).is('deleted_at', null).neq('facility_type', 'gigworker')
+      .order('name').order('id').range(from, from + 499);
+    if (error) throw new Error('공표 대조 목록을 불러오지 못했어요.');
+    rows.push(...((data ?? []) as FacilityPublicFlags[]));
+    if ((data ?? []).length < 500) return rows;
+  }
 }
 
 export async function setFacilityPublicFlagsAction(input: { facilityId: string; wageArrears: boolean; industrialAccident: boolean; note: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const { session, sb } = await requirePlatform();
-    if (!/^[0-9a-f-]{36}$/i.test(input.facilityId) || input.note.length > 500) return { ok: false, error: '입력을 확인해 주세요.' };
+    if (!/^[0-9a-f-]{36}$/i.test(input.facilityId) || typeof input.wageArrears !== 'boolean' || typeof input.industrialAccident !== 'boolean'
+      || typeof input.note !== 'string' || input.note.length > 500) return { ok: false, error: '입력을 확인해 주세요.' };
     const { data: before } = await sb.from('facilities').select('public_flag_wage_arrears,public_flag_industrial_accident,public_flags_note').eq('id', input.facilityId).maybeSingle();
     const now = new Date().toISOString();
     const after = { public_flag_wage_arrears: input.wageArrears, public_flag_industrial_accident: input.industrialAccident, public_flags_note: input.note.trim() || null, public_flags_checked_at: now };
     const { error } = await sb.from('facilities').update(after).eq('id', input.facilityId);
     if (error) return { ok: false, error: '저장하지 못했어요. 마이그레이션 적용 여부를 확인해 주세요.' };
-    await sb.from('audit_logs').insert({
+    // 대조 기록은 직업안정법 대응 증빙(대응 문서 4절) — 기록을 못 남기면 저장을 되돌린다
+    const { error: auditError } = await sb.from('audit_logs').insert({
       actor_type: 'admin', actor_id: session.user.id, action: 'facility.public_flags.update',
       entity_type: 'facility', entity_id: input.facilityId, before_data: before ?? {}, after_data: after,
     });
+    if (auditError) {
+      if (before) await sb.from('facilities').update(before).eq('id', input.facilityId);
+      return { ok: false, error: '처리 기록을 남기지 못해 되돌렸어요. 다시 저장해 주세요.' };
+    }
     revalidatePath('/ops/facilities');
     return { ok: true };
   } catch (error) {

@@ -26,8 +26,9 @@ async function complianceChecks(sb: NonNullable<ReturnType<typeof adminClient>>)
   const monthAgo = new Date(Date.now() - 35 * 86_400_000).toISOString();
   const [postings, staleFlags] = await Promise.all([
     sb.from('job_posting_reports').select('id', { count: 'exact', head: true }).in('status', ['open', 'reviewing']).lt('created_at', twoDaysAgo),
+    // 단기·행사(긱) 현장은 구인광고를 내지 않아 공표 대조 대상이 아니다 — 넣으면 경고가 매일 남는다
     sb.from('facilities').select('id', { count: 'exact', head: true }).eq('is_demo', false).eq('is_active', true).is('deleted_at', null)
-      .or(`public_flags_checked_at.is.null,public_flags_checked_at.lt.${monthAgo}`),
+      .neq('facility_type', 'gigworker').or(`public_flags_checked_at.is.null,public_flags_checked_at.lt.${monthAgo}`),
   ]);
   out.push({ key: 'posting-reports', label: '공고·사업장 신고 검토', level: postings.error ? 'error' : (postings.count ?? 0) > 0 ? 'error' : 'ok', count: postings.count,
     detail: postings.error ? '신고 목록 조회 실패' : (postings.count ?? 0) > 0 ? '접수 후 48시간이 지난 미처리 신고 · 신고 검토에서 확인' : null });

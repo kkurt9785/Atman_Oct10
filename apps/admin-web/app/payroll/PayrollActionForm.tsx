@@ -3,9 +3,9 @@
 import { useState, useTransition } from 'react';
 import { runPayrollAction } from './actions';
 
-export function PayrollActionForm({kind,action,values,label,className,needsAmount=false}:{
+export function PayrollActionForm({kind,action,values,label,className,needsAmount=false,amountLabel='일할계산 최종 세전액',defaultAmount}:{
   kind:'marketplace'|'staff'; action:'approve'|'mark_exported'|'mark_paid';
-  values:Record<string,string>; label:string; className:string; needsAmount?:boolean;
+  values:Record<string,string>; label:string; className:string; needsAmount?:boolean; amountLabel?:string; defaultAmount?:number;
 }){
   const [pending,startTransition]=useTransition();
   const [error,setError]=useState('');
@@ -22,8 +22,8 @@ export function PayrollActionForm({kind,action,values,label,className,needsAmoun
   }}>
     {Object.entries(values).map(([name,value])=><input key={name} type="hidden" name={name} value={value}/>)}
     <input type="hidden" name="action" value={action}/>
-    {needsAmount&&<label className="mb-2 block text-[0.75rem] font-bold text-ink">일할계산 최종 세전액
-      <input name="final_gross_amount" type="number" min="0" step="100" required placeholder="사업장이 검토한 최종 금액" className="mt-1 h-11 w-full rounded-xl border border-amber-300 bg-white px-3 text-label"/>
+    {needsAmount&&<label className="mb-2 block text-[0.75rem] font-bold text-ink">{amountLabel}
+      <input name="final_gross_amount" type="number" min="0" step="100" required defaultValue={defaultAmount} placeholder="사업장이 검토한 최종 금액" className="mt-1 h-11 w-full rounded-xl border border-amber-300 bg-white px-3 text-label"/>
     </label>}
     {needsArming&&!armed
       ? <button type="button" onClick={()=>setArmed(true)} className={className}>{label}</button>

@@ -33,6 +33,6 @@ describe('근무 연도별 최저시급', () => {
   });
   it('예상 지급액도 선택한 근무일로 검사한다', () => {
     expect(calcEstimatedShiftPay('09:00', '17:00', 10320, '2027-01-01')).toBeNull();
-    expect(calcEstimatedShiftPay('09:00', '17:00', 10700, '2027-01-01')).toBe(74900);
+    expect(calcEstimatedShiftPay('09:00', '17:00', 10700, '2027-01-01')).toBe(80250); // 8:00 구간 → 휴게 30분(2026-11-05 결정) → 7h30m
   });
 });
