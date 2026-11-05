@@ -38,7 +38,8 @@ describe('알림 발송 결과 분류', () => {
   });
   it('동일 알림 식별자를 기기에 보내 중복 팝업을 합칠 수 있다', async () => {
     expect(await dispatchPendingNotifications()).toMatchObject({ sent: 1 });
-    expect(mock.send.mock.calls[0][1].data).toEqual({ url: '/gig/settlement', notificationId: row.id });
+    // eventType 은 근무자 sw.js 가 앱 안 알림 목록과 같은 화면을 고르는 데 쓴다(2026-11-05)
+    expect(mock.send.mock.calls[0][1].data).toEqual({ url: '/gig/settlement', notificationId: row.id, eventType: null }); // 이 행은 event_type 이 없다
   });
   it('만료된 구독만 제거한다', async () => {
     mock.send.mockResolvedValue({ ok: false, expired: true, error: '410' });

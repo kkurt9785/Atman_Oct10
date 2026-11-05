@@ -17,6 +17,7 @@ vi.mock('@/lib/date', () => ({ todayKST: () => '2026-11-05' }));
 vi.mock('@/lib/notify-nudge', () => ({ nudgeNotificationDispatch: vi.fn() }));
 vi.mock('@/lib/db/operations', () => ({ getWorkforceRecommendations: vi.fn() }));
 vi.mock('@/lib/posting-gate', () => ({ loadPublicPostingBlock: vi.fn(), shiftStartPassed: vi.fn() }));
+vi.mock('@/lib/replacement-window', () => import('../../../admin-web/lib/replacement-window'));
 vi.mock('@/lib/public-demo', () => import('../../../admin-web/lib/public-demo'));
 
 const actionsPath = '../../../admin-web/app/operations/actions';
