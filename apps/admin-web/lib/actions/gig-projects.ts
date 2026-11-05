@@ -7,6 +7,8 @@ import { requireAdminContext } from '../admin-auth';
 import { adminClient } from '../supabase';
 import { getStaffCapacity, requireGigBetaActive, requireStaffCapacity } from '../billing-gates';
 import { GIG_INVITE_BATCH_MAX } from '../gig-invite-lines';
+import { todayKST } from '../date';
+import { hm, planStaffTimeSync, timeSyncNotice } from '../gig-time-sync';
 
 // 근무 건(프로젝트) 관리. 사람이 아니라 근무를 먼저 만들고 여러 명을 넣는다. 급여는 근무 건의 시급이 기준이다.
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
@@ -59,6 +61,38 @@ async function widenStaffSchedule(sb: NonNullable<ReturnType<typeof adminClient>
   }).eq('id', staffId);
 }
 
+// 출퇴근 RPC(record_unified_attendance)는 근무 건이 아니라 근무자 기본 시간(facility_staff.default_*)으로 출근 가능 시간을 판정한다.
+// 근무 건 시간을 고치거나 기존 근무자를 다른 근무 건에 넣을 때 기본 시간을 그 근무 건에 맞춘다(2026-11-05, 서버 판정 개선 전 임시).
+// 누구를 맞출지는 lib/gig-time-sync.ts planStaffTimeSync 가 정한다.
+type ProjectTimes = { start_time: string; end_time: string; break_minutes: number };
+async function syncStaffDefaultTimes(
+  sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string, projectId: string, staffIds: string[],
+  times: ProjectTimes, previous?: ProjectTimes,
+): Promise<{ synced: number; otherProject: string[]; custom: string[] }> {
+  if (staffIds.length === 0) return { synced: 0, otherProject: [], custom: [] };
+  const [{ data: staff }, { data: others }] = await Promise.all([
+    sb.from('facility_staff').select('id,name,default_start_time,default_end_time').eq('facility_id', facilityId).eq('worker_kind', 'gig').in('id', staffIds),
+    sb.from('gig_assignments').select('staff_id,project_id').eq('facility_id', facilityId).in('staff_id', staffIds).neq('project_id', projectId).neq('status', 'cancelled'),
+  ]);
+  const otherIds = [...new Set((others ?? []).map((row) => row.project_id as string).filter(Boolean))];
+  const { data: activeOther } = otherIds.length
+    ? await sb.from('gig_projects').select('id,start_time,end_time').in('id', otherIds).neq('status', 'cancelled').gte('ends_on', todayKST())
+    : { data: [] };
+  const plan = planStaffTimeSync({
+    staff: (staff ?? []).map((row) => ({ id: row.id as string, name: String(row.name ?? '근무자'), default_start_time: row.default_start_time as string | null, default_end_time: row.default_end_time as string | null })),
+    others: (others ?? []).filter((row) => row.project_id).map((row) => ({ staff_id: row.staff_id as string, project_id: row.project_id as string })),
+    activeOtherProjects: (activeOther ?? []).map((row) => ({ id: row.id as string, start_time: row.start_time as string, end_time: row.end_time as string })),
+    times, previous,
+  });
+  if (plan.ids.length) {
+    const { error } = await sb.from('facility_staff').update({
+      default_start_time: times.start_time, default_end_time: times.end_time, default_break_minutes: times.break_minutes, updated_at: new Date().toISOString(),
+    }).eq('facility_id', facilityId).in('id', plan.ids);
+    if (error) throw new Error('근무자 출근 시간을 맞추지 못했어요. 다시 시도해 주세요.');
+  }
+  return { synced: plan.ids.length, otherProject: plan.otherProject, custom: plan.custom };
+}
+
 function touch(projectId?: string) {
   revalidatePath('/'); revalidatePath('/gig-work'); revalidatePath('/timesheet'); revalidatePath('/staff');
   if (projectId) revalidatePath(`/gig-work/${projectId}`);
@@ -82,14 +116,22 @@ export async function updateGigProjectAction(form: FormData) {
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const projectId = text(form, 'project_id');
-  await requireProject(sb, context.facilityId, projectId);
+  const before = await requireProject(sb, context.facilityId, projectId);
   const schedule = readSchedule(form);
   const { error } = await sb.from('gig_projects').update({ ...schedule, updated_at: new Date().toISOString() }).eq('id', projectId).eq('facility_id', context.facilityId);
   if (error) throw new Error('근무 건을 수정하지 못했어요.');
   // 참여자 계약 범위도 같이 넓힌다
   const { data: members } = await sb.from('gig_assignments').select('staff_id').eq('project_id', projectId).neq('status', 'cancelled');
   for (const row of members ?? []) await widenStaffSchedule(sb, row.staff_id as string, schedule);
+  // 근무 시간이 바뀌었으면 참여자 출근 가능 시간도 따라가게 한다(예전 근무 건 시간을 그대로 쓰던 사람만)
+  let notice: string | undefined;
+  if (hm(before.start_time) !== hm(schedule.start_time) || hm(before.end_time) !== hm(schedule.end_time) || Number(before.break_minutes) !== schedule.break_minutes) {
+    const sync = await syncStaffDefaultTimes(sb, context.facilityId, projectId, (members ?? []).map((row) => row.staff_id as string),
+      schedule, { start_time: before.start_time as string, end_time: before.end_time as string, break_minutes: Number(before.break_minutes) });
+    notice = timeSyncNotice(sync, schedule.start_time, schedule.end_time);
+  }
   touch(projectId);
+  return { notice };
 }
 
 export async function cancelGigProjectAction(form: FormData) {
@@ -127,8 +169,11 @@ export async function addGigParticipantsAction(form: FormData) {
   );
   if (error) throw new Error(`근무자를 추가하지 못했어요: ${error.message}`);
   for (const staffId of valid) await widenStaffSchedule(sb, staffId, { starts_on: project.starts_on, ends_on: project.ends_on, work_weekdays: (project.work_weekdays ?? []).map(Number) });
+  // 이 근무 건 시간에 출근할 수 있게 기본 시간을 맞춘다(시간이 다른 진행 중 근무가 또 있으면 그대로 두고 알린다)
+  const sync = await syncStaffDefaultTimes(sb, context.facilityId, projectId, valid,
+    { start_time: project.start_time as string, end_time: project.end_time as string, break_minutes: Number(project.break_minutes ?? 0) });
   touch(projectId);
-  return { added: valid.length };
+  return { added: valid.length, notice: timeSyncNotice(sync, project.start_time as string, project.end_time as string) };
 }
 
 // 새 사람을 이 근무 건으로 바로 초대한다 (근무자 등록 + 초대 링크 + 참여)

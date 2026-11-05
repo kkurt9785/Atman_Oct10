@@ -14,10 +14,12 @@ export function GigActionForm({ kind, values, className, children, resetOnSucces
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  // 액션이 성공했지만 사장님이 알아야 할 것(예: 출근 가능 시간을 못 맞춘 근무자)을 data.notice 로 돌려준다
+  const [notice, setNotice] = useState('');
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (confirmText && !window.confirm(confirmText)) return;
-    setLoading(true); setError(''); setMessage('');
+    setLoading(true); setError(''); setMessage(''); setNotice('');
     const data = new FormData(event.currentTarget);
     Object.entries(values ?? {}).forEach(([key, value]) => data.set(key, value));
     const result = await runGigProjectAction(kind, data);
@@ -25,6 +27,8 @@ export function GigActionForm({ kind, values, className, children, resetOnSucces
     if (!result.ok) { setError(result.error ?? '처리하지 못했어요.'); return; }
     if (resetOnSuccess) formRef.current?.reset();
     if (successMessage) setMessage(successMessage);
+    const note = (result.data as { notice?: unknown } | null | undefined)?.notice;
+    if (typeof note === 'string' && note) setNotice(note);
     onSuccess?.(result.data);
     router.refresh();
   }
@@ -33,5 +37,6 @@ export function GigActionForm({ kind, values, className, children, resetOnSucces
     {loading && <p className="col-span-full mt-1 text-[0.75rem] font-bold text-primary">처리 중...</p>}
     {error && <p role="alert" className="col-span-full mt-1 rounded-lg bg-red-50 px-3 py-2 text-[0.75rem] font-bold text-red-600">{error}</p>}
     {message && <p role="status" className="col-span-full mt-1 rounded-lg bg-success/10 px-3 py-2 text-[0.75rem] font-bold text-success">{message}</p>}
+    {notice && <p role="status" className="col-span-full mt-1 rounded-lg bg-amber-50 px-3 py-2 text-[0.75rem] font-bold leading-5 text-amber-800">{notice}</p>}
   </form>;
 }
