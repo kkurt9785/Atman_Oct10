@@ -27,7 +27,7 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
   const [weekdays, setWeekdays] = useState<number[]>(project?.workWeekdays ?? [1, 2, 3, 4, 5]);
   const [startTime, setStartTime] = useState(project?.startTime.slice(0, 5) ?? '10:00');
   const [endTime, setEndTime] = useState(project?.endTime.slice(0, 5) ?? '18:00');
-  // 휴게는 근무시간에 맞춰 자동(4h↑ 30분·8h↑ 60분, 법정 최소) — 사장님이 직접 고르면 그 값을 쓴다
+  // 휴게는 근무시간에 맞춰 자동(근무 구간 4h↑ 30분·8h30m↑ 60분, 법정 최소 — 공용 calcBreakMinutes) — 사장님이 직접 고르면 그 값을 쓴다
   const [breakTouched, setBreakTouched] = useState(Boolean(project));
   const [breakMinutes, setBreakMinutes] = useState(project?.breakMinutes ?? calcBreakMinutes(spanMinutes('10:00', '18:00')));
   const [payRate, setPayRate] = useState<string>(project?.payRate ? String(project.payRate) : '');

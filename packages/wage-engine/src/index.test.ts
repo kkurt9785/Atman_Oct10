@@ -23,14 +23,16 @@ t('주간 8h — 기본급만', () => {
 });
 
 // 2) 철야 22-06 (휴게 60 → 7h, 전부 야간) : 야간 +50%
+// 8:00 구간 → 법정 최소 휴게 30분(8:30 이상부터 60분, 2026-11-05) → 7.5h
 t('철야 야간 — 야간가산', () => {
   const r = calcShiftWage({ startAt: '2026-07-01T22:00:00', endAt: '2026-07-02T06:00:00' }, W, BIG);
-  assert.equal(r.workedMinutes, 420);
-  assert.equal(r.nightMinutes, 420);
-  assert.equal(r.base, 84000);
-  assert.equal(r.nightPremium, 42000);   // 7h*12000*0.5
+  assert.equal(r.breakMinutes, 30);
+  assert.equal(r.workedMinutes, 450);
+  assert.equal(r.nightMinutes, 450);
+  assert.equal(r.base, 90000);
+  assert.equal(r.nightPremium, 45000);   // 7.5h*12000*0.5
   assert.equal(r.overtimeMinutes, 0);
-  assert.equal(r.gross, 126000);
+  assert.equal(r.gross, 135000);
 });
 
 // 3) 연장 09-21 (휴게 60 → 11h) : 연장 3h +50%
@@ -101,16 +103,22 @@ t('연장+야간 중복', () => {
   assert.equal(r.gross, 192000);
 });
 
-// 11) 휴일+야간 중복 (18-02, 휴게60 → 7h) : 휴일 50% + 야간 50%
+// 11) 휴일+야간 중복 (18-02, 8:00 구간 → 휴게30 → 7.5h) : 휴일 50% + 야간 50%
 t('휴일+야간 중복', () => {
   const r = calcShiftWage({ startAt: '2026-07-01T18:00:00', endAt: '2026-07-02T02:00:00', isHoliday: true }, W, BIG);
-  assert.equal(r.workedMinutes, 420);
+  assert.equal(r.workedMinutes, 450);
   assert.equal(r.nightMinutes, 240);             // 22-02 = 4h
-  assert.equal(r.base, 84000);                   // 7h
-  assert.equal(r.holidayPremium, 42000);         // 7h*0.5
+  assert.equal(r.base, 90000);                   // 7.5h
+  assert.equal(r.holidayPremium, 45000);         // 7.5h*0.5
   assert.equal(r.nightPremium, 24000);           // 4h*0.5
   assert.equal(r.overtimePremium, 0);            // 휴일은 연장가산 별도 안 함
-  assert.equal(r.gross, 150000);
+  assert.equal(r.gross, 159000);
+});
+
+// 휴게 경계: 8:29 구간 30분, 8:30 구간 60분(근로기준법 §54 법정 최소)
+t('휴게 경계 8:29·8:30', () => {
+  assert.equal(calcShiftWage({ startAt: '2026-07-01T09:00:00', endAt: '2026-07-01T17:29:00' }, W, BIG).breakMinutes, 30);
+  assert.equal(calcShiftWage({ startAt: '2026-07-01T09:00:00', endAt: '2026-07-01T17:30:00' }, W, BIG).breakMinutes, 60);
 });
 
 console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);

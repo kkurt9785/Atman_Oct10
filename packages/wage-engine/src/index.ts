@@ -40,7 +40,7 @@ export const RULESET_2026: WageRuleset = {
 export interface ShiftInput {
   startAt: string;          // ISO 8601 (실제 날짜 포함 → 야간/철야 자동 처리)
   endAt: string;            // ISO 8601 (반드시 startAt 이후)
-  breakMinutes?: number;    // 휴게(무급). 미입력 시 법정 추정(4h↑30분/8h↑60분)
+  breakMinutes?: number;    // 휴게(무급). 미입력 시 법정 추정(4h↑30분/8.5h↑60분)
   isHoliday?: boolean;      // 휴일근로 여부(주휴일·약정휴일·공휴일)
 }
 
@@ -86,9 +86,10 @@ export function nightMinutes(start: Date, end: Date, r: WageRuleset = RULESET_20
   return Math.round(total);
 }
 
-/** 법정 휴게시간 추정 (4h↑ 30분, 8h↑ 60분) — breakMinutes 미입력 시 */
+/** 법정 휴게시간 추정 — breakMinutes 미입력 시. 근무 구간 4:00↑ 30분, 8:30↑ 60분(근로기준법 §54 법정 최소).
+ *  8:00 구간은 30분이면 실근로 7:30이라 8시간 미만 → 30분으로 충족(법제처 15-0847). 앱 calcBreakMinutes·DB 정산과 같은 경계(2026-11-05) */
 export function legalBreakMinutes(totalMinutes: number): number {
-  if (totalMinutes >= 8 * 60) return 60;
+  if (totalMinutes >= 8 * 60 + 30) return 60;
   if (totalMinutes >= 4 * 60) return 30;
   return 0;
 }
