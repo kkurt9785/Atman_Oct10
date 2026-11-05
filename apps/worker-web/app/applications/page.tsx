@@ -96,7 +96,7 @@ function endsAtOf(app: Application) {
 const isEndedWithoutRecord = (app: Application) => app.status === 'accepted' && !app.checked_in_at && !app.checked_out_at && endsAtOf(app) <= Date.now();
 // '진행 중' = 확인 중인 지원 + 아직 끝나지 않은 확정 근무(오늘 근무가 탭 뒤에 숨지 않게)
 const isActive = (app: Application) =>
-  (['invited', 'applied'].includes(app.status) && !isApplyClosed(app)) || (app.status === 'accepted' && endsAtOf(app) > Date.now());
+  (['invited', 'applied'].includes(app.status) && !isApplyClosed(app)) || (app.status === 'accepted' && app.shift.status !== 'cancelled' && endsAtOf(app) > Date.now());
 
 function stepState(app: Application, step: 'applied' | 'accepted' | 'work') {
   if (app.status === 'invited') return step === 'applied' ? 'current' : 'muted';
@@ -244,8 +244,9 @@ function ApplicationCard({
   const coveredByOther = app.status === 'cancelled' && cover?.status === 'approved';
   // 결원 요청(먼저 수락한 분으로 바로 확정)은 반복근무 요청과 안내가 다르다
   const vacancyCopy = app.confirm_on_accept ? VACANCY_STATUS[app.status] : undefined;
-  // 사업장이 근무를 취소했으면 요청·지원 상태와 상관없이 그렇게 보여 준다(수락 버튼도 숨김)
-  const shiftCancelled = app.shift.status === 'cancelled' && !['completed', 'accepted'].includes(app.status);
+  // 사업장이 근무를 취소했으면 요청·지원 상태와 상관없이 그렇게 보여 준다(수락·출근·대타 버튼도 숨김).
+  // 확정 근무도 출근 전이면 취소로 본다 — 예전엔 확정만 빼서 취소된 근무에 '출근하기'가 남았다(2026-11-05 QA)
+  const shiftCancelled = app.shift.status === 'cancelled' && app.status !== 'completed' && !app.checked_in_at && !app.checked_out_at;
   const applyClosed = isApplyClosed(app);
   const { label, description, className } = coveredByOther
     ? { label: '대타 확정', description: `${cover?.claimer_name ?? '동료'}님이 이 근무를 맡았어요. 빠지셔도 돼요.`, className: 'bg-[#E5FAF4] text-success' }
@@ -259,9 +260,9 @@ function ApplicationCard({
   // '사업장 확인 중'은 배지만으로 충분하다 — 같은 말을 한 번 더 하지 않는다(카드 길이 줄이기)
   const showDescription = !(app.status === 'applied' && !applyClosed && !shiftCancelled);
   // 진행 단계 칩은 확정 이후에만 — 확인 중일 땐 배지가 같은 정보를 준다
-  const showSteps = ['accepted', 'completed'].includes(app.status) && !coveredByOther;
+  const showSteps = ['accepted', 'completed'].includes(app.status) && !coveredByOther && !shiftCancelled;
   const startsAt = startsAtOf(app);
-  const canSeekCover = app.status === 'accepted' && !app.checked_in_at && !app.checked_out_at && startsAt > Date.now();
+  const canSeekCover = app.status === 'accepted' && !shiftCancelled && !app.checked_in_at && !app.checked_out_at && startsAt > Date.now();
   const pay   = app.shift.estimated_total_pay.toLocaleString('ko-KR');
   const appliedDate = new Date(app.applied_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
 
@@ -311,7 +312,7 @@ function ApplicationCard({
 
       {app.status === 'accepted' && (
         <>
-          {isCheckedOut ? (
+          {shiftCancelled ? null : isCheckedOut ? (
             <div className="mt-3 p-3 bg-bg rounded-xl flex items-center gap-2">
               <span className="text-success">✅</span>
               <p className="text-[13px] font-semibold text-sub">근무 완료</p>

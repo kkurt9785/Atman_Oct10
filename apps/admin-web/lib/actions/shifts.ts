@@ -1,6 +1,7 @@
 'use server';
 
 import { isGigworkerFacility } from '@/lib/facility-mode';
+import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createShift } from '../db/shifts';
 import { adminClient } from '../supabase';
@@ -9,6 +10,7 @@ import { calcEstimatedShiftPay, shiftHourlyWageError } from '../pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '../billing-gates';
 import { todayKST } from '../date';
 import { nudgeNotificationDispatch } from '../notify-nudge';
+import { publicPostingBlockReason, shiftStartPassed, type PostingFacility } from '../posting-gate';
 
 const ALL_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff'] as const;
 const ROLE_LABEL: Record<string, string> = {
@@ -40,6 +42,9 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   if (wageError) return { ok: false, message: wageError };
   const estimatedTotalPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage, shiftDate);
   if (estimatedTotalPay == null) return { ok: false, message: '근무 시간을 확인해 주세요.' };
+  if (startTime.slice(0, 5) === endTime.slice(0, 5)) return { ok: false, message: '시작과 종료 시각이 같아요. 근무 시간을 확인해 주세요.' };
+  // 지난 시각 공고는 '모집 중'으로 저장되고 알림까지 갔다(2026-11-05 QA) — 지원할 수 없는 공고는 올리지 않는다
+  if (shiftStartPassed(shiftDate, startTime)) return { ok: false, message: '이미 시작 시각이 지난 근무예요. 날짜와 시작 시각을 확인해 주세요.' };
 
   const context = await requireAdminContext(['owner','operator','super']);
   const sb = adminClient();
@@ -48,19 +53,9 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
     if (isGigworkerFacility(facility)) {
       return { ok: false, message: '단기·행사 근태 무료 베타는 출퇴근 관리 전용이에요. 인력 모집은 병원·약국 사업장을 등록한 뒤 이용해 주세요.' };
     }
-    // 셀프 등록 사업장은 잇닿 확인(approved_at) 전까지 공고를 열지 않는다 — 초대코드 사업장은 등록 시점에 이미 확인됨
-    if (facility && facility.approved_at == null && String(facility.registration_source ?? '').startsWith('self_')) {
-      return { ok: false, message: '사업장 확인이 끝나면 공고를 등록할 수 있어요. 보통 1영업일 안에 완료돼요.' };
-    }
-    // 직업안정법 §25(2026-12-10 시행) — 사업자등록증 등으로 신원을 확인할 수 없는 구인광고는 게재 금지.
-    // 국세청 조회가 휴업·폐업이거나, 등록번호가 국세청에 없는(unknown) 사업장은 공고를 열지 않는다. 미조회(null)는 운영자 서류 확인으로 갈음.
-    const bizStatus = String((facility as { business_status?: string | null } | null)?.business_status ?? '');
-    if (facility && ['closed', 'suspended'].includes(bizStatus)) {
-      return { ok: false, message: '국세청 조회에서 사업자 상태가 휴업·폐업으로 확인돼 공고를 올릴 수 없어요. 바뀌었다면 사업자 서류를 다시 제출해 주세요.' };
-    }
-    if (facility && bizStatus === 'unknown') {
-      return { ok: false, message: '국세청에서 사업자등록번호를 확인하지 못해 공고를 올릴 수 없어요. 설정 › 사업자 서류에서 등록번호와 등록증을 다시 제출해 주세요.' };
-    }
+    // 직업안정법 §25(2026-12-10 시행) 게재 판정 — 셀프 미승인·국세청 휴업·폐업·미확인이면 막는다(공개 공고 경로 공통)
+    const blocked = publicPostingBlockReason(facility as PostingFacility | null);
+    if (blocked) return { ok: false, message: blocked };
     if (requiredRole === 'pharmacy_staff' && facility?.facility_type !== 'pharmacy') {
       return { ok: false, message: '약국 전산·사무직 공고는 약국 사업장에서만 등록할 수 있어요.' };
     }
@@ -171,22 +166,49 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   redirect('/shifts');
 }
 
-export async function cancelShiftAction(shiftId: string) {
+export async function cancelShiftAction(shiftId: string): Promise<ShiftActionResult> {
   const context = await requireAdminContext(['owner','operator','super']);
   const sb = adminClient();
-  if (!sb) throw new Error('서버 설정 오류');
-  // 확정(matched)된 근무를 취소하면 워커의 일정이 사라진다 — 취소 전 매칭 워커를 확보해 알린다
+  if (!sb) return { ok: false, message: '서버 설정을 확인해 주세요.' };
+  // 확정(matched)된 근무를 취소하면 근무자의 일정이 사라진다 — 취소 전 확정 근무자를 확보해 알린다
   const { data: before } = await sb.from('shifts')
     .select('id, shift_date, start_time, status, matched_worker_id, workers:matched_worker_id ( auth_user_id )')
     .eq('id', shiftId).eq('facility_id', context.facilityId).maybeSingle();
+  // 이미 출근한 근무를 취소하면 근태·정산이 근무 없이 남는다 — 근태 화면에서 처리하게 한다
+  const { data: started } = await sb.from('shift_attendances').select('id')
+    .eq('shift_id', shiftId).not('check_in_at', 'is', null).limit(1).maybeSingle();
+  if (started) return { ok: false, message: '이미 출근한 근무는 취소할 수 없어요. 근태 화면에서 조기 퇴근으로 처리해 주세요.' };
+  const now = new Date().toISOString();
   const { data, error } = await sb.from('shifts')
-    .update({ status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({ status: 'cancelled', cancelled_at: now, updated_at: now })
     .eq('id', shiftId)
     .eq('facility_id', context.facilityId)
     .in('status', ['open','matched'])
     .select('id')
     .maybeSingle();
-  if (error || !data) throw new Error('취소할 수 없는 공고예요.');
+  if (error || !data) return { ok: false, message: '이미 마감됐거나 취소된 공고예요. 목록을 새로 확인해 주세요.' };
+  // 확정 지원도 사업장 취소로 닫는다 — 그대로 두면 근무자 앱에 '채용 확정·출근하기'가, 관리자 근태에 '출근 예정'이 남았다(2026-11-05 QA)
+  await sb.from('shift_applications')
+    .update({ status: 'cancelled', responded_at: now })
+    .eq('shift_id', shiftId).eq('status', 'accepted');
+  // 진행 중인 대타 요청도 닫고, 맡겠다고 한 동료에게 알린다
+  const { data: covers } = await sb.from('shift_cover_requests')
+    .update({ status: 'cancelled', decided_at: now, updated_at: now })
+    .eq('shift_id', shiftId).in('status', ['open', 'claimed'])
+    .select('id, status, claimer:claimer_worker_id ( auth_user_id )');
+  const claimerIds = ((covers ?? []) as Array<{ claimer: { auth_user_id: string | null } | Array<{ auth_user_id: string | null }> | null }>)
+    .map((row) => (Array.isArray(row.claimer) ? row.claimer[0] : row.claimer)?.auth_user_id ?? null)
+    .filter((id): id is string => Boolean(id));
+  if (claimerIds.length) {
+    await sb.from('notification_outbox').upsert(claimerIds.map((authId) => ({
+      worker_auth_user_id: authId,
+      event_type: 'shift.cancelled',
+      dedupe_key: `shift.cancelled:cover:${shiftId}:${authId}`,
+      title: '맡기로 한 대타 근무가 취소됐어요',
+      body: `${(before as { shift_date?: string } | null)?.shift_date ?? ''} 근무가 사업장 사정으로 취소됐어요.`,
+      data: { url: '/applications', shiftId },
+    })), { onConflict: 'dedupe_key', ignoreDuplicates: true });
+  }
   // 아직 답하지 않은 요청·확정 전 지원은 마감한다 — 그대로 두면 근무자 앱에 수락 버튼이 남는다
   const { data: pending } = await sb.from('shift_applications')
     .update({ status: 'expired', responded_at: new Date().toISOString() })
@@ -215,10 +237,13 @@ export async function cancelShiftAction(shiftId: string) {
       event_type: 'shift.cancelled',
       dedupe_key: `shift.cancelled:${shiftId}:${matchedAuthId}`,
       title: '확정된 근무가 취소됐어요',
-      body: `${(before as { shift_date?: string }).shift_date ?? ''} 근무가 사업장 사정으로 취소됐습니다. 다른 근무를 확인해 보세요.`,
+      body: `${(before as { shift_date?: string }).shift_date ?? ''} 근무가 사업장 사정으로 취소됐어요. 다른 근무를 확인해 보세요.`,
       data: { url: '/applications', shiftId },
     }], { onConflict: 'dedupe_key', ignoreDuplicates: true });
   }
   await nudgeNotificationDispatch();
-  redirect('/shifts');
+  revalidatePath('/');
+  revalidatePath('/applications');
+  revalidatePath('/timesheet');
+  redirect('/shifts?cancelled=1');
 }

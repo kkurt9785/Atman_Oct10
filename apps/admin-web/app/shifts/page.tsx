@@ -38,7 +38,7 @@ function ShiftCard({ s }: { s: ShiftRow }) {
           <span className={`whitespace-nowrap text-label font-bold px-3 py-1 rounded-full ${STATUS_STYLE[s.status]}`}>
             {STATUS_LABEL[s.status]}
           </span>
-          {isCancellable && <CancelButton shiftId={s.id} />}
+          {isCancellable && <CancelButton shiftId={s.id} matched={s.status === 'matched'} />}
         </div>
       </div>
       {s.department && (
@@ -54,11 +54,12 @@ function ShiftCard({ s }: { s: ShiftRow }) {
   );
 }
 
-export default async function ShiftsPage() {
-  const [shifts, expiredShifts] = await Promise.all([getShifts(), getExpiredOpenShifts()]);
+export default async function ShiftsPage({ searchParams }: { searchParams: Promise<{ cancelled?: string }> }) {
+  const [shifts, expiredShifts, params] = await Promise.all([getShifts(), getExpiredOpenShifts(), searchParams]);
 
   return (
     <main className="px-4 pb-24">
+      {params.cancelled === '1' && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[0.8125rem] font-bold text-success">공고를 취소하고 지원자·확정 근무자에게 알렸어요.</p>}
       <div className="flex items-center justify-between px-1 mt-2 mb-2">
         <h1 className="text-display font-extrabold text-ink">공고</h1>
         <Link

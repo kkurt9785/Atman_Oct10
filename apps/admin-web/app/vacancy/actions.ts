@@ -7,6 +7,7 @@ import { adminClient, userClient } from '@/lib/supabase';
 import { calcEstimatedShiftPay, shiftHourlyWageError } from '@/lib/pay';
 import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '@/lib/billing-gates';
 import { isGigworkerFacility } from '@/lib/facility-mode';
+import { publicPostingBlockReason, shiftStartPassed, type PostingFacility } from '@/lib/posting-gate';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 import { getVacancyCandidates, parseVacancySource, resolveVacancy, type VacancySource } from '@/lib/db/vacancy';
 
@@ -49,8 +50,14 @@ export async function fillVacancyAction(formData: FormData) {
     catch (error) { fail(source, error instanceof Error ? error.message : '요금제를 확인해 주세요.'); }
   }
 
-  const { data: facility } = await sb.from('facilities').select('facility_type,approved_at,registration_source').eq('id', context.facilityId).maybeSingle();
+  const { data: facility } = await sb.from('facilities').select('facility_type,approved_at,registration_source,business_status').eq('id', context.facilityId).maybeSingle();
   if (isGigworkerFacility(facility)) fail(source, '단기·행사 근태 무료 베타에서는 결원 요청을 쓸 수 없어요.');
+  // 공개 공고로 여는 경우만 구인광고다 — 직업안정법 §25 게재 판정과 지난 시각 검사를 일반 등록과 같이 적용
+  if (makePublic) {
+    const blocked = publicPostingBlockReason(facility as PostingFacility | null);
+    if (blocked) fail(source, blocked);
+    if (shiftStartPassed(vacancy.date, vacancy.startTime)) fail(source, '이미 시작 시각이 지난 근무라 공개 공고로 열 수 없어요. 사람을 골라 요청해 주세요.');
+  }
 
   let shiftId = vacancy.shiftId;
   let createdShiftId: string | null = null;

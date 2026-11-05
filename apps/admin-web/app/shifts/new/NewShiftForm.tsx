@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createShiftAction } from '@/lib/actions/shifts';
 import { calcEstimatedShiftPay, shiftHourlyWageError } from '@/lib/pay';
 import { won } from '@/lib/format';
+import { todayKST } from '@/lib/date';
 
 type Role = 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
 
@@ -203,6 +204,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
                 type="date"
                 name="shift_date"
                 required
+                min={todayKST()}
                 value={shiftDate}
                 onChange={(e) => setShiftDate(e.target.value)}
                 className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink focus:outline-none focus:ring-2 focus:ring-primary"

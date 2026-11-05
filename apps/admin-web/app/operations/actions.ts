@@ -10,11 +10,18 @@ import { consumePlanUsage, releasePlanUsage, requirePlanFeature } from '@/lib/bi
 import { todayKST } from '@/lib/date';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 import { getWorkforceRecommendations } from '@/lib/db/operations';
+import { loadPublicPostingBlock, shiftStartPassed } from '@/lib/posting-gate';
 
 const VALID_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff', 'any'];
 
 function formText(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim();
+}
+
+// 직업안정법 §25 게재 판정 — 막히면 운영 화면에 사유를 보여 준다(서버 액션 throw 는 운영에서 문구가 가려진다)
+async function assertCanPostPublicShift(sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string) {
+  const blocked = await loadPublicPostingBlock(sb, facilityId);
+  if (blocked) redirect(`/operations?error=${encodeURIComponent(blocked)}`);
 }
 
 export async function resetFacilityLiveDemoAction() {
@@ -135,6 +142,7 @@ export async function generateRecurringShiftsAction(formData: FormData) {
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   await requirePlanFeature(sb, context.facilityId, 'operations');
+  await assertCanPostPublicShift(sb, context.facilityId);
   const templateId = formText(formData, 'template_id');
   const startDate = formText(formData, 'start_date');
   const weeks = Math.min(8, Math.max(1, Number.parseInt(formText(formData, 'weeks'), 10) || 4));
@@ -167,8 +175,10 @@ export async function generateRecurringShiftsAction(formData: FormData) {
       hourly_wage: template.hourly_wage, estimated_total_pay: estimatedPay,
       description: template.description, department: template.department, notes: template.notes,
       posted_by: context.user.id,
-    })));
-  if (!rows.length) throw new Error('이미 같은 날짜의 반복 근무가 생성되어 있어요.');
+    })))
+    // 시작 시각이 지난 날짜는 공고로 열지 않는다(지원 불가인데 알림만 간다)
+    .filter((row) => !shiftStartPassed(row.shift_date, row.start_time));
+  if (!rows.length) redirect(`/operations?error=${encodeURIComponent('새로 만들 근무가 없어요. 이미 생성됐거나 시작 시각이 지난 날짜예요.')}`);
   const { error } = await sb.from('shifts').insert(rows);
   if (error) throw new Error('반복 근무를 생성하지 못했어요.');
 
@@ -207,6 +217,7 @@ export async function fillSevenDayScheduleGapsAction() {
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   await requirePlanFeature(sb, context.facilityId, 'operations');
+  await assertCanPostPublicShift(sb, context.facilityId);
   const startDate = todayKST();
   const endDate = new Date(Date.parse(`${startDate}T00:00:00Z`) + 6 * 86_400_000).toISOString().slice(0, 10);
   const [{ data: templates }, { data: existing }] = await Promise.all([
@@ -226,6 +237,7 @@ export async function fillSevenDayScheduleGapsAction() {
       const weekday = date.getUTCDay() || 7;
       const shiftDate = date.toISOString().slice(0, 10);
       if (!(template.weekdays ?? []).includes(weekday)) continue;
+      if (shiftStartPassed(shiftDate, template.start_time)) continue;
       for (let slot = 1; slot <= Number(template.required_headcount ?? 1); slot += 1) {
         if (existingSlots.has(`${template.id}:${shiftDate}:${slot}`)) continue;
         rows.push({
@@ -286,9 +298,11 @@ export async function approveWorkforceRecommendationAction(formData: FormData) {
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   await requirePlanFeature(sb, context.facilityId, 'operations');
+  await assertCanPostPublicShift(sb, context.facilityId);
   const recommendationKey = formText(formData, 'recommendation_key');
   const recommendation = (await getWorkforceRecommendations(7)).find((item) => item.key === recommendationKey);
   if (!recommendation) redirect('/operations?notice=recommendation_changed');
+  if (shiftStartPassed(recommendation.date, recommendation.startTime)) redirect('/operations?notice=recommendation_changed');
   const { data: requirement } = await sb.from('staffing_requirements').select('*')
     .eq('id', recommendation.requirementId).eq('facility_id', context.facilityId).eq('is_active', true).maybeSingle();
   if (!requirement) throw new Error('인력 공백 기준이 된 필요 인원 설정을 찾지 못했어요.');
@@ -352,6 +366,8 @@ export async function requestUrgentReplacementAction(formData: FormData) {
   const shiftId = formText(formData, 'shift_id');
   const kind = formText(formData, 'kind');
   if (!['unfilled', 'no_show'].includes(kind)) throw new Error('긴급 요청 유형이 올바르지 않아요.');
+  // 긴급 알림·노쇼 대체도 공개 구인광고다
+  await assertCanPostPublicShift(sb, context.facilityId);
   const { data: original } = await sb.from('shifts').select('*').eq('id', shiftId).eq('facility_id', context.facilityId).in('status', ['open','matched']).maybeSingle();
   if (!original) throw new Error('긴급 요청 가능한 근무를 찾지 못했어요.');
   let target = original;

@@ -56,9 +56,11 @@ const NOTICE: Record<string, string> = {
   live_demo_reset: '시연을 처음 상태로 돌렸어요. 워커 앱에서 새 공고에 직접 지원해 보세요.',
 };
 
-export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ notice?: string }> }) {
-  const noticeKey = (await searchParams).notice ?? '';
+export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ notice?: string; error?: string }> }) {
+  const params = await searchParams;
+  const noticeKey = params.notice ?? '';
   const notice = NOTICE[noticeKey];
+  const actionError = (params.error ?? '').slice(0, 200);
   const opened = NOTICE_OPENS[noticeKey];
   const context = await getAdminContext();
   if (!context || context.accessRole === 'sales') {
@@ -96,6 +98,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       <OpenOnHash />
       <ManageBackLink href="/more/operations" label="근무 운영" />
       {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[0.8125rem] font-bold text-success">{notice}</p>}
+      {actionError && <p role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[0.8125rem] font-bold text-amber-800">{actionError}</p>}
       {!hasOperations && (
         <Card className="mt-3 mb-4 border border-amber-200 bg-amber-50">
           <p className="text-body font-extrabold text-ink">{scheduleGapCount > 0 ? `앞으로 7일에 채울 자리가 ${scheduleGapCount}명 있어요` : '반복되는 근무표를 자동으로 만들어 드려요'}</p>
