@@ -56,7 +56,7 @@ export default function WorkerIntroPage() {
           이 브라우저에서는 영상을 재생할 수 없어요.
         </video>
       </div>
-      <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 15초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+      <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 25초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
       <div className="mt-5 rounded-card bg-white p-5 shadow-card">
         <p className="text-[12px] font-extrabold text-primary">시연처럼 직접 써볼까요?</p>
         <h3 className="mt-1 text-[18px] font-extrabold text-ink">잇닿 근무자 앱을 홈 화면에 추가하세요</h3>

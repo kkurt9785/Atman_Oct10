@@ -79,7 +79,7 @@ export default async function IntroPage({ searchParams }: { searchParams: IntroS
         <h1 className="mt-2 text-[28px] font-extrabold leading-[1.3] text-ink">우리 근무 관리,<br />먼저 써보고 결정하세요</h1>
         <p className="mt-3 text-[14px] leading-6 text-sub">가입·설치 없이 준비된 시연으로 확인해요.<br />사장님과 근무자 화면을 각각 볼 수 있어요.</p>
         <DemoLaunchPanel />
-        <a href="#admin-demo" className="mt-4 block text-center text-[13px] font-bold text-sub">먼저 1분 소개 영상 보기 ↓</a>
+        <a href="#admin-demo" className="mt-4 block text-center text-[13px] font-bold text-sub">먼저 소개 영상 보기 ↓</a>
       </header>
       <section id="admin-demo" className="border-y border-line bg-bg px-6 py-10 scroll-mt-4" aria-labelledby="admin-demo-title">
         <ForGigKind
@@ -132,7 +132,7 @@ export default async function IntroPage({ searchParams }: { searchParams: IntroS
                 이 브라우저에서는 영상을 재생할 수 없어요.
               </video>
             </div>
-            <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 10초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
+            <p className="mt-3 text-center text-[12px] text-tertiary">약 1분 35초 · 소리와 함께 보시면 흐름을 더 쉽게 이해할 수 있어요.</p>
           </>}
         />
         <div className="mt-5 rounded-card bg-white p-5 shadow-card">

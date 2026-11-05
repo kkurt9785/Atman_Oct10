@@ -5,7 +5,12 @@ import fs from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const target = process.argv[2] ?? 'worker';
-const port = target.startsWith('admin') ? 9332 : 9333;
+// 고정 포트(9332·9333)는 다른 Chrome 디버그 세션과 부딪혀 엉뚱한 브라우저를 조종할 수 있다 — 실행마다 빈 포트를 고른다
+const port = await new Promise((resolve, reject) => {
+  const server = net.createServer();
+  server.once('error', reject);
+  server.listen(0, '127.0.0.1', () => { const { port: free } = server.address(); server.close(() => resolve(free)); });
+});
 const root = `/private/tmp/atman-video-${target}`;
 const live = target.endsWith('-live');
 const adminOrigin = live ? 'https://admin.itdot.co.kr' : 'http://localhost:3002';
@@ -18,7 +23,17 @@ async function authStorageKey() {
   return `sb-${new URL(match[1].trim()).hostname.split('.')[0]}-auth-token`;
 }
 
+// 운영(-live)은 방문자와 같은 공개 시연 입구(admin /api/demo-login)로 들어간다 — 서비스 키를 쓰지 않는다.
+// 이 경로는 로그인만 하고 시연 데이터를 초기화하지 않는다(2026-11-05부터 공개 시연 계정의 '시연 초기화'는 서버가 거부, 데이터는 매일 08:30 자동 재생성).
 async function adminDemoCredentials(email) {
+  if (live) {
+    const response = await fetch(`${adminOrigin}/api/demo-login`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.accessToken || !data.refreshToken) throw new Error(`관리자 시연 로그인 실패(${response.status}): ${data.error ?? ''}`);
+    return { accessToken: data.accessToken, refreshToken: data.refreshToken };
+  }
   const env = await fs.readFile('apps/admin-web/.env.local', 'utf8');
   const value = (name) => env.match(new RegExp(`^${name}=(.+)$`, 'm'))?.[1]?.trim();
   const url = value('SUPABASE_URL') ?? value('NEXT_PUBLIC_SUPABASE_URL');
@@ -80,9 +95,12 @@ async function connect(wsUrl) {
   await new Promise((resolve) => { const timer = setInterval(() => { if (ready) { clearInterval(timer); resolve(); } }, 20); });
   return { send(method, params = {}) { const id = ++seq; socket.write(frame(JSON.stringify({ id, method, params }))); return new Promise((resolve, reject) => pending.set(id, { resolve, reject })); }, close() { socket.end(); } };
 }
+let chromeProcess = null;
+function stopChrome() { try { if (chromeProcess?.pid) process.kill(chromeProcess.pid); } catch { /* 이미 종료 */ } }
 async function startChrome() {
   const child = spawn(chrome, [`--headless=new`, `--remote-debugging-port=${port}`, `--user-data-dir=${root}/profile`, '--no-first-run', '--no-default-browser-check', 'about:blank'], { detached: true, stdio: 'ignore' });
   child.unref();
+  chromeProcess = child;
   for (let i = 0; i < 30; i += 1) { try { const pages = await getJson('/json/list'); const page = pages.find((item) => item.type === 'page'); if (page?.webSocketDebuggerUrl) return page.webSocketDebuggerUrl; } catch {} await sleep(250); }
   throw new Error('Chrome DevTools를 시작하지 못했습니다.');
 }
@@ -100,6 +118,19 @@ async function main() {
     const { data } = await cdp.send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await fs.writeFile(`${root}/${name}.png`, Buffer.from(data, 'base64'));
   }
+  // 운영 화면은 데이터를 비동기로 불러온다 — 고정 대기 대신 화면에 기대한 내용이 뜰 때까지 기다린다(못 찾으면 경고만)
+  async function waitFor(expression, timeoutMs = 12000) {
+    const until = Date.now() + timeoutMs;
+    while (Date.now() < until) {
+      const result = await cdp.send('Runtime.evaluate', { expression: `Boolean(${expression})`, returnByValue: true }).catch(() => null);
+      if (result?.result?.value) return true;
+      await sleep(300);
+    }
+    console.warn('WAIT_TIMEOUT', expression.slice(0, 120));
+    return false;
+  }
+  const hasText = (text) => `document.body?.innerText?.includes(${JSON.stringify(text)})`;
+  const lacksText = (text) => `!document.body?.innerText?.includes(${JSON.stringify(text)})`;
   if (target === 'public' || target === 'public-live') {
     await go(`${workerOrigin}/`); await shot('01-worker-entry');
     await go(`${workerOrigin}/demo`); await shot('02-worker-demo');
@@ -137,20 +168,35 @@ async function main() {
     const payload = JSON.parse(Buffer.from(login.accessToken.split('.')[1], 'base64url').toString());
     const session = { access_token: login.accessToken, refresh_token: login.refreshToken, token_type: 'bearer', expires_in: 3600, expires_at: payload.exp, user: { id: payload.sub, email: 'worker-gig-demo@demo.atman.co.kr', aud: 'authenticated', role: 'authenticated' } };
     const key = await authStorageKey();
-    await cdp.send('Runtime.evaluate', { expression: `localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(session))}); true` });
-    await go(`${workerOrigin}/gig/join?token=${encodeURIComponent(login.gigInviteToken)}`);
-    await sleep(1500); await shot('00-gig-invite'); // 초대 확인 화면(수락 전)
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      const clicked = await cdp.send('Runtime.evaluate', { expression: `(() => { const button = Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.includes('초대 수락')); if (!button) return false; button.click(); return true; })()`, returnByValue: true });
-      if (clicked?.result?.value) break;
-      await sleep(500);
+    await cdp.send('Runtime.evaluate', { expression: `localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(session))}); localStorage.setItem('atman_demo_panel', '1'); true` });
+    if (login.gigResume) {
+      // '진행 중인 시연'으로 판정돼 초기화를 건너뛰었다(이미 수락됨) — 초대 화면은 '이미 사용된 초대'로 찍히므로 덮어쓰지 않는다.
+      // 주의(2026-11-05 확인): 15분 크론 refresh_demo_worker_readiness 가 오늘 근태가 없는 고정 근무자 행의 updated_at 을 계속 갱신해
+      // '최근 1시간'이 영원히 참이 되고, 08:30 정리(cleanup_gig_demo_facility)도 고정 행의 연결은 풀지 않는다 → 한 번 수락되면 계속 이 상태.
+      // 풀려면 사장님 시연(login?demo=gigworker) 근태에서 '사장님이 직접 처리' 출근→퇴근을 남기고 1시간 뒤 다시 실행한다(docs/demo_video_script_80s.md).
+      console.warn('GIG_RESUME: 이미 수락된 시연이라 00-gig-invite 는 찍지 않고 나머지 화면만 찍어요.');
+    } else {
+      await go(`${workerOrigin}/gig/join?token=${encodeURIComponent(login.gigInviteToken)}`);
+      // 미리보기(근무 조건) RPC 가 끝나 '초대 수락하고 연결' 버튼이 나올 때까지 기다린 뒤 찍는다
+      let ready = false;
+      for (let attempt = 0; attempt < 20 && !ready; attempt += 1) {
+        const probe = await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('button')).some((node) => node.textContent?.includes('초대 수락'))`, returnByValue: true });
+        ready = Boolean(probe?.result?.value);
+        if (!ready) await sleep(500);
+      }
+      if (!ready) throw new Error('초대 확인 화면에 수락 버튼이 없어요(이미 수락됐거나 초대 오류).');
+      await sleep(600); await shot('00-gig-invite'); // 초대 확인 화면(수락 전)
+      await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.includes('초대 수락'))?.click(); true` });
+      await sleep(4000);
     }
-    await sleep(3000);
-    await go(`${workerOrigin}/gig`); await sleep(2500); await shot('01-gig-home');
-    await go(`${workerOrigin}/gig/workroom`); await sleep(1500); await shot('02-gig-workroom');
-    await go(`${workerOrigin}/gig/settlement`); await sleep(1800); await shot('03-gig-settlement');
-    await go(`${workerOrigin}/gig/notifications`); await sleep(1200); await shot('04-gig-notifications');
-    await go(`${workerOrigin}/gig/settings`); await sleep(1200); await shot('05-gig-settings');
+    // 수락 직후 첫 /gig 에는 '연결됐어요' 안내가 한 번 뜬다(위에서 4초 기다리는 동안 소비됨) — 다시 열어 오늘 근무·출근하기를 찍는다
+    await go(`${workerOrigin}/gig`); await waitFor(`${hasText('출근하기')} || ${hasText('근무 중')} || ${hasText('근무 완료')}`); await sleep(800); await shot('01-gig-home');
+    // 워크룸: 입력칸 아래 개인정보 줄('나와 사장님만 볼 수 있어요')이 시연 띠에 가려서 조금(36px) 내려 찍는다 — 맨 아래까지 내리면 제목이 잘린다
+    await go(`${workerOrigin}/gig/workroom`); await waitFor(`document.querySelector('textarea[aria-label="워크룸 메시지"]') && !document.querySelector('textarea[aria-label="워크룸 메시지"]').disabled`);
+    await cdp.send('Runtime.evaluate', { expression: 'window.scrollTo(0, 36); true' }); await sleep(900); await shot('02-gig-workroom');
+    await go(`${workerOrigin}/gig/settlement`); await waitFor(`${hasText('지급')} && ${lacksText('불러오고 있어요')} && ${lacksText('확인하고 있어요')}`); await sleep(1200); await shot('03-gig-settlement');
+    await go(`${workerOrigin}/gig/notifications`); await sleep(1500); await shot('04-gig-notifications');
+    await go(`${workerOrigin}/gig/settings`); await waitFor(hasText('출근 알림')); await sleep(900); await shot('05-gig-settings');
   } else if (target === 'worker' || target === 'worker-live') {
     await go(`${workerOrigin}/worker-intro`); await shot('01-worker-intro');
     await go(`${workerOrigin}/onboarding?step=splash`); await shot('02-worker-register');
@@ -168,7 +214,13 @@ async function main() {
     }
     await go(`${workerOrigin}/settings/location`); await shot('03-activity-area');
     await go(`${workerOrigin}/home`); await shot('04-home');
-    await go(`${workerOrigin}/shifts`); await shot('05-shifts');
+    // 근무 찾기: 맨 위는 7일 근무표라 카드가 안 보인다 — '날짜별 근무' 목록까지 내려 찍고, 첫 카드의 '지원하기'로
+    // 지원 시트(시급·휴게 뺀 예상 지급액·사업장 공표 정보)를 열어 찍는다. 시트 안의 최종 '지원하기'는 누르지 않는다(쓰기 없음)
+    await go(`${workerOrigin}/shifts`); await waitFor(hasText('지원하기')); await sleep(600);
+    await cdp.send('Runtime.evaluate', { expression: `(() => { const h = Array.from(document.querySelectorAll('h2')).find((node) => /날짜별 근무|가까운 근무|시급이 높은 근무/.test(node.textContent ?? '')); if (!h) return false; h.scrollIntoView({ block: 'start' }); window.scrollBy(0, -24); return true; })()` });
+    await sleep(800); await shot('05-shifts');
+    await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.trim() === '지원하기')?.click(); true` });
+    await waitFor(`${hasText('예상 지급액')} && ${lacksText('사업장 정보 확인 중')}`); await sleep(1200); await shot('05-apply-sheet');
     await go(`${workerOrigin}/applications`); await shot('06-applications');
     // Chat links only render on accepted/completed cards, which live under the
     // "확정 근무" tab — the default "진행 중" tab shows pending applications without them.
@@ -201,6 +253,7 @@ async function main() {
     }
     await go(`${workerOrigin}/workplace`); await shot('08-workplace');
     await go(`${workerOrigin}/store/credits`); await shot('09-payments');
+    // 알림 목록은 영상에 쓰지 않는다(2026-11-05: 같은 날 병원 QA 가 남긴 'QA-1105 … 테스트' 알림이 맨 위에 보였다). 확인용으로만 찍는다
     await go(`${workerOrigin}/notifications`); await shot('10-notifications');
     await go(`${workerOrigin}/home`); await shot('11-next-shifts');
   } else {
@@ -245,15 +298,31 @@ async function main() {
     // (sales-demo-1~3)는 모두 사업장을 가지고 있어 /setup/claim-facility 가 열리지 않는다.
     // 사업장 없는 계정이 생기면 이 자리에서 '병원·약국 인력 모집' 선택 → 사업장명 검색(aria-label
     // "사업장명 검색") → '바로 등록 가능' 결과 클릭 순서로 00-facility-search / 00-facility-register 를 찍으면 된다.
-    await go(`${adminOrigin}/shifts/new`); await shot('02-shift-create');
-    await go(`${adminOrigin}/applications`); await shot('03-applications');
-    await go(`${adminOrigin}/chats`); await shot('04-chats');
-    await go(`${adminOrigin}/timesheet`); await shot('05-timesheet');
-    await go(`${adminOrigin}/payroll`); await shot('07-payroll');
-    await go(`${adminOrigin}/attendance-qr`); await shot('06-attendance-auth');
-    await cdp.send('Runtime.evaluate', { expression: 'window.scrollTo(0, 780); true', awaitPromise: true }); await sleep(800); await shot('06-attendance-methods');
+    // 상단 사업장 헤더가 고정이라, 스크롤로 맞출 때는 그 높이(약 80px)만큼 내려 둔다
+    const scrollToSelector = async (selector, offset = 84) => {
+      const found = await cdp.send('Runtime.evaluate', { expression: `(() => { const el = ${selector}; if (!el) return false; el.scrollIntoView({ block: 'start' }); window.scrollBy(0, -${offset}); return true; })()`, returnByValue: true });
+      await sleep(800);
+      if (!found?.result?.value) console.warn('SCROLL_TARGET_MISSING', selector.slice(0, 100));
+      return Boolean(found?.result?.value);
+    };
+    await go(`${adminOrigin}/shifts/new`); await waitFor(hasText('최근 공고 조건')); await shot('02-shift-create');
+    // 지원 현황: 2026-11 부터 맨 위에 '대타 요청'(승인 필요)이 먼저 나온다 — 대타 장면(맨 위)과 지원자 장면(필터부터)을 따로 찍는다
+    await go(`${adminOrigin}/applications`); await waitFor(hasText('명 지원')); await shot('03-cover');
+    await scrollToSelector(`document.querySelector('nav[aria-label="지원자 필터"]')`); await shot('03-applications');
+    await go(`${adminOrigin}/chats`); await waitFor(hasText('대화 목록')); await shot('04-chats');
+    // 새 메시지가 있는 방(근무자 말풍선이 있는 방)을 열어 대화 화면도 찍는다. 보내지는 않는다
+    const roomHref = await cdp.send('Runtime.evaluate', { expression: `(() => { const links = Array.from(document.querySelectorAll('a[href^="/chats/"]')); const pick = links.find((a) => a.innerText.includes('새 메시지')) ?? links.find((a) => !/채용이 확정|근무$/.test(a.innerText.trim())); return pick?.getAttribute('href') ?? null; })()`, returnByValue: true });
+    if (roomHref?.result?.value) { await go(`${adminOrigin}${roomHref.result.value}`); await sleep(1200); await shot('04-chat-room'); }
+    // 근태: 기본 탭은 '확인 필요' — 출근 시각이 보이는 '오늘 근무자' 탭으로 바꿔 맨 위(실시간 반영·확인 필요 수)부터 찍는다.
+    // 아래로 내리면 시드 이상값(박서윤 출근 00:09)이 보여 스크롤하지 않는다(2026-11-05)
+    await go(`${adminOrigin}/timesheet`); await waitFor(hasText('오늘 근무자'));
+    await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.trim().startsWith('오늘 근무자'))?.click(); true` });
+    await sleep(1200); await shot('05-timesheet');
+    await go(`${adminOrigin}/payroll`); await sleep(1200); await shot('07-payroll');
+    await go(`${adminOrigin}/attendance-qr`); await waitFor(hasText('인증 방법')); await shot('06-attendance-auth');
+    await scrollToSelector(`Array.from(document.querySelectorAll('h2,h3')).find((node) => node.textContent?.trim() === '인증 방법')`, 40); await shot('06-attendance-methods');
     await go(`${adminOrigin}/notifications`); await shot('06-notifications');
   }
-  cdp.close(); console.log(root);
+  cdp.close(); stopChrome(); console.log(root);
 }
-main().catch((error) => { console.error(error); process.exit(1); });
+main().catch((error) => { console.error(error); stopChrome(); process.exit(1); });
