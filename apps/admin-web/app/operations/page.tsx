@@ -49,6 +49,7 @@ const NOTICE: Record<string, string> = {
   template_saved: '반복 일정을 저장했어요.',
   generated: '반복 근무를 생성했어요. 공고 목록에서 확인하세요.',
   urgent_sent: '긴급 알림을 보냈어요.',
+  replacement_filled: '대체 근무자가 이미 확정됐어요.',
   template_off: '반복 일정 사용을 중지했어요.',
   gaps_filled: '앞으로 7일의 근무표 공백을 공고로 만들고 근무자에게 알렸어요.',
   no_schedule_gap: '앞으로 7일 근무표에는 새로 만들 공백이 없어요.',

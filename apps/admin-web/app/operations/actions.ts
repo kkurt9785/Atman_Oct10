@@ -11,6 +11,7 @@ import { todayKST } from '@/lib/date';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 import { getWorkforceRecommendations } from '@/lib/db/operations';
 import { loadPublicPostingBlock, shiftStartPassed } from '@/lib/posting-gate';
+import { replacementWindow, REPLACEMENT_TOO_SHORT } from '@/lib/replacement-window';
 import { isPublicDemoAccount, PUBLIC_DEMO_RESET_BLOCKED } from '@/lib/public-demo';
 
 const VALID_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff', 'any'];
@@ -396,12 +397,24 @@ export async function requestUrgentReplacementAction(formData: FormData) {
       .eq('shift_id', original.id).not('check_in_at', 'is', null).limit(1).maybeSingle();
     if (attendance) throw new Error('이미 출근 확인된 근무는 노쇼 처리할 수 없어요.');
     const { data: existing } = await sb.from('shifts').select('*').eq('replacement_for_shift_id', shiftId).neq('status', 'cancelled').maybeSingle();
-    if (existing) target = existing;
+    if (existing?.status === 'matched') redirect('/operations?notice=replacement_filled');
+    // 원래 시작 시각으로 열면 이미 시작한 근무라 목록에서 숨고 지원이 거부된다 — '지금 + 이동 시간'부터 원래 종료까지(2026-11-05 결정 A)
+    if (existing && !shiftStartPassed(existing.shift_date, existing.start_time)) target = existing;
     else {
+      const window = replacementWindow(original);
+      if (!window) redirect(`/operations?error=${encodeURIComponent(REPLACEMENT_TOO_SHORT)}`);
+      const estimatedPay = calcEstimatedShiftPay(window.startTime, window.endTime, original.hourly_wage, window.shiftDate);
+      if (estimatedPay == null) redirect(`/operations?error=${encodeURIComponent('대체 근무의 시급을 확인해 주세요.')}`);
+      if (existing) {
+        // 시작이 지나 아무도 맡을 수 없게 된 예전 대체 근무 — 닫아야 새 시간으로 연다(원래 근무당 대체 하나)
+        const closedAt = new Date().toISOString();
+        await sb.from('shift_applications').update({ status: 'expired', responded_at: closedAt }).eq('shift_id', existing.id).in('status', ['invited', 'applied']);
+        await sb.from('shifts').update({ status: 'cancelled', cancelled_at: closedAt, updated_at: closedAt }).eq('id', existing.id).eq('facility_id', context.facilityId).eq('status', 'open');
+      }
       const { data: created, error } = await sb.from('shifts').insert({
         facility_id: context.facilityId, required_role: original.required_role, required_credentials: original.required_credentials,
-        shift_date: original.shift_date, start_time: original.start_time, end_time: original.end_time,
-        hourly_wage: original.hourly_wage, estimated_total_pay: original.estimated_total_pay,
+        shift_date: window.shiftDate, start_time: window.startTime, end_time: window.endTime,
+        hourly_wage: original.hourly_wage, estimated_total_pay: estimatedPay,
         description: `[긴급 대체] ${original.description}`, department: original.department,
         notes: '기존 확정 인력 미출근으로 인한 긴급 대체 요청', audience: 'public',
         replacement_for_shift_id: original.id, is_replacement: true, posted_by: context.user.id,

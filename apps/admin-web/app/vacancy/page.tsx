@@ -37,7 +37,7 @@ export default async function VacancyPage({ searchParams }: { searchParams: Prom
   }
 
   const [candidates, poolAllowed] = await Promise.all([
-    getVacancyCandidates(vacancy),
+    vacancy.unavailableReason ? Promise.resolve([]) : getVacancyCandidates(vacancy),
     sb ? hasPlanFeature(sb, context.facilityId, 'repeat_invite') : Promise.resolve(false),
   ]);
   const filled = vacancy.shiftStatus && vacancy.shiftStatus !== 'open';
@@ -52,6 +52,8 @@ export default async function VacancyPage({ searchParams }: { searchParams: Prom
         <p className="text-label font-bold text-primary">결원 채우기</p>
         <h1 className="mt-1 text-display font-extrabold text-ink">{dateLabel(vacancy.date)} {vacancy.startTime}~{vacancy.endTime}</h1>
         <p className="mt-1 text-body text-sub">{vacancy.department ? `${vacancy.department} · ` : ''}{ROLE_LABEL[vacancy.role] ?? vacancy.role} 1명 · {vacancy.cause}</p>
+        {/* 미출근 대체는 원래 시작이 이미 지났다 — 이동 시간을 두고 지금부터 연다(원래 시각이면 요청·수락·지원이 모두 거부됨) */}
+        {vacancy.originalStartTime && !vacancy.shiftId && !vacancy.unavailableReason && <p className="mt-2 rounded-xl bg-bg px-3 py-2 text-[0.75rem] leading-5 text-sub">원래 {vacancy.originalStartTime} 시작 근무예요. 이동 시간 30분을 두고 {vacancy.startTime}부터 원래 종료({vacancy.endTime})까지 열어요. 예상 지급액도 이 시간으로 계산해요.</p>}
       </div>
 
       {!filled && (vacancy.applicantCount ?? 0) > 0 && (
@@ -68,7 +70,12 @@ export default async function VacancyPage({ searchParams }: { searchParams: Prom
         </p>
       )}
 
-      {filled ? (
+      {vacancy.unavailableReason && !filled ? (
+        <div className="rounded-2xl bg-white p-5 shadow-card">
+          <p className="text-body font-bold text-ink">{vacancy.unavailableReason}</p>
+          <Link href="/timesheet" className="mt-4 flex min-h-11 items-center justify-center rounded-xl bg-bg text-label font-bold text-ink">근태 보기</Link>
+        </div>
+      ) : filled ? (
         <div className="rounded-2xl bg-white p-5 shadow-card">
           <p className="text-title font-extrabold text-success">{vacancy.matchedName ? `${vacancy.matchedName}님으로 확정됐어요` : '이 근무는 이미 처리됐어요'}</p>
           <p className="mt-1 text-label text-sub">확정된 근무는 근태 화면에서 출근을 확인할 수 있어요.</p>

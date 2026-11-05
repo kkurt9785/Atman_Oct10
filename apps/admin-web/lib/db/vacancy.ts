@@ -4,6 +4,8 @@ import { getAdminContext } from '../admin-auth';
 import { todayKST } from '../date';
 import { MIN_HOURLY_WAGE_2026 } from '../pay';
 import { getWorkforceRecommendations } from './operations';
+import { shiftStartPassed } from '../posting-gate';
+import { replacementWindow, REPLACEMENT_TOO_SHORT } from '../replacement-window';
 
 // 결원 채우기 — 결원이 어디서 왔든(미충원 공고·노쇼·직원 미출근·필요 인원 부족) 한 화면에서
 // 같은 모양(날짜·시간·직군·시급)으로 다룬다. 근무가 아직 없으면 요청을 보낼 때 만든다.
@@ -29,6 +31,9 @@ export type Vacancy = {
   audience: string | null;
   matchedName: string | null;
   applicantCount?: number;         // 이미 있는 근무에 들어온 지원(확정 전) 수
+  unavailableReason?: string | null; // 미출근 대체인데 남은 근무가 너무 짧아 열 수 없음
+  staleReplacementId?: string | null; // 시작이 지나 아무도 맡을 수 없는 예전 대체 근무 — 요청할 때 닫고 새 시간으로 연다
+  originalStartTime?: string | null; // 미출근 대체: 원래 근무 시작(화면 안내용)
 };
 
 export type VacancyCandidate = {
@@ -89,15 +94,22 @@ export async function resolveVacancy(source: VacancySource): Promise<Vacancy | n
   }
 
   if (source.mode === 'replace') {
-    // 이미 만든 대체 근무가 있으면 그 근무에 이어서 요청한다
-    const { data: existing } = await sb.from('shifts').select('id').eq('replacement_for_shift_id', source.shiftId)
+    // 이미 만든 대체 근무가 있으면 그 근무에 이어서 요청한다 — 단, 시작이 지나 아무도 맡을 수 없게 된 대체 근무는 새 시간으로 다시 연다
+    const { data: existing } = await sb.from('shifts').select('id,shift_date,start_time,status').eq('replacement_for_shift_id', source.shiftId)
       .eq('facility_id', facilityId).neq('status', 'cancelled').maybeSingle();
-    if (existing) return fromShift(existing.id, '확정 근무자 미출근');
+    const stale = existing && existing.status === 'open' && shiftStartPassed(existing.shift_date, String(existing.start_time));
+    if (existing && !stale) return fromShift(existing.id, '확정 근무자 미출근');
     const original = await fromShift(source.shiftId, '확정 근무자 미출근');
     if (!original) return null;
+    // 원래 시작 시각으로 열면 이미 시작한 근무라 요청·수락·공개 지원이 모두 거부된다 — '지금 + 이동 시간'부터 원래 종료까지(2026-11-05 결정 A)
+    const window = replacementWindow({ shift_date: original.date, start_time: original.startTime, end_time: original.endTime });
     return {
       ...original, source, shiftId: null, shiftStatus: null, audience: null,
       cause: `${original.matchedName ?? '확정 근무자'}님 미출근`, description: `[결원 대체] ${original.description}`, matchedName: null,
+      ...(window ? { date: window.shiftDate, startTime: window.startTime, endTime: window.endTime } : {}),
+      unavailableReason: window ? null : REPLACEMENT_TOO_SHORT,
+      staleReplacementId: stale ? existing!.id : null,
+      originalStartTime: original.startTime,
     };
   }
 

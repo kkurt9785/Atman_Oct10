@@ -35,6 +35,7 @@ export async function fillVacancyAction(formData: FormData) {
 
   const vacancy = await resolveVacancy(source);
   if (!vacancy) fail(source, '결원 정보를 찾지 못했어요. 운영 화면에서 다시 열어 주세요.');
+  if (vacancy.unavailableReason) fail(source, vacancy.unavailableReason);
   if (vacancy.shiftId && vacancy.shiftStatus !== 'open') fail(source, '이미 확정됐거나 닫힌 근무예요.');
   if (vacancy.audience === 'invited') fail(source, '반복근무 요청 근무에는 다른 사람을 추가할 수 없어요.');
 
@@ -64,6 +65,15 @@ export async function fillVacancyAction(formData: FormData) {
   let usageKey: string | null = null;
 
   if (!shiftId) {
+    if (vacancy.staleReplacementId) {
+      // 시작이 지나 아무도 맡을 수 없게 된 예전 대체 근무를 닫아야 새 시간으로 열 수 있다(대체 근무는 원래 근무당 하나 — uq_active_replacement_shift)
+      const closedAt = new Date().toISOString();
+      await sb.from('shift_applications').update({ status: 'expired', responded_at: closedAt })
+        .eq('shift_id', vacancy.staleReplacementId).in('status', ['invited', 'applied']);
+      const { error: closeError } = await sb.from('shifts').update({ status: 'cancelled', cancelled_at: closedAt, updated_at: closedAt })
+        .eq('id', vacancy.staleReplacementId).eq('facility_id', context.facilityId).eq('status', 'open');
+      if (closeError) fail(source, '예전 대체 근무를 닫지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
     const wage = Number(formData.get('hourly_wage'));
     const wageError = shiftHourlyWageError(wage, vacancy.date, vacancy.startTime, vacancy.endTime);
     if (wageError) fail(source, wageError);
