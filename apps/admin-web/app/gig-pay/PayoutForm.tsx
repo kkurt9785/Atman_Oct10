@@ -9,7 +9,7 @@ function plusDays(days: number) { return new Date(Date.now() + 9 * 60 * 60 * 100
 const won = (value: number) => `${value.toLocaleString('ko-KR')}원`;
 
 // 근무자 한 명의 '지금 지급 / 나중에 지급'. 3.3% 원천징수를 켜면 공제액과 실지급액을 바로 보여 준다. 금액은 서버가 다시 계산한다.
-export function CreatePayoutForm({ staffId, amount, disabled, disabledReason }: { staffId: string; amount: number; disabled?: boolean; disabledReason?: string }) {
+export function CreatePayoutForm({ staffId, amount, until, disabled, disabledReason }: { staffId: string; amount: number; until?: string; disabled?: boolean; disabledReason?: string }) {
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
   const [later, setLater] = useState(false);
@@ -29,6 +29,7 @@ export function CreatePayoutForm({ staffId, amount, disabled, disabledReason }: 
     const form = new FormData();
     form.set('expected_amount', String(amount));
     form.set('staff_id', staffId); form.set('mode', mode); form.set('pay_at', payAt); form.set('note', note); form.set('withhold', withhold ? '1' : '0');
+    if (until) form.set('until', until); // 정산 기간 끝 — 서버가 같은 날짜로 금액을 다시 계산한다
     try {
       await createGigPayoutAction(form);
       setDone(mode === 'now' ? `실지급 ${won(tax.net)} 지급 완료로 기록했어요. 근무자 앱에서 내역을 확인할 수 있어요.` : `${payAt} 지급 예정(실지급 ${won(tax.net)})으로 기록했어요.`);

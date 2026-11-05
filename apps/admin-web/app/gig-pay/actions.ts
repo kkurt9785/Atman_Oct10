@@ -9,9 +9,23 @@ import { isGigStaff } from '@/lib/facility-mode';
 import { withholding } from '@/lib/withholding';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 import type { PayoutCoverage } from '../../lib/shared/gig-pay/calculation';
+import { assertPayUntil } from '@/lib/gig-pay-period';
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? '').trim();
 function todayKST() { return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); }
+type AdminContext = Awaited<ReturnType<typeof requireAdminContext>>;
+type Db = NonNullable<ReturnType<typeof adminClient>>;
+type PayoutTerms = { mode: 'now' | 'later'; payAt: string | null; note: string | null; withhold: boolean; until: string; today: string };
+
+// 지금 지급 / 나중에(날짜) 지급, 메모, 3.3%, 정산 기간 끝 — 한 명이든 여러 명이든 같은 규칙으로 읽는다.
+function readTerms(form: FormData): PayoutTerms {
+  const today = todayKST();
+  const mode = text(form, 'mode') === 'later' ? 'later' : 'now';
+  const payAt = text(form, 'pay_at') || null;
+  if (mode === 'later' && (!payAt || !/^\d{4}-\d{2}-\d{2}$/.test(payAt))) throw new Error('지급 예정일을 골라 주세요.');
+  if (mode === 'later' && (payAt ?? '') < today) throw new Error('지급 예정일은 오늘 이후로 선택해 주세요.');
+  return { mode, payAt, note: text(form, 'note').slice(0, 80) || null, withhold: text(form, 'withhold') === '1', until: assertPayUntil(text(form, 'until'), today), today };
+}
 
 // 지급은 사업장 종류와 무관하게 '긱 근무자'에게만 기록한다. 직원 월급은 /payroll 이 맡는다.
 async function requireFacility(sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string) {
@@ -26,15 +40,48 @@ export async function createGigPayoutAction(form: FormData) {
   if (!context.canViewPayroll) throw new Error('급여 관리 권한이 없어요.');
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
-  const staffId = text(form, 'staff_id');
-  const mode = text(form, 'mode') === 'later' ? 'later' : 'now';
-  const payAt = text(form, 'pay_at') || null;
-  const note = text(form, 'note') || null;
-  const withhold = text(form, 'withhold') === '1';
-  if (mode === 'later' && (!payAt || !/^\d{4}-\d{2}-\d{2}$/.test(payAt))) throw new Error('지급 예정일을 골라 주세요.');
-  const today = todayKST();
-  if (mode === 'later' && (payAt ?? '') < today) throw new Error('지급 예정일은 오늘 이후로 선택해 주세요.');
+  await recordGigPayout(sb, context, text(form, 'staff_id'), text(form, 'expected_amount'), readTerms(form));
+  // The DB trigger saved the outbox atomically; failure to wake dispatch does not undo payment.
+  await nudgeNotificationDispatch();
+  revalidatePath('/gig-pay'); revalidatePath('/');
+}
 
+export type BulkPayoutResult = { staffId: string; ok: boolean; net?: number; error?: string };
+
+// 단기근로 점검 기능 6: 정산 기간 끝까지 끝난 근무를 근무자마다 한 건씩, 버튼 하나로 기록한다.
+// 근무자마다 한 명 기록과 같은 검증·금액 재계산을 거치고, 한 명이 실패해도 나머지는 기록한 뒤 사람별 결과를 돌려준다.
+export async function createGigPayoutsBulkAction(form: FormData): Promise<{ results: BulkPayoutResult[] }> {
+  const context = await requireAdminContext(['owner', 'operator', 'super']);
+  if (!context.canViewPayroll) throw new Error('급여 관리 권한이 없어요.');
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  const terms = readTerms(form);
+  let items: Array<{ staffId: string; expectedAmount: number }>;
+  try { items = JSON.parse(text(form, 'items')); } catch { throw new Error('지급할 근무자 목록을 읽지 못했어요. 새로고침해 주세요.'); }
+  if (!Array.isArray(items) || items.length === 0 || items.length > 200) throw new Error('지급할 근무자를 1~200명 사이로 골라 주세요.');
+  const ids = new Set<string>();
+  for (const item of items) {
+    if (typeof item?.staffId !== 'string' || !/^[0-9a-f-]{36}$/i.test(item.staffId) || !Number.isSafeInteger(item.expectedAmount) || item.expectedAmount <= 0 || ids.has(item.staffId)) {
+      throw new Error('지급할 근무자 목록이 올바르지 않아요. 새로고침해 주세요.');
+    }
+    ids.add(item.staffId);
+  }
+  const results: BulkPayoutResult[] = [];
+  for (const item of items) { // 순서대로: 같은 사업장 행을 동시에 많이 쓰지 않는다
+    try {
+      const { net } = await recordGigPayout(sb, context, item.staffId, String(item.expectedAmount), terms);
+      results.push({ staffId: item.staffId, ok: true, net });
+    } catch (error) {
+      results.push({ staffId: item.staffId, ok: false, error: error instanceof Error ? error.message : '기록하지 못했어요.' });
+    }
+  }
+  if (results.some((r) => r.ok)) await nudgeNotificationDispatch();
+  revalidatePath('/gig-pay'); revalidatePath('/');
+  return { results };
+}
+
+async function recordGigPayout(sb: Db, context: AdminContext, staffId: string, expectedAmount: string, terms: PayoutTerms): Promise<{ net: number }> {
+  const { mode, payAt, note, withhold, until, today } = terms;
   const [{ data: staff, error: staffError }, , { data: payouts, error: payoutError }, { data: bankShare, error: bankError }] = await Promise.all([
     sb.from('facility_staff').select('id,name,worker_id,worker_kind,pay_basis,pay_rate,contract_start,default_break_minutes').eq('id', staffId).eq('facility_id', context.facilityId).maybeSingle(),
     requireFacility(sb, context.facilityId),
@@ -52,15 +99,15 @@ export async function createGigPayoutAction(form: FormData) {
   if (!staff.pay_basis || !staff.pay_rate) throw new Error('먼저 급여 기준(시급·일급)을 설정해 주세요.');
   if (staff.pay_basis === 'monthly') throw new Error('월급은 근무 건별로 반복 지급할 수 없어요. 월 급여를 별도로 검토해 주세요.');
   const since = '2020-01-01';
-  const work = await summarizeWork(sb, context.facilityId, staffId, since, today, { payouts: payouts as PayoutCoverage[] });
+  const work = await summarizeWork(sb, context.facilityId, staffId, since, until, { payouts: payouts as PayoutCoverage[] });
   const amount = amountFor(staff.pay_basis, Number(staff.pay_rate), work.minutes, work.days);
-  if (work.days === 0) throw new Error('마지막 지급 이후 완료된 근무가 없어요.');
+  if (work.days === 0) throw new Error(until < today ? `${until}까지 지급할 근무가 없어요.` : '마지막 지급 이후 완료된 근무가 없어요.');
   if (amount <= 0) throw new Error('인정 근무가 0분이라 지급액이 0원이에요. 휴게시간 설정을 확인해 주세요.');
-  if (text(form, 'expected_amount') !== String(amount)) throw new Error('근태 또는 급여가 바뀌었어요. 화면을 새로고침해 금액을 확인한 뒤 다시 기록해 주세요.');
+  if (expectedAmount !== String(amount)) throw new Error('근태 또는 급여가 바뀌었어요. 화면을 새로고침해 금액을 확인한 뒤 다시 기록해 주세요.');
   const tax = withholding(amount, withhold);
 
   const { data: created, error } = await sb.from('gig_payouts').insert({
-    facility_id: context.facilityId, staff_id: staffId, period_start: work.firstDate ?? since, period_end: work.lastDate ?? today, covered_until: work.lastCheckOut,
+    facility_id: context.facilityId, staff_id: staffId, period_start: work.firstDate ?? since, period_end: work.lastDate ?? until, covered_until: work.lastCheckOut,
     attendance_ids: work.attendanceIds,
     worked_minutes: work.minutes, worked_days: work.days, pay_basis: staff.pay_basis, pay_rate: staff.pay_rate, amount,
     withholding_rate: tax.rate, withholding_amount: tax.total, net_amount: tax.net,
@@ -70,9 +117,7 @@ export async function createGigPayoutAction(form: FormData) {
   if (error?.code === '23505') throw new Error('같은 기간의 지급 기록이 이미 있어요. 화면을 새로고침해 주세요.');
   if (error?.code === 'P0001') throw new Error(error.message);
   if (error || !created) throw new Error('지급 기록을 저장하지 못했어요.');
-  // The DB trigger saved the outbox atomically; failure to wake dispatch does not undo payment.
-  await nudgeNotificationDispatch();
-  revalidatePath('/gig-pay'); revalidatePath('/');
+  return { net: tax.net };
 }
 
 // 예정이던 지급을 완료로 바꾼다

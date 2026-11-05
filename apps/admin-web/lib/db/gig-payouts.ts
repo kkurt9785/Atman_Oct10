@@ -74,11 +74,13 @@ export async function summarizeWork(
   return out;
 }
 
-export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayoutStaff[]> {
+/** `until` = 정산 기간 끝(그날까지 끝난 근무만 묶는다). 기본은 오늘. 이후 근무는 다음 지급에 남는다. */
+export async function getGigPayoutBoard(accessToken?: string, until?: string): Promise<GigPayoutStaff[]> {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
   if (!sb || !facilityId) return [];
   const today = todayKST();
+  const periodEnd = until && until <= today ? until : today;
   const [{ data: staff, error: staffError }, { data: payouts, error: payoutError }] = await Promise.all([
     // 병원·약국에서는 직원과 긱 근무자가 섞여 있다 — 지급 보드는 긱 근무자만 다룬다
     readAllRows(() => sb.from('facility_staff').select('id,name,worker_id,pay_basis,pay_rate,contract_start,status,default_break_minutes')
@@ -134,8 +136,8 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
     const list = byStaff.get(staffId) ?? [];
     const since = '2020-01-01';
     const coverage = list.map((p) => ({ attendance_ids: p.attendanceIds, period_start: p.periodStart, period_end: p.periodEnd, covered_until: p.coveredUntil, status: p.status }));
-    const work = since <= today
-      ? await summarizeWork(sb, facilityId, staffId, since, today, { payouts: coverage })
+    const work = since <= periodEnd
+      ? await summarizeWork(sb, facilityId, staffId, since, periodEnd, { payouts: coverage })
       : EMPTY_WORK;
     const sharedBank = bankByStaff.get(staffId);
     const basis = (row.pay_basis as GigPayoutStaff['payBasis']) ?? null;
@@ -149,7 +151,7 @@ export async function getGigPayoutBoard(accessToken?: string): Promise<GigPayout
       accountLast4: sharedBank?.account_last4 ?? null,
       accountHolderName: sharedBank?.account_holder_name ?? null,
       bankSharedAt: sharedBank?.shared_at ?? null,
-      unpaidSince: work.firstDate ?? since, unpaidUntil: work.lastDate ?? today, unpaidMinutes: work.minutes, unpaidDays: work.days,
+      unpaidSince: work.firstDate ?? since, unpaidUntil: work.lastDate ?? periodEnd, unpaidMinutes: work.minutes, unpaidDays: work.days,
       unpaidBreakMinutes: work.breakMinutes, weekMinutes: weekMinutesByStaff.get(staffId) ?? 0, openToday: openTodayIds.has(staffId),
       unpaidAmount: amountFor(basis, rate, work.minutes, work.days),
       payouts: list,
