@@ -28,7 +28,7 @@ const POINTS = [
   {
     icon: '🔁',
     title: '결원은 전화 대신 대타 승인 1번',
-    body: '확정 근무자가 못 오게 되면 함께 일해 본 워커가 대신 맡겠다고 하고, 사업장은 승인 한 번이면 근무자가 바뀌어요.',
+    body: '확정 근무자가 못 오게 되면 함께 일해 본 근무자가 대신 맡겠다고 하고, 사업장은 승인 한 번이면 근무자가 바뀌어요.',
   },
   {
     icon: '📍',
@@ -38,7 +38,7 @@ const POINTS = [
   {
     icon: '₩',
     title: '지급 확인까지 하나의 기록으로',
-    body: '확정 근태로 예상 금액이 계산돼 있어 계산기를 두드릴 필요가 없어요. 사업장이 직접 지급하고 상태만 기록하면 워커도 바로 확인해요.',
+    body: '확정 근태로 예상 금액이 계산돼 있어 계산기를 두드릴 필요가 없어요. 사업장이 직접 지급하고 상태만 기록하면 근무자도 바로 확인해요.',
   },
 ];
 
@@ -147,7 +147,7 @@ export default async function IntroPage({ searchParams }: { searchParams: IntroS
             href="/worker-intro"
             className="flex h-11 flex-1 items-center justify-center rounded-btn bg-primary text-[14px] font-bold text-white"
           >
-            워커 안내 보기
+            근무자 안내 보기
           </Link>
         </div>
       </section>

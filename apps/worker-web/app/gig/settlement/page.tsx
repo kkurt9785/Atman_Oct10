@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { roundPay } from '@/lib/shared/gig-pay/shift-pay';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
@@ -205,14 +206,14 @@ export default function GigSettlementPage() {
             {staff.default_break_minutes ? <span className="text-[12px] font-bold text-sub">예정 휴게 {staff.default_break_minutes}분</span> : null}
           </div>
           <p className="mt-1 text-[12px] text-sub">{[weekdayText(staff.work_weekdays), staff.default_start_time ? `${hhmm(staff.default_start_time)}–${hhmm(staff.default_end_time)}` : '', staff.contract_start ? `${staff.contract_start}${staff.contract_end ? ` ~ ${staff.contract_end}` : '~'}` : ''].filter(Boolean).join(' · ') || '사장님이 정한 일정이 여기에 보여요'}</p>
-          <p className="mt-2 text-[12px] text-sub">행사별 배정 날짜·시간은 기본 계약과 다를 수 있어요. <a href="/gig" className="font-bold text-primary underline">오늘·다음 근무 확인</a></p>
+          <p className="mt-2 text-[12px] text-sub">행사별 배정 날짜·시간은 기본 계약과 다를 수 있어요. <Link href="/gig" className="font-bold text-primary underline">오늘·다음 근무 확인</Link></p>
           {snap && (termsChanged
             ? <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-700"><b>수락할 때와 조건이 달라요.</b> 수락한 조건: {snap.payBasis === 'hourly' ? `시급 ${won(Number(snap.payRate ?? 0))}` : snap.payBasis === 'daily' ? `일급 ${won(Number(snap.payRate ?? 0))}` : ''}{snap.startTime ? ` · ${hhmm(snap.startTime)}–${hhmm(snap.endTime)}` : ''}{snap.breakMinutes ? ` · 휴게 ${snap.breakMinutes}분` : ''} ({(staff?.terms_snapshot_at ?? '').slice(0, 10)} 수락). 바뀐 이유는 사장님께 확인해 주세요.</p>
             : <p className="mt-2 text-[11px] text-sub">{(staff?.terms_snapshot_at ?? '').slice(0, 10)}에 수락한 조건 그대로예요.</p>)}
           {attendanceStaffId !== staff.id ? <p role="status" className="mt-4 text-[12px] text-sub">근무 시간을 확인하고 있어요.</p>
             : attendanceError ? <div className="mt-4"><p role="alert" className="text-[12px] text-red-600">{attendanceError}</p><button type="button" onClick={() => setReloadKey(key => key + 1)} className="mt-2 min-h-11 rounded-xl bg-bg px-3 text-[12px] font-bold">다시 불러오기</button></div> : <>
           <div className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-bg p-3 text-center">
-            <div><p className="text-[11px] text-sub">이번 달 인정</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{hoursText(month.minutes)}</p><p className="text-[10px] text-sub">{month.days}일</p></div>
+            <div><p className="text-[11px] text-sub">이번 달 근무</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{hoursText(month.minutes)}</p><p className="text-[10px] text-sub">{month.days}일</p></div>
             <div><p className="text-[11px] text-sub">예상 세전</p><p className="mt-0.5 text-[13px] font-extrabold text-primary">{won(month.expected)}</p><p className="text-[10px] text-sub">{staff.pay_basis === 'hourly' ? '시간 × 시급' : staff.pay_basis === 'daily' ? '일수 × 일급' : '-'}</p></div>
             <div><p className="text-[11px] text-sub">지급 완료 기록</p><p className="mt-0.5 text-[13px] font-extrabold text-ink">{won(month.received)}</p><p className="text-[10px] text-sub">실제 입금은 별도 확인</p></div>
           </div>
@@ -225,7 +226,7 @@ export default function GigSettlementPage() {
         <section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div><p className="text-[11px] font-extrabold text-primary">지급 계좌</p><h2 className="mt-1 text-[18px] font-extrabold text-ink">{bank?.bank_name && bank.account_number_last4 ? `${bank.bank_name} · ****${bank.account_number_last4}` : '계좌를 먼저 등록해 주세요'}</h2></div>
-            {bank && <button type="button" onClick={() => setBankOpen((open) => !open)} className="shrink-0 rounded-lg bg-bg px-3 py-2 text-[11px] font-extrabold text-sub">{bankOpen ? '닫기' : '변경'}</button>}
+            {bank && <button type="button" onClick={() => setBankOpen((open) => !open)} className="min-h-11 min-w-11 shrink-0 rounded-lg bg-bg px-3 py-2 text-[12px] font-extrabold text-sub">{bankOpen ? '닫기' : '변경'}</button>}
           </div>
           <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-[11px] leading-5 text-sub"><b className="text-primary">등록과 전달은 달라요.</b> 저장한 계좌는 내가 전달한 근무지의 지급 담당자만 볼 수 있어요. 근무 시작 전에 전달해 두면 지급이 늦어지지 않아요.</p>
 

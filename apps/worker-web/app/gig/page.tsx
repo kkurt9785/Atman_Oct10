@@ -258,7 +258,7 @@ function GigTodayContent() {
 
         {upcoming.length > 0 && <section aria-labelledby="upcoming-gig-title" className="mt-3 rounded-3xl bg-white p-5 shadow-sm">
           <h2 id="upcoming-gig-title" className="text-[16px] font-extrabold text-ink">다음 근무</h2>
-          <p className="mt-1 text-[12px] text-sub">배정된 근무별 가장 가까운 날짜예요. 오늘 근무와 기본 계약 조건은 구분해요.</p>
+          <p className="mt-1 text-[12px] text-sub">사장님이 잡아 둔 가까운 근무 날짜예요.</p>
           <ol className="mt-3 divide-y divide-line">{upcoming.slice(0, 3).map((shift, index) => <li key={`${shift.staffId}:${shift.id}`} className="py-3">
             <p className={`text-[14px] font-extrabold ${index === 0 ? 'text-primary' : 'text-ink'}`}>{shift.nextDate} ({['일','월','화','수','목','금','토'][new Date(`${shift.nextDate}T00:00:00Z`).getUTCDay()]}) · {shift.start_time.slice(0,5)}–{shift.end_time.slice(0,5)}{shift.end_time <= shift.start_time ? ' (다음 날 종료)' : ''}</p>
             <p className="mt-1 text-[13px] font-bold text-ink">{shift.title} · {shift.facilityName}</p>

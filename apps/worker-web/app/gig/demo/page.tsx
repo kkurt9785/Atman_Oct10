@@ -33,13 +33,13 @@ export default function GigDemoPage() {
       <div className="mx-auto flex min-h-[calc(100vh-104px)] max-w-md flex-col">
         <div className="flex items-center justify-between">
           <Wordmark size={20} />
-          <span className="rounded-full bg-ink px-3 py-1 text-[10px] font-extrabold tracking-[0.14em] text-white">DEMO</span>
+          <span className="rounded-full bg-ink px-3 py-1 text-[10px] font-extrabold tracking-[0.04em] text-white">시연</span>
         </div>
 
         <div className="mt-14 flex flex-col items-center text-center">
           <BrandMark size={64} />
           <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">초대 근무 시연</h1>
-          <p className="mt-2 text-[14px] leading-6 text-sub">사장님이 보낸 초대 링크로 시작하는 근무예요.<br />처음에는 팝업스토어 초대를 확인하고, 연결된 시연은 이어서 볼 수 있어요.</p>
+          <p className="mt-2 text-[14px] leading-6 text-sub">팝업·행사 사장님이 보낸 초대 링크로 시작하는 근무예요.<br />팝업스토어 초대를 받은 근무자 화면으로 시작해요.</p>
         </div>
 
         <ol className="mt-6 space-y-2 rounded-2xl bg-bg p-4 text-[13px] leading-5 text-sub">
@@ -74,7 +74,8 @@ export default function GigDemoPage() {
 
         <div className="mt-4"><InstallAppButton label="잇닿 근무자 앱 설치" /></div>
         <p className="mt-2 text-center text-[11px] leading-4 text-tertiary">근무 찾기와 초대 근무 모두 잇닿 근무자 앱 하나로 써요.</p>
-        <Link href="/demo" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-sub">다른 시연 보기</Link>
+        <a href="https://admin.itdot.co.kr/login?demo=gigworker" className="mt-3 flex h-10 items-center justify-center text-[13px] font-bold text-primary">사장님 화면도 시연해 보기 →</a>
+        <Link href="/demo" className="flex h-10 items-center justify-center text-[13px] font-bold text-sub">다른 시연 보기</Link>
         <Link href="/" className="flex h-10 items-center justify-center text-[13px] font-bold text-tertiary">처음으로</Link>
       </div>
     </main>

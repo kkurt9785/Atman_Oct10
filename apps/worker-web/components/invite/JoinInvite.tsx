@@ -62,12 +62,13 @@ function weekdayText(days?: number[] | null) {
   return (days ?? []).filter((day) => day >= 1 && day <= 7).map((day) => WEEKDAYS[day - 1]).join('·') || '요일 협의';
 }
 
-function friendlyInviteError(message: string) {
+// 초대 근무(팝업·행사 알바)를 보낸 사람은 '사장님', 병원·약국 직원 초대는 '관리자'로 부른다
+function friendlyInviteError(message: string, isGig: boolean) {
   return message
     .replace(/^.*?: /, '')
-    .replace('병원이 등록한 연락처', '관리자가 등록한 연락처')
+    .replace('병원이 등록한 연락처', isGig ? '사장님이 등록한 연락처' : '관리자가 등록한 연락처')
     .replace('이 병원의 다른 직원 정보', '이 근무지의 다른 근무자 정보')
-    .replace('병원에 재발급', '관리자에게 재발급');
+    .replace('병원에 재발급', isGig ? '사장님께 재발급' : '관리자에게 재발급');
 }
 
 export function JoinInvite({ variant }: { variant: JoinVariant }) {
@@ -86,6 +87,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   const [hasWorker, setHasWorker] = useState(false);
   // 긱 초대: 수락하면 등록된 지급 계좌가 이 근무지에 전달된다 — 시작할 때 이미 전달돼 있어야 워커가 안심한다
   const [bankLabel, setBankLabel] = useState<string | null>(null);
+  const [inKakaoTalk, setInKakaoTalk] = useState(false);
+  useEffect(() => { setInKakaoTalk(navigator.userAgent.includes('KAKAO')); }, []);
   const [retry,setRetry]=useState(0);
   const [canRetry,setCanRetry]=useState(false);
   const claiming=useRef(false);
@@ -97,7 +100,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       try {
       if (!token) {
         setStatus('error');
-        setMessage('초대 링크가 올바르지 않아요. 관리자에게 새 링크를 요청해 주세요.');
+        setMessage(`초대 링크가 올바르지 않아요. ${isGig ? '사장님께' : '관리자에게'} 새 링크를 요청해 주세요.`);
         return;
       }
 
@@ -170,7 +173,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     const { data: staffId, error } = await supabase.rpc('claim_facility_staff_invite', { p_token: token });
     if (error) {
       setStatus('error');
-      setMessage(friendlyInviteError(error.message));
+      setMessage(friendlyInviteError(error.message, isGig));
       setCanRetry(true);
       // 시연 계정으로 실제 초대를 열었으면 시연을 끝내고 같은 초대를 내 계정으로 받게 한다
       setDemoBlocked(error.message.includes('시연 계정으로는 실제 초대'));
@@ -215,7 +218,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 [@media(max-height:700px)]:p-5 shadow-card">
       <div className={`flex h-12 w-12 [@media(max-height:700px)]:hidden items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
       <p className="mt-5 [@media(max-height:700px)]:mt-0 text-[13px] font-bold text-primary">{isGig ? '초대 근무' : '직원 계정 연결'}</p>
-      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이어졌어요 · 이제 함께 일해요' : '초대받은 근무를 확인해 주세요'}</h1>
+      <h1 className="mt-1 text-[24px] font-extrabold">{status === 'success' ? '이어졌어요 · 이제 함께 일해요' : status === 'error' ? '초대를 열지 못했어요' : '초대받은 근무를 확인해 주세요'}</h1>
       <p role="status" className="mt-3 [@media(max-height:700px)]:mt-2 text-[14px] leading-6 [@media(max-height:700px)]:text-[13px] [@media(max-height:700px)]:leading-5 text-sub">{message}</p>
 
       {preview && status !== 'success' && <div className="mt-5 [@media(max-height:700px)]:mt-3 overflow-hidden rounded-2xl border border-line">
@@ -230,7 +233,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
           {preview.workDescription && <div className="flex justify-between gap-4 py-3 [@media(max-height:700px)]:py-2"><dt className="shrink-0 text-sub">업무</dt><dd className="text-right font-bold text-ink">{preview.workDescription}</dd></div>}
           {payText && <div className="flex justify-between gap-4 py-3 [@media(max-height:700px)]:py-2"><dt className="shrink-0 text-sub">급여 조건</dt><dd className="text-right font-bold text-ink">{payText}</dd></div>}
           {!payText && preview.payHidden && <div className="flex justify-between gap-4 py-3 [@media(max-height:700px)]:py-2"><dt className="shrink-0 text-sub">급여 조건</dt><dd className="text-right text-[12px] text-sub">로그인하면 확인할 수 있어요</dd></div>}
-          {preview.phoneLast4 && <div className="flex justify-between gap-4 py-3 [@media(max-height:700px)]:py-2"><dt className="shrink-0 text-sub">관리자 메모 연락처</dt><dd className="text-right font-bold text-ink">끝 4자리 {preview.phoneLast4}<span className="ml-1 block text-[10px] font-medium text-sub">계정 인증에는 사용하지 않아요</span></dd></div>}
+          {preview.phoneLast4 && <div className="flex justify-between gap-4 py-3 [@media(max-height:700px)]:py-2"><dt className="shrink-0 text-sub">{isGig ? '사장님이 적은 연락처' : '관리자 메모 연락처'}</dt><dd className="text-right font-bold text-ink">끝 4자리 {preview.phoneLast4}<span className="ml-1 block text-[10px] font-medium text-sub">계정 인증에는 사용하지 않아요</span></dd></div>}
         </dl>
       </div>}
 
@@ -239,6 +242,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
           {!signedIn ? '카카오로 가입하고 초대 수락' : !hasWorker ? '인적사항 등록하고 초대 수락' : '초대 수락하고 연결'}
         </button>
         <p className="mt-2 text-center text-[11px] leading-5 text-sub">앱 설치 없이 바로 수락돼요 · 전화번호 없이 카카오 로그인으로만 연결</p>
+        {/* 카카오톡 안 브라우저는 카카오 로그인을 막아 사파리·크롬으로 다시 연다 — 같은 화면이 또 나와도 당황하지 않게 미리 알린다 */}
+        {!signedIn && inKakaoTalk && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-[11px] leading-5 text-amber-800">카카오톡 안에서는 로그인이 안 돼서 다른 브라우저(사파리·크롬)로 이 화면이 다시 열려요. 열린 화면에서 노란 버튼을 한 번 더 눌러 주세요.</p>}
         {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
         {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 시연 먼저 보기 →</Link>}
       </>}
@@ -246,7 +251,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'success' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-80">근무 화면으로 이동 중...</button>}
       {status === 'error' && demoBlocked && <button type="button" onClick={async () => { await leaveDemo(); window.location.replace(window.location.href); }} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연 끝내고 이 초대 받기</button>}
       {status === 'error' && demoOnly && <Link href={isGig ? '/gig/demo' : '/demo'} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연으로 둘러보기</Link>}
-      {status === 'error' && !demoBlocked && !demoOnly && (canRetry ? <div className="mt-5 space-y-2"><button type="button" onClick={()=>setRetry(value=>value+1)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">초대 다시 불러오기</button><Link href={routes.home} className="flex min-h-11 items-center justify-center font-bold text-primary">내 근무에서 연결 결과 확인</Link></div> : <p className="mt-5 rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">링크가 만료됐거나 이미 사용됐다면 근무지 관리자에게 새 초대 링크나 QR을 요청해 주세요.</p>)}
+      {status === 'error' && !demoBlocked && !demoOnly && (canRetry ? <div className="mt-5 space-y-2"><button type="button" onClick={()=>setRetry(value=>value+1)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">초대 다시 불러오기</button><Link href={routes.home} className="flex min-h-11 items-center justify-center font-bold text-primary">내 근무에서 연결 결과 확인</Link></div> : <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 아래에서 내 근무를 열어 주세요. 링크가 만료됐다면 {isGig ? '사장님께' : '근무지 관리자에게'} 새 초대 링크나 QR을 요청해 주세요.</p><Link href={routes.home} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">내 근무 열기</Link></div>)}
     </section>
     {demoEnd && <DemoEndSheet kind={demoEnd} intent="leave" onClose={() => setDemoEnd(null)} />}
   </main>;

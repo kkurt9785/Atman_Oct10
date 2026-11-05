@@ -33,11 +33,11 @@ export function GigParticipantsPanel({ project, candidates, workerOrigin }: { pr
             </div>
             {member.workerLinked && member.accountName && member.accountName !== member.name && <p className="mt-0.5 text-[0.6875rem] font-bold text-warn">수락한 계정: {member.accountName} · 본인 확인</p>}
             {member.workerLinked && <div className="mt-1"><UnlinkWorkerButton staffId={member.staffId} name={member.name} accountName={member.accountName} inviteUrlBase={`${workerOrigin}/gig/join`} align="start" /></div>}
-            {!member.workerLinked && member.inviteToken && <div className="mt-1 flex flex-wrap items-center gap-3"><CopyInviteButton url={`${workerOrigin}/gig/join?token=${member.inviteToken}`} /><WorkforceActionForm kind="create_invite" values={{ staff_id: member.staffId }} successMessage="이전 링크를 끄고 새 초대를 만들었어요."><button className="text-[0.6875rem] font-bold text-sub">재발급</button></WorkforceActionForm></div>}
+            {!member.workerLinked && member.inviteToken && <div className="mt-1 flex flex-wrap items-center gap-3"><CopyInviteButton url={`${workerOrigin}/gig/join?token=${member.inviteToken}`} /><WorkforceActionForm kind="create_invite" values={{ staff_id: member.staffId }} successMessage="이전 링크를 끄고 새 초대를 만들었어요."><button className="inline-flex min-h-10 items-center px-1 text-[0.6875rem] font-bold text-sub">재발급</button></WorkforceActionForm></div>}
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            {member.workerLinked && <Link href={`/workroom?staff=${member.staffId}`} className="rounded-lg bg-bg px-3 py-2 text-[0.6875rem] font-extrabold text-primary">대화</Link>}
-            <GigActionForm kind="remove_participant" values={{ assignment_id: member.assignmentId }} confirmText={`${member.name}님을 이 근무에서 뺄까요?`}><button className="rounded-lg px-2 py-2 text-[0.6875rem] font-bold text-sub">빼기</button></GigActionForm>
+            {member.workerLinked && <Link href={`/workroom?staff=${member.staffId}`} className="inline-flex min-h-10 items-center rounded-lg bg-bg px-3 text-[0.6875rem] font-extrabold text-primary">대화</Link>}
+            <GigActionForm kind="remove_participant" values={{ assignment_id: member.assignmentId }} confirmText={`${member.name}님을 이 근무에서 뺄까요?`}><button className="min-h-10 rounded-lg px-3 text-[0.6875rem] font-bold text-sub">빼기</button></GigActionForm>
           </div>
         </li>;
       })}</ul>}

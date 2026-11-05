@@ -38,7 +38,7 @@ export default async function GigProjectPage({ params }: { params: Promise<{ id:
     </details>}
 
     {!cancelled && <div className="mt-4 rounded-2xl border border-line bg-white p-4">
-      <p className="text-[0.75rem] leading-5 text-sub">취소하면 참여자의 남은 일정이 사라지고 워커 앱에서도 빠져요. 이미 기록된 출퇴근·지급은 그대로 남아요.</p>
+      <p className="text-[0.75rem] leading-5 text-sub">취소하면 참여자의 남은 일정이 사라지고 근무자 앱에서도 빠져요. 이미 기록된 출퇴근·지급은 그대로 남아요.</p>
       <GigActionForm kind="cancel" values={{ project_id: project.id }} confirmText={`'${project.title}' 근무를 취소할까요?`} successMessage="근무를 취소했어요."><button className="mt-3 h-11 w-full rounded-xl border border-red-200 bg-white text-[0.8125rem] font-extrabold text-red-600">이 근무 취소</button></GigActionForm>
     </div>}
     {cancelled && <Link href="/gig-work/new" className="mt-4 flex h-12 items-center justify-center rounded-xl bg-ink text-[0.875rem] font-extrabold text-white">새 근무 만들기</Link>}

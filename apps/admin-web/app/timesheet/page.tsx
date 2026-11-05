@@ -40,6 +40,6 @@ export default async function TimesheetPage({searchParams}:{searchParams:Promise
     {!isGigworker&&<div className="mt-3"><OperationsFlow active="attendance"/></div>}
     {selectedStaffId&&<p role="status" className="mt-3 rounded-xl bg-white p-3 text-sm">선택한 근무자: {staff.find(person=>person.id===selectedStaffId)?.name??'현재 현장에서 찾을 수 없어요'} · <Link href="/timesheet" className="font-bold text-primary">전체 근태 보기</Link></p>}
     <AttendanceDashboard key={selectedStaffId??'all'} staff={selectedStaffId?staff.filter(person=>person.id===selectedStaffId):staff} matched={isGigworker||selectedStaffId?[]:matched} upcoming={isGigworker||selectedStaffId?[]:upcoming} failures={selectedStaffId?[]:failures} arrivalAlerts={arrivalAlerts.filter((alert) => alert.kind === 'no_show'&&(!selectedStaffId||alert.staffId===selectedStaffId))} facilityId={facilityId} summaryHref={summaryHref} isGigworker={isGigworker}/>
-    <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">{facilityWord} 관리자가 입력·승인한 출퇴근 기록이에요. 수정 이력은 감사 기록에 남아요.</p>
+    <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">{isGigworker?'근무자가 남기고 사장님이 확인한':`${facilityWord} 관리자가 입력·승인한`} 출퇴근 기록이에요. 수정 이력은 감사 기록에 남아요.</p>
   </main>;
 }

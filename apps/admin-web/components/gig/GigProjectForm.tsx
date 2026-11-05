@@ -45,6 +45,8 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
   const daysPerWeek = scheduleMode === 'single' ? 1 : weekdays.length;
   const weeklyMinutes = workMinutes * daysPerWeek;
   const holiday = scheduleMode === 'repeat' ? weeklyHolidayPay(weeklyMinutes, rate) : 0;
+  // 기간·반복 근무의 총 근무일(시작~종료일 중 고른 요일). 7일 팝업처럼 기간 전체 인건비를 미리 보게 한다.
+  const workDays = scheduleMode === 'single' ? 1 : (() => { let n = 0; const end = Date.parse(`${endsOn}T00:00:00Z`); for (let t = Date.parse(`${startsOn}T00:00:00Z`); Number.isFinite(t) && t <= end && n < 400; t += 86400000) { const d = new Date(t).getUTCDay() || 7; if (weekdays.includes(d)) n += 1; } return n; })();
 
   return <GigActionForm kind={mode === 'create' ? 'create' : 'update'} values={project ? { project_id: project.id } : undefined}
     successMessage={mode === 'edit' ? '근무 건을 수정했어요. 참여자 일정도 함께 바뀌었어요.' : undefined}
@@ -82,12 +84,13 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
       <div className="col-span-2 rounded-xl bg-bg p-3 text-[0.75rem] leading-5 text-sub" aria-live="polite">
         {wageError && <p role="alert" className="font-bold text-red-600">{wageError}</p>}
         <p>하루 {hoursText(workMinutes)} 근무{effectiveBreak > 0 ? ` (휴게 ${effectiveBreak}분 뺀 시간)` : ''}{rate > 0 ? <> · 1인 <b className="text-ink">{won(dailyPay)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * people)}</b></> : null}</> : ' · 시급을 넣으면 하루 금액이 보여요'}</p>
+        {scheduleMode === 'repeat' && rate > 0 && workDays > 1 && <p className="mt-1">기간 중 {workDays}일 근무 · 1인 <b className="text-ink">{won(dailyPay * workDays)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * workDays * people)}</b></> : null} (주휴수당 별도)</p>}
         {scheduleMode === 'repeat' && rate > 0 && (holiday > 0
           ? <p className="mt-1">주 {daysPerWeek}일 {hoursText(weeklyMinutes)} → 개근한 주는 <b className="text-ink">주휴수당 약 {won(holiday)}</b>이 별도로 생겨요 (주 15시간 이상, 1인 기준).</p>
           : <p className="mt-1">주 {daysPerWeek}일 {hoursText(weeklyMinutes)} · 주 15시간 미만이라 주휴수당은 없어요.</p>)}
         <p className="mt-1 text-tertiary">야간(22~06시)·연장 가산은 5인 이상 사업장에만 적용돼요. 금액 확정은 세무사·노무사와 확인해 주세요.</p>
       </div>
-      <label className="col-span-2 text-label font-medium text-sub">메모 <span className="font-normal text-tertiary">· 선택, 관리자만 봄</span><input name="note" maxLength={500} defaultValue={project?.note ?? ''} className={inputClass} placeholder="예: 행사장 2층 안내데스크 집합" /></label>
+      <label className="col-span-2 text-label font-medium text-sub">메모 <span className="font-normal text-tertiary">· 선택, 사장님만 봐요</span><input name="note" maxLength={500} defaultValue={project?.note ?? ''} className={inputClass} placeholder="예: 행사장 2층 안내데스크 집합" /></label>
     </section>
 
     <button className="mt-6 h-12 w-full rounded-xl bg-ink font-bold text-white disabled:opacity-40">{mode === 'create' ? '근무 만들기 → 근무자 잇기' : '수정 저장'}</button>

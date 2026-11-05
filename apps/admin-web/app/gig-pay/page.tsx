@@ -76,7 +76,7 @@ export default async function GigPayPage({ searchParams }: { searchParams: Promi
 
     <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[0.75rem] leading-5 text-amber-800">지급액은 출퇴근 기록에 저장된 휴게시간만 차감해요. 약정한 기본 휴게는 자동 차감하지 않아요. 지급 전 실제 휴게를 확인하고, 다르면 <Link href="/attendance-history" className="font-bold underline">근태 기록에서 수정</Link>해 주세요.</p>
     <h2 className="mt-6 px-1 text-[0.9375rem] font-extrabold text-ink">근무자별 지급</h2>
-    {board.length === 0 && <div className="mt-3 rounded-2xl bg-white p-8 text-center text-label text-sub">{allWorkers.length ? '검색 조건에 맞는 근무자가 없어요. ' : '등록된 근무자가 없어요. '}<Link href="/staff?view=contract&entry=gigworker" className="font-bold text-primary">긱워커 등록 →</Link></div>}
+    {board.length === 0 && <div className="mt-3 rounded-2xl bg-white p-8 text-center text-label text-sub">{allWorkers.length ? '검색 조건에 맞는 근무자가 없어요. ' : '등록된 근무자가 없어요. '}<Link href="/staff?view=contract&entry=gigworker" className="font-bold text-primary">근무자 등록 →</Link></div>}
     <div className="mt-3 space-y-3">
       {board.map((row) => (
         <section key={row.staffId} className="rounded-2xl bg-white p-4 shadow-card">
