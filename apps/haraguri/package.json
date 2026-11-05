@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start -p 3004",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "golden": "GOLDEN_REPORT=1 vitest run lib/golden.test.ts --silent=false",
+    "golden:update": "GOLDEN_UPDATE=1 GOLDEN_REPORT=1 vitest run lib/golden.test.ts --silent=false"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

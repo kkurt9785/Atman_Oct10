@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { parseOcrText } from './ocr';
 
 const require = createRequire(import.meta.url);
-const PW = process.env.PW_CORE || '/private/tmp/claude-501/-Users-kihankim-gawcheon-gawcheon-frontend-application/b96b4700-cc77-4d26-ab3f-b9b69b2d2a39/scratchpad/pw/node_modules/playwright-core';
+const PW = process.env.PW_CORE || '/Users/kihankim/lumenix/main/node_modules/playwright-core'; // the old scratchpad copy is gone
 const OUT = '/tmp/haraguri-fake-card-app.png';
 
 describe.skipIf(!process.env.OCR_E2E)('screenshot OCR end to end', () => {

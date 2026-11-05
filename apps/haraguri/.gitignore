@@ -1,2 +1,5 @@
 .vercel
 .env*
+
+# golden set: real notifications copied from the 수집함 stay on this machine
+golden/local/

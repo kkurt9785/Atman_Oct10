@@ -1,0 +1,53 @@
+{
+  "about": "카드·은행 앱 이용내역 캡처를 글자로 읽은 결과(OCR 텍스트) 정답 묶음. expect 는 가족이 가계부로 가져와야 할 줄만. 잔액·누적·결제예정·입금·충전 줄은 가져오면 안 됨. 지출은 양수, 취소·환불만 음수.",
+  "cases": [
+    { "id": "card-app-rows-with-detail-line", "app": "카드사 앱(공통)", "now": "2026-10-27T12:00:00+09:00",
+      "text": "이용내역\n스타벅스 역삼점                 4,500원\n10.27 11:21 일시불\nGS25 강남대로점                 3,200원\n10.26 22:10 일시불\n쿠팡                          48,300원\n10.25 09:00 할부 3개월",
+      "expect": [
+        { "date": "2026-10-27", "merchant": "스타벅스 역삼점", "amount": 4500, "cancel": false },
+        { "date": "2026-10-26", "merchant": "GS25 강남대로점", "amount": 3200, "cancel": false },
+        { "date": "2026-10-25", "merchant": "쿠팡", "amount": 48300, "cancel": false } ] },
+    { "id": "date-header-with-cancel", "app": "카드사 앱(공통)", "now": "2026-10-27T12:00:00+09:00",
+      "text": "2026.10.24 (금)\n배달의민족 12,900원\n승인취소 배달의민족 -12,900원\n10월 23일\n올리브영 명동점 23,000원",
+      "expect": [
+        { "date": "2026-10-24", "merchant": "배달의민족", "amount": 12900, "cancel": false },
+        { "date": "2026-10-24", "merchant": "배달의민족", "amount": -12900, "cancel": true },
+        { "date": "2026-10-23", "merchant": "올리브영 명동점", "amount": 23000, "cancel": false } ] },
+    { "id": "summary-lines-and-digit-slips", "app": "카드사 앱(공통)", "now": "2026-10-27T12:00:00+09:00",
+      "text": "이번 달 누적 1,234,567원\n잔액 2,000,000원\n10/22 14:21 이마트 트레이더스 l56,8OO원 승인번호 12345678\n합계 156,800원",
+      "expect": [ { "date": "2026-10-22", "merchant": "이마트 트레이더스", "amount": 156800, "cancel": false } ] },
+    { "id": "overlapping-captures", "app": "카드사 앱(공통)", "now": "2026-10-27T12:00:00+09:00", "note": "두 장을 이어 찍어 같은 줄이 두 번",
+      "text": "10.20 커피빈 5,000원\n10.20 커피빈 5,000원",
+      "expect": [ { "date": "2026-10-20", "merchant": "커피빈", "amount": 5000, "cancel": false } ] },
+    { "id": "hyundai-style-blocks", "app": "현대카드 앱 형식", "now": "2026-10-27T12:00:00+09:00", "note": "상호 줄, 구분 줄, 금액 줄이 따로",
+      "text": "이용내역\n2026.10.27\n올리브영 강남점\n일시불 | 승인\n23,000원\n2026.10.26\n배달의민족\n일시불 | 승인\n18,900원",
+      "expect": [
+        { "date": "2026-10-27", "merchant": "올리브영 강남점", "amount": 23000, "cancel": false },
+        { "date": "2026-10-26", "merchant": "배달의민족", "amount": 18900, "cancel": false } ] },
+    { "id": "ocr-noise-letters-and-dots", "app": "카드사 앱(공통)", "now": "2026-10-27T12:00:00+09:00", "note": "O→0, 쉼표 대신 점, 일시불→일시볼",
+      "text": "스타벅스 역삼점 4,5OO원\n10.27 11:21 일시볼\nGS25 강남대로점 3.200원\n10.26 22:10 일시불",
+      "expect": [
+        { "date": "2026-10-27", "merchant": "스타벅스 역삼점", "amount": 4500, "cancel": false },
+        { "date": "2026-10-26", "merchant": "GS25 강남대로점", "amount": 3200, "cancel": false } ] },
+    { "id": "naverpay-history", "app": "네이버페이 결제내역 형식", "now": "2026-10-27T12:00:00+09:00", "note": "포인트 충전은 지출이 아님",
+      "text": "결제내역\n10.27 (월)\n네이버페이 포인트 충전 50,000원\n쿠팡 결제 32,000원\n10.26 (일)\n스마트스토어 홈플레이트 결제취소 -15,000원",
+      "expect": [
+        { "date": "2026-10-27", "merchant": "쿠팡", "amount": 32000, "cancel": false },
+        { "date": "2026-10-26", "merchant": "스마트스토어 홈플레이트", "amount": -15000, "cancel": true } ] },
+    { "id": "toss-spending-minus", "app": "토스 소비 탭 형식", "now": "2026-10-27T12:00:00+09:00", "note": "2026-11-05 추가: 토스는 지출을 마이너스로 보여 줌. 취소가 아님",
+      "text": "소비\n10월 27일 월요일\n스타벅스 역삼점\n-4,500원\n체크카드 · 08:15\nGS25 강남대로점\n-3,200원\n신한카드 · 12:10\n10월 26일 일요일\n쿠팡\n-48,300원\nKB국민카드 · 21:40",
+      "expect": [
+        { "date": "2026-10-27", "merchant": "스타벅스 역삼점", "amount": 4500, "cancel": false },
+        { "date": "2026-10-27", "merchant": "GS25 강남대로점", "amount": 3200, "cancel": false },
+        { "date": "2026-10-26", "merchant": "쿠팡", "amount": 48300, "cancel": false } ] },
+    { "id": "bank-history-with-deposit", "app": "은행 거래내역 형식", "now": "2026-10-27T12:00:00+09:00", "note": "2026-11-05 추가: 입금(+) 줄은 지출로 가져오면 안 됨",
+      "text": "거래내역\n10.27\n스타벅스 -4,500\n체크카드 08:15 잔액 1,234,500\n홍길동 +30,000\n입금 12:00 잔액 1,264,500",
+      "expect": [ { "date": "2026-10-27", "merchant": "스타벅스", "amount": 4500, "cancel": false } ] },
+    { "id": "samsung-style-with-due-total", "app": "삼성카드 앱 형식", "now": "2026-10-27T12:00:00+09:00", "note": "2026-11-05 추가: 띄어 쓴 '결제 예정 금액'은 합계",
+      "text": "삼성카드 이용내역\n10/27 스타벅스 R 강남 5,600원\n10/26 무신사 스토어 89,000원 (3개월)\n10/25 SKT 통신요금 65,000원 자동납부\n결제 예정 금액 159,600원",
+      "expect": [
+        { "date": "2026-10-27", "merchant": "스타벅스 R 강남", "amount": 5600, "cancel": false },
+        { "date": "2026-10-26", "merchant": "무신사 스토어", "amount": 89000, "cancel": false },
+        { "date": "2026-10-25", "merchant": "SKT 통신요금", "amount": 65000, "cancel": false } ] }
+  ]
+}
