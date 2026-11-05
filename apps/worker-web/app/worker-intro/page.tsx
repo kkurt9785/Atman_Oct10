@@ -26,7 +26,7 @@ const ROLES = ['간호사', '간호조무사', '약사', '약국 전산·사무�
 export default function WorkerIntroPage() {
   return <main className="min-h-screen bg-white pb-12">
     <header className="bg-gradient-to-b from-primary-light via-primary-light/30 to-white px-6 pb-11 pt-14">
-      <p className="text-[13px] font-bold text-primary">의료·약국 단기근무 워커를 위한 잇닿</p>
+      <p className="text-[13px] font-bold text-primary">의료·약국 단기 근무자를 위한 잇닿</p>
       <h1 className="mt-2 text-[29px] font-extrabold leading-[1.3] tracking-[-0.04em] text-ink">
         내가 가능한 시간,
         <br />
@@ -35,7 +35,7 @@ export default function WorkerIntroPage() {
       <p className="mt-3 text-[15px] leading-6 text-sub">공고 확인부터 지원, 사업장 채팅, 출퇴근과 지급 확인까지 한 앱에서 이어집니다.</p>
       <div className="mt-5 flex flex-wrap gap-2">{ROLES.map((role) => <span key={role} className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">{role}</span>)}</div>
       <div className="mt-7 grid grid-cols-2 gap-2">
-        <Link href="/onboarding" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">워커 시작하기</Link>
+        <Link href="/onboarding" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">근무자로 시작하기</Link>
         <Link href="/demo" className="flex h-12 items-center justify-center rounded-btn border border-primary/30 bg-white text-[15px] font-extrabold text-primary">시연 먼저 보기</Link>
       </div>
     </header>
@@ -49,9 +49,9 @@ export default function WorkerIntroPage() {
     <section id="demo" className="border-y border-line bg-bg px-6 py-9" aria-labelledby="worker-demo-title">
       <p className="text-[13px] font-bold text-primary">1분 시연</p>
       <h2 id="worker-demo-title" className="mt-1 text-[21px] font-extrabold text-ink">등록 후, 내게 맞는 근무를 찾는 흐름</h2>
-      <p className="mt-2 text-[13px] leading-5 text-sub">활동 지역 설정부터 공고 지원, 채팅, 출퇴근과 지급 확인까지 실제 워커 화면으로 확인해 보세요.</p>
+      <p className="mt-2 text-[13px] leading-5 text-sub">활동 지역 설정부터 공고 지원, 채팅, 출퇴근과 지급 확인까지 실제 근무자 화면으로 확인해 보세요.</p>
       <div className="mt-5 overflow-hidden rounded-card border border-line bg-black shadow-card">
-        <video className="block aspect-[9/16] w-full bg-black" controls playsInline preload="metadata" poster="/demo/itdot-worker-demo-poster.jpg" aria-label="잇닿 워커 서비스 시연 영상">
+        <video className="block aspect-[9/16] w-full bg-black" controls playsInline preload="metadata" poster="/demo/itdot-worker-demo-poster.jpg" aria-label="잇닿 근무자 앱 시연 영상">
           <source src="/demo/itdot-worker-demo.mp4" type="video/mp4" />
           이 브라우저에서는 영상을 재생할 수 없어요.
         </video>
@@ -81,7 +81,7 @@ export default function WorkerIntroPage() {
       </ul>
     </section>
 
-    <section className="px-6"><div className="rounded-card bg-ink px-5 py-7 text-center"><p className="text-[17px] font-extrabold text-white">내 지역 근무를 받아볼까요?</p><p className="mt-2 text-[13px] leading-5 text-white/70">프로필을 등록하면 조건에 맞는 새 공고와 근무 상태를 한 곳에서 확인할 수 있어요.</p><div className="mt-5"><InstallAppButton label="잇닿 근무자 앱 설치" dark /></div><Link href="/onboarding" className="mt-2 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">설치 없이 워커로 시작하기</Link><Link href="/demo" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-white/10 text-[14px] font-bold text-white">가입 없이 시연으로 둘러보기</Link></div></section>
+    <section className="px-6"><div className="rounded-card bg-ink px-5 py-7 text-center"><p className="text-[17px] font-extrabold text-white">내 지역 근무를 받아볼까요?</p><p className="mt-2 text-[13px] leading-5 text-white/70">프로필을 등록하면 조건에 맞는 새 공고와 근무 상태를 한 곳에서 확인할 수 있어요.</p><div className="mt-5"><InstallAppButton label="잇닿 근무자 앱 설치" dark /></div><Link href="/onboarding" className="mt-2 flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">설치 없이 근무자로 시작하기</Link><Link href="/demo" className="mt-2 flex h-11 items-center justify-center rounded-btn bg-white/10 text-[14px] font-bold text-white">가입 없이 시연으로 둘러보기</Link></div></section>
 
     <footer className="px-6 pb-4 pt-9 text-[11px] leading-5 text-tertiary">잇닿(itdot.co.kr) · 케셰르 · 대표 김기한 · 사업자등록번호 481-44-01177<br />경기도 수원시 권선구 경수대로 202<br />잇닿은 직업정보제공사업 형태로 구인·구직 정보를 제공합니다.</footer>
   </main>;

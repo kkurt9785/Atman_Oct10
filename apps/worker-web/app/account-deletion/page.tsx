@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { COMPANY } from '@/components/legal/LegalDoc';
 import { AccountDeletionAccess } from '@/components/settings/AccountDeletionAccess';
+import { BackButton } from '@/components/BackButton';
 
 export const metadata = { title: '잇닿 계정 및 개인정보 삭제', robots: { index: false, follow: false } };
 
 export default function AccountDeletionPage() {
-  return <main className="mx-auto min-h-screen max-w-lg bg-white px-6 py-10">
-    <p className="text-[14px] font-bold text-primary">잇닿 · {COMPANY.name}</p>
+  return <main className="mx-auto min-h-screen max-w-lg bg-white px-6 pb-10 pt-4">
+    {/* 설치한 앱에는 브라우저 뒤로가기가 없다 — 설정·스토어 어디서 왔든 앞 화면으로 */}
+    <BackButton href="/" label="이전 화면" anyPrevious />
+    <p className="mt-4 text-[14px] font-bold text-primary">잇닿 · {COMPANY.name}</p>
     <h1 className="mt-3 text-[26px] font-extrabold text-ink">계정 및 개인정보 삭제</h1>
     <p className="mt-3 text-[15px] leading-6 text-sub">앱을 설치하지 않아도 이 웹페이지에서 삭제를 진행할 수 있어요. 가입할 때 사용한 카카오 계정으로 본인을 확인한 뒤, 삭제 안내를 읽고 직접 요청해 주세요.</p>
     <AccountDeletionAccess />

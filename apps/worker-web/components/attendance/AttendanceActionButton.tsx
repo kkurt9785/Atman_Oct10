@@ -33,15 +33,18 @@ export type AttendanceActionProps={
   prefillHelpDraft?:boolean;hideModeHint?:boolean;
 };
 
+// 초대 근무(/gig)는 상대가 '사장님', 병원·약국 근무는 '사업장'이다
+const isGigButton=({prefillHelpDraft,helpHref}:Pick<AttendanceActionProps,'prefillHelpDraft'|'helpHref'>)=>Boolean(prefillHelpDraft||helpHref?.startsWith('/gig'));
+
 // 출퇴근 기록 한 번: 위치(필요하면) → record_unified_attendance → 결과. 버튼 모양과 무관하게 같은 절차를 쓴다.
-function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr',onSuccess}:AttendanceActionProps){
+function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr',onSuccess,prefillHelpDraft,helpHref}:AttendanceActionProps){
   const [loading,setLoading]=useState(false);
   const [result,setResult]=useState<AttendanceResult|null>(null);
   const [locationIssue,setLocationIssue]=useState<string|null>(null);
   const [effectiveMode,setEffectiveMode]=useState(mode);
   const [qrFallback,setQrFallback]=useState(false);
   const inFlight=useRef(false);
-  async function run(){
+  async function run(options?:{withoutLocation?:boolean}){
     if(inFlight.current)return;
     inFlight.current=true;
     setLoading(true);setResult(null);setLocationIssue(null);
@@ -52,12 +55,18 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
     setEffectiveMode(mode);setQrFallback(policy.qrFallback===true);
     const qrFacility=new URLSearchParams(window.location.search).get('facility');
     if(qrToken&&qrFacility&&qrFacility!==policy.facilityId){setResult({ok:false,reason:'HOSPITAL_MISMATCH',message:'스캔한 QR과 선택한 현장이 달라요. QR의 현장을 선택하거나 해당 현장의 QR을 다시 스캔해 주세요.'});return;}
-    if(mode==='admin') {setResult({ok:false,reason:'ADMIN_REQUIRED',message:'관리자 처리 방식이에요. 사장님에게 실제 근무 확인과 기록을 요청해 주세요.'});return;}
+    if(mode==='admin') {setResult({ok:false,reason:'ADMIN_REQUIRED',message:`관리자 처리 방식이에요. ${isGigButton({prefillHelpDraft,helpHref})?'사장님에게':'사업장에'} 실제 근무 확인과 기록을 요청해 주세요.`});return;}
     let coords:{latitude:number;longitude:number;accuracy:number}|null=null;
     const wantsGps=mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr';
     // 위치정보 이용 동의를 철회했으면 위치를 측정하지 않는다 — QR·와이파이 인증만 쓴다
     const locationOk=wantsGps?await isLocationAllowed():true;
     const needsGps=wantsGps&&locationOk;
+    // 동의 없이 바로 서버를 부르면 실패만 나고 관리자에게 인증 실패 알림이 쌓인다(2026-11-05 QA) — 다음 할 일을 먼저 안내한다.
+    // 강화 인증(위치+QR)은 위치가 꼭 필요하다. 위치 우선·간편 인증은 근무지 Wi-Fi로도 될 수 있어 근무자가 고를 때만 서버에 묻는다.
+    if(wantsGps&&!locationOk&&(mode==='gps_qr'||(!qrToken&&!options?.withoutLocation))){
+      setResult({ok:false,reason:'LOCATION_CONSENT_REQUIRED',message:mode==='gps_qr'?'이 근무지는 위치와 QR을 함께 확인해요. 위치정보 이용에 동의해야 출퇴근할 수 있어요.':'위치정보 이용 동의가 꺼져 있어 위치로 확인할 수 없어요.'});
+      return;
+    }
     if(wantsGps&&!locationOk)setLocationIssue(attendanceLocationHelp(mode,true));
     // QR을 방금 찍고 들어온 경우(실내라 GPS가 안 잡히는 상황)는 위치를 오래 기다리지 않는다 — gps_qr(둘 다 필수)만 예외
     const gpsTimeout=mode==='gps_qr'?12_000:4_000;
@@ -85,8 +94,12 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
   return {run,loading,result,locationIssue,mode:effectiveMode,qrFallback};
 }
 
-function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,dark=false,helpHref,qrFallback,prefillHelpDraft=false,hideModeHint=false}:{action:'check_in'|'check_out';result:AttendanceResult|null;locationIssue:string|null;qrToken?:string|null;mode:AttendanceMode;onRetry:()=>void;dark?:boolean;helpHref?:string;qrFallback:boolean;prefillHelpDraft?:boolean;hideModeHint?:boolean}){
+function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,onTryWithoutLocation,dark=false,helpHref,qrFallback,prefillHelpDraft=false,hideModeHint=false}:{action:'check_in'|'check_out';result:AttendanceResult|null;locationIssue:string|null;qrToken?:string|null;mode:AttendanceMode;onRetry:()=>void;onTryWithoutLocation:()=>void;dark?:boolean;helpHref?:string;qrFallback:boolean;prefillHelpDraft?:boolean;hideModeHint?:boolean}){
   const [qrHelp,setQrHelp]=useState(false);
+  const gig=isGigButton({prefillHelpDraft,helpHref});
+  const noConsent=result?.reason==='LOCATION_CONSENT_REQUIRED';
+  // 위치 동의가 없을 때 QR 안내는 위치를 못 잡은 경우(GPS_ERROR)와 같은 기준 — 강화 인증은 QR만으로 안 된다
+  const offerQr=!qrToken&&!!result&&!result.ok&&canOfferAttendanceQr(noConsent?'GPS_ERROR':result.reason,mode,qrFallback);
   // 실패한 그 시각으로 문장을 만든다 (다시 그려져도 시각이 바뀌지 않게 결과마다 한 번)
   const helpLink=useMemo(()=>{
     const base=helpHref??'/workroom';
@@ -101,7 +114,13 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,da
       {!result.ok&&result.reason==='QR_EXPIRED'&&<p className="mt-1 font-medium">관리자 화면의 새 QR을 다시 찍어 주세요. QR은 화면에서 60초마다 바뀌어요.</p>}
       {result.ok&&result.status==='pending'&&<p className="mt-1 font-medium">관리자가 승인하면 퇴근 시간과 근무시간이 확정돼요.</p>}
       {result.ok&&<p className="mt-1 font-medium">{new Date(result.checkOutAt??result.checkInAt??Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'})} · {METHOD[result.method??'']??result.method}{typeof result.distanceM==='number'?` · 사업장에서 ${result.distanceM}m`:''}{typeof result.accuracyM==='number'?` · 위치 오차 ±${Math.round(result.accuracyM)}m`:''}</p>}
-      {!result.ok&&<div className="mt-2 flex flex-wrap gap-2">{mode!=='admin'&&<button type="button" onClick={onRetry} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">다시 확인</button>}{!qrToken&&canOfferAttendanceQr(result.reason,mode,qrFallback)&&<button type="button" onClick={()=>setQrHelp(true)} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">동적 QR로 인증</button>}<Link href={helpLink} className="flex h-11 items-center rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">사장님께 확인 요청</Link></div>}
+      {!result.ok&&noConsent&&<ul className="mt-1.5 space-y-0.5 font-medium leading-5">
+        <li>· 내 정보 › 개인정보·동의에서 위치정보 이용을 켜고 다시 눌러 주세요.</li>
+        {mode!=='gps_qr'&&<li>· 근무지 Wi-Fi에 연결돼 있으면 Wi-Fi로 확인할 수 있어요.</li>}
+        {offerQr&&<li>· 근무지에 출퇴근 QR이 있으면 QR로 인증할 수 있어요.</li>}
+        <li>· 어렵다면 {gig?'사장님께':'사업장에'} 확인을 요청해 주세요.</li>
+      </ul>}
+      {!result.ok&&<div className="mt-2 flex flex-wrap gap-2">{noConsent?<><Link href={`${gig?'/gig/settings':'/settings'}#privacy-title`} className="flex h-11 items-center rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">위치 동의 켜기</Link>{mode!=='gps_qr'&&<button type="button" onClick={onTryWithoutLocation} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">Wi-Fi로 확인</button>}</>:mode!=='admin'&&<button type="button" onClick={onRetry} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">다시 확인</button>}{offerQr&&<button type="button" onClick={()=>setQrHelp(true)} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">동적 QR로 인증</button>}<Link href={helpLink} className="flex h-11 items-center rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">{gig?'사장님께':'사업장에'} 확인 요청</Link></div>}
     </div>}
     {locationIssue&&!result?.ok&&<p role="alert" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-700">{locationIssue}</p>}
     {qrHelp&&<div className="mt-2 rounded-xl border border-primary/20 bg-white p-3 text-[12px] leading-5 text-sub"><b className="text-ink">사업장 QR로 인증하는 방법</b><ol className="mt-1 list-decimal pl-4"><li>사업장 접수대·관리자 화면의 동적 출퇴근 QR을 확인해요.</li><li>아이폰은 기본 카메라, 갤럭시는 카메라의 QR 스캔으로 비춥니다.</li><li>권한 창이 나오면 카메라 허용을 누르고 열린 잇닿 화면에서 출퇴근 버튼을 누릅니다.</li></ol><button onClick={()=>setQrHelp(false)} className="mt-2 font-bold text-primary">확인</button></div>}
@@ -113,10 +132,10 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,da
 export function AttendanceActionButton(props:AttendanceActionProps){
   const {run,loading,result,locationIssue,mode,qrFallback}=useAttendanceAction(props);
   return <div className="mt-3">
-    <button onClick={run} disabled={loading} className={`h-12 w-full rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50 ${props.action==='check_in'?'bg-primary':'bg-ink'}`}>
+    <button onClick={()=>void run()} disabled={loading} className={`h-12 w-full rounded-xl text-[15px] font-extrabold text-white disabled:opacity-50 ${props.action==='check_in'?'bg-primary':'bg-ink'}`}>
       {loading?`${MODE_LABEL[mode]} 확인 중...`:props.action==='check_in'?'출근하기':'퇴근하기'}
     </button>
-    <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={run} helpHref={props.helpHref} prefillHelpDraft={props.prefillHelpDraft} hideModeHint={props.hideModeHint}/>
+    <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={()=>void run()} onTryWithoutLocation={()=>void run({withoutLocation:true})} helpHref={props.helpHref} prefillHelpDraft={props.prefillHelpDraft} hideModeHint={props.hideModeHint}/>
   </div>;
 }
 
@@ -179,7 +198,7 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
       </span>
     </button>
     <div className="w-full">
-      <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={run} dark={props.dark} helpHref={props.helpHref} prefillHelpDraft={props.prefillHelpDraft} hideModeHint={props.hideModeHint}/>
+      <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={()=>void run()} onTryWithoutLocation={()=>void run({withoutLocation:true})} dark={props.dark} helpHref={props.helpHref} prefillHelpDraft={props.prefillHelpDraft} hideModeHint={props.hideModeHint}/>
     </div>
   </div>;
 }

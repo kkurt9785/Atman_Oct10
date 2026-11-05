@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/BackButton';
-import { noticeHref, type Notice } from '@/lib/notification-scope';
+import { type Notice } from '@/lib/notification-scope';
+import { noticeDestination } from '@/lib/notification-destination';
 import { loadScopedNoticePage, type NoticeCursor } from '@/lib/notification-pages';
 import { loadWorkerShellContext, type WorkerShell } from '@/lib/worker-mode';
 
@@ -22,6 +23,7 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
   const cursorRef = useRef<NoticeCursor | null>(null);
   const requestRef = useRef(0);
   const busyRef = useRef(false);
+  const openingRef = useRef(false);
 
   const load = useCallback(async (append = false) => {
     if (append && busyRef.current) return;
@@ -49,17 +51,25 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
 
   useEffect(() => { void load(); return () => { requestRef.current++; busyRef.current = false; }; }, [load]);
 
+  // 읽음 저장이 끝난 뒤에 이동한다 — 먼저 떠나면 요청이 끊겨 돌아와도 안 읽은 알림으로 남는다. 저장 중 연속 탭은 한 번만.
   async function openNotice(row: Notice) {
+    if (openingRef.current) return;
+    openingRef.current = true;
     setError('');
-    if (!row.read_at) {
-      try {
-        const { data, error: readError } = await supabase.rpc('mark_my_notification_read', { p_notification_id: row.id });
-        if(readError || data !== true) setError('읽음 표시를 저장하지 못했어요. 알림 내용은 계속 확인할 수 있어요.');
-        else setRows((current) => current.map((item) => (item.id === row.id ? { ...item, read_at: new Date().toISOString() } : item)));
-      } catch { setError('읽음 표시를 저장하지 못했어요. 연결 상태를 확인해 주세요.'); }
-    }
-    const href = noticeHref(row.data?.url, shell);
-    if (href) window.location.href = href;
+    const href = noticeDestination(row, shell);
+    let readError = '';
+    try {
+      if (!row.read_at) {
+        try {
+          const { data, error: rpcError } = await supabase.rpc('mark_my_notification_read', { p_notification_id: row.id });
+          if (rpcError || data !== true) readError = '읽음 표시를 저장하지 못했어요. 알림 내용은 계속 확인할 수 있어요.';
+          else setRows((current) => current.map((item) => (item.id === row.id ? { ...item, read_at: new Date().toISOString() } : item)));
+        } catch { readError = '읽음 표시를 저장하지 못했어요. 연결 상태를 확인해 주세요.'; }
+      }
+      // 열 화면이 있으면 읽음 저장 실패와 상관없이 연다(안 읽은 채로 남아 다시 찾을 수 있다). 없을 때만 실패를 보여 준다
+      if (href) window.location.href = href;
+      else if (readError) setError(readError);
+    } finally { openingRef.current = false; }
   }
 
   return (

@@ -37,7 +37,7 @@ export default function WorkerDemoPage() {
 
         <div className="mt-10 flex flex-col items-center text-center">
           <BrandMark size={64} />
-          <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">잇닿 워커 시연</h1>
+          <h1 className="mt-5 text-[26px] font-extrabold leading-tight tracking-[-0.8px] text-ink">잇닿 근무자 앱 시연</h1>
           <p className="mt-2 text-[14px] leading-6 text-sub">직군 하나를 고르면 그 시연 계정으로 바로 로그인돼요.<br />근무표 홈 → 근무 찾기·지원 → 출퇴근 흐름을 볼 수 있어요.</p>
         </div>
 

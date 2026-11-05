@@ -6,6 +6,7 @@ import { previousPath } from '@/lib/nav-history';
 //   · 바로 앞 화면이 상위 화면(href)이면 history.back (안드로이드 뒤로가기와 같은 결과)
 //   · 알림·링크로 바로 열려 앞 화면이 없으면 상위 화면(href)으로
 //   · anyPrevious: 여러 곳에서 들어오는 화면(약관 등)은 앞 화면이 무엇이든 그리로, 새 탭이면 탭을 닫는다
+//   · 누르는 범위는 44px — -my-1 로 화면 배치는 예전 36px 높이 그대로 둔다(2026-11-05 QA)
 export function BackButton({ href, label, anyPrevious = false, onClick, tone = 'sub' }: {
   href: string; label?: string; anyPrevious?: boolean; onClick?: () => void | Promise<void>; tone?: 'sub' | 'light';
 }) {
@@ -19,7 +20,7 @@ export function BackButton({ href, label, anyPrevious = false, onClick, tone = '
   }
   return (
     <button type="button" onClick={go} aria-label={label ? `${label}(으)로 돌아가기` : '뒤로'}
-      className={`-ml-1 inline-flex h-9 items-center gap-1 px-1 text-[14px] font-bold active:opacity-60 ${tone === 'light' ? 'text-white/80' : 'text-sub'}`}>
+      className={`-my-1 -ml-1 inline-flex h-11 min-w-11 items-center gap-1 px-1 text-[14px] font-bold active:opacity-60 ${tone === 'light' ? 'text-white/80' : 'text-sub'}`}>
       <span aria-hidden="true" className="text-[18px] leading-none">←</span>{label}
     </button>
   );

@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { Shift } from '@/app/shifts/page';
 import { applyToShift } from '@/lib/shifts';
 import { facilityName, facilityOf, mobilityLabel, timeLabel } from '@/lib/shift-display';
+import { payBasisLabel } from '@/lib/shift-pay-basis';
+import { loadPublicFlags, type PublicFlags } from '@/lib/public-flags';
+import { PublicFlagNotes } from './PublicFlags';
+import { ReportPostingForm } from './ReportPostingForm';
 
 type Props = {
   shift: Shift;
@@ -20,6 +24,11 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
   const busyRef = useRef(false);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  // 직업안정법 §25 — 목록·지도에서 사업장 시트를 거치지 않고 바로 지원하므로 공표 정보는 여기서 확인하고 보여 준다.
+  // 확인 못 하면 지원 버튼을 잠근다(공표 사업장인데 문구 없이 지원되는 일이 없게)
+  const [flags, setFlags] = useState<PublicFlags | null>(null);
+  const [flagsState, setFlagsState] = useState<'loading' | 'ok' | 'error'>(shift.facility_id ? 'loading' : 'ok');
+  const [flagsRetry, setFlagsRetry] = useState(0);
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -49,6 +58,18 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
   }, []);
 
   useEffect(() => {
+    if (!shift.facility_id) return;
+    let active = true;
+    setFlagsState('loading');
+    void loadPublicFlags([shift.facility_id]).then((map) => {
+      if (!active) return;
+      if (!map) { setFlagsState('error'); return; }
+      setFlags(map.get(shift.facility_id) ?? null); setFlagsState('ok');
+    }, () => { if (active) setFlagsState('error'); });
+    return () => { active = false; };
+  }, [shift.facility_id, flagsRetry]);
+
+  useEffect(() => {
     sheetRef.current?.scrollTo({ top: 0 });
     sheetRef.current?.focus();
   }, [state]);
@@ -56,6 +77,7 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
   const hourlyWage = shift.hourly_wage.toLocaleString('ko-KR');
   const facility = facilityOf(shift);
+  const payBasis = payBasisLabel(shift);
 
   async function handleApply() {
     if (busyRef.current) return;
@@ -105,6 +127,8 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
                 <p className="text-[13px] text-sub mt-1 line-clamp-2">{facility.address_text}</p>
               )}
               <p className="text-[13px] font-semibold text-primary mt-2">{mobilityLabel(shift)}</p>
+              <PublicFlagNotes flags={flags} />
+              {flagsState === 'error' && <div role="alert" className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-800">사업장 공표 정보를 확인하지 못했어요. 확인한 뒤 지원할 수 있어요. <button type="button" onClick={() => setFlagsRetry((v) => v + 1)} className="min-h-11 underline">다시 확인</button></div>}
             </div>
 
             <div className="bg-bg rounded-card p-4 mb-4 flex flex-col gap-2">
@@ -130,12 +154,13 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
                 <span className="text-sub">예상 지급액</span>
                 <span className="font-extrabold text-primary text-[16px]">₩{pay}</span>
               </div>
+              {payBasis && <p className="-mt-1 text-right text-[12px] text-sub">{payBasis}</p>}
             </div>
 
             <div className="bg-white border border-line rounded-card p-4 mb-6">
               <p className="text-[13px] font-extrabold text-ink mb-2">지원 전 확인</p>
               <div className="flex flex-col gap-1.5 text-[13px] text-sub">
-                <p>사업장이 수락하면 채용 확정 상태로 바뀝니다.</p>
+                <p>사업장이 수락하면 채용 확정으로 바뀌어요.</p>
                 {(shift.required_role === 'rn' || shift.required_role === 'na' || shift.required_role === 'pharmacist') && <p>면허 미등록 상태여도 지원할 수 있으며, 채용 확정 전 사업장이 자격을 확인해요.</p>}
                 <p>채용 확정 후 당일 취소는 사업장과 먼저 확인해 주세요.</p>
                 {shift.notes && !/^(DEMO-|LIVE-SALES-DEMO)/.test(shift.notes) && <p className="text-ink font-semibold">{shift.notes}</p>}
@@ -144,9 +169,10 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
 
             <button
               onClick={handleApply}
-              className="w-full h-14 bg-primary text-white text-[17px] font-bold rounded-btn shadow-btn active:opacity-80 mb-3"
+              disabled={flagsState !== 'ok'}
+              className="w-full h-14 bg-primary text-white text-[17px] font-bold rounded-btn shadow-btn active:opacity-80 mb-3 disabled:opacity-50"
             >
-              지원하기
+              {flagsState === 'loading' ? '사업장 정보 확인 중…' : '지원하기'}
             </button>
             <button
               onClick={onClose}
@@ -154,6 +180,8 @@ export function ApplySheet({ shift, onClose, onApplied }: Props) {
             >
               취소
             </button>
+            {/* 직업안정법 §25 — 허위·과장 공고 신고 입구(사업장 시트와 같은 폼) */}
+            {shift.facility_id && <div className="mt-3 border-t border-line pt-3"><ReportPostingForm facilityId={shift.facility_id} shiftId={shift.id} /></div>}
           </>
         )}
 

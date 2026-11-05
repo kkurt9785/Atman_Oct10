@@ -53,7 +53,8 @@ export default function SettingsPage() {
       setName(nickname ?? '사용자');
 
       const [{ data: locPref }, { data: workerProf }, { data: staffLinks }] = await Promise.all([
-        supabase.from('worker_location_prefs').select('locations').single(),
+        // 활동 지역 행이 없는 계정도 있다 — single()이면 406
+        supabase.from('worker_location_prefs').select('locations').maybeSingle(),
         supabase.from('workers')
           .select('name, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)

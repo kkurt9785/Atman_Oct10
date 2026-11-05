@@ -234,12 +234,15 @@ function ApplicationCard({
 }: {
   app: Application;
   cover?: MyCover;
-  onCancel: (id: string) => void;
+  onCancel: (id: string) => Promise<void>;
   onInvitation: (id: string, accept: boolean) => void;
   onAttendanceSuccess: (id: string, action: 'check_in' | 'check_out', response?: AttendanceResult) => void;
   onRequestCover: (applicationId: string, reason: string) => Promise<boolean>;
   onCancelCover: (coverId: string) => Promise<void>;
 }) {
+  // 지원 취소는 한 번 더 묻는다(관리자 공고 취소와 같은 2단계 버튼) — 예전엔 누르는 즉시 취소됐다(2026-11-05 QA)
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   // 대타가 승인돼 빠진 근무는 '취소됨'이 아니다 — 본인이 취소한 것처럼 보이면 책임 있게 대타를 구한 행동이 묻힌다
   const coveredByOther = app.status === 'cancelled' && cover?.status === 'approved';
   // 결원 요청(먼저 수락한 분으로 바로 확정)은 반복근무 요청과 안내가 다르다
@@ -356,14 +359,24 @@ function ApplicationCard({
         </Link>
       )}
 
-      {app.status === 'applied' && !shiftCancelled && !applyClosed && (
+      {app.status === 'applied' && !shiftCancelled && !applyClosed && (confirmingCancel ? (
+        <div className="mt-3 rounded-xl border border-line bg-bg p-3">
+          <p className="text-[13px] font-extrabold text-ink">이 근무 지원을 취소할까요?</p>
+          <p className="mt-0.5 text-[12px] leading-5 text-sub">공고가 열려 있으면 다시 지원할 수 있어요.</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" disabled={cancelling} onClick={() => setConfirmingCancel(false)} className="h-11 rounded-btn border border-line bg-white text-[14px] font-bold text-sub disabled:opacity-50">아니요</button>
+            <button type="button" disabled={cancelling} onClick={async () => { setCancelling(true); try { await onCancel(app.id); } finally { setCancelling(false); setConfirmingCancel(false); } }} className="h-11 rounded-btn bg-ink text-[14px] font-extrabold text-white disabled:opacity-50">{cancelling ? '취소하는 중…' : '지원 취소할게요'}</button>
+          </div>
+        </div>
+      ) : (
         <button
-          onClick={() => onCancel(app.id)}
+          type="button"
+          onClick={() => setConfirmingCancel(true)}
           className="mt-3 w-full h-11 border border-line rounded-btn text-[14px] font-semibold text-sub active:bg-bg"
         >
           지원 취소
         </button>
-      )}
+      ))}
     </div>
   );
 }
@@ -435,19 +448,24 @@ export default function ApplicationsPage() {
       const loadedApps=((data as unknown as Application[]) ?? []).filter(app => app.shift);
       setApps(loadedApps);
       setActivityFilter(loadedApps.some(isActive)?'active':loadedApps.some(app=>app.status==='accepted')?'accepted':loadedApps.some(app=>app.status==='completed')?'completed':'all');
+      // 진행 중인 지원·근무가 없으면 위 일정이 비어 있다 — 지원 현황까지 접혀 있으면 빈 화면처럼 보여서 펼쳐 둔다
+      if (!loadedApps.some(isActive)) setDetailsOpen(true);
       setLoading(false);
     }
-    void load().catch(() => { setLoadError('지원 내역을 불러오지 못했어요. 다시 시도해 주세요.'); setLoading(false); });
+    void load().catch(() => { setLoadError('지원 내역을 불러오지 못했어요. 다시 시도해 주세요.'); setDetailsOpen(true); setLoading(false); });
   }, []);
 
   async function handleCancel(applicationId: string) {
     if (!workerId) return;
-    const ok = await cancelApplication(applicationId);
+    const ok = await cancelApplication(applicationId).catch(() => false);
     if (ok) {
       setApps((prev) => prev.map((a) => a.id === applicationId ? { ...a, status: 'cancelled' as const } : a));
+      setActionNotice('지원을 취소했어요.');
     } else {
       setActionNotice('취소할 수 없는 지원이에요.');
     }
+    // '진행 중'에서는 취소한 카드가 바로 빠지므로 결과 문구를 화면에 보이게 올린다
+    window.setTimeout(() => document.getElementById('application-action-notice')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 50);
   }
 
   async function handleInvitation(applicationId: string, accept: boolean) {
@@ -539,7 +557,7 @@ export default function ApplicationsPage() {
       </div>}
 
       {actionNotice && (
-        <p role="alert" className="mb-3 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{actionNotice}</p>
+        <p id="application-action-notice" role="alert" className="mb-3 scroll-mt-4 rounded-xl bg-amber-50 text-amber-700 text-[13px] font-bold px-3 py-2">{actionNotice}</p>
       )}
 
       {!loadError && (apps.length === 0 ? (

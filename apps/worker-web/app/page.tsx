@@ -77,7 +77,7 @@ function RootInner() {
       </div>
 
       {/* 두 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고, 눌러서 써 보게 한다 */}
-      <ul className="mt-8 [@media(max-height:700px)]:mt-5 space-y-2" aria-label="잇닿 워커로 할 수 있는 일">
+      <ul className="mt-8 [@media(max-height:700px)]:mt-5 space-y-2" aria-label="잇닿 근무자 앱으로 할 수 있는 일">
         <li className="rounded-2xl bg-bg">
           <FeatureCard icon={SEARCH_ICON} title="근무 찾기" tag="병원·약국 직군" desc="한 번 등록, 가까운 병원·약국 근무 알림" />
           {/* 직군을 누르면 바로 그 시연 — 펼치기 없이 한 번에 */}

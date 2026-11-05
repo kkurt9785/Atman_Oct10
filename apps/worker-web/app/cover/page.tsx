@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { claimCover, listClaimableCovers, type ClaimableCover } from '@/lib/cover';
+import { BackButton } from '@/components/BackButton';
 
 // 대타 구하는 근무 — 이 사업장에서 함께 일한 같은 직군에게만 보인다.
 // 요청자 이름과 사유는 보여주지 않는다(병가 같은 사적인 사유 보호). 사업장이 승인해야 확정된다.
@@ -109,7 +110,8 @@ export default function CoverPage() {
   return (
     <div className="px-4 pb-24">
       <div className="pb-4 pt-14">
-        <Link href="/home" className="text-[13px] font-bold text-sub">← 홈</Link>
+        {/* 예전 '← 홈' 글자 링크는 26×15px 라 누르기 어려웠다 — 다른 하위 화면과 같은 44px 뒤로 버튼 */}
+        <BackButton href="/home" label="홈" />
         <h1 className="mt-3 text-[28px] font-extrabold text-ink">대타 구하는 근무</h1>
         <p className="mt-1 text-[14px] leading-5 text-sub">함께 일한 사업장에서 나온 요청이에요. 같은 직군에게만 보여요.</p>
       </div>
@@ -118,7 +120,7 @@ export default function CoverPage() {
         <div className="rounded-2xl bg-white px-4 py-12 text-center">
           <p className="text-[16px] font-bold text-ink">지금 대타를 구하는 근무가 없어요</p>
           <p className="mt-1 text-[13px] text-sub">함께 일한 사업장에서 대타를 구하면 알림으로 알려드려요.</p>
-          <Link href="/home" className="mt-4 inline-flex h-10 items-center rounded-xl bg-bg px-4 text-[13px] font-bold text-ink">이번 주 근무 보기</Link>
+          <Link href="/home" className="mt-4 inline-flex h-11 items-center rounded-xl bg-bg px-4 text-[13px] font-bold text-ink">이번 주 근무 보기</Link>
         </div>
       ) : (
         covers.map((cover) => <CoverCard key={cover.id} cover={cover} onClaimed={reload} />)

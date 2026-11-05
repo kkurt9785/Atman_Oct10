@@ -13,6 +13,8 @@ import { dateKST } from '@/lib/date';
 import { estimatedShiftPay } from '@/lib/shared/gig-pay/shift-pay';
 import { areaLabel, dateLabel, distanceKm, facilityName, mobilityLabel, timeLabel, hasStarted } from '@/lib/shift-display';
 import { SHIFT_ROLE_LABEL, type ShiftRole } from '@/lib/roles';
+import { PublicFlagBadges } from '@/components/shifts/PublicFlags';
+import { loadPublicFlags, type PublicFlags } from '@/lib/public-flags';
 
 export type Shift = {
   id: string;
@@ -108,7 +110,7 @@ function groupShifts(shifts: Shift[]) {
   return Array.from(groups.values());
 }
 
-function ShiftCard({ shift, onApply, onFacility, showRole = false }: { shift: Shift; onApply: () => void; onFacility: () => void; showRole?: boolean }) {
+function ShiftCard({ shift, onApply, onFacility, showRole = false, flags }: { shift: Shift; onApply: () => void; onFacility: () => void; showRole?: boolean; flags?: PublicFlags | null }) {
   const pay = shift.estimated_total_pay.toLocaleString('ko-KR');
   const area = areaLabel(shift);
   const facility = Array.isArray(shift.facilities) ? shift.facilities[0] : shift.facilities;
@@ -144,6 +146,8 @@ function ShiftCard({ shift, onApply, onFacility, showRole = false }: { shift: Sh
         {area&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">📍 {area}</span>}
         {distanceKm(shift) != null && <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{mobilityLabel(shift)}</span>}
         {shift.department&&<span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-bold text-sub">{shift.department}</span>}
+        {/* 직업안정법 §25 공표 정보 — 사업장 시트를 거치지 않고 바로 지원할 수 있어 카드에도 보인다(전문은 지원 시트) */}
+        <PublicFlagBadges flags={flags} />
       </div>
 
       {/* 시급 / 예상 지급액 + 지원 버튼 */}
@@ -166,10 +170,13 @@ function ShiftCard({ shift, onApply, onFacility, showRole = false }: { shift: Sh
 
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
+  const [flagMap, setFlagMap] = useState<Map<string, PublicFlags>>(new Map());
   const [loading, setLoading] = useState(true);
   const [reviewPending, setReviewPending] = useState(false);
   const [selected, setSelected] = useState<Shift | null>(null);
   const [applied, setApplied] = useState<Set<string>>(new Set());
+  // 공고 카드 공표 배지 — 목록이 바뀔 때 사업장 묶음으로 한 번 읽는다(실패하면 배지만 빠지고 지원 시트가 다시 확인)
+  useEffect(() => { let active = true; void loadPublicFlags(shifts.map((s) => s.facility_id)).then((map) => { if (active && map) setFlagMap(map); }, () => undefined); return () => { active = false; }; }, [shifts]);
   const [facilityInfo, setFacilityInfo] = useState<{ id: string; name: string; shiftId?: string | null } | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   // 앞으로 7일 D·E·N 근무표 — 칸을 누르면 그 날·그 시간대 공고만. 간호사가 매일 보는 근무표 문법을 근무 찾기 입구로 쓴다
@@ -416,7 +423,7 @@ export default function ShiftsPage() {
         <>
           <section aria-label="근무 공고">
             <div className="mb-3 flex items-center justify-between"><h2 className="text-base font-bold">{sort==='date'?'날짜별 근무':sort==='distance'?'가까운 근무':'시급이 높은 근무'}</h2><span className="text-xs text-sub">{visibleCount}/{filtered.length}건 표시</span></div>
-            {sort==='date'?grouped.map(group=><div key={group.title} className="mb-5"><h3 className="mb-2 px-1 text-sm font-bold text-sub">{group.title}</h3>{group.shifts.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s),shiftId:s.id})} showRole={isGuest}/>)}</div>):visible.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s),shiftId:s.id})} showRole={isGuest}/>)}
+            {sort==='date'?grouped.map(group=><div key={group.title} className="mb-5"><h3 className="mb-2 px-1 text-sm font-bold text-sub">{group.title}</h3>{group.shifts.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s),shiftId:s.id})} showRole={isGuest} flags={flagMap.get(s.facility_id)}/>)}</div>):visible.map(s=><ShiftCard key={s.id} shift={s} onApply={()=>setSelected(s)} onFacility={()=>setFacilityInfo({id:s.facility_id,name:facilityName(s),shiftId:s.id})} showRole={isGuest} flags={flagMap.get(s.facility_id)}/>)}
             {visibleLimit<filtered.length&&<button type="button" onClick={()=>setVisibleLimit(value=>value+10)} className="h-12 w-full rounded-xl border border-line bg-white text-base font-bold">10건 더 보기</button>}
           </section>
         </>

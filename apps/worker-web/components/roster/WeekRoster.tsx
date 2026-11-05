@@ -13,11 +13,12 @@ export function WeekRoster({ week, cells, selected, onSelect, compact = false, s
   compact?: boolean;
   slotNames?: Record<RosterSlot, string>;
 }) {
-  // 작은 폰(높이 700px 이하)에서는 칸을 낮춰 아래 근무 목록이 첫 화면에 들어오게 한다
-  const cellHeight = compact ? 'h-8' : 'h-10 [@media(max-height:700px)]:h-8';
+  // 칸은 40px 높이로 고정 — 예전엔 작은 폰에서 32px로 줄여 33×32 칸을 눌러야 했다(2026-11-05 QA).
+  // 폭은 이름 칸·간격·바깥 여백을 줄여 375폭 37px·390폭 39px까지 넓히고, 누르는 범위는 간격 안쪽까지 넓힌다(아래 after:)
+  const cellHeight = compact ? 'h-8' : 'h-10';
   return (
-    <div className="rounded-2xl bg-bg p-3">
-      <div className="grid gap-1.5" style={{ gridTemplateColumns: `${compact ? 30 : 44}px repeat(7, minmax(0, 1fr))` }}>
+    <div className="rounded-2xl bg-bg px-2 py-3">
+      <div className="grid gap-1" style={{ gridTemplateColumns: `${compact ? 30 : 38}px repeat(7, minmax(0, 1fr))` }}>
         <span />
         {week.map((day) => (
           <span key={day.date} className={`text-center text-[11px] font-bold leading-tight ${day.isToday ? 'text-primary' : day.isWeekend === 'sun' ? 'text-red-500' : day.isWeekend === 'sat' ? 'text-primary/70' : 'text-tertiary'}`}>
@@ -68,7 +69,7 @@ function RosterRow({ slot, week, cells, selected, onSelect, compact, cellHeight,
             aria-label={aria}
             aria-pressed={isSelected}
             onClick={() => onSelect?.(day.date, slot)}
-            className={`${cellHeight} rounded-[10px] ${applied && count > 0 ? 'text-[11px] tracking-tight' : 'text-[12px]'} font-extrabold ${tone} ${(confirmed || applied) && isSelected ? 'ring-2 ring-ink ring-offset-2 ring-offset-bg' : ''} ${day.isToday && !isSelected && !confirmed ? 'ring-1 ring-primary/30' : ''}`}
+            className={`relative ${cellHeight} rounded-[10px] after:absolute after:-inset-0.5 after:content-[''] ${applied && count > 0 ? 'text-[11px] tracking-tight' : 'text-[12px]'} font-extrabold ${tone} ${(confirmed || applied) && isSelected ? 'ring-2 ring-ink ring-offset-2 ring-offset-bg' : ''} ${day.isToday && !isSelected && !confirmed ? 'ring-1 ring-primary/30' : ''}`}
           >
             {label}
           </button>
