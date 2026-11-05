@@ -16,15 +16,18 @@ export function AdminDemoBar() {
     return () => { active = false; };
   }, []);
   // 띠 높이를 --demo-bar 로 알린다 — 공고 올리기·워크룸 입력칸 같은 하단 고정 요소가 띠 위로 올라간다(375×667에서 가려지던 문제)
+  // 넓은 화면(xl, 1280px~)에서는 띠를 본문(480px) 밖 오른쪽 아래로 옮긴다 — 1440에서 수락·거절·알림 첫 카드를 가렸다(2026-11-05 QA). 그때는 띠 몫 여백이 필요 없다
   useEffect(() => {
     const el = barRef.current;
     if (!demo || !el) return;
     const root = document.documentElement;
-    const set = () => root.style.setProperty('--demo-bar', `${el.offsetHeight + 8}px`);
+    const wide = typeof window.matchMedia === 'function' ? window.matchMedia('(min-width: 1280px)') : null;
+    const set = () => root.style.setProperty('--demo-bar', wide?.matches ? '0px' : `${el.offsetHeight + 8}px`);
     set();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(set);
     observer?.observe(el);
-    return () => { observer?.disconnect(); root.style.removeProperty('--demo-bar'); };
+    wide?.addEventListener?.('change', set);
+    return () => { observer?.disconnect(); wide?.removeEventListener?.('change', set); root.style.removeProperty('--demo-bar'); };
   }, [demo]);
   if (!demo) return null;
 
@@ -38,9 +41,10 @@ export function AdminDemoBar() {
 
   return (
     <>
-      <div aria-hidden="true" className="h-16" />
+      {/* 본문 끝에 띠 높이만큼 여백 — 마지막 카드·버튼을 띠 위로 올려 볼 수 있게(넓은 화면은 띠가 본문 밖이라 필요 없다) */}
+      <div aria-hidden="true" className="h-[max(var(--demo-bar),4rem)] xl:hidden" />
       <div ref={barRef} role="region" aria-label="시연 안내"
-        className="fixed inset-x-3 bottom-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[30rem] items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5">
+        className="fixed inset-x-3 bottom-[calc(var(--bottom-nav-height)+8px+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-[30rem] items-center gap-2 rounded-2xl bg-ink px-3 py-2.5 text-white shadow-lg [@media(max-height:700px)]:py-1.5 xl:inset-x-auto xl:bottom-6 xl:right-6 xl:mx-0 xl:w-80 xl:max-w-none">
         <span className="min-w-0 flex-1 leading-4">
           <span className="block text-[0.6875rem] font-bold text-white/60 [@media(max-height:700px)]:hidden">지금은 시연 화면이에요</span>
           <button type="button" disabled={Boolean(leaving)} onClick={() => void leave('start')}

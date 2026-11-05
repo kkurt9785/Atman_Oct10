@@ -8,8 +8,9 @@ import type { ClinicStaff } from '@/lib/db/clinic-workforce';
 import type { StaffRow } from '@/lib/db/staff';
 import type { UpcomingShiftRow } from '@/lib/db/staff';
 import { AttendanceRealtime } from './AttendanceRealtime';
+import { todayHeadcount } from '@/lib/today-headcount';
 
-type Filter='all'|'working'|'issue'|'completed';
+type Filter='all'|'working'|'issue'|'completed'|'leave';
 type Failure={
   id:string; target_type:string; action:string; authentication_method:string|null;
   distance_meters:number|null; gps_accuracy_meters:number|null; failure_reason:string|null;
@@ -49,23 +50,34 @@ function group(status:string):Filter{
 export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAlerts,facilityId,summaryHref,isGigworker=false}:{staff:ClinicStaff[];matched:StaffRow[];upcoming:UpcomingShiftRow[];failures:Failure[];arrivalAlerts:ArrivalAlert[];facilityId:string|null;summaryHref:string;isGigworker?:boolean}){
   const [filter,setFilter]=useState<Filter>('all');
   const [tab,setTab]=useState<'issue'|'today'|'upcoming'|null>(null);
-  const people=useMemo<Person[]>(()=>[
-    ...staff.filter((s)=>s.scheduledToday||s.attendanceStatus!=='off').map((s):Person=>({kind:'staff',key:`staff-${s.id}`,name:s.name,subtitle:`${s.department??s.role??'업무 미지정'} · ${s.defaultStart.slice(0,5)}~${s.defaultEnd.slice(0,5)}`,employment:s.workerKind==='gig'?'긱워커':ENGAGEMENT[s.engagementType]??'직원',status:s.attendanceStatus,checkInAt:s.checkInAt,checkOutAt:s.checkOutAt,method:s.checkOutMethod??s.checkInMethod,distance:s.checkOutDistanceM??s.checkInDistanceM,staff:s})),
+  // 승인·반려가 끝난 조기 퇴근은 새로고침 결과를 기다리지 않고 바로 바꿔 보여 준다 — 처리 뒤에도 카드가 버튼째 남았다(2026-11-05 QA).
+  // 같은 사람이 다시 요청하면 요청 시각이 달라 다시 보인다
+  const [decided,setDecided]=useState<Record<string,'completed'|'working'>>({});
+  const [decidedNotice,setDecidedNotice]=useState('');
+  const decisionKey=(p:Person)=>`${p.key}:${(p.kind==='staff'?p.staff.checkoutRequestedAt:p.shift.checkoutRequestedAt)??''}`;
+  const decide=(p:Person,next:'completed'|'working')=>()=>{setDecided(current=>({...current,[decisionKey(p)]:next}));setDecidedNotice(`${p.name}님 ${next==='completed'?'퇴근을 승인했어요.':'조기 퇴근 요청을 반려했어요.'}`);};
+  const rawPeople=useMemo<Person[]>(()=>[
+    ...staff.filter((s)=>s.scheduledToday||s.attendanceStatus!=='off').map((s):Person=>({kind:'staff',key:`staff-${s.id}`,name:s.name,subtitle:`${s.department??s.role??'업무 미지정'} · ${s.defaultStart.slice(0,5)}~${s.defaultEnd.slice(0,5)}`,employment:s.workerKind==='gig'?'단기 근무':ENGAGEMENT[s.engagementType]??'직원',status:s.attendanceStatus,checkInAt:s.checkInAt,checkOutAt:s.checkOutAt,method:s.checkOutMethod??s.checkInMethod,distance:s.checkOutDistanceM??s.checkInDistanceM,staff:s})),
     ...matched.map((s):Person=>({kind:'shift',key:`shift-${s.shiftId}`,name:s.name,subtitle:`${s.job} · 오늘 확정 근무`,employment:'단기 근무',status:s.todayStatus==='근무중'?'working':s.todayStatus==='승인대기'?'checkout_pending':s.todayStatus==='퇴근'?'completed':s.todayStatus==='결근'?'absent':'scheduled',checkInAt:s.checkInAt??null,checkOutAt:s.checkOutAt??null,method:s.checkOutMethod??s.checkInMethod??null,distance:s.checkOutDistanceM??s.checkInDistanceM??null,shift:s})),
   ],[staff,matched,isGigworker]);
+  const people=useMemo(()=>rawPeople.map(p=>{const next=p.status==='checkout_pending'?decided[decisionKey(p)]:undefined;return next?{...p,status:next}:p;}),[rawPeople,decided]);
+  // 홈 '오늘 근무 N명'과 같은 함수 — 휴가 제외·확인 필요 포함·같은 사람의 여러 기록은 1명. 휴가자는 목록에서 빼지 않고 '휴가' 칩으로 따로
+  const head=todayHeadcount(staff,matched);
+  const leavePeople=people.filter(p=>p.status==='leave');
+  const workPeople=people.filter(p=>p.status!=='leave');
   const counts={
     working:people.filter(p=>p.status==='working'||p.status==='late').length,
     completed:people.filter(p=>p.status==='completed').length,
     issue:people.filter(p=>group(p.status)==='issue').length+failures.length+arrivalAlerts.length,
   };
-  const visible=filter==='all'?people:people.filter(p=>group(p.status)===filter);
+  const activeFilter:Filter=filter==='leave'&&leavePeople.length===0?'all':filter;
+  const visible=activeFilter==='leave'?leavePeople:activeFilter==='all'?workPeople:workPeople.filter(p=>group(p.status)===activeFilter);
   const issuePeople=people.filter(person=>group(person.status)==='issue');
-  const normalVisible=visible.filter(person=>group(person.status)!=='issue');
 
   // 위아래로 늘어놓던 확인할 기록·오늘 근무자·7일 일정을 화면 위 탭으로 — 확인할 기록이 있으면 그 탭부터
   const activeTab=tab??(counts.issue>0?'issue':'today');
   useEffect(()=>{if(window.location.hash==='#approvals')setTab('issue');},[]);
-  const todayCount=people.filter(p=>group(p.status)!=='issue').length;
+  const todayCount=head.working;
   const tabs=([['issue','확인 필요',counts.issue],['today','오늘 근무자',todayCount],...(isGigworker?[]:[['upcoming','7일 일정',upcoming.length]])] as [typeof activeTab,string,number][]);
 
   return <>
@@ -78,21 +90,22 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
       </div>
     </nav>
 
+    {decidedNotice&&<p role="status" className="mt-3 rounded-xl bg-success/10 px-3 py-2 text-[0.75rem] font-bold text-success">{decidedNotice}</p>}
     {activeTab==='issue'&&<section id="approvals" className="scroll-mt-32">
       {counts.issue===0?<Card className="mt-3 py-5 text-center text-[0.8125rem] font-bold text-success">승인하거나 수정할 기록이 없어요.</Card>:<div className="mt-3 space-y-3">{arrivalAlerts.map(alert=><Card key={`arrival-${alert.shiftId??alert.staffId}`} className="border border-red-200 bg-red-50/40 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[0.75rem] font-extrabold text-red-600">시작 시간 지남 · 출근 확인 필요</p><p className="mt-1 text-body font-extrabold text-ink">{alert.personName}</p><p className="mt-1 text-[0.75rem] leading-5 text-sub">{alert.employment==='staff'?'기존 직원':'단기 근무'} · {alert.startTime.slice(0,5)} 시작{alert.department?` · ${alert.department}`:''}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[0.6875rem] font-extrabold text-red-600">미출근</span></div><p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[0.75rem] leading-5 text-sub">출근 기록이 들어오면 이 항목은 자동으로 사라져요. 연락하거나 {isGigworker?'사장님이':'관리자가'} 직접 처리한 뒤 근태를 확정해 주세요.</p></Card>)}{issuePeople.map(person=>{
         const staffRow=person.kind==='staff'?person.staff:null;const shiftRow=person.kind==='shift'?person.shift:null;const state=STATUS[person.status]??STATUS.scheduled;
         const requestedAt=staffRow?.checkoutRequestedAt??shiftRow?.checkoutRequestedAt;
-        return <Card key={`issue-${person.key}`} className="border border-amber-200 p-4"><div className="flex justify-between"><div><b>{person.name}</b><p className="mt-1 text-[0.75rem] text-sub">{person.subtitle}</p>{person.status==='checkout_pending'&&<p className="mt-2 text-[0.75rem] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(requestedAt)}</p>}</div><span className={`h-fit rounded-full px-2.5 py-1 text-[0.6875rem] font-bold ${state.style}`}>{state.label}</span></div>{staffRow?.attendanceStatus==='checkout_pending'&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}}><button className="h-10 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}}><button className="h-10 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}{shiftRow?.todayStatus==='승인대기'&&shiftRow.applicationId&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="shift_early_checkout" values={{application_id:shiftRow.applicationId,decision:'rejected'}}><button className="h-10 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="shift_early_checkout" values={{application_id:shiftRow.applicationId,decision:'approved'}}><button className="h-10 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}</Card>;
+        return <Card key={`issue-${person.key}`} className="border border-amber-200 p-4"><div className="flex justify-between"><div><b>{person.name}</b><p className="mt-1 text-[0.75rem] text-sub">{person.subtitle}</p>{person.status==='checkout_pending'&&<p className="mt-2 text-[0.75rem] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(requestedAt)}</p>}</div><span className={`h-fit rounded-full px-2.5 py-1 text-[0.6875rem] font-bold ${state.style}`}>{state.label}</span></div>{staffRow?.attendanceStatus==='checkout_pending'&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}} onSuccess={decide(person,'working')}><button className="h-11 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}} onSuccess={decide(person,'completed')}><button className="h-11 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}{shiftRow?.todayStatus==='승인대기'&&shiftRow.applicationId&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="shift_early_checkout" values={{application_id:shiftRow.applicationId,decision:'rejected'}} onSuccess={decide(person,'working')}><button className="h-11 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="shift_early_checkout" values={{application_id:shiftRow.applicationId,decision:'approved'}} onSuccess={decide(person,'completed')}><button className="h-11 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}</Card>;
       })}{failures.length>0&&<details className="rounded-2xl border border-red-100 bg-white p-4"><summary className="cursor-pointer list-none font-extrabold">인증 실패 {failures.length}건 <span className="float-right text-[0.75rem] text-sub">확인 ›</span></summary><div className="mt-3 divide-y divide-line">{failures.map(row=><div key={row.id} className="py-3"><b className="text-[0.75rem]">{row.worker_name??'근로자'} · {FAIL[row.failure_reason??'']??row.failure_reason}</b><p className="mt-1 text-[0.6875rem] text-sub">{AUTH[row.authentication_method??'']??row.authentication_method} · {fmt(row.created_at)}</p></div>)}</div></details>}</div>}
     </section>}
 
     {activeTab==='today'&&<>
     <div className="flex gap-1 rounded-xl bg-white p-1 shadow-sm">
-      {([['all','전체',todayCount],['working','근무 중',counts.working],['completed','퇴근',counts.completed]] as const).map(([key,label,count])=><button key={key} type="button" onClick={()=>setFilter(key)} className={`h-9 flex-1 rounded-lg text-[0.75rem] font-bold ${filter===key?'bg-ink text-white':'text-sub'}`}>{label} {count}</button>)}
+      {([['all','전체',todayCount],['working','근무 중',counts.working],['completed','퇴근',counts.completed],...(leavePeople.length>0?[['leave','휴가',head.onLeave]]:[])] as [Filter,string,number][]).map(([key,label,count])=><button key={key} type="button" onClick={()=>setFilter(key)} aria-pressed={activeFilter===key} className={`h-10 flex-1 rounded-lg text-[0.75rem] font-bold ${activeFilter===key?'bg-ink text-white':key==='leave'?'text-purple-600':'text-sub'}`}>{label} {count}</button>)}
     </div>
 
-    {normalVisible.length===0?<Card className="mt-3 py-9 text-center"><p className="font-bold">{people.length?'해당 상태의 근무자가 없어요':'오늘 관리할 근무자가 없어요'}</p>{people.length===0&&<Link href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</Link>}</Card>:
-      <div className="mt-3 space-y-3">{normalVisible.map(person=>{
+    {visible.length===0?<Card className="mt-3 py-9 text-center"><p className="font-bold">{people.length?(activeFilter==='all'?'오늘 근무할 사람이 없어요':'해당 상태의 근무자가 없어요'):'오늘 관리할 근무자가 없어요'}</p>{activeFilter==='all'&&leavePeople.length>0&&<p className="mt-1 text-label text-sub">휴가 {head.onLeave}명은 '휴가'에서 볼 수 있어요.</p>}{people.length===0&&<Link href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</Link>}</Card>:
+      <div className="mt-3 space-y-3">{visible.map(person=>{
         const state=STATUS[person.status]??STATUS.scheduled;
         const staffRow=person.kind==='staff'?person.staff:null;
         const shiftRow=person.kind==='shift'?person.shift:null;
@@ -104,7 +117,7 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
             {person.status==='completed'&&<div className="mt-1 text-[0.6875rem] font-bold text-success">근태 확정 · 급여 검토 가능</div>}
             {staffRow&&(staffRow.lateMinutes>0||staffRow.earlyLeaveMinutes>0)&&<div className="mt-1 text-[0.6875rem] text-warn">{staffRow.lateMinutes>0?`지각 ${staffRow.lateMinutes}분`:''}{staffRow.earlyLeaveMinutes>0?` · 조퇴 ${staffRow.earlyLeaveMinutes}분`:''}</div>}
           </div>
-          {staffRow?.attendanceStatus==='checkout_pending'&&<div className="mt-3 rounded-xl border border-warn/30 bg-warn/5 p-3"><p className="text-[0.75rem] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(staffRow.checkoutRequestedAt)}</p><div className="mt-2 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}}><button className="h-9 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}}><button className="h-9 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div></div>}
+          {staffRow&&person.status==='checkout_pending'&&<div className="mt-3 rounded-xl border border-warn/30 bg-warn/5 p-3"><p className="text-[0.75rem] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(staffRow.checkoutRequestedAt)}</p><div className="mt-2 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}} onSuccess={decide(person,'working')}><button className="h-11 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}} onSuccess={decide(person,'completed')}><button className="h-11 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div></div>}
           <details className="mt-3">
             <summary className="flex min-h-10 cursor-pointer list-none items-center justify-end text-right text-[0.75rem] font-bold text-sub">{isGigworker?'사장님이 직접 처리':'관리자 직접 처리'} ···</summary>
             <div className="mt-2 grid grid-cols-3 gap-2">

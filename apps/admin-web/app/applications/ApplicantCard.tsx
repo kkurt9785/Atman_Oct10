@@ -144,7 +144,7 @@ export function ApplicantCard({
           <button
             onClick={handleReject}
             disabled={disabled || loading != null}
-            className="h-9 px-4 rounded-lg border border-line text-sub text-[0.8125rem] font-semibold disabled:opacity-40 active:bg-bg"
+            className="h-11 px-4 rounded-lg border border-line text-sub text-[0.8125rem] font-semibold disabled:opacity-40 active:bg-bg"
           >
             {loading === 'reject' ? '...' : '거절'}
           </button>
@@ -153,7 +153,7 @@ export function ApplicantCard({
             disabled={disabled || loading != null}
             aria-label={`${applicant.name} 지원 수락`}
             data-demo-target="accept-application"
-            className="h-9 px-4 rounded-lg bg-primary text-white text-[0.8125rem] font-semibold disabled:opacity-40 active:opacity-80"
+            className="h-11 px-4 rounded-lg bg-primary text-white text-[0.8125rem] font-semibold disabled:opacity-40 active:opacity-80"
           >
             수락
           </button>

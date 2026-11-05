@@ -90,7 +90,8 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
 
   useEffect(()=>{if(copiedShift&&recentShift)applyRecentShift();},[copiedShift]); // 선택한 과거 공고는 진입 즉시 채운다
 
-  const wageError = shiftDate ? shiftHourlyWageError(hourlyWage, shiftDate, startTime, endTime) : null;
+  // 시급을 지운 채(빈 칸) 날짜만 고른 상태에서 최저시급 오류가 먼저 빨갛게 뜨지 않게 — 값이 있을 때만 검사한다(빈 칸은 제출 때 안내)
+  const wageError = shiftDate && hourlyWage > 0 ? shiftHourlyWageError(hourlyWage, shiftDate, startTime, endTime) : null;
   const estimatedPay = calcEstimatedShiftPay(startTime, endTime, hourlyWage, shiftDate) ?? 0;
   const isOvernight = startTime && endTime
     ? endTime <= startTime
@@ -115,6 +116,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
     if (!shiftDate) { setError('날짜를 선택해 주세요.'); return; }
     if (!startTime || !endTime) { setError('시작·종료 시간을 입력해 주세요.'); return; }
     if (!description.trim()) { setError('업무 설명을 입력해 주세요.'); return; }
+    if (!(hourlyWage > 0)) { setError('시급을 입력해 주세요.'); return; }
     if (wageError) { setError(wageError); return; }
 
     const formData = new FormData(e.currentTarget);
@@ -141,7 +143,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
         <button
           type="button"
           onClick={() => router.back()}
-          className="text-2xl text-sub leading-none"
+          className="-ml-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-2xl text-sub leading-none active:bg-bg"
           aria-label="뒤로"
         >
           ←

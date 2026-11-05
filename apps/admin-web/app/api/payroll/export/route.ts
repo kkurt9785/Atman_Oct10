@@ -3,10 +3,8 @@ import { adminClient } from '@/lib/supabase';
 import { getStaffWagePayments } from '@/lib/db/payroll';
 import { readAllRows } from '@/lib/db/read-all-rows';
 import { staffExportAmounts } from '@/lib/payroll-export';
-
-function csvCell(value: unknown) {
-  return `"${String(value ?? '').replaceAll('"', '""')}"`;
-}
+// 대상자 이름·은행명이 = + - @ 로 시작해도 수식으로 열리지 않게 공용 칸 함수를 쓴다
+import { csvCell } from '@/lib/csv';
 
 export async function GET(request:Request) {
   const context = await getAdminContext();

@@ -48,7 +48,7 @@ function ShiftCard({ s }: { s: ShiftRow }) {
       <p className="text-body text-ink line-clamp-2">{s.description}</p>
       <div className="mt-3 pt-3 border-t border-line flex items-center justify-between">
         <span className="text-label text-sub">{s.hourly_wage.toLocaleString('ko-KR')}원/시간</span>
-        <div className="flex items-center gap-3">{s.status === 'open' && s.audience !== 'invited' && <Link href={`/vacancy?shift=${s.id}`} className="text-[0.75rem] font-bold text-primary">사람 골라 요청</Link>}<Link href={`/shifts/new?copy=${s.id}`} className="text-[0.75rem] font-bold text-sub">조건 복사</Link><span className="text-body font-extrabold text-primary">{won(s.estimated_total_pay)}</span></div>
+        <div className="flex items-center gap-1">{s.status === 'open' && s.audience !== 'invited' && <Link href={`/vacancy?shift=${s.id}`} className="inline-flex min-h-11 items-center px-1.5 text-[0.75rem] font-bold text-primary">사람 골라 요청</Link>}<Link href={`/shifts/new?copy=${s.id}`} className="inline-flex min-h-11 items-center px-1.5 text-[0.75rem] font-bold text-sub">조건 복사</Link><span className="text-body font-extrabold text-primary">{won(s.estimated_total_pay)}</span></div>
       </div>
     </Card>
   );

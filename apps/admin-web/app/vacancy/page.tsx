@@ -54,6 +54,12 @@ export default async function VacancyPage({ searchParams }: { searchParams: Prom
         <p className="mt-1 text-body text-sub">{vacancy.department ? `${vacancy.department} · ` : ''}{ROLE_LABEL[vacancy.role] ?? vacancy.role} 1명 · {vacancy.cause}</p>
       </div>
 
+      {!filled && (vacancy.applicantCount ?? 0) > 0 && (
+        <Link href="/applications" className="mb-4 flex min-h-11 items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-card">
+          <span className="text-label font-bold text-ink">지원자 {vacancy.applicantCount}명이 확정을 기다려요</span>
+          <b className="shrink-0 text-label text-primary">지원자 보기 →</b>
+        </Link>
+      )}
       {params.error && <p role="alert" className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-label font-bold text-red-700">{params.error}</p>}
       {params.sent !== undefined && !filled && (
         <p role="status" className="mb-4 rounded-2xl bg-success/10 px-4 py-3 text-label font-bold text-success">

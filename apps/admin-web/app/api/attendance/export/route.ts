@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminContext } from '@/lib/admin-auth';
 import { getAttendanceHistory } from '@/lib/db/attendance-history';
-const q=(v:unknown)=>`"${String(v??'').replaceAll('"','""')}"`;
+import { csvCell } from '@/lib/csv';
+const q=csvCell; // 이름·수정 사유가 = + - @ 로 시작해도 수식으로 열리지 않게
 export async function GET(req:NextRequest){
   await requireAdminContext(['owner','operator','super']);
   const month=req.nextUrl.searchParams.get('month')??'';

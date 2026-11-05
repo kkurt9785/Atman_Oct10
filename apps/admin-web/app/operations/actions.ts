@@ -11,6 +11,7 @@ import { todayKST } from '@/lib/date';
 import { nudgeNotificationDispatch } from '@/lib/notify-nudge';
 import { getWorkforceRecommendations } from '@/lib/db/operations';
 import { loadPublicPostingBlock, shiftStartPassed } from '@/lib/posting-gate';
+import { isPublicDemoAccount, PUBLIC_DEMO_RESET_BLOCKED } from '@/lib/public-demo';
 
 const VALID_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff', 'any'];
 
@@ -26,6 +27,8 @@ async function assertCanPostPublicShift(sb: NonNullable<ReturnType<typeof adminC
 
 export async function resetFacilityLiveDemoAction() {
   const context = await requireAdminContext(['owner', 'operator', 'super']);
+  // 공개 시연 계정은 방문자가 같이 쓴다 — DB를 건드리기 전에 막고 운영 화면 배너로 알린다(결정 4a)
+  if (isPublicDemoAccount(context.user.email)) redirect(`/operations?error=${encodeURIComponent(PUBLIC_DEMO_RESET_BLOCKED)}`);
   const sb = adminClient();
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
   const { data: facility } = await sb.from('facilities')

@@ -16,6 +16,7 @@ import { listGigProjects } from '@/lib/db/gig-projects';
 import { getActiveCoverRequests } from '@/lib/db/cover';
 import { adminClient } from '@/lib/supabase';
 import { getGigBetaStatus } from '@/lib/billing-gates';
+import { attendanceReviewCount as countAttendanceReview, todayHeadcount } from '@/lib/today-headcount';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
   const brnFailed = (await searchParams).brn === 'failed';
@@ -41,10 +42,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   const isGigworker = shop.mode === 'gig';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
   const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
-  const attendanceReviewCount = clinicStaff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + attendanceFailures.length;
+  const attendanceReviewCount = countAttendanceReview(clinicStaff, noShowCount, attendanceFailures.length);
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
-  // 오늘 근태 화면(AttendanceDashboard)과 같은 기준 — 예전엔 등록 직원 전체를 '오늘 예정'으로 셌다
-  const todayCount=clinicStaff.filter((s)=>s.attendanceStatus!=='leave'&&(s.scheduledToday||s.attendanceStatus!=='off')).length+shiftStaff.length; // 휴가자는 오늘 근무 예정에서 뺀다
+  // 근태 '오늘 근무자' 탭과 같은 함수로 센다 — 휴가 제외·확인 필요 포함·같은 사람은 1명
+  const todayCount=todayHeadcount(clinicStaff,staff).working;
   const activeStaffCount = clinicStaff.filter((row) => row.status !== 'ended').length;
   const targetStaffCount = shop.employeeCount ?? 0;
   const registeredShortage = targetStaffCount > 0 ? Math.max(0, targetStaffCount - activeStaffCount) : 0;

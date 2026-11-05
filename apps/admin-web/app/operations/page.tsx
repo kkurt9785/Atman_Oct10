@@ -14,6 +14,9 @@ import { getActiveCoverRequests } from '@/lib/db/cover';
 import { getPendingCount } from '@/lib/db/applications';
 import { OpenOnHash } from '@/components/OpenOnHash';
 import { ROLE_FULL_LABEL } from '@/lib/constants';
+import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-workforce';
+import { attendanceReviewCount } from '@/lib/today-headcount';
+import { isPublicDemoAccount, PUBLIC_DEMO_DAILY_REFRESH } from '@/lib/public-demo';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
@@ -53,7 +56,7 @@ const NOTICE: Record<string, string> = {
   recommendation_changed: '근무표가 바뀌어 인력 공백 내용이 달라졌어요. 최신 내용을 다시 확인해 주세요.',
   requirement_saved: '병동·직군별 필요 인원 기준을 저장했어요.',
   requirement_off: '필요 인원 기준 사용을 중지했어요.',
-  live_demo_reset: '시연을 처음 상태로 돌렸어요. 워커 앱에서 새 공고에 직접 지원해 보세요.',
+  live_demo_reset: '시연을 처음 상태로 돌렸어요. 근무자 앱에서 새 공고에 직접 지원해 보세요.',
 };
 
 export default async function OperationsPage({ searchParams }: { searchParams: Promise<{ notice?: string; error?: string }> }) {
@@ -69,13 +72,16 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   // 운영 자동화는 Pro·Pharmacy Plus 기능 — 미충족 플랜에는 실행 시점 에러 대신 먼저 안내한다.
   // 플랜 조회도 같은 Promise.all 에 넣어 순차 왕복을 없앤다.
   const gateSb = adminClient();
-  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations, covers, pendingApplicants] = await Promise.all([
+  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations, covers, pendingApplicants, clinicStaff, attendanceFailures] = await Promise.all([
     getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(),
     getWorkforceCoverage(), getWorkforceRecommendations(), getShop(),
     gateSb ? hasPlanFeature(gateSb, context.facilityId, 'operations') : Promise.resolve(false),
     getActiveCoverRequests(),
     // 홈 '확인이 필요한 업무'와 숫자가 어긋나지 않게 새 지원자도 같이 센다(읽기만)
     getPendingCount().catch(() => 0),
+    // 홈 '출퇴근 확인'과 같은 소스 — 조기 퇴근 승인 대기·인증 실패(읽기만, 실패하면 0으로 두고 화면은 띄운다)
+    getClinicStaff().catch(() => []),
+    getTodayAttendanceFailures().catch(() => []),
   ]);
   // 대타 승인은 요금제와 무관한 기본 흐름이다 — 노쇼 직전의 출구라 막지 않는다
   const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
@@ -90,7 +96,9 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   // 지금 벌어지고 있는 미출근을 먼저, 그다음 곧 시작하는데 지원자가 없는 근무
   const todoAlerts = [...noShowAlerts, ...unfilledAlerts];
   const hiddenAlerts = todoAlerts.slice(ALERT_LIMIT);
-  const todoCount = todoAlerts.length + coverToApprove + pendingApplicants + summary.expiringCredentialCount + summary.pendingWageCount;
+  // 출퇴근 확인 = 홈과 같은 함수. 미출근은 위 todoAlerts 에 이미 있어 0으로 넘기고 승인 대기·인증 실패만 더한다(홈 5 vs 운영 4, 2026-11-05 QA)
+  const attendanceToReview = attendanceReviewCount(clinicStaff, 0, attendanceFailures.length);
+  const todoCount = todoAlerts.length + coverToApprove + pendingApplicants + attendanceToReview + summary.expiringCredentialCount + summary.pendingWageCount;
   const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
   const recruitingCount = coverage.reduce((sum, day) => sum + day.recruiting, 0);
   return (
@@ -163,10 +171,11 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
               )}
             </div>
           )}
-          {(coverToApprove > 0 || pendingApplicants > 0 || summary.expiringCredentialCount > 0 || summary.pendingWageCount > 0) && (
+          {(coverToApprove > 0 || pendingApplicants > 0 || attendanceToReview > 0 || summary.expiringCredentialCount > 0 || summary.pendingWageCount > 0) && (
             <Card className={`${todoAlerts.length > 0 ? 'mt-2' : ''} divide-y divide-line py-1`}>
               {coverToApprove > 0 && <Link href="/applications#cover" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">대타 승인 대기</span><b className="text-primary">{coverToApprove}건 →</b></Link>}
               {pendingApplicants > 0 && <Link href="/applications" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">새 지원자 확인</span><b className="text-primary">{pendingApplicants}건 →</b></Link>}
+              {attendanceToReview > 0 && <Link href="/timesheet#approvals" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">조기 퇴근 승인·인증 실패 확인</span><b className="text-primary">{attendanceToReview}건 →</b></Link>}
               {summary.expiringCredentialCount > 0 && <Link href="/workforce" className="flex items-center justify-between py-3 text-label"><span className="text-ink">30일 안에 만료되는 자격</span><b className="text-warn">{summary.expiringCredentialCount}건 →</b></Link>}
               {summary.pendingWageCount > 0 && <Link href={summary.pendingWageMonth ? `/payroll?month=${summary.pendingWageMonth}${summary.pendingWageTab ? `&tab=${summary.pendingWageTab}` : ''}` : '/payroll'} className="flex items-center justify-between py-3 text-label"><span className="text-ink">급여 승인·지급 대기{summary.pendingWageMonth ? ` (${Number(summary.pendingWageMonth.slice(5, 7))}월)` : ''}</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
             </Card>
@@ -292,7 +301,10 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       {/* 영업 진행자용 — 처음 보는 사장님이 '확인할 일'보다 먼저 보지 않게 맨 아래 */}
       {shop?.isDemo && (
         <Card className="mt-6 border border-violet-200 bg-violet-50">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[0.75rem] leading-5 text-sub mt-1">초기화 후 근무자가 지원하면 관리자 알림 → 수락 → 근무자 알림 → 채팅을 직접 확인할 수 있어요.</p></div><form action={resetFacilityLiveDemoAction}><button className="min-h-11 shrink-0 whitespace-nowrap rounded-xl bg-violet-600 px-4 text-[0.75rem] font-extrabold text-white">시연 초기화</button></form></div>
+          {/* 공개 시연 계정은 여러 사람이 같이 써서 초기화를 숨긴다(서버 액션도 막음) */}
+          {isPublicDemoAccount(context.user.email)
+            ? <div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[0.75rem] leading-5 text-sub mt-1">{PUBLIC_DEMO_DAILY_REFRESH}</p></div>
+            : <div className="flex items-center justify-between gap-3"><div><p className="text-body font-extrabold text-ink">두 기기 실시간 시연</p><p className="text-[0.75rem] leading-5 text-sub mt-1">초기화 후 근무자가 지원하면 관리자 알림 → 수락 → 근무자 알림 → 채팅을 직접 확인할 수 있어요.</p></div><form action={resetFacilityLiveDemoAction}><button className="min-h-11 shrink-0 whitespace-nowrap rounded-xl bg-violet-600 px-4 text-[0.75rem] font-extrabold text-white">시연 초기화</button></form></div>}
         </Card>
       )}
     </main>

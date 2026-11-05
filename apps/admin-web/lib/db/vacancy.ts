@@ -28,6 +28,7 @@ export type Vacancy = {
   shiftStatus: string | null;
   audience: string | null;
   matchedName: string | null;
+  applicantCount?: number;         // 이미 있는 근무에 들어온 지원(확정 전) 수
 };
 
 export type VacancyCandidate = {
@@ -70,16 +71,22 @@ export async function resolveVacancy(source: VacancySource): Promise<Vacancy | n
       .eq('id', shiftId).eq('facility_id', facilityId).maybeSingle();
     if (!shift) return null;
     const matched = Array.isArray((shift as any).workers) ? (shift as any).workers[0] : (shift as any).workers;
+    const { count: applicantCount } = await sb.from('shift_applications').select('id', { count: 'exact', head: true })
+      .eq('shift_id', shift.id).eq('status', 'applied');
     return {
       source: { mode: 'shift', shiftId: shift.id }, cause,
       date: shift.shift_date, startTime: String(shift.start_time).slice(0, 5), endTime: String(shift.end_time).slice(0, 5),
       role: shift.required_role, department: shift.department ?? null, hourlyWage: Number(shift.hourly_wage),
       description: shift.description ?? '', shiftId: shift.id, shiftStatus: shift.status, audience: shift.audience,
-      matchedName: matched?.name ?? null,
+      matchedName: matched?.name ?? null, applicantCount: applicantCount ?? 0,
     };
   };
 
-  if (source.mode === 'shift') return fromShift(source.shiftId, '지원자가 없는 근무');
+  if (source.mode === 'shift') {
+    // 지원자가 3명 있는 근무를 '지원자가 없는 근무'로 적었다(2026-11-05 QA) — 지원자가 있으면 수를 문구에 넣는다
+    const vacancy = await fromShift(source.shiftId, '지원자가 없는 근무');
+    return vacancy?.applicantCount ? { ...vacancy, cause: `지원자 ${vacancy.applicantCount}명 · 아직 확정 전` } : vacancy;
+  }
 
   if (source.mode === 'replace') {
     // 이미 만든 대체 근무가 있으면 그 근무에 이어서 요청한다

@@ -4,6 +4,7 @@ import NewShiftForm from './NewShiftForm';
 import { adminClient } from '@/lib/supabase';
 import { getCurrentFacilityId } from '@/lib/facility';
 import { OperationsFlow } from '@/components/OperationsFlow';
+import { publicPostingBlockReason, type PostingFacility } from '@/lib/posting-gate';
 
 export default async function NewShiftPage({searchParams}:{searchParams:Promise<{copy?:string}>}) {
   const requestedCopy=(await searchParams).copy;
@@ -13,7 +14,14 @@ export default async function NewShiftPage({searchParams}:{searchParams:Promise<
     .select('required_role,start_time,end_time,hourly_wage,description,department,notes')
     .eq('facility_id',facilityId).neq('status','cancelled'):null;
   if(query)query=requestedCopy?query.eq('id',requestedCopy):query.order('created_at',{ascending:false});
-  const {data:recent}=query?await query.limit(1).maybeSingle():{data:null};
+  // 국세청 휴업·폐업·미확인 사업장은 끝까지 채운 뒤에야 막혔다(2026-11-05 QA) — 들어올 때 같은 판정(posting-gate)으로 먼저 알린다.
+  // '*' 로 읽어 게재 판정에 쓰는 컬럼이 늘어도 조회가 깨지지 않게 한다. 조회 실패는 막지 않고 등록 때 서버가 다시 판정한다
+  const [{data:recent},{data:gateFacility,error:gateError}]=await Promise.all([
+    query?query.limit(1).maybeSingle():Promise.resolve({data:null}),
+    sb&&facilityId?sb.from('facilities').select('*').eq('id',facilityId).maybeSingle():Promise.resolve({data:null,error:null}),
+  ]);
+  const postingBlocked=gateFacility&&!gateError?publicPostingBlockReason(gateFacility as PostingFacility):null;
+  const ntsBlocked=['closed','suspended','unknown'].includes(String((gateFacility as PostingFacility|null)?.business_status??''));
   if (shop && shop.approvedAt === null && shop.registrationSource.startsWith('self_')) {
     return <main className="px-4 pt-2"><OperationsFlow active="recruit" compact/>
       <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5">
@@ -22,6 +30,19 @@ export default async function NewShiftPage({searchParams}:{searchParams:Promise<
         <div className="mt-4 flex gap-2">
           <Link href="/staff" className="h-11 flex-1 rounded-xl bg-primary text-center text-[0.875rem] font-bold leading-[44px] text-white">직원 등록하기</Link>
           {!shop.brnSubmitted && !shop.brnDocumentPath && <Link href="/settings?section=brn" className="h-11 flex-1 rounded-xl border border-amber-300 bg-white text-center text-[0.875rem] font-bold leading-[44px] text-amber-800">사업자 서류 올리기</Link>}
+        </div>
+      </section></main>;
+  }
+  if (postingBlocked) {
+    return <main className="px-4 pt-2"><OperationsFlow active="recruit" compact/>
+      <section role="alert" className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-5">
+        <p className="text-[0.9375rem] font-bold text-red-700">지금은 공고를 올릴 수 없어요</p>
+        <p className="mt-2 text-[0.8125rem] leading-5 text-red-700">{postingBlocked}</p>
+        <div className="mt-4 flex gap-2">
+          {ntsBlocked
+            ? <Link href="/settings?section=brn" className="flex h-11 flex-1 items-center justify-center rounded-xl bg-red-600 text-[0.875rem] font-bold text-white">사업자 서류 확인</Link>
+            : <a href="tel:01090455699" className="flex h-11 flex-1 items-center justify-center rounded-xl bg-red-600 text-[0.875rem] font-bold text-white">고객센터 전화 문의</a>}
+          <Link href="/staff" className="flex h-11 flex-1 items-center justify-center rounded-xl border border-red-200 bg-white text-[0.875rem] font-bold text-red-700">직원 관리로</Link>
         </div>
       </section></main>;
   }

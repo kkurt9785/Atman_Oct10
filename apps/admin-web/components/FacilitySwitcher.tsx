@@ -74,13 +74,13 @@ export function FacilitySwitcher({ initialFacility }: { initialFacility?: Switch
   );
 
   return (
-    <label className="relative flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-line bg-white px-2 py-1">
+    <label className="relative flex min-w-0 flex-1 items-center gap-1.5 rounded-xl border border-line bg-white px-2">
       <span aria-hidden>{badge.icon}</span>
       <select
         value={selected}
         disabled={busy}
         onChange={(event) => void handleChange(event.target.value)}
-        className="min-w-0 flex-1 appearance-none bg-transparent pr-4 text-[0.6875rem] font-extrabold text-ink outline-none"
+        className="h-11 min-w-0 flex-1 appearance-none bg-transparent pr-4 text-[0.6875rem] font-extrabold text-ink outline-none"
         aria-label="사업장·현장 선택"
       >
         {facilities.map((facility) => {
