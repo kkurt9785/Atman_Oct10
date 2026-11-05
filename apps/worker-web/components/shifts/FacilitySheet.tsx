@@ -15,11 +15,9 @@ type FacilityDetail = {
   has_uniform: boolean;
   emr_system: string | null;
   intro: string | null;
-  pharmacy_type: string | null;
-  pharmacy_system: string | null;
-  average_daily_prescriptions: number | null;
-  handover_minutes: number | null;
 };
+// 약국 정보 컬럼은 근무자 컬럼 권한 목록에 늦게 들어갔다 — 본문 조회에 섞으면 권한 오류 하나로 시트 전체가 실패한다
+type PharmacyInfo = { pharmacy_type: string | null; pharmacy_system: string | null; average_daily_prescriptions: number | null; handover_minutes: number | null };
 type FacilityTrust = { approved_at: string | null; registration_source: string | null; business_status: string | null };
 // 직업안정법 §25(2026-12-10) — 체불사업주 명단 공개·산재 공표 사업장이면 구직자에게 그 사실을 게재한다
 type PublicFlags = { public_flag_wage_arrears: boolean | null; public_flag_industrial_accident: boolean | null };
@@ -53,6 +51,7 @@ type Props = {
 
 export function FacilitySheet({ facilityId, facilityName, shiftId = null, onClose }: Props) {
   const [facility, setFacility] = useState<FacilityDetail | null>(null);
+  const [pharmacy, setPharmacy] = useState<PharmacyInfo | null>(null);
   // 사업자 확인 표시용(승인·국세청 상태). 별도 조회라 컬럼 권한이 없어도 본문은 그대로 뜬다
   const [trust, setTrust] = useState<FacilityTrust | null>(null);
   const [flags, setFlags] = useState<PublicFlags | null>(null);
@@ -69,21 +68,22 @@ export function FacilitySheet({ facilityId, facilityName, shiftId = null, onClos
   useEffect(() => {
     let active = true;
     async function load() {
-      setLoading(true); setError(false); setFacility(null); setTrust(null); setFlags(null);
+      setLoading(true); setError(false); setFacility(null); setPharmacy(null); setTrust(null); setFlags(null);
+      // 확인 표시·공표 정보·약국 정보는 각자 조회한다 — 하나가 실패해도 본문·공표 문구·신고 입구는 그대로 뜬다
+      void supabase.from('facilities').select('approved_at, registration_source, business_status').eq('id', facilityId).maybeSingle()
+        .then(({ data }) => { if (active && data) setTrust(data as FacilityTrust); }, () => undefined);
+      void supabase.from('facilities').select('public_flag_wage_arrears, public_flag_industrial_accident').eq('id', facilityId).maybeSingle()
+        .then(({ data }) => { if (active && data) setFlags(data as PublicFlags); }, () => undefined);
+      void supabase.from('facilities').select('pharmacy_type, pharmacy_system, average_daily_prescriptions, handover_minutes').eq('id', facilityId).maybeSingle()
+        .then(({ data }) => { if (active && data) setPharmacy(data as PharmacyInfo); }, () => undefined);
       try {
         const { data: fac, error: detailError } = await supabase
           .from('facilities')
-          .select('id, name, facility_type, address_text, bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro, pharmacy_type, pharmacy_system, average_daily_prescriptions, handover_minutes')
+          .select('id, name, facility_type, address_text, bed_count, main_department, has_parking, has_meals, has_uniform, emr_system, intro')
           .eq('id', facilityId)
           .single();
-      if (detailError || !fac) throw new Error('facility unavailable');
-      if (!active) return;
-      setFacility(fac);
-      void supabase.from('facilities').select('approved_at, registration_source, business_status').eq('id', facilityId).maybeSingle()
-        .then(({ data }) => { if (active && data) setTrust(data as FacilityTrust); }, () => undefined);
-      // 공표 플래그는 별도 조회 — 컬럼이 아직 없거나 권한이 없으면 조용히 생략
-      void supabase.from('facilities').select('public_flag_wage_arrears, public_flag_industrial_accident').eq('id', facilityId).maybeSingle()
-        .then(({ data }) => { if (active && data) setFlags(data as PublicFlags); }, () => undefined);
+        if (detailError || !fac) throw new Error('facility unavailable');
+        if (active) setFacility(fac);
       } catch { if (active) setError(true); }
       finally { if (active) setLoading(false); }
     }
@@ -126,12 +126,12 @@ export function FacilitySheet({ facilityId, facilityName, shiftId = null, onClos
           ) : (
             <>
 
-              {facility?.facility_type==='pharmacy'&&(facility.pharmacy_type||facility.pharmacy_system||facility.average_daily_prescriptions||facility.handover_minutes)&&(
+              {facility?.facility_type==='pharmacy'&&pharmacy&&(pharmacy.pharmacy_type||pharmacy.pharmacy_system||pharmacy.average_daily_prescriptions||pharmacy.handover_minutes)&&(
                 <div className="mb-4 grid grid-cols-2 gap-2 rounded-card bg-bg p-4">
-                  {facility.pharmacy_type&&<div><p className="text-[11px] text-tertiary">약국 유형</p><b className="text-[14px]">{facility.pharmacy_type}</b></div>}
-                  {facility.pharmacy_system&&<div><p className="text-[11px] text-tertiary">전산 프로그램</p><b className="text-[14px]">{facility.pharmacy_system}</b></div>}
-                  {facility.average_daily_prescriptions!=null&&<div><p className="text-[11px] text-tertiary">일평균 처방전</p><b className="text-[14px]">{facility.average_daily_prescriptions}건</b></div>}
-                  {facility.handover_minutes!=null&&<div><p className="text-[11px] text-tertiary">인수인계</p><b className="text-[14px]">{facility.handover_minutes}분</b></div>}
+                  {pharmacy.pharmacy_type&&<div><p className="text-[11px] text-tertiary">약국 유형</p><b className="text-[14px]">{pharmacy.pharmacy_type}</b></div>}
+                  {pharmacy.pharmacy_system&&<div><p className="text-[11px] text-tertiary">전산 프로그램</p><b className="text-[14px]">{pharmacy.pharmacy_system}</b></div>}
+                  {pharmacy.average_daily_prescriptions!=null&&<div><p className="text-[11px] text-tertiary">일평균 처방전</p><b className="text-[14px]">{pharmacy.average_daily_prescriptions}건</b></div>}
+                  {pharmacy.handover_minutes!=null&&<div><p className="text-[11px] text-tertiary">인수인계</p><b className="text-[14px]">{pharmacy.handover_minutes}분</b></div>}
                 </div>
               )}
 
@@ -186,41 +186,43 @@ export function FacilitySheet({ facilityId, facilityName, shiftId = null, onClos
 
               {/* 워커 권한의 일부 기록을 사업장 전체 통계로 표시하지 않는다. */}
               <p className="mt-4 text-xs leading-relaxed text-sub">사업장 전체 근무 이력과 평점은 현재 제공하지 않아요. 지원 전 공고의 근무 조건을 확인해 주세요.</p>
-
-              {/* 직업안정법 §25 — 허위·과장 공고 신고 */}
-              <div className="mt-5 border-t border-line pt-4">
-                {!reportOpen && !reportResult && (
-                  <button type="button" onClick={() => setReportOpen(true)} className="min-h-11 text-[13px] font-bold text-sub underline">공고 내용이 사실과 다른가요? 신고하기</button>
-                )}
-                {reportOpen && !reportResult && (
-                  <form className="space-y-3" onSubmit={async event => {
-                    event.preventDefault();
-                    if (reportBusy) return;
-                    setReportBusy(true);
-                    try {
-                      const { error: rpcError } = await supabase.rpc('report_job_posting', { p_facility_id: facilityId, p_shift_id: shiftId, p_reason: reportReason, p_note: reportNote.trim() });
-                      if (rpcError) setReportResult({ ok: false, text: rpcError.message || '신고를 접수하지 못했어요. 다시 시도해 주세요.' });
-                      else setReportResult({ ok: true, text: '신고가 접수됐어요. 운영자가 확인한 뒤 필요한 조치를 해요. 신고자 정보는 사업장에 전달하지 않아요.' });
-                    } catch {
-                      setReportResult({ ok: false, text: '연결을 확인하고 다시 시도해 주세요.' });
-                    } finally {
-                      setReportBusy(false);
-                    }
-                  }}>
-                    <p className="text-[13px] font-extrabold text-ink">무엇이 문제인가요?</p>
-                    <select value={reportReason} onChange={e => setReportReason(e.target.value)} disabled={reportBusy} aria-label="신고 사유" className="min-h-12 w-full rounded-xl border border-line bg-white px-3 text-[14px]">
-                      {REPORT_REASONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                    </select>
-                    <textarea value={reportNote} onChange={e => setReportNote(e.target.value)} disabled={reportBusy} maxLength={1000} rows={3} placeholder="어떤 점이 공고와 달랐는지 적어 주세요 (선택)" aria-label="신고 내용" className="w-full rounded-xl border border-line p-3 text-[14px]" />
-                    <div className="flex gap-2">
-                      <button type="submit" disabled={reportBusy} className="min-h-12 flex-1 rounded-xl bg-primary text-[14px] font-bold text-white disabled:opacity-50">{reportBusy ? '접수 중…' : '신고 접수'}</button>
-                      <button type="button" disabled={reportBusy} onClick={() => setReportOpen(false)} className="min-h-12 rounded-xl border border-line px-4 text-[14px] font-bold text-sub">취소</button>
-                    </div>
-                  </form>
-                )}
-                {reportResult && <p role="status" className={`rounded-xl p-3 text-[13px] font-bold leading-5 ${reportResult.ok ? 'bg-bg text-ink' : 'bg-amber-50 text-amber-800'}`}>{reportResult.text}</p>}
-              </div>
             </>
+          )}
+
+          {/* 직업안정법 §25 — 허위·과장 공고 신고. 사업장 정보 조회가 실패해도 신고 입구는 남긴다 */}
+          {!loading && (
+            <div className="mt-5 border-t border-line pt-4">
+              {!reportOpen && !reportResult && (
+                <button type="button" onClick={() => setReportOpen(true)} className="min-h-11 text-[13px] font-bold text-sub underline">공고 내용이 사실과 다른가요? 신고하기</button>
+              )}
+              {reportOpen && !reportResult && (
+                <form className="space-y-3" onSubmit={async event => {
+                  event.preventDefault();
+                  if (reportBusy) return;
+                  setReportBusy(true);
+                  try {
+                    const { error: rpcError } = await supabase.rpc('report_job_posting', { p_facility_id: facilityId, p_shift_id: shiftId, p_reason: reportReason, p_note: reportNote.trim() });
+                    if (rpcError) setReportResult({ ok: false, text: rpcError.message || '신고를 접수하지 못했어요. 다시 시도해 주세요.' });
+                    else setReportResult({ ok: true, text: '신고가 접수됐어요. 운영자가 확인한 뒤 필요한 조치를 해요. 신고자 정보는 사업장에 전달하지 않아요.' });
+                  } catch {
+                    setReportResult({ ok: false, text: '연결을 확인하고 다시 시도해 주세요.' });
+                  } finally {
+                    setReportBusy(false);
+                  }
+                }}>
+                  <p className="text-[13px] font-extrabold text-ink">무엇이 문제인가요?</p>
+                  <select value={reportReason} onChange={e => setReportReason(e.target.value)} disabled={reportBusy} aria-label="신고 사유" className="min-h-12 w-full rounded-xl border border-line bg-white px-3 text-[14px]">
+                    {REPORT_REASONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                  <textarea value={reportNote} onChange={e => setReportNote(e.target.value)} disabled={reportBusy} maxLength={1000} rows={3} placeholder="어떤 점이 공고와 달랐는지 적어 주세요 (선택)" aria-label="신고 내용" className="w-full rounded-xl border border-line p-3 text-[14px]" />
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={reportBusy} className="min-h-12 flex-1 rounded-xl bg-primary text-[14px] font-bold text-white disabled:opacity-50">{reportBusy ? '접수 중…' : '신고 접수'}</button>
+                    <button type="button" disabled={reportBusy} onClick={() => setReportOpen(false)} className="min-h-12 rounded-xl border border-line px-4 text-[14px] font-bold text-sub">취소</button>
+                  </div>
+                </form>
+              )}
+              {reportResult && <p role="status" className={`rounded-xl p-3 text-[13px] font-bold leading-5 ${reportResult.ok ? 'bg-bg text-ink' : 'bg-amber-50 text-amber-800'}`}>{reportResult.text}</p>}
+            </div>
           )}
         </div>
       </div>
