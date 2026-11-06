@@ -4,19 +4,20 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import QRCode from 'qrcode';
 
-// 그냥 /intro 는 '병원·의원'이 골라진 채 열린다. 팝업·행사 사장님께는 단기·행사가 골라진 주소를 따로 준다.
+// 받는 사장님이 링크 하나로 ① 영상을 보고 ② 관리자 앱을 바로 설치하게 /demo 로 보낸다(2026-11-06 사용자 요청).
+// 고르는 화면이 있는 소개(itdot.co.kr/intro)는 /demo 아래 '자세한 소개 보기'로 이어진다.
 const LINKS = {
   hospital: {
     label: '병원·약국·요양병원',
-    url: 'https://itdot.co.kr/intro',
-    text: '병원·약국·단기·행사 근무 관리. 사장님과 근무자 화면을 가입·설치 없이 먼저 사용해 보세요.',
-    mobile: '병원·단기근무 시연과 앱 설치 안내를 한 링크로 보내요.',
+    url: 'https://admin.itdot.co.kr/demo',
+    text: '잇닿 관리자 앱 — 1분 영상으로 먼저 보고, 눌러서 바로 설치해요.',
+    mobile: '시연 영상과 관리자 앱 설치를 한 링크로 보내요.',
   },
   gigworker: {
     label: '단기·행사 사장님용',
-    url: 'https://itdot.co.kr/intro?role=admin&kind=gigworker',
-    text: '팝업·행사·단기 근무 관리. 사장님과 근무자 화면을 가입·설치 없이 먼저 사용해 보세요.',
-    mobile: '단기·행사가 골라진 시연과 앱 설치 안내를 한 링크로 보내요.',
+    url: 'https://admin.itdot.co.kr/demo?kind=gigworker',
+    text: '팝업·행사·단기 근무 관리 — 1분 영상으로 먼저 보고, 눌러서 바로 설치해요.',
+    mobile: '단기·행사 시연 영상과 관리자 앱 설치를 한 링크로 보내요.',
   },
 } as const;
 type LinkKind = keyof typeof LINKS;
@@ -82,7 +83,7 @@ export function DemoShareCard() {
         <div className="min-w-0">
           <p className="text-[0.9375rem] font-extrabold text-ink">휴대폰으로 시연해 보세요</p>
           <p className="mt-1 text-[0.8125rem] leading-5 text-sub">
-            카메라로 찍으면 사장님·근무자 화면을 골라 설치 없이 시연할 수 있어요.
+            카메라로 찍으면 시연 영상을 보고 관리자 앱을 바로 설치할 수 있어요.
           </p>
           <button
             type="button"
@@ -100,9 +101,9 @@ export function DemoShareCard() {
         <button
           type="button"
           onClick={shareDemo}
-          className="mt-3 h-11 w-full rounded-xl border border-primary/20 bg-primary-light text-[0.875rem] font-bold text-primary active:opacity-70"
+          className="mt-3 h-11 w-full rounded-xl border border-primary/20 bg-primary/10 text-[0.875rem] font-bold text-primary active:opacity-70"
         >
-          {copied ? '링크를 복사했어요' : '소개·데모 링크 공유'}
+          {copied ? '링크를 복사했어요' : '시연 링크 보내기'}
         </button>
       </div>
       <p className="mt-2 break-all text-center text-[0.6875rem] text-tertiary">{link.url.replace('https://', '')}</p>
