@@ -13,6 +13,10 @@ const PIC = {
   safari26: { src: '/install/ios-safari26.png', alt: '사파리 아래 주소창 오른쪽의 ⋯ 버튼' },
   safari18: { src: '/install/ios-safari18.png', alt: '사파리 아래 가운데의 공유 버튼' },
   addHome: { src: '/install/ios-addhome.png', alt: "공유 메뉴의 '홈 화면에 추가' 줄" },
+  chromeMenu: { src: '/install/android-chrome-menu.png', alt: '크롬 주소창 오른쪽의 ⋮ 버튼' },
+  chromeInstall: { src: '/install/android-chrome-install.png', alt: "크롬 메뉴의 '앱 설치' 줄" },
+  samsungMenu: { src: '/install/android-samsung-menu.png', alt: '삼성 인터넷 아래 오른쪽의 ≡ 메뉴 버튼' },
+  samsungAddPage: { src: '/install/android-samsung-addpage.png', alt: "삼성 인터넷 메뉴의 '현재 페이지 추가'" },
 };
 
 /** 이 브라우저에서 홈 화면에 추가하는 단계. 안내할 수 없는 브라우저(앱 안 브라우저·PC 등)는 null */
@@ -41,13 +45,13 @@ export function installStepsFor(info: BrowserInfo): InstallStep[] | null {
     { icon: 'done', title: '추가 누르기' },
   ];
   if (info.android && info.samsung) return [
-    { icon: 'menu', title: '아래 오른쪽 ≡ 메뉴 누르기', hint: '주소창에 설치 아이콘이 보이면 그걸 눌러도 돼요' },
-    { icon: 'add', title: '현재 페이지 추가 → 홈 화면' },
+    { icon: 'menu', title: '아래 오른쪽 ≡ 메뉴 누르기', hint: '주소창에 설치 아이콘이 보이면 그걸 눌러도 돼요', image: PIC.samsungMenu },
+    { icon: 'add', title: '현재 페이지 추가 → 홈 화면', image: PIC.samsungAddPage },
     { icon: 'done', title: '추가 누르기' },
   ];
   if (info.android) return [
-    { icon: 'kebab', title: '오른쪽 위 ⋮ 누르기' },
-    { icon: 'install', title: '앱 설치 누르기', hint: '없으면 홈 화면에 추가' },
+    { icon: 'kebab', title: '오른쪽 위 ⋮ 누르기', image: PIC.chromeMenu },
+    { icon: 'install', title: '앱 설치 누르기', hint: '없으면 홈 화면에 추가', image: PIC.chromeInstall },
     { icon: 'done', title: '설치 누르기' },
   ];
   return null;

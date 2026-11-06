@@ -110,7 +110,7 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
     const steps = installStepsFor(info);
     if (info.android) return <>
       <p className="text-[1.0625rem] font-extrabold leading-7 text-ink">버튼 세 번이면 설치돼요</p>
-      {steps && <InstallSteps steps={steps} className="mt-3" />}
+      {steps && <><InstallSteps steps={steps} className="mt-3" /><InstallGallery steps={steps} className="mt-3" /></>}
       {install.error && <p role="alert" className="mt-3 text-[0.75rem] font-bold text-warn">{install.error}</p>}
       {afterInstall}
     </>;

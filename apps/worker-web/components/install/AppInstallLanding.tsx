@@ -75,7 +75,7 @@ export function AppInstallLanding() {
         <h2 className="text-[20px] font-extrabold leading-7 text-ink">{install.available ? '버튼 한 번이면 설치돼요' : '버튼 세 번이면 설치돼요'}</h2>
         {install.available
           ? <button type="button" disabled={install.busy} onClick={() => void install.install()} className={`mt-5 ${primaryButton}`}>{install.busy ? '설치 창 여는 중…' : '잇닿 설치하기'}</button>
-          : steps && <InstallSteps steps={steps} className="mt-4" />}
+          : steps && <><InstallGallery steps={steps} className="mt-3" /><InstallSteps steps={steps} className="mt-3" /></>}
         {install.error && <p role="alert" className="mt-3 text-[12px] font-bold text-red-600">{install.error}</p>}
         <p className="mt-3 text-[12px] leading-5 text-sub">설치한 앱에서 새 근무 알림을 켤 수 있어요.</p>
       </>;

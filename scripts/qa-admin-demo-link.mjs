@@ -87,7 +87,7 @@ await scenario('ios-safari26', UA.iosSafari26, '/demo', async (page, schemes) =>
 
 await scenario('android-chrome-steps-then-one-tap', UA.androidChrome, '/demo', async (page) => {
   await page.getByText('버튼 세 번이면 설치돼요').waitFor();
-  await page.getByText('오른쪽 위 ⋮ 누르기').waitFor();
+  await page.getByRole('list', { name: '홈 화면에 추가하는 순서' }).getByText('오른쪽 위 ⋮ 누르기').waitFor();
   // 영상을 보는 사이 크롬이 설치 창을 허락하면 버튼 한 번으로 바뀐다
   await page.evaluate(() => { window.__prompts = 0; const event = new Event('beforeinstallprompt', { cancelable: true }); event.prompt = async () => { window.__prompts += 1; }; event.userChoice = Promise.resolve({ outcome: 'accepted' }); window.dispatchEvent(event); });
   const button = page.getByRole('button', { name: '관리자 앱 설치하기' });
@@ -101,7 +101,7 @@ await scenario('android-chrome-steps-then-one-tap', UA.androidChrome, '/demo', a
 });
 
 await scenario('android-samsung-steps', UA.androidSamsung, '/demo', async (page) => {
-  await page.getByText('아래 오른쪽 ≡ 메뉴 누르기').waitFor();
+  await page.getByRole('list', { name: '홈 화면에 추가하는 순서' }).getByText('아래 오른쪽 ≡ 메뉴 누르기').waitFor();
 });
 
 await scenario('android-kakao-auto-escape', UA.androidKakao, '/demo?kind=gigworker', async (page, schemes) => {
