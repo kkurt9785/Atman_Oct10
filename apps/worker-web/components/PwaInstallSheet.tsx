@@ -27,7 +27,7 @@ export function PwaInstallSheet({onClose,ios:iosOverride,inApp:inAppOverride,not
   },[onClose]);
   async function copy(){try{await navigator.clipboard.writeText(window.location.href);setCopyMessage('주소를 복사했어요. 외부 브라우저 주소창에 붙여넣어 주세요.');}catch{setCopyMessage('브라우저 메뉴에서 주소를 복사해 외부 브라우저에 붙여넣어 주세요.');}}
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
-    <section ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={title} onClick={event=>event.stopPropagation()} className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-6 pb-[calc(24px+env(safe-area-inset-bottom))] text-ink">
+    <section ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={title} onClick={event=>event.stopPropagation()} className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-6 pb-0 text-ink">
       <h2 id={title} className="text-xl font-extrabold">{ios?'iPhone·iPad에 잇닿 추가':'홈 화면에 잇닿 추가'}</h2>
       <p className="mt-2 text-sm leading-6 text-sub">{note??'설치하지 않아도 그대로 쓸 수 있어요. 자주 쓰려면 홈 화면에 추가해 주세요.'}</p>
       {inApp&&(browser.kakao
@@ -35,7 +35,8 @@ export function PwaInstallSheet({onClose,ios:iosOverride,inApp:inAppOverride,not
         :<div className="mt-4 rounded-xl bg-primary/5 p-3 text-sm leading-6"><p>현재 앱 안의 브라우저에서는 설치 메뉴가 보이지 않을 수 있어요. 메뉴에서 <b>외부 브라우저로 열기</b>를 찾거나 주소를 복사해 {ios?'Safari':'Chrome 등 설치를 지원하는 브라우저'}에서 열어 주세요.</p><button type="button" onClick={()=>void copy()} className="mt-2 min-h-11 font-bold text-primary">현재 주소 복사</button>{copyMessage&&<p role="status">{copyMessage}</p>}</div>)}
       {steps&&<><InstallGallery steps={steps} className="mt-4"/><InstallSteps steps={steps} className="my-4"/></>}
       <p className="mb-4 text-xs leading-5 text-sub">메뉴가 없으면 지원 브라우저에서 다시 시도해 주세요. 설치만으로 알림이 켜지지는 않아요. 앱에서 알림을 별도로 허용해야 해요.</p>
-      <button type="button" onClick={onClose} className="min-h-12 w-full rounded-xl bg-primary font-bold text-white">확인했어요</button>
+      {/* 내용이 길어도 닫는 버튼은 늘 보이게 */}
+      <div className="sticky bottom-0 -mx-6 bg-white px-6 pb-[calc(16px+env(safe-area-inset-bottom))] pt-2"><button type="button" onClick={onClose} className="min-h-12 w-full rounded-xl bg-primary font-bold text-white">확인했어요</button></div>
     </section>
   </div>;
 }

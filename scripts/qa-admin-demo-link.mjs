@@ -76,8 +76,8 @@ await scenario('ios-kakao-return-no-repeat', UA.iosKakao, '/demo', async (page, 
 await scenario('ios-safari26', UA.iosSafari26, '/demo', async (page, schemes) => {
   assert.equal(schemes.length, 0);
   await page.getByRole('list', { name: '홈 화면에 추가하는 순서' }).getByText('주소창 오른쪽 ⋯ 누르기').waitFor();
-  for (const step of ['공유 누르기', '홈 화면에 추가', '추가 누르기']) await page.getByRole('list', { name: '홈 화면에 추가하는 순서' }).getByText(step, { exact: true }).waitFor();
-  assert.equal(await page.getByRole('img', { name: /⋯ 버튼|홈 화면에 추가' 줄/ }).count(), 2, '사파리 26 은 그림 2장(⋯ 버튼, 홈 화면에 추가)');
+  for (const step of ['공유 누르기', "'홈 화면에 추가' 누르기", '추가 누르기']) await page.getByRole('list', { name: '홈 화면에 추가하는 순서' }).getByText(step, { exact: true }).waitFor();
+  assert.equal(await page.getByRole('img', { name: /⋯ 버튼|'공유' 줄|홈 화면에 추가' 줄/ }).count(), 3, '사파리 26 은 그림 3장(⋯ 버튼, 공유 줄, 홈 화면에 추가)');
   await page.getByText('⋯ 여기').waitFor();
   await aboveFold(page, page.locator('video'), 667);
   await aboveFold(page, installHeading(page), 667);

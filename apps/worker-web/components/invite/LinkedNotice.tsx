@@ -39,7 +39,7 @@ export function LinkedNotice() {
         {notice.bank === 'missing' && <Link href="/gig/settlement" className="mt-0.5 block text-[12px] font-bold text-amber-700">지급 계좌를 등록하면 지급이 늦어지지 않아요 →</Link>}
         {demo === false && install.ready && !install.installed && <div className="mt-3 border-t border-emerald-200 pt-3">
           <p className="text-[13px] font-bold text-ink">내 근무표를 홈 화면에서 바로 열어요</p>
-          <p className="mt-1 mb-3 text-[12px] leading-5 text-sub">초대 수락은 완료됐어요. 잇닿 워커를 추가하면 내 근무와 출퇴근 화면을 편하게 다시 열 수 있어요. 설치하지 않아도 계속 이용할 수 있어요.</p>
+          <p className="mt-1 mb-3 text-[12px] leading-5 text-sub">초대 수락은 완료됐어요. 잇닿 근무자를 추가하면 내 근무와 출퇴근 화면을 편하게 다시 열 수 있어요. 설치하지 않아도 계속 이용할 수 있어요.</p>
           <InstallAppButton label="내 근무표를 홈 화면에 추가" />
           <button type="button" onClick={dismiss} className="mt-1 min-h-11 w-full text-[12px] font-bold text-sub">나중에 · 근무 화면 계속 보기</button>
         </div>}

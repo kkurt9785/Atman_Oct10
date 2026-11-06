@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { usePwaInstall } from '@/lib/pwa-install';
 import { detectBrowser, isStandaloneApp, openInExternalBrowser, openKakaoExternallyOnce, type BrowserInfo } from '@/lib/in-app-browser';
 import { ANDROID_APP, PLAY_STORE_URL } from '@/lib/android-app';
@@ -22,6 +23,7 @@ export function AppInstallLanding() {
   const [copied, setCopied] = useState('');
   // 스토어가 열린 뒤에도 스토어 없이 바로 추가하고 싶은 사람을 위해
   const [webInstall, setWebInstall] = useState(false);
+  const qr = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (isStandaloneApp()) { window.location.replace('/'); return; }
@@ -31,6 +33,13 @@ export function AppInstallLanding() {
     setInfo(detected);
     if (detected.kakao) openKakaoExternallyOnce(url);
   }, []);
+
+  // PC: 휴대폰으로 이어서 열 QR(관리자 /demo 와 같은 방식)
+  const showQr = !!info && !info.ios && !info.android && !info.inApp;
+  useEffect(() => {
+    if (!showQr || !qr.current) return;
+    void QRCode.toCanvas(qr.current, installUrl, { width: 160, margin: 1, color: { dark: '#191F28', light: '#FFFFFF' } }).catch(() => undefined);
+  }, [showQr, installUrl]);
 
   async function copy() {
     try { await navigator.clipboard.writeText(installUrl); setCopied('주소를 복사했어요. 사파리·크롬 주소창에 붙여 넣어 주세요.'); }
@@ -47,8 +56,8 @@ export function AppInstallLanding() {
     if (!info) return <div className="h-72 animate-pulse rounded-card bg-bg" aria-label="설치 방법을 확인하고 있어요" />;
 
     if (info.kakao) return <>
-      <h2 className="text-[20px] font-extrabold leading-7 text-ink">{info.ios ? '사파리에서 열고 있어요' : '크롬 같은 브라우저에서 열고 있어요'}</h2>
-      <p className="mt-2 text-[14px] leading-6 text-sub">카카오톡 안에서는 앱을 설치할 수 없어서 바깥 브라우저로 넘겼어요. 열린 화면에서 이어서 설치해 주세요.</p>
+      <h2 className="text-[20px] font-extrabold leading-7 text-ink">{info.ios ? '사파리에서 이어서 설치해요' : '브라우저에서 이어서 설치해요'}</h2>
+      <p className="mt-2 text-[14px] leading-6 text-sub">카카오톡 안에서는 앱을 설치할 수 없어요. 열린 {info.ios ? '사파리' : '브라우저'} 화면에서 이어서 설치해 주세요.</p>
       <button type="button" onClick={() => openInExternalBrowser(installUrl)} className={`mt-5 ${primaryButton}`}>{info.ios ? '사파리로 열기' : '브라우저로 열기'}</button>
       <p className="mt-3 text-[12px] leading-5 text-sub">그래도 안 열리면 카카오톡 화면의 ⋯ 메뉴에서 <b className="text-ink">다른 브라우저로 열기</b>를 눌러 주세요.</p>
       {copyBlock}
@@ -68,14 +77,21 @@ export function AppInstallLanding() {
         <a href={PLAY_STORE_URL} className={`mt-5 ${primaryButton}`}>Play 스토어에서 받기</a>
         <button type="button" onClick={() => setWebInstall(true)} className="mt-2 flex min-h-11 w-full items-center justify-center text-[13px] font-bold text-sub">스토어 없이 바로 추가하기</button>
       </>;
-      if (install.installed) return <Done title="✓ 설치했어요" text="홈 화면의 잇닿 아이콘을 눌러 열어 주세요." />;
-      if (install.pending) return <Done title="설치하고 있어요" text="홈 화면에 잇닿 아이콘이 생기면 눌러 열어 주세요." />;
+      if (install.installed) return <Done title="✓ 설치했어요" text="홈 화면의 잇닿 근무자 아이콘을 눌러 열어 주세요." />;
+      if (install.pending) return <Done title="설치하고 있어요" text="홈 화면에 잇닿 근무자 아이콘이 생기면 눌러 열어 주세요." />;
       const steps = installStepsFor(info);
       return <>
         <h2 className="text-[20px] font-extrabold leading-7 text-ink">{install.available ? '버튼 한 번이면 설치돼요' : '버튼 세 번이면 설치돼요'}</h2>
         {install.available
-          ? <button type="button" disabled={install.busy} onClick={() => void install.install()} className={`mt-5 ${primaryButton}`}>{install.busy ? '설치 창 여는 중…' : '잇닿 설치하기'}</button>
-          : steps && <><InstallGallery steps={steps} className="mt-3" /><InstallSteps steps={steps} className="mt-3" /></>}
+          ? <>
+            <button type="button" disabled={install.busy} onClick={() => void install.install()} className={`mt-5 ${primaryButton}`}>{install.busy ? '설치 창 여는 중…' : '잇닿 설치하기'}</button>
+            {/* 읽던 사람 발밑에서 단계가 사라지지 않게 — 접어서 남긴다 */}
+            {steps && <details className="mt-3 rounded-2xl bg-bg px-3 py-2"><summary className="min-h-11 cursor-pointer list-none text-[13px] font-bold text-sub [&::-webkit-details-marker]:hidden">메뉴로 직접 설치하기 ▾</summary><InstallSteps steps={steps} className="mt-2" /></details>}
+          </>
+          : steps && <>
+            {install.dismissed && <p role="status" className="mt-3 rounded-xl bg-bg px-3 py-2 text-[13px] leading-5 text-sub">설치 창을 닫았어요. 아래 메뉴 순서로도 설치할 수 있어요.</p>}
+            <InstallGallery steps={steps} className="mt-3" /><InstallSteps steps={steps} className="mt-3" />
+          </>}
         {install.error && <p role="alert" className="mt-3 text-[12px] font-bold text-red-600">{install.error}</p>}
         <p className="mt-3 text-[12px] leading-5 text-sub">설치한 앱에서 새 근무 알림을 켤 수 있어요.</p>
       </>;
@@ -93,13 +109,14 @@ export function AppInstallLanding() {
         <p className="mt-1 text-[14px] leading-6 text-sub">{info.chromeIos ? '크롬' : '사파리'} 버튼을 순서대로 눌러 주세요.</p>
         <InstallGallery steps={steps} className="mt-3" />
         <InstallSteps steps={steps} className="mt-3" />
-        <p className="mt-3 rounded-2xl bg-primary-light px-3 py-2.5 text-[13px] leading-5 text-ink">추가한 <b>잇닿</b> 아이콘을 누르고 카카오로 한 번 로그인하면 끝이에요. 새 근무 알림도 앱에서 켜져요.</p>
+        <p className="mt-3 rounded-2xl bg-primary-light px-3 py-2.5 text-[13px] leading-5 text-ink">추가한 <b>잇닿 근무자</b> 아이콘을 누르고 카카오로 한 번 로그인하면 끝이에요. 새 근무 알림도 앱에서 켜져요.</p>
       </>;
     }
 
     return <>
       <h2 className="text-[20px] font-extrabold leading-7 text-ink">휴대폰에서 열어 주세요</h2>
-      <p className="mt-2 text-[14px] leading-6 text-sub">잇닿 근무자 앱은 휴대폰 홈 화면에 추가해서 써요. 이 주소를 휴대폰으로 보내 열어 주세요.</p>
+      <p className="mt-2 text-[14px] leading-6 text-sub">잇닿 근무자 앱은 휴대폰 홈 화면에 추가해서 써요. 휴대폰 카메라로 아래 QR을 찍으면 같은 화면이 열려요.</p>
+      <div className="mt-3 flex items-center gap-4 rounded-2xl bg-bg p-4"><canvas ref={qr} aria-label="휴대폰으로 이 화면을 여는 QR 코드" className="h-36 w-36 shrink-0 rounded-xl bg-white" /><p className="text-[13px] leading-5 text-sub">카메라로 찍으면 바로 열려요. 거기서 홈 화면에 추가하면 돼요.</p></div>
       {copyBlock}
     </>;
   }
@@ -115,7 +132,7 @@ export function AppInstallLanding() {
           </div>
         </header>
         <section className="mt-6">{panel()}</section>
-        <Link href="/" className="mb-10 mt-5 flex min-h-11 items-center justify-center text-[13px] font-bold text-sub">설치 없이 웹에서 계속하기 →</Link>
+        <Link href="/" className="mb-10 mt-5 flex min-h-11 items-center justify-center text-[13px] font-bold text-sub">{info && (install.installed || install.pending) ? '웹에서 계속하기 →' : '설치 없이 웹에서 계속하기 →'}</Link>
       </div>
       {info && !info.kakao && <SafariToolbarPointer info={info} />}
     </main>

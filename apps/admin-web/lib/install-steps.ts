@@ -13,6 +13,8 @@ const PIC = {
   safari26: { src: '/install/ios-safari26.png', alt: '사파리 아래 주소창 오른쪽의 ⋯ 버튼' },
   safari18: { src: '/install/ios-safari18.png', alt: '사파리 아래 가운데의 공유 버튼' },
   addHome: { src: '/install/ios-addhome.png', alt: "공유 메뉴의 '홈 화면에 추가' 줄" },
+  safari26Share: { src: '/install/ios-safari26-share.png', alt: "⋯ 메뉴의 '공유' 줄" },
+  chromeShare: { src: '/install/ios-chrome-share.png', alt: '크롬 주소창 오른쪽의 공유 버튼' },
   chromeMenu: { src: '/install/android-chrome-menu.png', alt: '크롬 주소창 오른쪽의 ⋮ 버튼' },
   chromeInstall: { src: '/install/android-chrome-install.png', alt: "크롬 메뉴의 '앱 설치' 줄" },
   samsungMenu: { src: '/install/android-samsung-menu.png', alt: '삼성 인터넷 아래 오른쪽의 ≡ 메뉴 버튼' },
@@ -24,24 +26,24 @@ export function installStepsFor(info: BrowserInfo): InstallStep[] | null {
   if (info.inApp) return null;
   // 버전을 모르는 사파리(앱 안 브라우저에서 넘어갈 곳 안내 등) — 두 배치 모두 통하게
   if (info.safari && info.safariMajor === null) return [
-    { icon: 'share', title: '공유 누르기', hint: '안 보이면 주소창 오른쪽 ⋯ 를 먼저 눌러요' },
-    { icon: 'add', title: '홈 화면에 추가', hint: '안 보이면 목록을 위로 올려 주세요', image: PIC.addHome },
+    { icon: 'share', title: '공유 누르기', hint: '안 보이면 주소창 오른쪽 ⋯ 를 먼저 눌러요', image: PIC.safari18 },
+    { icon: 'add', title: "'홈 화면에 추가' 누르기", hint: '안 보이면 목록을 위로 올려 주세요', image: PIC.addHome },
     { icon: 'done', title: '추가 누르기' },
   ];
   if (info.safari && (info.safariMajor ?? 0) >= 26) return [
-    { icon: 'more', title: '주소창 오른쪽 ⋯ 누르기', image: PIC.safari26 },
-    { icon: 'share', title: '공유 누르기' },
-    { icon: 'add', title: '홈 화면에 추가', hint: '안 보이면 목록을 위로 올려 주세요', image: PIC.addHome },
-    { icon: 'done', title: '추가 누르기', hint: '웹 앱으로 열기는 켜 둔 채로' },
+    { icon: 'more', title: '주소창 오른쪽 ⋯ 누르기', hint: '주소창을 위에 뒀다면 위쪽 오른쪽 ⋯', image: PIC.safari26 },
+    { icon: 'share', title: '공유 누르기', image: PIC.safari26Share },
+    { icon: 'add', title: "'홈 화면에 추가' 누르기", hint: '안 보이면 목록을 위로 올려 주세요', image: PIC.addHome },
+    { icon: 'done', title: '추가 누르기', hint: "'웹 앱으로 열기' 스위치는 켠 채 추가" },
   ];
   if (info.safari) return [
     { icon: 'share', title: '아래 가운데 공유 누르기', image: PIC.safari18 },
-    { icon: 'add', title: '홈 화면에 추가', hint: '안 보이면 목록을 위로 올려 주세요', image: PIC.addHome },
+    { icon: 'add', title: "'홈 화면에 추가' 누르기", hint: '안 보이면 목록을 위로 올려 주세요', image: PIC.addHome },
     { icon: 'done', title: '오른쪽 위 추가 누르기' },
   ];
   if (info.chromeIos) return [
-    { icon: 'share', title: '주소창 오른쪽 공유 누르기' },
-    { icon: 'add', title: '홈 화면에 추가', image: PIC.addHome },
+    { icon: 'share', title: '주소창 오른쪽 공유 누르기', image: PIC.chromeShare },
+    { icon: 'add', title: "'홈 화면에 추가' 누르기", image: PIC.addHome },
     { icon: 'done', title: '추가 누르기' },
   ];
   if (info.android && info.samsung) return [

@@ -52,7 +52,7 @@ async function scenario(name, ua, run, { standalone = false, claimed = false, es
 }
 
 // 1. 설치 링크 — 카카오톡(아이폰·안드로이드)은 열리자마자 바깥 브라우저로
-for (const [name, ua, heading] of [['app-kakao-ios', UA.iosKakao, '사파리에서 열고 있어요'], ['app-kakao-android', UA.androidKakao, '크롬 같은 브라우저에서 열고 있어요']]) {
+for (const [name, ua, heading] of [['app-kakao-ios', UA.iosKakao, '사파리에서 이어서 설치해요'], ['app-kakao-android', UA.androidKakao, '브라우저에서 이어서 설치해요']]) {
   await scenario(name, ua, async (page, schemes) => {
     await page.goto(`${BASE}/app`, { waitUntil: 'domcontentloaded' });
     await page.getByRole('heading', { name: heading }).waitFor();
@@ -105,16 +105,16 @@ await scenario('app-standalone', UA.iosSafari26, async (page) => {
   await page.waitForURL(`${BASE}/`);
 }, { standalone: true });
 
-// 5. 초대 링크 — 아이폰 사파리(로그인 전): '앱으로 받고 수락하기'가 먼저, 이 초대를 시작 주소로 하는 manifest
+// 5. 초대 링크 — 아이폰 사파리(로그인 전): '앱 추가하고 수락하기 · 방법 보기'가 먼저, 이 초대를 시작 주소로 하는 manifest
 await scenario('invite-ios-safari', UA.iosSafari26, async (page) => {
   await page.goto(`${BASE}/gig/join?token=${TOKEN}`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: '앱으로 받고 수락하기' }).waitFor();
+  await page.getByRole('button', { name: '앱 추가하고 수락하기 · 방법 보기' }).waitFor();
   await page.getByRole('button', { name: '설치 없이 지금 수락하기' }).waitFor();
   const href = await page.locator('link[rel="manifest"]').getAttribute('href');
   const manifest = await (await page.request.get(`${BASE}${href}`)).json();
   assert.equal(manifest.start_url, `/gig/join?token=${TOKEN}`);
   assert.equal(manifest.id, '/');
-  await page.getByRole('button', { name: '앱으로 받고 수락하기' }).click();
+  await page.getByRole('button', { name: '앱 추가하고 수락하기 · 방법 보기' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByText('이 초대가 바로 열려요', { exact: false }).waitFor();
   assert.equal(await dialog.getByRole('listitem').count(), 4);
@@ -124,13 +124,15 @@ await scenario('invite-ios-safari', UA.iosSafari26, async (page) => {
 await scenario('invite-android-chrome', UA.androidChrome, async (page) => {
   await page.goto(`${BASE}/gig/join?token=${TOKEN}`, { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: '카카오로 가입하고 초대 수락' }).waitFor();
-  assert.equal(await page.getByRole('button', { name: '앱으로 받고 수락하기' }).count(), 0);
+  assert.equal(await page.getByRole('button', { name: '앱 추가하고 수락하기 · 방법 보기' }).count(), 0);
 }, { height: 844 });
 
 // 7. 초대 링크 — 카카오톡: 열리자마자 바깥 브라우저로, 안 열렸을 때 다시 여는 버튼
 await scenario('invite-kakao-ios', UA.iosKakao, async (page, schemes) => {
   await page.goto(`${BASE}/gig/join?token=${TOKEN}`, { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: '사파리·크롬으로 열기' }).waitFor();
+  // 카카오톡 안에서는 큰 버튼이 '사파리로 열고 수락하기'(안드로이드는 크롬) — 노란 안내 상자·밑줄 링크는 없앴다
+  await page.getByRole('button', { name: '사파리로 열고 수락하기' }).waitFor();
+  assert.equal(await page.getByText('사파리·크롬으로 열기').count(), 0);
   assert.equal(schemes.length, 1);
   assert.ok(schemes[0].includes(encodeURIComponent(`${BASE}/gig/join?token=${TOKEN}`)), schemes[0]);
 }, { height: 844 });

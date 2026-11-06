@@ -101,15 +101,18 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
     if (install.installed) return <Done title="✓ 설치했어요" text="홈 화면의 잇닿 관리자 아이콘을 눌러 열어 주세요." />;
     if (install.pending) return <Done title="설치하고 있어요" text="홈 화면에 잇닿 관리자 아이콘이 생기면 눌러 열어 주세요." />;
 
+    const steps = installStepsFor(info);
     if (install.available) return <>
       <p className="text-[1.0625rem] font-extrabold leading-7 text-ink">버튼 한 번이면 설치돼요</p>
       <button type="button" disabled={install.busy} onClick={() => void install.install()} className={`mt-3 ${primaryButton}`}>{install.busy ? '설치 창 여는 중…' : '관리자 앱 설치하기'}</button>
+      {/* 읽던 사람 발밑에서 단계가 사라지지 않게 — 접어서 남긴다 */}
+      {steps && <details className="mt-3 rounded-2xl bg-bg px-3 py-2"><summary className="min-h-11 cursor-pointer list-none text-[0.8125rem] font-bold text-sub [&::-webkit-details-marker]:hidden">메뉴로 직접 설치하기 ▾</summary><InstallSteps steps={steps} className="mt-2" /></details>}
       {install.error && <p role="alert" className="mt-3 text-[0.75rem] font-bold text-warn">{install.error}</p>}
     </>;
 
-    const steps = installStepsFor(info);
     if (info.android) return <>
       <p className="text-[1.0625rem] font-extrabold leading-7 text-ink">버튼 세 번이면 설치돼요</p>
+      {install.dismissed && <p role="status" className="mt-3 rounded-xl bg-bg px-3 py-2 text-[0.8125rem] leading-5 text-sub">설치 창을 닫았어요. 아래 메뉴 순서로도 설치할 수 있어요.</p>}
       {steps && <><InstallSteps steps={steps} className="mt-3" /><InstallGallery steps={steps} className="mt-3" /></>}
       {install.error && <p role="alert" className="mt-3 text-[0.75rem] font-bold text-warn">{install.error}</p>}
       {afterInstall}
@@ -161,6 +164,7 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
             </video>
           </div>
           <p className="mt-1.5 text-center text-[0.75rem] text-tertiary">{content.videoLabel} · 소리를 켜면 더 쉬워요</p>
+          {kind === 'gigworker' && <p className="mt-1 text-center text-[0.75rem] text-tertiary">사장님 화면 영상은 준비 중이에요</p>}
         </section>
 
         <section className="mt-6" aria-labelledby="demo-install-title">
@@ -168,7 +172,7 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
           <div className="mt-3">{panel()}</div>
         </section>
 
-        <a href={`/login?demo=${kind}`} className="mt-6 flex min-h-12 w-full items-center justify-center rounded-xl border border-line text-[0.875rem] font-bold text-primary active:bg-bg">설치 없이 바로 눌러 보기 →</a>
+        <a href={`/login?demo=${kind}`} className="mt-6 flex min-h-12 w-full items-center justify-center rounded-xl border border-line text-[0.875rem] font-bold text-primary active:bg-bg">{info && (standalone || install.installed) ? '바로 눌러 보기 →' : '설치 없이 바로 눌러 보기 →'}</a>
         <p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">공용 시연 계정이에요. 실제 개인정보는 입력하지 마세요.</p>
         <a href={content.intro} className="mb-10 mt-3 flex min-h-11 items-center justify-center text-[0.8125rem] font-bold text-sub">자세한 소개 보기</a>
       </div>

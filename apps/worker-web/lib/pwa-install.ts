@@ -5,18 +5,18 @@ export type InstallPrompt=Event&{prompt:()=>Promise<void>;userChoice:Promise<{ou
 export function installPlatform(userAgent:string,maxTouchPoints=0){return {ios:/iphone|ipad|ipod/i.test(userAgent)||(/Macintosh/i.test(userAgent)&&maxTouchPoints>1),inApp:IN_APP_BROWSER.test(userAgent)};}
 export function createInstallController(){
   let prompt:InstallPrompt|null=null;
-  let state={available:false,busy:false,pending:false,installed:false,error:''};
+  let state={available:false,busy:false,pending:false,installed:false,dismissed:false,error:''};
   const listeners=new Set<()=>void>();
   const update=(patch:Partial<typeof state>)=>{state={...state,...patch};listeners.forEach(listener=>listener());};
   return {
     snapshot:()=>state,
     subscribe:(listener:()=>void)=>{listeners.add(listener);return()=>{listeners.delete(listener);};},
-    offer:(event:InstallPrompt)=>{event.preventDefault();prompt=event;update({available:true,pending:false,error:''});},
+    offer:(event:InstallPrompt)=>{event.preventDefault();prompt=event;update({available:true,pending:false,dismissed:false,error:''});},
     installed:()=>{prompt=null;update({installed:true,pending:false,available:false,busy:false,error:''});},
     async install(){
       if(state.busy||!prompt)return;
       const event=prompt;prompt=null;update({busy:true,available:false,error:''});
-      try{await event.prompt();const {outcome}=await event.userChoice;if(!state.installed)update({pending:outcome==='accepted'});}
+      try{await event.prompt();const {outcome}=await event.userChoice;if(!state.installed)update({pending:outcome==='accepted',dismissed:outcome==='dismissed'});}
       catch{if(!state.installed)update({error:'설치 창을 열지 못했어요. 브라우저 메뉴의 설치 기능을 이용해 주세요.'});}
       finally{update({busy:false});}
     },

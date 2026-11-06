@@ -28,7 +28,7 @@ describe('브라우저 판정', () => {
   });
   it('iOS 18 사파리는 아래 가운데 공유부터 3단계', () => {
     const steps = installStepsFor(detectBrowser(UA.iosSafari18, 5));
-    expect(steps?.map((step) => step.title)).toEqual(['아래 가운데 공유 누르기', '홈 화면에 추가', '오른쪽 위 추가 누르기']);
+    expect(steps?.map((step) => step.title)).toEqual(['아래 가운데 공유 누르기', "'홈 화면에 추가' 누르기", '오른쪽 위 추가 누르기']);
   });
   it('아이패드 데스크톱 UA 도 아이폰·아이패드로 본다', () => {
     expect(detectBrowser(UA.desktopSafari, 5)).toMatchObject({ ios: true, safari: true, safariMajor: 26 });

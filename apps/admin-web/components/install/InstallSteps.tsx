@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+'use client';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { BrowserInfo } from '@/lib/in-app-browser';
 import type { InstallStep, InstallStepIcon } from '@/lib/install-steps';
 
@@ -41,7 +42,7 @@ export function InstallGallery({ steps, className = '' }: { steps: InstallStep[]
   const pictured = steps.map((step, index) => ({ step, index })).filter(({ step }) => step.image);
   if (pictured.length === 0) return null;
   return (
-    <div className={`-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`} aria-label="눌러야 할 자리 그림">
+    <div className={`-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`} role="group" aria-label="눌러야 할 자리 그림">
       {pictured.map(({ step, index }) => (
         <figure key={step.title} className="w-[78%] shrink-0 snap-start overflow-hidden rounded-2xl border border-line bg-white">
           <img src={step.image!.src} alt={step.image!.alt} width={680} height={300} loading="lazy" decoding="async" className="block aspect-[680/300] w-full object-cover" />
@@ -57,7 +58,15 @@ export function InstallGallery({ steps, className = '' }: { steps: InstallStep[]
 
 /** 사파리 아래 막대의 눌러야 할 버튼 쪽을 가리키는 화살표(iOS 26 이상은 오른쪽 ⋯, 그 전은 가운데 공유) */
 export function SafariToolbarPointer({ info }: { info: BrowserInfo }) {
-  if (!info.safari || info.safariMajor === null) return null;
+  // 처음 몇 초만 — 내용 위에 계속 떠 있으면 아래 버튼·안내를 가린다
+  const [show, setShow] = useState(true);
+  useEffect(() => {
+    const hide = () => setShow(false);
+    const timer = window.setTimeout(hide, 6000);
+    window.addEventListener('scroll', hide, { once: true, passive: true });
+    return () => { window.clearTimeout(timer); window.removeEventListener('scroll', hide); };
+  }, []);
+  if (!show || !info.safari || info.safariMajor === null) return null;
   const modern = info.safariMajor >= 26;
   return (
     <div aria-hidden="true" className={`pointer-events-none fixed bottom-[calc(6px+env(safe-area-inset-bottom))] z-40 flex flex-col items-center ${modern ? 'right-4' : 'left-1/2 -translate-x-1/2'}`}>
