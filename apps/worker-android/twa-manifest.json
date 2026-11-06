@@ -1,0 +1,48 @@
+{
+  "packageId": "kr.co.itdot.worker",
+  "host": "itdot.co.kr",
+  "name": "잇닿 근무자",
+  "launcherName": "잇닿",
+  "display": "standalone",
+  "themeColor": "#1B64DA",
+  "themeColorDark": "#000000",
+  "navigationColor": "#FFFFFF",
+  "navigationColorDark": "#000000",
+  "navigationDividerColor": "#E5E8EB",
+  "navigationDividerColorDark": "#000000",
+  "backgroundColor": "#FFFFFF",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://itdot.co.kr/icon-512.png",
+  "maskableIconUrl": "https://itdot.co.kr/icon-512-maskable.png",
+  "splashScreenFadeOutDuration": 300,
+  "shortcuts": [
+    {
+      "name": "근무 찾기",
+      "shortName": "근무 찾기",
+      "url": "https://itdot.co.kr/home",
+      "chosenIconUrl": "https://itdot.co.kr/icon-192.png"
+    },
+    {
+      "name": "초대 근무",
+      "shortName": "초대 근무",
+      "url": "https://itdot.co.kr/gig",
+      "chosenIconUrl": "https://itdot.co.kr/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://itdot.co.kr/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://itdot.co.kr/",
+  "minSdkVersion": 24,
+  "orientation": "portrait",
+  "additionalTrustedOrigins": [],
+  "displayOverride": []
+}

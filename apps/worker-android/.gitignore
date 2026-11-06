@@ -1,0 +1,26 @@
+# Gradle·안드로이드 빌드 결과물과 캐시
+.gradle/
+build/
+app/build/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+captures/
+
+# 빌드해서 나온 앱 파일 (scripts/android/build-aab.sh 결과물 포함)
+dist/
+*.aab
+*.apk
+*.apks
+*.idsig
+
+# 이 컴퓨터에서만 쓰는 설정
+local.properties
+.idea/
+*.iml
+
+# 서명 키 — 절대 커밋하지 않아요 (업로드 키는 저장소 밖 ~/itdot-keys/ 에 둬요)
+*.jks
+*.keystore
+*.p12
+*.pfx
