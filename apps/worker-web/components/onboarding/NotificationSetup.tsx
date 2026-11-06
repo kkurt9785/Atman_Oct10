@@ -3,16 +3,21 @@
 import { useRef, useState } from 'react';
 import { enableShiftPush } from '@/lib/push-subscribe';
 import { Button } from '@/components/ui/Button';
+import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 
 export function NotificationSetup({ onNext }: { onNext: () => void }) {
   const [loading, setLoading] = useState(false);
   const busy = useRef(false);
   const [notice, setNotice] = useState('');
+  // 아이폰 사파리는 홈 화면에 추가한 앱에서만 알림을 받는다 — 막히면 추가하는 방법을 바로 연다
+  const [needsInstall, setNeedsInstall] = useState(false);
+  const [installGuide, setInstallGuide] = useState(false);
 
   async function enable() {
     if (busy.current) return;
     if (!('PushManager' in window)) {
       setNotice('iPhone은 잇닿을 홈 화면에 추가한 뒤 내 정보에서 알림을 켤 수 있어요.');
+      setNeedsInstall(true);
       return;
     }
     busy.current = true;
@@ -53,6 +58,8 @@ export function NotificationSetup({ onNext }: { onNext: () => void }) {
       </section>
 
       {notice && <p role="alert" className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-[13px] font-bold leading-5 text-amber-700">{notice}</p>}
+      {needsInstall && <button type="button" onClick={() => setInstallGuide(true)} className="mt-2 flex min-h-11 w-full items-center justify-center rounded-xl border border-line bg-white text-[14px] font-bold text-primary">홈 화면에 추가하는 방법</button>}
+      {installGuide && <PwaInstallSheet onClose={() => setInstallGuide(false)} note="추가한 잇닿을 열고 카카오로 로그인한 뒤 내 정보에서 알림을 켜 주세요." />}
       <div className="mt-auto space-y-2">
         <Button onClick={enable} disabled={loading}>{loading ? '알림 설정 중...' : '새 근무 알림 받기'}</Button>
         <button type="button" onClick={onNext} disabled={loading} className="h-12 w-full text-[14px] font-semibold text-sub disabled:opacity-50">나중에 설정할게요</button>

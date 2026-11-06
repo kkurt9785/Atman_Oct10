@@ -34,8 +34,11 @@ function LoginInner() {
   const error = searchParams.get('error');
   const withdrawn = searchParams.get('withdrawn') === '1';
   const installRequested = searchParams.get('install') === '1';
-  // Installation is optional. External-browser handoff happens only after the
-  // user chooses it in AdminInstallButton, never automatically on link arrival.
+  // 설치 링크(?install=1)를 카카오톡에서 열면 바로 바깥 브라우저로 넘긴다 — 카카오톡 안에서는 설치도 카카오 로그인도 안 된다.
+  // 일반 로그인 링크는 그대로 두고 설치 링크만(2026-11-06 사용자 결정: 카톡으로 받은 설치는 가장 적게 눌러서).
+  useEffect(() => {
+    if (installRequested && isKakaoInApp()) openInExternalBrowser();
+  }, [installRequested]);
 
   // 공개 시연 여부는 환경변수로만 제어한다.
   const showDemoLogin = process.env.NEXT_PUBLIC_ENABLE_DEMO_LOGIN === '1';

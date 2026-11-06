@@ -13,7 +13,9 @@ import { DemoEndSheet } from '@/components/DemoSignup';
 import { LINKED_NOTICE_KEY } from '@/components/invite/LinkedNotice';
 import { LINKED_INSTALL_KEY } from '@/lib/linked-install';
 import { startKakaoLogin } from '@/lib/kakao-login';
-import { clearInviteAutoclaim, hasInviteAutoclaim, rememberInviteAutoclaim } from '@/lib/invite-autoclaim';
+import { clearInviteAutoclaim, hasInviteAutoclaim, isClaimedInvite, rememberClaimedInvite, rememberInviteAutoclaim } from '@/lib/invite-autoclaim';
+import { detectBrowser, isStandaloneApp, openInExternalBrowser, openKakaoExternallyOnce } from '@/lib/in-app-browser';
+import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 
 // 근무 초대 수락 화면. 긱워커(/gig/join)와 사업장 직원(/workplace/join) 두 라우트가 같은 흐름
 // (미리보기 → 카카오 가입 → claim)을 쓰되, 초대가 어느 제품 것인지는 서버(isGigworker)가 정한다.
@@ -89,11 +91,21 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
   // 긱 초대: 수락하면 등록된 지급 계좌가 이 근무지에 전달된다 — 시작할 때 이미 전달돼 있어야 워커가 안심한다
   const [bankLabel, setBankLabel] = useState<string | null>(null);
   const [inKakaoTalk, setInKakaoTalk] = useState(false);
-  useEffect(() => { setInKakaoTalk(navigator.userAgent.includes('KAKAO')); }, []);
+  // 아이폰 사파리·크롬에서 연 초대 — 홈 화면 앱은 사파리 로그인을 넘겨받지 못해서, 앱을 먼저 추가하고 앱 안에서 한 번만 로그인하게 권한다
+  const [iosBrowser, setIosBrowser] = useState(false);
+  const [installGuide, setInstallGuide] = useState(false);
+  useEffect(() => {
+    const kakao = navigator.userAgent.includes('KAKAO');
+    setInKakaoTalk(kakao);
+    const browser = detectBrowser(navigator.userAgent, navigator.maxTouchPoints);
+    setIosBrowser((browser.safari || browser.chromeIos) && !isStandaloneApp());
+    // 카카오톡 안에서는 로그인도 홈 화면 추가도 안 된다 — 열리자마자 사파리·크롬으로 넘긴다(돌아와서 다시 그려지면 아래 버튼으로)
+    if (kakao) openKakaoExternallyOnce();
+  }, []);
   const [retry,setRetry]=useState(0);
   const [canRetry,setCanRetry]=useState(false);
   const claiming=useRef(false);
-  // 긱 초대 자동 수락은 화면당 한 번만 (StrictMode 이중 실행·다시 불러오기에도)
+  // 초대 자동 수락은 화면당 한 번만 (StrictMode 이중 실행·다시 불러오기에도)
   const autoClaimTried=useRef(false);
 
   useEffect(() => {
@@ -106,6 +118,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
         setMessage(`초대 링크가 올바르지 않아요. ${isGig ? '사장님께' : '관리자에게'} 새 링크를 요청해 주세요.`);
         return;
       }
+      // 이 기기에서 이미 수락한 초대 — 초대 화면에서 추가한 홈 화면 앱은 열 때마다 여기서 시작한다. 바로 내 근무로
+      if (isClaimedInvite(token)) { window.location.replace(ROUTES[variant].home); return; }
 
       const [{ data: previewData, error: previewError }, { data: { user },error:authError }] = await Promise.all([
         supabase.rpc('get_facility_staff_invite_preview', { p_token: token }),
@@ -117,7 +131,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       if(previewError)throw previewError;
       if(authError&&authError.name!=='AuthSessionMissingError')throw authError;
       if (!invite?.ok) {
-        if (isGig) clearInviteAutoclaim();
+        clearInviteAutoclaim();
         setDemoOnly(invite?.reason === 'DEMO_ONLY');
         setStatus('error');
         setMessage(invite?.message ?? '초대 정보를 불러오지 못했어요. 사장님께 새 링크를 요청해 주세요.');
@@ -158,8 +172,8 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     if (!token) return;
     rememberWorkerShell(variant);
     window.localStorage.setItem('atman_auth_next', `${routes.join}?token=${encodeURIComponent(token)}`);
-    // 긱 초대: 이미 '수락'을 눌렀으니 가입을 마치고 이 화면으로 돌아오면 같은 초대를 자동으로 수락한다
-    if (isGig) rememberInviteAutoclaim(token);
+    // 이미 '수락'을 눌렀으니 가입을 마치고 이 화면으로 돌아오면 같은 초대를 자동으로 수락한다(초대 근무·사업장 직원 초대 공통)
+    rememberInviteAutoclaim(token);
     // 초대 화면에서 이미 카카오 계속하기를 눌렀으므로 온보딩 스플래시에서 같은 버튼을 다시 묻지 않는다.
     if (!signedIn) { startKakaoLogin(); return; }
     window.location.href = '/onboarding?step=terms';
@@ -194,6 +208,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       await supabase.rpc('snapshot_my_gig_terms', { p_staff_id: staffId }).then(() => undefined, () => undefined);
     }
     rememberWorkerShell(variant);
+    rememberClaimedInvite(token);
     window.dispatchEvent(new Event('atman:workplace-linked'));
     // 완료 화면을 거치지 않고 바로 근무 화면(출근하기)으로 — 연결 안내는 거기서 한 번 보여 준다
     try {
@@ -207,17 +222,17 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     finally {claiming.current=false;}
   }
 
-  // 긱 초대에서 '가입하고 초대 수락'을 누른 뒤 가입·로그인을 마치고 돌아오면 버튼을 또 누르지 않아도 그 초대를 수락한다.
+  // '가입하고 초대 수락'을 누른 뒤 가입·로그인을 마치고 돌아오면 버튼을 또 누르지 않아도 그 초대를 수락한다.
   // 표시는 그 토큰에만 남고(다른 초대·만료 표시는 hasInviteAutoclaim 이 지운다), 시도 전에 지워 성공·실패와 무관하게 한 번만 돈다.
   useEffect(() => {
-    if (!isGig || !token || status !== 'preview' || autoClaimTried.current) return;
+    if (!token || status !== 'preview' || autoClaimTried.current) return;
     if (!hasInviteAutoclaim(token)) return;
     if (!signedIn || !hasWorker) return; // 아직 가입 전 — 버튼을 다시 누르면 표시가 새로 남는다
     autoClaimTried.current = true;
     clearInviteAutoclaim();
     void claimInvite(true);
     // claimInvite 는 이 렌더의 preview·bankLabel 을 쓴다 — 미리보기를 다 받은 뒤(status=preview)에만 부른다
-  }, [isGig, token, status, signedIn, hasWorker]);
+  }, [token, status, signedIn, hasWorker]);
 
   // 초대 화면에서 나가기 — 시연 계정이면 로그아웃 대신 '시연을 끝낼까요?'(가입으로 잇기), 아니면 처음 화면(로그인돼 있으면 내 홈)으로
   async function leaveInvite() {
@@ -256,12 +271,19 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       </div>}
 
       {status === 'preview' && preview && <>
-        <button type="button" onClick={() => void claimInvite()} className="mt-5 [@media(max-height:700px)]:mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
-          {!signedIn ? '카카오로 가입하고 초대 수락' : !hasWorker ? '인적사항 등록하고 초대 수락' : '초대 수락하고 연결'}
-        </button>
-        <p className="mt-2 text-center text-[11px] leading-5 text-sub">앱 설치 없이 바로 수락돼요 · 전화번호 없이 카카오 로그인으로만 연결</p>
-        {/* 카카오톡 안 브라우저는 카카오 로그인을 막아 사파리·크롬으로 다시 연다 — 같은 화면이 또 나와도 당황하지 않게 미리 알린다 */}
-        {!signedIn && inKakaoTalk && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-[11px] leading-5 text-amber-800">카카오톡 안에서는 로그인이 안 돼서 다른 브라우저(사파리·크롬)로 이 화면이 다시 열려요. 열린 화면에서 노란 버튼을 한 번 더 눌러 주세요.</p>}
+        {/* 아이폰 로그인 전: 앱을 먼저 추가하면 앱이 이 초대에서 열려 로그인 한 번으로 수락까지 끝난다(사파리에서 수락하고 나중에 추가하면 로그인을 두 번 한다) */}
+        {iosBrowser && !signedIn ? <>
+          <button type="button" onClick={() => setInstallGuide(true)} className="mt-5 [@media(max-height:700px)]:mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">앱으로 받고 수락하기</button>
+          <p className="mt-2 text-center text-[11px] leading-5 text-sub">홈 화면에 추가한 잇닿에서 카카오로 한 번만 로그인하면 수락까지 끝나요 · 새 근무 알림도 받아요</p>
+          <button type="button" onClick={() => void claimInvite()} className="flex min-h-11 w-full items-center justify-center text-[13px] font-bold text-sub">설치 없이 지금 수락하기</button>
+        </> : <>
+          <button type="button" onClick={() => void claimInvite()} className="mt-5 [@media(max-height:700px)]:mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
+            {!signedIn ? '카카오로 가입하고 초대 수락' : !hasWorker ? '인적사항 등록하고 초대 수락' : '초대 수락하고 연결'}
+          </button>
+          <p className="mt-2 text-center text-[11px] leading-5 text-sub">앱 설치 없이 바로 수락돼요 · 전화번호 없이 카카오 로그인으로만 연결</p>
+        </>}
+        {/* 카카오톡 안 브라우저는 로그인을 막아 열리자마자 사파리·크롬으로 넘겼다 — 안 열렸을 때 다시 여는 버튼 */}
+        {!signedIn && inKakaoTalk && <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-center text-[11px] leading-5 text-amber-800">카카오톡 안에서는 로그인이 안 돼서 사파리·크롬으로 이 화면을 열었어요. 안 열렸다면 <button type="button" onClick={() => openInExternalBrowser()} className="min-h-6 font-extrabold underline">사파리·크롬으로 열기</button></p>}
         {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
         {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex h-10 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 시연 먼저 보기 →</Link>}
       </>}
@@ -272,5 +294,6 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'error' && !demoBlocked && !demoOnly && (canRetry ? <div className="mt-5 space-y-2"><button type="button" onClick={()=>setRetry(value=>value+1)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">초대 다시 불러오기</button><Link href={routes.home} className="flex min-h-11 items-center justify-center font-bold text-primary">내 근무에서 연결 결과 확인</Link></div> : <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 아래에서 내 근무를 열어 주세요. 링크가 만료됐다면 {isGig ? '사장님께' : '근무지 관리자에게'} 새 초대 링크나 QR을 요청해 주세요.</p><Link href={routes.home} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">내 근무 열기</Link></div>)}
     </section>
     {demoEnd && <DemoEndSheet kind={demoEnd} intent="leave" onClose={() => setDemoEnd(null)} />}
+    {installGuide && <PwaInstallSheet onClose={() => setInstallGuide(false)} note="추가한 잇닿 아이콘을 누르면 이 초대가 바로 열려요. 카카오로 한 번만 로그인하면 수락까지 끝나요." />}
   </main>;
 }

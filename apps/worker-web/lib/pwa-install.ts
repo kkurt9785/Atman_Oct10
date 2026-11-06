@@ -1,7 +1,8 @@
 'use client';
 import {useEffect,useState} from 'react';
+import {IN_APP_BROWSER} from './in-app-browser';
 export type InstallPrompt=Event&{prompt:()=>Promise<void>;userChoice:Promise<{outcome:'accepted'|'dismissed'}>};
-export function installPlatform(userAgent:string,maxTouchPoints=0){return {ios:/iphone|ipad|ipod/i.test(userAgent)||(/Macintosh/i.test(userAgent)&&maxTouchPoints>1),inApp:/KAKAOTALK|Instagram|FBAN|FBAV|NAVER\(inapp|; wv\)/i.test(userAgent)};}
+export function installPlatform(userAgent:string,maxTouchPoints=0){return {ios:/iphone|ipad|ipod/i.test(userAgent)||(/Macintosh/i.test(userAgent)&&maxTouchPoints>1),inApp:IN_APP_BROWSER.test(userAgent)};}
 export function createInstallController(){
   let prompt:InstallPrompt|null=null;
   let state={available:false,busy:false,pending:false,installed:false,error:''};

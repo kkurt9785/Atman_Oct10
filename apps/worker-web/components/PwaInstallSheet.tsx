@@ -1,9 +1,17 @@
 'use client';
 import {useEffect,useId,useRef,useState} from 'react';
 import {installPlatform} from '@/lib/pwa-install';
-export function PwaInstallSheet({onClose,ios:iosOverride,inApp:inAppOverride}:{onClose:()=>void;ios?:boolean;inApp?:boolean}){
-  const device=typeof navigator==='undefined'?{ios:false,inApp:false}:installPlatform(navigator.userAgent,navigator.maxTouchPoints);
+import {detectBrowser,openInExternalBrowser} from '@/lib/in-app-browser';
+import {InstallSteps,installStepsFor} from '@/components/install/InstallSteps';
+// 홈 화면에 추가하는 방법 — 그 브라우저의 실제 버튼을 순서대로 보여 준다(components/install/InstallSteps).
+// 카카오톡 안에서는 설치 메뉴가 없어 사파리·크롬으로 넘기는 버튼을, 다른 앱 안 브라우저는 주소 복사를 먼저 보여 준다.
+export function PwaInstallSheet({onClose,ios:iosOverride,inApp:inAppOverride,note}:{onClose:()=>void;ios?:boolean;inApp?:boolean;note?:string}){
+  const userAgent=typeof navigator==='undefined'?'':navigator.userAgent,touch=typeof navigator==='undefined'?0:navigator.maxTouchPoints;
+  const device=installPlatform(userAgent,touch),browser=detectBrowser(userAgent,touch);
   const ios=iosOverride??device.ios,inApp=inAppOverride??device.inApp;
+  // 알 수 없는 브라우저는 그 기기의 기본 브라우저(아이폰 사파리·안드로이드 크롬) 순서로 안내한다.
+  // 앱 안 브라우저면 바깥(아이폰 사파리·안드로이드 크롬)에서 이어서 할 순서를 보여 준다
+  const steps=installStepsFor(browser)??installStepsFor({...browser,inApp:false,ios,android:!ios,safari:ios,chromeIos:false,samsung:false,safariMajor:null});
   const ref=useRef<HTMLElement>(null),title=useId(),[copyMessage,setCopyMessage]=useState('');
   useEffect(()=>{
     const previous=document.activeElement as HTMLElement|null;ref.current?.focus();
@@ -21,11 +29,11 @@ export function PwaInstallSheet({onClose,ios:iosOverride,inApp:inAppOverride}:{o
   return <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50" onClick={onClose}>
     <section ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={title} onClick={event=>event.stopPropagation()} className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-6 pb-[calc(24px+env(safe-area-inset-bottom))] text-ink">
       <h2 id={title} className="text-xl font-extrabold">{ios?'iPhone·iPad에 잇닿 추가':'홈 화면에 잇닿 추가'}</h2>
-      <p className="mt-2 text-sm leading-6 text-sub">설치하지 않아도 그대로 쓸 수 있어요. 자주 쓰려면 홈 화면에 추가해 주세요.</p>
-      {inApp&&<div className="mt-4 rounded-xl bg-primary/5 p-3 text-sm leading-6"><p>현재 앱 안의 브라우저에서는 설치 메뉴가 보이지 않을 수 있어요. 메뉴에서 <b>외부 브라우저로 열기</b>를 찾거나 주소를 복사해 {ios?'Safari':'Chrome 등 설치를 지원하는 브라우저'}에서 열어 주세요.</p><button type="button" onClick={()=>void copy()} className="mt-2 min-h-11 font-bold text-primary">현재 주소 복사</button>{copyMessage&&<p role="status">{copyMessage}</p>}</div>}
-      <ol className="my-5 list-decimal space-y-3 pl-5 text-sm leading-6">
-        {ios?<><li>Safari에서 <b>공유(↑)</b>를 누르세요. 보이지 않으면 <b>더 보기(…)</b> 또는 페이지 메뉴에서 공유를 찾으세요.</li><li><b>홈 화면에 추가</b>를 선택하세요.</li><li><b>웹 앱으로 열기</b>가 보이면 켠 뒤 <b>추가</b>를 누르세요.</li></>:<><li>Chrome 등 지원 브라우저에서 주소창의 설치 아이콘이나 메뉴를 여세요.</li><li><b>앱 설치</b> 또는 <b>홈 화면에 추가</b>를 선택하세요. 메뉴 이름은 브라우저마다 달라요.</li><li>브라우저 안내를 완료하고 추가된 잇닿 아이콘으로 열어 주세요.</li></>}
-      </ol>
+      <p className="mt-2 text-sm leading-6 text-sub">{note??'설치하지 않아도 그대로 쓸 수 있어요. 자주 쓰려면 홈 화면에 추가해 주세요.'}</p>
+      {inApp&&(browser.kakao
+        ?<div className="mt-4 rounded-xl bg-primary/5 p-3 text-sm leading-6"><p>카카오톡 안에서는 설치 메뉴가 없어요. {ios?'사파리':'크롬 같은 브라우저'}로 열어서 이어서 추가해 주세요.</p><button type="button" onClick={()=>openInExternalBrowser()} className="mt-2 min-h-11 w-full rounded-xl bg-primary font-bold text-white">{ios?'사파리로 열기':'브라우저로 열기'}</button></div>
+        :<div className="mt-4 rounded-xl bg-primary/5 p-3 text-sm leading-6"><p>현재 앱 안의 브라우저에서는 설치 메뉴가 보이지 않을 수 있어요. 메뉴에서 <b>외부 브라우저로 열기</b>를 찾거나 주소를 복사해 {ios?'Safari':'Chrome 등 설치를 지원하는 브라우저'}에서 열어 주세요.</p><button type="button" onClick={()=>void copy()} className="mt-2 min-h-11 font-bold text-primary">현재 주소 복사</button>{copyMessage&&<p role="status">{copyMessage}</p>}</div>)}
+      {steps&&<InstallSteps steps={steps} className="my-5"/>}
       <p className="mb-4 text-xs leading-5 text-sub">메뉴가 없으면 지원 브라우저에서 다시 시도해 주세요. 설치만으로 알림이 켜지지는 않아요. 앱에서 알림을 별도로 허용해야 해요.</p>
       <button type="button" onClick={onClose} className="min-h-12 w-full rounded-xl bg-primary font-bold text-white">확인했어요</button>
     </section>

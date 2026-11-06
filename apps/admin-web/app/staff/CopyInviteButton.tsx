@@ -7,7 +7,8 @@ export function CopyInviteButton({url,primary=false}:{url:string;primary?:boolea
   const [copied,setCopied]=useState(false);
   const [qrOpen,setQrOpen]=useState(false);
   // PC 카카오톡처럼 공유 시트가 없는 곳에선 링크만 붙으면 받는 사람이 무슨 링크인지 몰라서, 안내 문구와 링크를 함께 복사한다
-  const message='[잇닿] 근무 초대가 왔어요. 앱 설치 없이 링크에서 근무 조건을 확인하고, 카카오 로그인 후 직접 수락해 주세요.';
+  // 같은 링크에서 수락과 잇닿 근무자 앱 설치까지 된다(카카오톡에서 열면 사파리·크롬으로 바로 넘어간다)
+  const message='[잇닿] 근무 초대가 왔어요. 링크를 눌러 근무 조건을 확인하고 수락해 주세요. 잇닿 근무자 앱도 같은 링크에서 바로 설치할 수 있어요.';
   async function share(){
     if(navigator.share){
       try{
