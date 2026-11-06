@@ -54,7 +54,7 @@ try {
   await dialog.getByText('→ 아래에 채웠어요',{exact:false}).waitFor();
   assert.equal(await dialog.getByLabel('사용처·내용').inputValue(),'스타벅스 역삼점');
   assert.equal(await dialog.getByLabel('금액 (원)',{exact:true}).inputValue(),'15900');
-  assert.equal(await dialog.locator('input[name=category]').inputValue(),'식비');
+  assert.equal(await dialog.locator('input[name=category]').inputValue(),'카페'); // 스타벅스 → 카페 since the ☕ category (11/4)
   await dialog.getByRole('button',{name:'닫기',exact:true}).click();
   // Home week strip → day view of that date → back home. Holiday names show in the month grid.
   const todayStr = new Date().toLocaleDateString('sv-SE');
@@ -246,7 +246,14 @@ try {
   await openReportDetail();
   await page.getByText('수입 · 남는 돈',{exact:true}).waitFor();
   await page.getByText('예산 2,000,000원 중',{exact:false}).waitFor();
-  await page.getByRole('group',{name:'가계부 보기'}).getByRole('button',{name:'피드'}).click();
+  // Month card bars: one tap on a category opens the feed filtered to it; the feed itself folds days older than the newest three.
+  await page.getByRole('list',{name:'분류별 지출'}).getByRole('button').first().click();
+  await page.getByText(/만 보는 중/).waitFor();
+  await page.getByRole('button',{name:'전체 보기'}).click();
+  assert.ok(await page.locator('.day-head.closed').count()>=1,'older days fold to one line');
+  await page.getByRole('button',{name:/모두 펼치기/}).click();
+  assert.equal(await page.locator('.day-head.closed').count(),0);
+  await page.getByRole('button',{name:/최근 3일만/}).click();
   // Learned rule: saving '스타벅스 강남' as 교통 teaches the family; the next '스타벅스 …' pre-selects 교통.
   await page.getByRole('button',{name:'지출 기록',exact:true}).click();
   await dialog.getByLabel('금액 (원)',{exact:true}).fill('4500');

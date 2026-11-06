@@ -1,10 +1,22 @@
 'use client';
 import { cardLines, monthLabel, weekLine, won, type Digest, type MonthCard } from '../lib/monthcard';
-import { shiftMonth } from '../lib/finance';
+import { categoryIcon, shiftMonth } from '../lib/finance';
 import { money } from '../lib/model';
 
-// Full card for the money tab's 리포트 view: three big numbers, then sentences. The old tables live under '자세히' below it.
-export function MonthCardView({ card, month, setMonth, onEditBudget }: { card: MonthCard; month: string; setMonth: (m: string) => void; onEditBudget: () => void }) {
+// Category bars under the big numbers: icon · name · bar · amount, every category the month touched (기타 reads as '분류 안 됨').
+// Tapping a bar opens the feed filtered to that category, so an unfiled row is one tap from its '분류 넣기' chip.
+export function CategoryBars({ rows, onPick }: { rows: MonthCard['byCategory']; onPick?: (name: string) => void }) {
+  if (!rows.length) return null;
+  const max = Math.max(1, ...rows.map(r => Math.abs(r.amount)));
+  return <ul className="cat-bars" aria-label="분류별 지출">{rows.map(c => {
+    const other = c.name === '기타';
+    const body = <><span className="cat-ico" aria-hidden="true">{categoryIcon[c.name] ?? '•'}</span><span className="cat-name">{other ? '분류 안 됨' : c.name}</span><span className="bar"><i className={other ? 'other' : undefined} style={{ width: `${Math.max(2, Math.round(Math.abs(c.amount) / max * 100))}%` }}/></span><b>{won(c.amount)}</b><small>{Math.round(c.share * 100)}% · {c.count}건{other && onPick ? ' · 눌러서 분류 넣기' : ''}</small></>;
+    return <li key={c.name}>{onPick ? <button type="button" className="cat-row" onClick={() => onPick(c.name)}>{body}</button> : <div className="cat-row">{body}</div>}</li>;
+  })}</ul>;
+}
+
+// Full card for the money tab's 리포트 view: three big numbers, the category bars, then sentences. The old tables live under '자세히' below it.
+export function MonthCardView({ card, month, setMonth, onEditBudget, onPickCategory }: { card: MonthCard; month: string; setMonth: (m: string) => void; onEditBudget: () => void; onPickCategory?: (name: string) => void }) {
   // The first line, the per-person split and the budget already sit in the big numbers above; don't say them twice.
   const lines = cardLines(card).slice(1).filter(l => !l.startsWith('예산 ') && l !== card.byMember.map(m => `${m.name} ${won(m.amount)}`).join(' · '));
   return <section className="panel month-card" aria-label={`${monthLabel(month)} 우리 가족`}>
@@ -14,6 +26,7 @@ export function MonthCardView({ card, month, setMonth, onEditBudget }: { card: M
       <div><span>누가</span><strong>{card.byMember.length ? card.byMember.map(m => `${m.name} ${won(m.amount)}`).join(' · ') : '-'}</strong></div>
       <button type="button" onClick={onEditBudget}><span>예산</span><strong>{card.budgetTotal > 0 ? (card.budgetRemaining >= 0 ? `${won(card.budgetRemaining)} 남음` : `${won(-card.budgetRemaining)} 초과`) : '정하기 →'}</strong></button>
     </div>
+    <CategoryBars rows={card.byCategory} onPick={onPickCategory}/>
     <ul className="card-lines">{lines.map(l => <li key={l}>{l}</li>)}</ul>
     {card.total === 0 && <p className="muted">아직 기록이 없어요. 결제가 쌓이면 문장이 늘어나요.</p>}
   </section>;

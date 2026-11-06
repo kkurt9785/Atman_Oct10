@@ -21,6 +21,8 @@ describe('month card', () => {
     expect(c.byMember).toEqual([{ name: '엄마', amount: 188000 }, { name: '아빠', amount: 19900 }]);
     expect(c.budgetRemaining).toBe(1000000 - c.total);
     expect(c.closed).toBe(false);
+    // Bars list every category, 기타 included, largest first; a row filed from the feed moves between them.
+    expect(c.byCategory.map(x => [x.name, x.amount, x.count])).toEqual([['관리비', 180000, 1], ['기타', 27900, 4]]);
   });
   it('finds first visits against earlier months and the child line from merchant words or the note', () => {
     // 롯데쇼핑(주)롯데마트 keys as 롯데쇼핑, which October's 롯데마트 never produced — so it counts as new; keyword matching is deliberately literal.

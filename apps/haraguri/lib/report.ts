@@ -4,7 +4,7 @@ import { isFixed, shiftMonth } from './finance';
 // Monthly ledger report, computed on the client from the family's expenses.
 export type Report = {
   month: string; total: number; previous: number; change: number | null; days: number; perDay: number;
-  byCategory: { name: string; amount: number; share: number; previous: number }[];
+  byCategory: { name: string; amount: number; count: number; share: number; previous: number }[];
   byMethod: { name: string; amount: number }[];
   byMember: { user_id: string; name: string; amount: number }[];
   topMerchants: { title: string; amount: number; count: number }[];
@@ -25,7 +25,9 @@ export function monthlyReport(expenses: Expense[], members: Member[], month: str
     return map;
   };
   const cats = group(rows, e => e.category), prevCats = group(prevRows, e => e.category);
-  const byCategory = [...cats.entries()].map(([name, amount]) => ({ name, amount, share: total > 0 ? amount / total : 0, previous: prevCats.get(name) ?? 0 })).sort((a, b) => b.amount - a.amount);
+  const counts = new Map<string, number>();
+  for (const e of rows) counts.set(e.category, (counts.get(e.category) ?? 0) + 1);
+  const byCategory = [...cats.entries()].map(([name, amount]) => ({ name, amount, count: counts.get(name) ?? 0, share: total > 0 ? amount / total : 0, previous: prevCats.get(name) ?? 0 })).sort((a, b) => b.amount - a.amount);
   // Older rows without a method: a card id means a card payment.
   const byMethod = [...group(rows, e => e.payment_method ?? (e.card_id ? 'card' : 'other')).entries()].map(([k, amount]) => ({ name: methodLabel[k] ?? k, amount })).sort((a, b) => b.amount - a.amount);
   const byMember = [...group(rows, e => e.created_by).entries()].map(([user_id, amount]) => ({ user_id, name: members.find(m => m.user_id === user_id)?.display_name ?? '가족', amount })).sort((a, b) => b.amount - a.amount);

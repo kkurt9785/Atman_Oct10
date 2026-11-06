@@ -9,6 +9,7 @@ export type MonthCard = {
   month: string; total: number; previous: number; change: number | null; perDay: number; days: number; closed: boolean;
   budgetTotal: number; budgetRemaining: number;
   byMember: { name: string; amount: number }[];
+  byCategory: { name: string; amount: number; count: number; share: number }[];
   topMerchants: { title: string; count: number; amount: number }[];
   firstVisits: { title: string; amount: number }[];
   biggest: { title: string; amount: number; date: string } | null;
@@ -43,6 +44,8 @@ export function monthCard(expenses: Expense[], members: Member[], budgets: Budge
     month, total: r.total, previous: r.previous, change: r.change, perDay: r.perDay, days: r.days, closed: month < today.slice(0, 7),
     budgetTotal: b.total, budgetRemaining: b.remaining,
     byMember: r.byMember.map(m => ({ name: m.name, amount: m.amount })),
+    // Every category the month touched, 기타 included — a row the family files from the feed moves here at once.
+    byCategory: r.byCategory.map(c => ({ name: c.name, amount: c.amount, count: c.count, share: c.share })),
     topMerchants: r.topMerchants.slice(0, 3),
     firstVisits: [...first.values()].sort((a, b) => b.amount - a.amount).slice(0, 3),
     biggest: biggestRow ? { title: biggestRow.title, amount: Number(biggestRow.amount), date: biggestRow.date } : null,

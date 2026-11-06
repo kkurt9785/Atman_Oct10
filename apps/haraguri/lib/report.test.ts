@@ -18,7 +18,7 @@ describe('monthly ledger report', () => {
     expect(r.refunds).toBe(-20000); expect(r.count).toBe(5);
   });
   it('breaks down by category with share and last-month figure', () => {
-    expect(r.byCategory[0]).toMatchObject({ name: '식비', amount: 130000, previous: 200000 });
+    expect(r.byCategory[0]).toMatchObject({ name: '식비', amount: 130000, count: 3, previous: 200000 });
     expect(r.byCategory[0].share).toBeCloseTo(130000 / 209000, 5);
     expect(r.byCategory.find(c => c.name === '교통')).toMatchObject({ amount: 70000, previous: 0 });
   });
