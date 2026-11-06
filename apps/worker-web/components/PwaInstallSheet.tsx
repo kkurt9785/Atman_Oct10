@@ -2,7 +2,7 @@
 import {useEffect,useId,useRef,useState} from 'react';
 import {installPlatform} from '@/lib/pwa-install';
 import {detectBrowser,openInExternalBrowser} from '@/lib/in-app-browser';
-import {InstallSteps,installStepsFor} from '@/components/install/InstallSteps';
+import {InstallGallery,InstallSteps,installStepsFor} from '@/components/install/InstallSteps';
 // 홈 화면에 추가하는 방법 — 그 브라우저의 실제 버튼을 순서대로 보여 준다(components/install/InstallSteps).
 // 카카오톡 안에서는 설치 메뉴가 없어 사파리·크롬으로 넘기는 버튼을, 다른 앱 안 브라우저는 주소 복사를 먼저 보여 준다.
 export function PwaInstallSheet({onClose,ios:iosOverride,inApp:inAppOverride,note}:{onClose:()=>void;ios?:boolean;inApp?:boolean;note?:string}){
@@ -33,7 +33,7 @@ export function PwaInstallSheet({onClose,ios:iosOverride,inApp:inAppOverride,not
       {inApp&&(browser.kakao
         ?<div className="mt-4 rounded-xl bg-primary/5 p-3 text-sm leading-6"><p>카카오톡 안에서는 설치 메뉴가 없어요. {ios?'사파리':'크롬 같은 브라우저'}로 열어서 이어서 추가해 주세요.</p><button type="button" onClick={()=>openInExternalBrowser()} className="mt-2 min-h-11 w-full rounded-xl bg-primary font-bold text-white">{ios?'사파리로 열기':'브라우저로 열기'}</button></div>
         :<div className="mt-4 rounded-xl bg-primary/5 p-3 text-sm leading-6"><p>현재 앱 안의 브라우저에서는 설치 메뉴가 보이지 않을 수 있어요. 메뉴에서 <b>외부 브라우저로 열기</b>를 찾거나 주소를 복사해 {ios?'Safari':'Chrome 등 설치를 지원하는 브라우저'}에서 열어 주세요.</p><button type="button" onClick={()=>void copy()} className="mt-2 min-h-11 font-bold text-primary">현재 주소 복사</button>{copyMessage&&<p role="status">{copyMessage}</p>}</div>)}
-      {steps&&<InstallSteps steps={steps} className="my-5"/>}
+      {steps&&<><InstallGallery steps={steps} className="mt-4"/><InstallSteps steps={steps} className="my-4"/></>}
       <p className="mb-4 text-xs leading-5 text-sub">메뉴가 없으면 지원 브라우저에서 다시 시도해 주세요. 설치만으로 알림이 켜지지는 않아요. 앱에서 알림을 별도로 허용해야 해요.</p>
       <button type="button" onClick={onClose} className="min-h-12 w-full rounded-xl bg-primary font-bold text-white">확인했어요</button>
     </section>

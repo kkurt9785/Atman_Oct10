@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { usePwaInstall } from '@/lib/pwa-install';
 import { detectBrowser, isStandaloneApp, openInExternalBrowser, openKakaoExternallyOnce, type BrowserInfo } from '@/lib/in-app-browser';
 import { ANDROID_APP, PLAY_STORE_URL } from '@/lib/android-app';
-import { InstallSteps, SafariToolbarPointer, installStepsFor } from './InstallSteps';
+import { InstallGallery, InstallSteps, SafariToolbarPointer, installStepsFor } from './InstallSteps';
 
 // 설치 전용 링크(itdot.co.kr/app). 카톡으로 받은 사람이 가장 적게 눌러 홈 화면에 잇닿을 두게 한다.
 //  · 카카오톡 안: 열리자마자 사파리·크롬으로 넘긴다 — 카카오톡 안에서는 설치가 안 된다
@@ -91,7 +91,8 @@ export function AppInstallLanding() {
       return <>
         <h2 className="text-[20px] font-extrabold leading-7 text-ink">홈 화면에 추가하면 앱처럼 써요</h2>
         <p className="mt-1 text-[14px] leading-6 text-sub">{info.chromeIos ? '크롬' : '사파리'} 버튼을 순서대로 눌러 주세요.</p>
-        <InstallSteps steps={steps} className="mt-4" />
+        <InstallGallery steps={steps} className="mt-3" />
+        <InstallSteps steps={steps} className="mt-3" />
         <p className="mt-3 rounded-2xl bg-primary-light px-3 py-2.5 text-[13px] leading-5 text-ink">추가한 <b>잇닿</b> 아이콘을 누르고 카카오로 한 번 로그인하면 끝이에요. 새 근무 알림도 앱에서 켜져요.</p>
       </>;
     }
@@ -114,7 +115,7 @@ export function AppInstallLanding() {
           </div>
         </header>
         <section className="mt-6">{panel()}</section>
-        <Link href="/" className="mt-5 flex min-h-11 items-center justify-center text-[13px] font-bold text-sub">설치 없이 웹에서 계속하기 →</Link>
+        <Link href="/" className="mb-10 mt-5 flex min-h-11 items-center justify-center text-[13px] font-bold text-sub">설치 없이 웹에서 계속하기 →</Link>
       </div>
       {info && !info.kakao && <SafariToolbarPointer info={info} />}
     </main>

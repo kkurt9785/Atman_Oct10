@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { usePwaInstall } from '@/lib/pwa-install';
 import { detectBrowser, isStandaloneApp, openInExternalBrowser, openKakaoExternallyOnce, type BrowserInfo } from '@/lib/in-app-browser';
-import { InstallSteps, SafariToolbarPointer, installStepsFor } from '@/components/install/InstallSteps';
+import { InstallGallery, InstallSteps, SafariToolbarPointer, installStepsFor } from '@/components/install/InstallSteps';
 
 // 관리자 로그인 화면의 '시연 링크 보내기'로 보내는 링크(admin.itdot.co.kr/demo, 단기·행사는 ?kind=gigworker).
 // 받은 사장님이 가장 적게 눌러 ① 영상을 보고 ② 관리자 앱을 홈 화면에 두게 한다(2026-11-06 사용자 요청).
@@ -124,7 +124,9 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
       return <>
         <p className="text-[1.0625rem] font-extrabold leading-7 text-ink">홈 화면에 추가하면 앱처럼 써요</p>
         <p className="mt-1 text-[0.875rem] leading-6 text-sub">{info.chromeIos ? '크롬' : '사파리'} 버튼을 순서대로 눌러 주세요.</p>
+        {/* 영상이 첫 화면의 절반을 차지하므로 단계 목록을 먼저, 그림 띠는 그 아래(1단계가 첫 화면 안에 남게) */}
         <InstallSteps steps={steps} className="mt-3" />
+        <InstallGallery steps={steps} className="mt-3" />
         {afterInstall}
       </>;
     }
@@ -168,7 +170,7 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
 
         <a href={`/login?demo=${kind}`} className="mt-6 flex min-h-12 w-full items-center justify-center rounded-xl border border-line text-[0.875rem] font-bold text-primary active:bg-bg">설치 없이 바로 눌러 보기 →</a>
         <p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">공용 시연 계정이에요. 실제 개인정보는 입력하지 마세요.</p>
-        <a href={content.intro} className="mt-3 flex min-h-11 items-center justify-center text-[0.8125rem] font-bold text-sub">자세한 소개 보기</a>
+        <a href={content.intro} className="mb-10 mt-3 flex min-h-11 items-center justify-center text-[0.8125rem] font-bold text-sub">자세한 소개 보기</a>
       </div>
       {info && !info.kakao && !standalone && !install.installed && <SafariToolbarPointer info={info} />}
     </main>

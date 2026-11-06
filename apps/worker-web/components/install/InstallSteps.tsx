@@ -34,6 +34,26 @@ export function InstallSteps({ steps, className = '' }: { steps: InstallStep[]; 
   );
 }
 
+
+/** 눌러야 할 자리 그림 띠 — 그림이 있는 단계만, 옆으로 넘겨 본다(첫 화면에 단계 목록이 남게 높이를 낮게) */
+export function InstallGallery({ steps, className = '' }: { steps: InstallStep[]; className?: string }) {
+  const pictured = steps.map((step, index) => ({ step, index })).filter(({ step }) => step.image);
+  if (pictured.length === 0) return null;
+  return (
+    <div className={`-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${className}`} aria-label="눌러야 할 자리 그림">
+      {pictured.map(({ step, index }) => (
+        <figure key={step.title} className="w-[78%] shrink-0 snap-start overflow-hidden rounded-2xl border border-line bg-white">
+          <img src={step.image!.src} alt={step.image!.alt} width={680} height={300} loading="lazy" decoding="async" className="block aspect-[680/300] w-full object-cover" />
+          <figcaption className="flex items-center gap-2 px-3 py-1.5">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-extrabold text-white">{index + 1}</span>
+            <span className="truncate text-[12px] font-bold text-ink">{step.title}</span>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 /** 사파리 아래 막대의 눌러야 할 버튼 쪽을 가리키는 화살표(iOS 26 이상은 오른쪽 ⋯, 그 전은 가운데 공유) */
 export function SafariToolbarPointer({ info }: { info: BrowserInfo }) {
   if (!info.safari || info.safariMajor === null) return null;
