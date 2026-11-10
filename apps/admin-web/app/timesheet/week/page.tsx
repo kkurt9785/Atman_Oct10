@@ -4,6 +4,7 @@ import { AttendanceTabs } from '@/components/AttendanceTabs';
 import { getClinicStaff, getWeekLeaves } from '@/lib/db/clinic-workforce';
 import { getShop } from '@/lib/db/shop';
 import { todayKST } from '@/lib/date';
+import { STAFF_ROLE_LABEL } from '@/lib/constants';
 import { validDate, WEEKDAY_LABELS } from '@/lib/staff-schedule';
 import { addDays, buildWeekSchedule, weekStartOf, type WeekCell } from '@/lib/week-schedule';
 
@@ -31,7 +32,7 @@ export default async function WeekSchedulePage({searchParams}:{searchParams:Prom
   const weekStart=week&&validDate(week)?weekStartOf(week):thisWeek;
   const weekEnd=addDays(weekStart,6);
   const [staff,leaves]=await Promise.all([getClinicStaff(),getWeekLeaves(weekStart,weekEnd)]);
-  const people=staff.filter(s=>s.workerKind==='staff').map(s=>({id:s.id,name:s.name,role:s.role,status:s.status,workWeekdays:s.workWeekdays,baseStart:s.baseStart,baseEnd:s.baseEnd,weekdayHours:s.weekdayHours,contractStart:s.hireDate,contractEnd:s.contractEnd}));
+  const people=staff.filter(s=>s.workerKind==='staff').map(s=>({id:s.id,name:s.name,role:STAFF_ROLE_LABEL[s.role]??s.role,status:s.status,workWeekdays:s.workWeekdays,baseStart:s.baseStart,baseEnd:s.baseEnd,weekdayHours:s.weekdayHours,contractStart:s.hireDate,contractEnd:s.contractEnd}));
   const {dates,rows,headcount}=buildWeekSchedule(people,leaves,weekStart);
 
   return <main className="px-4 pb-28">
