@@ -4,6 +4,8 @@ import { getClinicLeaveRequests, getClinicStaff } from '@/lib/db/clinic-workforc
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { formatDate } from '@/lib/format';
+import { todayKST } from '@/lib/date';
+import { LeaveGrantFields } from './LeaveGrantFields';
 
 const TYPE:Record<string,string>={annual:'연차',half_day:'반차',quarter_day:'반반차',hourly:'시간차',sick:'병가',other:'기타'};
 const STATUS:Record<string,{label:string;style:string}>={pending:{label:'승인 대기',style:'text-warn bg-warn/10'},approved:{label:'승인',style:'text-success bg-success/10'},rejected:{label:'반려',style:'text-red-600 bg-red-50'},cancelled:{label:'취소',style:'text-sub bg-bg'}};
@@ -12,6 +14,7 @@ const days=(minutes:number)=>(minutes/480).toLocaleString('ko-KR',{maximumFracti
 export default async function LeavePage(){
   const [staff,requests]=await Promise.all([getClinicStaff(),getClinicLeaveRequests()]);
   const total=staff.reduce((sum,s)=>sum+s.leaveMinutes,0);
+  const today=todayKST();
   return <main className="px-4 pb-28">
     <ManageBackLink href="/more/operations" label="근무 운영" />
     <div className="mt-2 px-1"><p className="text-label font-bold text-primary">직원 신청 → 관리자 승인</p><h1 className="text-display font-extrabold">휴가 관리</h1><p className="text-label text-sub mt-1">직원이 신청하면 확인 후 승인하고, 승인 시에만 잔여시간이 차감돼요.</p></div>
@@ -19,10 +22,7 @@ export default async function LeavePage(){
     <details className="mt-3 bg-primary/5 border border-primary/15 rounded-2xl group">
       <summary className="list-none px-5 py-4 flex justify-between cursor-pointer"><b className="text-primary">잔여 휴가 설정</b><span className="text-sub">⌄</span></summary>
       <WorkforceActionForm kind="set_balance" className="px-5 pb-5 grid grid-cols-2 gap-3" successMessage="연차 부여량을 저장했어요.">
-        <label className="col-span-2 text-label text-sub">직원<select name="staff_id" required className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"><option value="">선택해 주세요</option>{staff.map((s)=><option key={s.id} value={s.id}>{s.name} · 잔여 {days(s.leaveMinutes)}일</option>)}</select></label>
-        <label className="text-label text-sub">연도<input name="leave_year" type="number" defaultValue={new Date().getFullYear()} className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white"/></label>
-        <label className="text-label text-sub">총 부여일수<input name="granted_days" type="number" min="0" max="365" step="0.5" required className="mt-1 w-full h-12 rounded-xl border border-line px-3 bg-white" placeholder="예: 15"/></label>
-        <button className="col-span-2 h-12 rounded-xl bg-primary text-white font-bold">저장</button>
+        <LeaveGrantFields today={today} staff={staff.map((s)=>({id:s.id,name:s.name,leaveDays:days(s.leaveMinutes),hireDate:s.hireDate,regular:s.workerKind==='staff'&&s.engagementType==='regular'}))}/>
       </WorkforceActionForm>
     </details>
     <details className="mt-4 bg-white rounded-2xl shadow-card group">

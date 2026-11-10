@@ -175,6 +175,48 @@ export async function listFacilityPublicFlags(): Promise<FacilityPublicFlags[]> 
   }
 }
 
+// 체험 연장 — 운영자가 베타·도입 중인 사업장의 무료 체험을 30일 늘린다(끝난 체험도 되살린다).
+// 연장 뒤에도 요금은 자동 청구되지 않는다. 다른 요금제로 넘어간 사업장은 건드리지 않는다.
+const TRIAL_EXTEND_DAYS = 30;
+export async function extendFacilityTrialAction(input: { facilityId: string }): Promise<{ ok: boolean; error?: string; trialEndsAt?: string }> {
+  try {
+    const { session, sb } = await requirePlatform();
+    if (!/^[0-9a-f-]{36}$/i.test(input.facilityId)) return { ok: false, error: '입력을 확인해 주세요.' };
+    const { data: rows, error: readError } = await sb.from('facility_subscriptions')
+      .select('id,status,plan_code,trial_ends_at,current_period_end')
+      .eq('facility_id', input.facilityId).not('trial_ends_at', 'is', null).is('trial_converted_at', null)
+      .order('trial_ends_at', { ascending: false }).limit(1);
+    if (readError) return { ok: false, error: '구독 정보를 확인하지 못했어요.' };
+    const trial = rows?.[0];
+    if (!trial) return { ok: false, error: '체험 중이거나 체험이 끝난 구독이 없는 사업장이에요.' };
+    if (!['active', 'past_due', 'pending'].includes(trial.status as string)) {
+      // 끝난 체험을 되살릴 때 — 이미 다른 구독(유료 등)을 쓰고 있으면 그대로 둔다
+      const { data: current } = await sb.from('facility_subscriptions').select('id')
+        .eq('facility_id', input.facilityId).in('status', ['active', 'past_due', 'pending']).limit(1);
+      if (current?.length) return { ok: false, error: '이미 다른 요금제를 쓰고 있어 체험을 되살리지 않았어요.' };
+    }
+    const today = todayKST();
+    const base = String(trial.trial_ends_at) > today ? String(trial.trial_ends_at) : today;
+    const trialEndsAt = new Date(Date.parse(`${base}T00:00:00Z`) + TRIAL_EXTEND_DAYS * 86_400_000).toISOString().slice(0, 10);
+    const before = { status: trial.status, trial_ends_at: trial.trial_ends_at, current_period_end: trial.current_period_end };
+    const after = { status: 'active', trial_ends_at: trialEndsAt, current_period_end: trialEndsAt };
+    const { error } = await sb.from('facility_subscriptions').update({ ...after, updated_at: new Date().toISOString() }).eq('id', trial.id);
+    if (error) return { ok: false, error: '연장하지 못했어요. 잠시 후 다시 시도해 주세요.' };
+    const { error: auditError } = await sb.from('audit_logs').insert({
+      actor_type: 'admin', actor_id: session.user.id, action: 'facility.trial.extend',
+      entity_type: 'facility', entity_id: input.facilityId, before_data: before, after_data: { ...after, plan_code: trial.plan_code, days: TRIAL_EXTEND_DAYS },
+    });
+    if (auditError) {
+      await sb.from('facility_subscriptions').update(before).eq('id', trial.id);
+      return { ok: false, error: '처리 기록을 남기지 못해 되돌렸어요. 다시 눌러 주세요.' };
+    }
+    revalidatePath('/ops/facilities');
+    return { ok: true, trialEndsAt };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : '연장하지 못했어요.' };
+  }
+}
+
 export async function setFacilityPublicFlagsAction(input: { facilityId: string; wageArrears: boolean; industrialAccident: boolean; note: string }): Promise<{ ok: boolean; error?: string }> {
   try {
     const { session, sb } = await requirePlatform();

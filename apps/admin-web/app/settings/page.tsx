@@ -70,7 +70,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                 </section>)
             : <p className="px-5 pt-4 text-label text-sub">제출할 사업자 서류가 없어요.</p>)}
           {section === 'admins' && (showAdmins && admins
-            ? <AdminAccessSection admins={admins} facilityWord={facilityWord} />
+            ? <AdminAccessSection admins={admins} facilityWord={facilityWord} canInvite={context?.accessRole === 'owner' && !shop?.isDemo} />
             : <p className="px-5 pt-4 text-label text-sub">관리자 권한을 볼 수 없어요.</p>)}
           {section === 'account' && <AccountClosureSection facilityName={shop?.name ?? ''} facilityWord={facilityWord} canClose={canClose} ownsActive={ownsActive} isDemo={Boolean(shop?.isDemo)} />}
         </div>

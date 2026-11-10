@@ -4,7 +4,8 @@ import { assertNotDemoFacility } from '../demo-guard';
 import { revalidatePath } from 'next/cache';
 import { unstable_rethrow } from 'next/navigation';
 import { headers } from 'next/headers';
-import { getAdminContext, requireAdminContext, requireAdminSession } from '../admin-auth';
+import { getAdminContext, requireAdminContext, requireAdminSession, setFacilityContextCookie } from '../admin-auth';
+import { issueAdminInvite, readAdminInvite } from '../admin-invite';
 import { adminClient, userClient } from '../supabase';
 
 export type FacilityProfile = {
@@ -226,6 +227,8 @@ export type FacilityAdminRow = {
   email: string;
   role: 'owner' | 'operator' | 'sales' | 'super';
   canViewPayroll: boolean;
+  // 소유자가 초대 링크로 들인 운영 관리자 — 소유자가 직접 내보낼 수 있다
+  invited: boolean;
 };
 
 // 소유자·전체 관리(super)만 관리자 목록을 본다. 그 외 등급에는 null (섹션 미노출).
@@ -235,10 +238,11 @@ export async function getFacilityAdmins(): Promise<FacilityAdminRow[] | null> {
   const sb = adminClient();
   if (!sb) return null;
 
-  const [{ data: facility }, { data: delegated }] = await Promise.all([
+  const [{ data: facility }, { data: delegated }, invitedIds] = await Promise.all([
     sb.from('facilities').select('admin_user_id').eq('id', context.facilityId).maybeSingle(),
     sb.from('facility_admin_access').select('user_id, access_role, can_view_payroll')
       .eq('facility_id', context.facilityId).order('created_at'),
+    invitedAdminIds(sb, context.facilityId),
   ]);
 
   const rows: FacilityAdminRow[] = [];
@@ -253,9 +257,139 @@ export async function getFacilityAdmins(): Promise<FacilityAdminRow[] | null> {
   for (const entry of ids) {
     if (rows.some((r) => r.userId === entry.id)) continue;
     const { data } = await sb.auth.admin.getUserById(entry.id);
-    rows.push({ userId: entry.id, email: data?.user?.email ?? '알 수 없음', role: entry.role, canViewPayroll: entry.canView });
+    // 카카오로 가입한 계정은 이메일이 없을 수 있어 이름(닉네임)으로 대신 보여 준다
+    const meta = (data?.user?.user_metadata ?? {}) as Record<string, unknown>;
+    const label = data?.user?.email || [meta.name, meta.nickname, meta.full_name].find((v): v is string => typeof v === 'string' && v.trim().length > 0) || '알 수 없음';
+    rows.push({ userId: entry.id, email: label, role: entry.role, canViewPayroll: entry.canView, invited: entry.role === 'operator' && invitedIds.has(entry.id) });
   }
   return rows;
+}
+
+// ── 운영 관리자 초대(소유자가 직접) ──────────────────────────────────────────
+// 소유자가 24시간·1회용 링크를 만들어 보내면, 받은 사람이 관리자 앱에 로그인한 뒤 열어 참여한다.
+// 급여 열람은 꺼진 채로 들어오고, 소유자가 관리자 권한에서 따로 켠다.
+const MAX_INVITED_OPERATORS = 5;
+const INVITE_INVALID = '초대 링크가 올바르지 않거나 기한이 지났어요. 소유자에게 새 링크를 받아 주세요.';
+const INVITE_CLOSED = '이 초대는 더 이상 쓸 수 없어요. 소유자에게 새 링크를 받아 주세요.';
+
+type ServiceClient = NonNullable<ReturnType<typeof adminClient>>;
+
+async function invitedAdminIds(sb: ServiceClient, facilityId: string): Promise<Set<string>> {
+  const { data } = await sb.from('audit_logs').select('actor_id')
+    .eq('action', 'facility.admin_invite.accept').eq('entity_type', 'facility').eq('entity_id', facilityId);
+  return new Set((data ?? []).map((row) => row.actor_id as string).filter(Boolean));
+}
+
+async function operatorCount(sb: ServiceClient, facilityId: string): Promise<number> {
+  const { count, error } = await sb.from('facility_admin_access').select('user_id', { count: 'exact', head: true })
+    .eq('facility_id', facilityId).eq('access_role', 'operator');
+  if (error) throw new Error('관리자 수를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  return count ?? 0;
+}
+
+export async function createAdminInvite(): Promise<{ token: string; expiresAt: string }> {
+  const context = await requireAdminContext(['owner']);
+  await assertNotDemoFacility(context.facilityId);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  if (await operatorCount(sb, context.facilityId) >= MAX_INVITED_OPERATORS) {
+    throw new Error(`운영 관리자는 ${MAX_INVITED_OPERATORS}명까지 둘 수 있어요. 안 쓰는 관리자를 먼저 내보내 주세요.`);
+  }
+
+  const invite = issueAdminInvite(context.facilityId, context.user.id);
+  // 만든 기록이 있어야만 받아들인다 — 기록을 못 남기면 링크도 내주지 않는다
+  const { error } = await sb.from('audit_logs').insert({
+    actor_type: 'admin', actor_id: context.user.id,
+    action: 'facility.admin_invite.create',
+    entity_type: 'facility', entity_id: context.facilityId,
+    after_data: { nonce: invite.nonce, expires_at: invite.expiresAt },
+  });
+  if (error) throw new Error('초대 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
+  return { token: invite.token, expiresAt: invite.expiresAt };
+}
+
+type InviteState = { sb: ServiceClient; userId: string; facilityId: string; facilityName: string; nonce: string; alreadyMember: boolean };
+
+async function loadAdminInvite(token: string): Promise<InviteState> {
+  const session = await requireAdminSession();
+  // 시연 계정은 여러 사람이 같이 쓴다 — 실제 사업장 권한을 주지 않는다
+  if (session.user.email?.endsWith('@demo.atman.co.kr')) throw new Error('시연 계정으로는 참여할 수 없어요. 내 계정으로 로그인한 뒤 다시 열어 주세요.');
+  const invite = readAdminInvite(String(token ?? ''));
+  if (!invite) throw new Error(INVITE_INVALID);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+
+  const { data: facility } = await sb.from('facilities')
+    .select('id, name, admin_user_id, is_demo, is_active, deleted_at').eq('id', invite.facilityId).maybeSingle();
+  // 초대한 사람이 지금도 소유자인 운영 중 사업장만
+  if (!facility || !facility.is_active || facility.deleted_at || facility.is_demo || facility.admin_user_id !== invite.issuedBy) throw new Error(INVITE_CLOSED);
+  if (facility.admin_user_id === session.user.id) throw new Error('이미 이 사업장의 소유자예요.');
+
+  const [{ data: created }, { data: used }, { data: member }] = await Promise.all([
+    sb.from('audit_logs').select('id').eq('action', 'facility.admin_invite.create')
+      .eq('entity_id', facility.id).contains('after_data', { nonce: invite.nonce }).limit(1),
+    sb.from('audit_logs').select('actor_id').eq('action', 'facility.admin_invite.accept')
+      .eq('entity_id', facility.id).contains('after_data', { nonce: invite.nonce }).limit(1),
+    sb.from('facility_admin_access').select('user_id').eq('facility_id', facility.id).eq('user_id', session.user.id).maybeSingle(),
+  ]);
+  if (!created?.length) throw new Error(INVITE_CLOSED);
+  // 한 번 쓴 링크는 쓴 사람이 지금도 관리자일 때만 다시 열린다 — 내보낸 관리자가 옛 링크로 되돌아오지 못하게
+  const usedBy = used?.[0]?.actor_id as string | undefined;
+  if (usedBy && (usedBy !== session.user.id || !member)) throw new Error('이미 사용한 초대 링크예요. 소유자에게 새 링크를 받아 주세요.');
+
+  return { sb, userId: session.user.id, facilityId: facility.id as string, facilityName: facility.name as string, nonce: invite.nonce, alreadyMember: Boolean(member) };
+}
+
+export async function previewAdminInvite(token: string): Promise<{ facilityName: string; alreadyMember: boolean }> {
+  const state = await loadAdminInvite(token);
+  return { facilityName: state.facilityName, alreadyMember: state.alreadyMember };
+}
+
+export async function acceptAdminInvite(token: string): Promise<{ facilityName: string }> {
+  const state = await loadAdminInvite(token);
+  const { sb } = state;
+  if (!state.alreadyMember) {
+    if (await operatorCount(sb, state.facilityId) >= MAX_INVITED_OPERATORS) throw new Error('이 사업장은 운영 관리자가 가득 찼어요. 소유자에게 알려 주세요.');
+    // 사용 기록을 먼저 남겨 같은 링크가 두 번 쓰이지 않게 한다
+    const { error: auditError } = await sb.from('audit_logs').insert({
+      actor_type: 'admin', actor_id: state.userId,
+      action: 'facility.admin_invite.accept',
+      entity_type: 'facility', entity_id: state.facilityId,
+      after_data: { nonce: state.nonce },
+    });
+    if (auditError) throw new Error('참여하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    const { error } = await sb.from('facility_admin_access')
+      .upsert({ user_id: state.userId, facility_id: state.facilityId, access_role: 'operator', can_view_payroll: false }, { onConflict: 'user_id,facility_id', ignoreDuplicates: true });
+    if (error) throw new Error('참여하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  }
+  await setFacilityContextCookie(state.facilityId, state.userId);
+  revalidatePath('/', 'layout');
+  return { facilityName: state.facilityName };
+}
+
+// 소유자가 초대 링크로 들인 운영 관리자만 내보낸다(잇닿 운영 계정은 여기서 못 지운다)
+export async function removeInvitedAdmin(targetUserId: string): Promise<void> {
+  const context = await requireAdminContext(['owner']);
+  await assertNotDemoFacility(context.facilityId);
+  const sb = adminClient();
+  if (!sb) throw new Error('서버 설정을 확인해 주세요.');
+  if (!(await invitedAdminIds(sb, context.facilityId)).has(targetUserId)) throw new Error('초대 링크로 들어온 관리자만 내보낼 수 있어요.');
+
+  const { data: removed, error } = await sb.from('facility_admin_access').delete()
+    .eq('facility_id', context.facilityId).eq('user_id', targetUserId).eq('access_role', 'operator')
+    .select('user_id');
+  if (error) throw new Error(error.message);
+  if (!removed?.length) throw new Error('이미 내보낸 관리자예요.');
+
+  const { error: auditError } = await sb.from('audit_logs').insert({
+    actor_type: 'admin', actor_id: context.user.id,
+    action: 'facility.admin_invite.remove',
+    entity_type: 'facility', entity_id: context.facilityId,
+    after_data: { target_user_id: targetUserId },
+  });
+  if (auditError) console.error('[removeInvitedAdmin] audit log failed', auditError);
+
+  revalidatePath('/settings');
 }
 
 export async function setAdminPayrollVisibility(targetUserId: string, allow: boolean): Promise<void> {
@@ -332,3 +466,7 @@ export async function saveFacilityProfileResult(formData: FormData) { return asR
 export async function registerWorkplaceNetworkResult() { return asResult(() => registerWorkplaceNetwork()); }
 export async function clearWorkplaceNetworksResult() { return asResult(() => clearWorkplaceNetworks()); }
 export async function setAdminPayrollVisibilityResult(targetUserId: string, allow: boolean) { return asResult(() => setAdminPayrollVisibility(targetUserId, allow)); }
+export async function createAdminInviteResult() { return asResult(() => createAdminInvite()); }
+export async function previewAdminInviteResult(token: string) { return asResult(() => previewAdminInvite(token)); }
+export async function acceptAdminInviteResult(token: string) { return asResult(() => acceptAdminInvite(token)); }
+export async function removeInvitedAdminResult(targetUserId: string) { return asResult(() => removeInvitedAdmin(targetUserId)); }

@@ -66,6 +66,13 @@ function CallbackInner() {
 
         const facilityRes = await fetch('/api/set-facility', { method: 'POST' });
         const facilityData = await facilityRes.json();
+        // 로그인 전에 열어 둔 관리자 초대 링크가 있으면 그 화면으로 잇는다(setup/join-admin)
+        let pendingInvite: string | null = null;
+        try { pendingInvite = window.localStorage.getItem('itdot:pending-admin-invite'); } catch {}
+        if (pendingInvite) {
+          router.replace(`/setup/join-admin?t=${encodeURIComponent(pendingInvite)}`);
+          return;
+        }
         if (!facilityData.facilityId) {
           router.replace('/setup/claim-facility');
           return;

@@ -65,7 +65,7 @@ export default async function WorkforcePage() {
                       <p className="text-body font-extrabold text-ink">{member.name}</p>
                       <span className="text-[0.6875rem] font-bold rounded-full bg-primary/10 text-primary px-2 py-0.5">{ROLE_LABEL[member.role]}</span>
                     </div>
-                    <p className="text-label text-sub mt-1">완료 {member.completedShiftCount}회 · 누적 {hours(member.totalWorkedMinutes)}</p>
+                    <p className="text-label text-sub mt-1">완료 {member.completedShiftCount}회{member.totalWorkedMinutes>0?` · 누적 ${hours(member.totalWorkedMinutes)}`:''}</p>
                     {member.lastWorkedAt && <p className="text-[0.6875rem] text-sub mt-1">최근 근무 {formatShortDate(member.lastWorkedAt)}</p>}
                   </div>
                   <span className={`shrink-0 text-[0.6875rem] font-bold rounded-full px-2.5 py-1 ${CREDENTIAL_STYLE[member.credentialStatus]}`}>

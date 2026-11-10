@@ -9,6 +9,8 @@ type FacilityPlan = {
   name: string;
   features: Record<string, unknown>;
   includedAttendanceSlots: number;
+  // 무료 체험 중이면 마지막 날(YYYY-MM-DD), 아니면 null
+  trialEndsAt: string | null;
 };
 
 async function getFacilityPlan(sb: SupabaseClient, facilityId: string): Promise<FacilityPlan> {
@@ -26,7 +28,7 @@ async function getFacilityPlan(sb: SupabaseClient, facilityId: string): Promise<
   const joined = Array.isArray((subscription as any)?.service_plans)
     ? (subscription as any).service_plans[0]
     : (subscription as any)?.service_plans;
-  if (joined) return { code: joined.code, name: joined.name, features: joined.features ?? {}, includedAttendanceSlots: joined.included_attendance_slots ?? 0 };
+  if (joined) return { code: joined.code, name: joined.name, features: joined.features ?? {}, includedAttendanceSlots: joined.included_attendance_slots ?? 0, trialEndsAt: ((subscription as any)?.trial_ends_at as string | null) ?? null };
 
   const { data: free, error: freeError } = await sb
     .from('service_plans')
@@ -35,7 +37,7 @@ async function getFacilityPlan(sb: SupabaseClient, facilityId: string): Promise<
     .eq('is_active', true)
     .single();
   if (freeError || !free) throw new Error('기본 요금제 정보를 확인하지 못했어요.');
-  return { code: free.code, name: free.name, features: free.features ?? {}, includedAttendanceSlots: free.included_attendance_slots ?? 0 };
+  return { code: free.code, name: free.name, features: free.features ?? {}, includedAttendanceSlots: free.included_attendance_slots ?? 0, trialEndsAt: null };
 }
 
 // ── 단기·행사 무료 베타 기간 (2026-11-05 사용자 결정: 10명 · 한 달 뒤 기능 잠금) ──────────────
@@ -82,7 +84,13 @@ export async function getStaffCapacity(sb: SupabaseClient, facilityId: string) {
   if (error) throw new Error('직원 사용량을 확인하지 못했어요.');
   // 베타가 끝난 현장은 남은 자리가 없는 것으로 본다(일괄 초대도 같은 값을 쓴다).
   const remaining = beta.locked ? 0 : Math.max(0, plan.includedAttendanceSlots - (count ?? 0));
-  return { used: count ?? 0, limit: plan.includedAttendanceSlots, remaining, planName: plan.name, betaLocked: beta.locked };
+  // 체험이 끝나면 무료 요금제 한도로 돌아간다 — 그때 몇 명까지인지 미리 알려 주려고 같이 읽는다
+  let limitAfterTrial: number | null = null;
+  if (plan.trialEndsAt) {
+    const { data: free } = await sb.from('service_plans').select('included_attendance_slots').eq('code', 'free').eq('is_active', true).maybeSingle();
+    limitAfterTrial = typeof free?.included_attendance_slots === 'number' ? free.included_attendance_slots : null;
+  }
+  return { used: count ?? 0, limit: plan.includedAttendanceSlots, remaining, planName: plan.name, betaLocked: beta.locked, trialEndsAt: plan.trialEndsAt, limitAfterTrial };
 }
 
 export async function requireStaffCapacity(sb: SupabaseClient, facilityId: string): Promise<void> {

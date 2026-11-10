@@ -47,9 +47,9 @@ export default async function AttendanceSummaryPage({searchParams}:{searchParams
       <Link href={`/attendance-summary?month=${recentComplete}`} className={`flex h-10 items-center justify-center rounded-xl text-[0.75rem] font-bold ${month===recentComplete?'bg-white text-primary shadow-sm':'text-sub'}`}>지난달</Link>
     </div>
     <div className="mt-3 flex items-center justify-between rounded-2xl bg-white p-2 shadow-sm">
-      {month>minMonth?<Link href={`/attendance-summary?month=${moveMonth(month,-1)}`} className="flex h-9 w-9 items-center justify-center text-xl" aria-label="이전 달">‹</Link>:<span className="flex h-9 w-9 items-center justify-center text-line">‹</span>}
+      {month>minMonth?<Link href={`/attendance-summary?month=${moveMonth(month,-1)}`} className="flex h-11 w-11 items-center justify-center text-xl" aria-label="이전 달">‹</Link>:<span className="flex h-11 w-11 items-center justify-center text-line">‹</span>}
       <div className="text-center"><b className="text-[0.875rem]">{month.slice(0,4)}년 {Number(month.slice(5,7))}월</b><p className="mt-0.5 text-[0.6875rem] font-bold text-sub">{closed?'마감 완료':month===current?'집계 중':'마감 전'}</p></div>
-      {month<current?<Link href={`/attendance-summary?month=${moveMonth(month,1)}`} className="flex h-9 w-9 items-center justify-center text-xl" aria-label="다음 달">›</Link>:<span className="flex h-9 w-9 items-center justify-center text-line">›</span>}
+      {month<current?<Link href={`/attendance-summary?month=${moveMonth(month,1)}`} className="flex h-11 w-11 items-center justify-center text-xl" aria-label="다음 달">›</Link>:<span className="flex h-11 w-11 items-center justify-center text-line">›</span>}
     </div>
     <div className="mt-3 grid grid-cols-3 gap-2">
       <Card className="p-3"><p className="text-[0.6875rem] text-sub">근무 인원</p><b className="mt-1 block text-title">{people.length}명</b></Card>

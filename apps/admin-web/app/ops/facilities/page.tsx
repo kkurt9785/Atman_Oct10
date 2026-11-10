@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getPlatformAdminSession } from '@/lib/platform-admin';
+import { TrialExtendButton } from './TrialExtendButton';
 import { listSelfRegisteredFacilities, listRegistrationRequests, listTrialFollowUps, listFacilityPublicFlags, runHealthCheckNowAction } from '@/lib/actions/platform';
 import { getLatestHealthRun } from '@/lib/ops-health';
 import { ManageBackLink } from '@/components/ManageBackLink';
@@ -101,9 +102,12 @@ export default async function PlatformFacilitiesPage() {
                       </p>
                       <p className="truncate text-[0.6875rem] text-tertiary">{t.adminEmail ?? '이메일 없음(카카오)'}</p>
                     </div>
-                    {t.contactPhone
-                      ? <a href={`tel:${t.contactPhone}`} className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-[0.8125rem] font-bold text-primary">전화</a>
-                      : <span className="shrink-0 text-[0.6875rem] text-tertiary">번호 없음</span>}
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <TrialExtendButton facilityId={t.facilityId} name={t.name} />
+                      {t.contactPhone
+                        ? <a href={`tel:${t.contactPhone}`} className="shrink-0 rounded-xl bg-primary/10 px-3 py-2 text-[0.8125rem] font-bold text-primary">전화</a>
+                        : <span className="shrink-0 text-[0.6875rem] text-tertiary">번호 없음</span>}
+                    </div>
                   </li>
                 );
               })}
