@@ -16,11 +16,23 @@ export default async function LeavePage(){
   const [staff,requests]=await Promise.all([getClinicStaff(),getClinicLeaveRequests()]);
   const total=staff.reduce((sum,s)=>sum+s.leaveMinutes,0);
   const today=todayKST();
+  // 직원별 남은 휴가 — "누가 며칠 남았나"를 직원 선택 칸을 열지 않고 바로 본다(2026-11-10 치과원장 QA). 8명까지는 펼쳐 두고 나머지는 접는다
+  const balanceRow=(s:(typeof staff)[number])=><div key={s.id} className="flex items-center justify-between gap-3 px-5 py-3">
+    <div className="min-w-0"><p className="truncate font-bold text-ink">{s.name}</p><p className="mt-0.5 text-[0.75rem] text-sub">{s.leaveGrantedMinutes===null?'올해 부여 전':`부여 ${days(s.leaveGrantedMinutes)}일 · 사용 ${days(s.leaveUsedMinutes)}일`}</p></div>
+    {s.leaveGrantedMinutes===null?<span className="shrink-0 rounded-full bg-bg px-2.5 py-1 text-[0.75rem] font-bold text-sub">부여 전</span>:<p className="shrink-0 text-[0.8125rem] text-sub">남은 <b className="text-[1.125rem] text-ink">{days(s.leaveMinutes)}</b>일</p>}
+  </div>;
   return <main className="px-4 pb-28">
     <ManageBackLink href="/more/operations" label="근무 운영" />
     <AttendanceTabs active="leave"/>
     <div className="mt-2 px-1"><p className="text-label font-bold text-primary">직원 신청 → 관리자 승인</p><h1 className="text-display font-extrabold">휴가 관리</h1><p className="text-label text-sub mt-1">직원이 신청하면 확인 후 승인하고, 승인 시에만 잔여시간이 차감돼요.</p></div>
     <Card className="mt-4 bg-primary text-white"><p className="text-label text-white/70">전체 직원 잔여 휴가</p><p className="text-money font-extrabold mt-1">{days(total)}일</p><p className="text-[0.6875rem] text-white/70 mt-2">사업장이 입력한 부여시간 기준</p></Card>
+    {staff.length>0&&<section aria-labelledby="leave-balance-title" className="mt-3">
+      <h2 id="leave-balance-title" className="px-1 text-[0.9375rem] font-extrabold text-ink">직원별 남은 휴가</h2>
+      <Card className="mt-2 divide-y divide-line p-0">
+        {staff.slice(0,8).map(balanceRow)}
+        {staff.length>8&&<details><summary className="flex h-12 cursor-pointer list-none items-center justify-between px-5 text-label font-bold text-primary">나머지 {staff.length-8}명 보기<span aria-hidden>⌄</span></summary><div className="divide-y divide-line border-t border-line">{staff.slice(8).map(balanceRow)}</div></details>}
+      </Card>
+    </section>}
     <details className="mt-3 bg-primary/5 border border-primary/15 rounded-2xl group">
       <summary className="list-none px-5 py-4 flex justify-between cursor-pointer"><b className="text-primary">잔여 휴가 설정</b><span className="text-sub">⌄</span></summary>
       <WorkforceActionForm kind="set_balance" className="px-5 pb-5 grid grid-cols-2 gap-3" successMessage="연차 부여량을 저장했어요.">

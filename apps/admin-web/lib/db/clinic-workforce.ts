@@ -32,6 +32,9 @@ export type ClinicStaff = {
   checkoutRequestedAt: string | null;
   workDate: string;
   leaveMinutes: number;
+  /** 올해 부여·사용한 휴가(분). 부여 기록이 없으면 null — 화면에서 '부여 전'으로 구분한다 */
+  leaveGrantedMinutes: number | null;
+  leaveUsedMinutes: number;
   accountName: string | null;
   inviteToken: string | null;
   inviteExpiresAt: string | null;
@@ -92,6 +95,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
     }
   }
   const balanceMap = new Map((balances ?? []).map((row: any) => [row.staff_id, Math.max(0, row.granted_minutes - row.used_minutes)]));
+  const balanceRowMap = new Map((balances ?? []).map((row: any) => [row.staff_id, row]));
   const inviteMap = new Map((invites ?? []).map((row:any)=>[row.staff_id,row]));
   const leaveSet = new Set((leaves ?? []).map((row: any) => row.staff_id));
   const assignmentMap=new Map<string,any>();
@@ -124,6 +128,8 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       checkoutRequestedAt: att?.checkout_requested_at ?? null,
       workDate: att?.work_date ?? today,
       leaveMinutes: Number(balanceMap.get(row.id) ?? 0),
+      leaveGrantedMinutes: balanceRowMap.has(row.id) ? Number(balanceRowMap.get(row.id).granted_minutes ?? 0) : null,
+      leaveUsedMinutes: Number(balanceRowMap.get(row.id)?.used_minutes ?? 0),
       accountName: (Array.isArray(row.workers) ? row.workers[0]?.name : row.workers?.name) ?? null,
       inviteToken: invite?.token ?? null, inviteExpiresAt: invite?.expires_at ?? null,
       payBasis: assignment?.pay_basis??row.pay_basis??null, payRate: (assignment?.pay_rate??row.pay_rate) == null ? null : Number(assignment?.pay_rate??row.pay_rate),

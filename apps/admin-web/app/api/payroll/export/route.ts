@@ -2,9 +2,11 @@ import { getAdminContext } from '@/lib/admin-auth';
 import { adminClient } from '@/lib/supabase';
 import { getStaffWagePayments } from '@/lib/db/payroll';
 import { readAllRows } from '@/lib/db/read-all-rows';
-import { staffExportAmounts } from '@/lib/payroll-export';
+import { PAYROLL_EXPORT_HEADER, shiftExportRow, staffExportRow } from '@/lib/payroll-export';
+import { getAttendanceHistory } from '@/lib/db/attendance-history';
+import { kstDate, staffMonthStats } from '@/lib/attendance-export';
 // 대상자 이름·은행명이 = + - @ 로 시작해도 수식으로 열리지 않게 공용 칸 함수를 쓴다
-import { csvCell } from '@/lib/csv';
+import { csvAttachment, csvCell } from '@/lib/csv';
 
 export async function GET(request:Request) {
   const context = await getAdminContext();
@@ -27,27 +29,36 @@ export async function GET(request:Request) {
     return new Response('지급 자료 전체를 확인하지 못해 내보내기를 중단했어요.', { status: 500 });
   }
   data.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
-  const header = ['구분','지급요청ID','급여기간·근무일','근무시간','대상자','세전예상액','지급예정액','공제확인','지급상태','지급예정일','은행','계좌끝4자리','지급완료일','금액 검토 기준'];
-  const rows = ((data ?? []) as any[]).map((row) => [
-    '공고 지원 인력', row.id, row.shifts?.shift_date, `${row.shifts?.start_time?.slice(0,5) ?? ''}~${row.shifts?.end_time?.slice(0,5) ?? ''}`,
-    row.workers?.name ?? '근무자', row.gross_amount, row.net_amount, row.deduction_status, row.status,
-    row.due_date, row.bank_name_snapshot, row.account_last4_snapshot, row.paid_at, '저장된 지급 요청 · 지급상태 확인',
-  ]);
+  const rows = ((data ?? []) as any[]).map((row) => shiftExportRow({
+    shiftDate: row.shifts?.shift_date, startTime: row.shifts?.start_time, endTime: row.shifts?.end_time, workerName: row.workers?.name,
+    grossAmount: row.gross_amount, netAmount: row.net_amount, deductionStatus: row.deduction_status, status: row.status, dueDate: row.due_date,
+    bankName: row.bank_name_snapshot, accountLast4: row.account_last4_snapshot, paidDate: kstDate(row.paid_at),
+  }));
+  // 직원 행에는 그 달 근태 요약(출근일수·지각·조퇴·결근)과 승인된 휴가 사용일을 붙인다. 하나라도 못 읽으면 일부만 담지 않고 중단
   let staffRows: Awaited<ReturnType<typeof getStaffWagePayments>>;
-  try { staffRows=await getStaffWagePayments(month); }
+  let stats: ReturnType<typeof staffMonthStats>;
+  const leaveMinutes = new Map<string, number>();
+  try {
+    const [payments, history, leaves] = await Promise.all([
+      getStaffWagePayments(month),
+      getAttendanceHistory(month),
+      readAllRows(() => sb.from('staff_leave_requests').select('id,staff_id,requested_minutes')
+        .eq('facility_id', context.facilityId).eq('status', 'approved').gte('start_date', `${month}-01`).lte('start_date', endDate)),
+    ]);
+    staffRows = payments;
+    stats = staffMonthStats(history.rows);
+    for (const leave of (leaves.data ?? []) as Array<{ staff_id: string; requested_minutes: number }>) {
+      leaveMinutes.set(leave.staff_id, (leaveMinutes.get(leave.staff_id) ?? 0) + Number(leave.requested_minutes ?? 0));
+    }
+  }
   catch { return new Response('직원 급여 자료 전체를 확인하지 못해 내보내기를 중단했어요.', { status: 500 }); }
-  const managedRows=staffRows.map(row=> {
-    const amounts = staffExportAmounts(row);
-    return [
-    '사업장 등록 직원',`${row.staffId}:${row.periodMonth}`,row.periodMonth.slice(0,7),
-    `${Math.floor(row.workedMinutes/60)}시간 ${row.workedMinutes%60}분`,row.workerName,
-    amounts.gross,amounts.net,'사업장 확인 필요',row.status,'',row.bankName,row.accountLast4,'',amounts.basis,
-  ]; });
+  const managedRows = staffRows.map((row) => staffExportRow(row, stats.get(row.staffId), leaveMinutes.get(row.staffId) ?? 0));
+  const header = PAYROLL_EXPORT_HEADER;
   const csv = `\uFEFF${[header, ...managedRows,...rows].map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
   return new Response(csv, {
     headers: {
       'content-type': 'text/csv; charset=utf-8',
-      'content-disposition': `attachment; filename="itdat-wage-review-${month}.csv"`,
+      'content-disposition': csvAttachment(`payroll-review-${month}.csv`, `급여검토_${month}.csv`),
       'cache-control': 'no-store',
     },
   });
