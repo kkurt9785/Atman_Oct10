@@ -49,7 +49,7 @@ export async function approveFacilityCore(sb: SupabaseClient, actor: Actor, inpu
     after_data: { business_registration_number: brn, approved_at: now, approved_by_email: actor.email, approved_by: actor.email ?? actor.name ?? actor.id },
   });
   await notify(sb, before.admin_user_id, 'facility.approved', `facility.approved:${input.facilityId}`,
-    '사업장 확인이 끝났어요', `${before.name} 확인이 완료됐어요. 이제 공고를 올릴 수 있어요.`, { facility_id: input.facilityId, url: '/' });
+    '사업장 확인이 끝났어요', `${before.name} 확인이 완료됐어요. 이제 단기 인력 공고도 올릴 수 있어요.`, { facility_id: input.facilityId, url: '/' });
   return { ok: true };
 }
 

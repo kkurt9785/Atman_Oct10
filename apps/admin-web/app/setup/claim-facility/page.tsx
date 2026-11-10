@@ -164,8 +164,8 @@ export default function ClaimFacilityPage() {
         {/* 헤더 */}
         <div className="text-center space-y-2">
           <div className="text-4xl">🏥💊</div>
-          <h1 className="text-[1.375rem] font-bold text-ink">{entryChoice==='recruit'?'병원·약국 단기인력 모집':'어떻게 시작할까요?'}</h1>
-          <p className="text-[0.875rem] text-sub">{entryChoice==='recruit'?'잇닿에서 근무 조건을 올리고 지원자를 확인해 근무를 확정해요.':'시작 방식을 선택해 주세요.'}</p>
+          <h1 className="text-[1.375rem] font-bold text-ink">{entryChoice==='recruit'?'병원·의원·약국으로 시작':'어떻게 시작할까요?'}</h1>
+          <p className="text-[0.875rem] text-sub">{entryChoice==='recruit'?'우리 직원의 출퇴근·휴가·급여를 관리하고, 필요할 때 단기 인력 공고도 올려요.':'시작 방식을 선택해 주세요.'}</p>
         </div>
 
         <section className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm" aria-label="시작 방식">
@@ -173,7 +173,7 @@ export default function ClaimFacilityPage() {
             <p className="text-[0.875rem] font-extrabold">단기·행사 근태 시작</p><p className="mt-1 text-[0.6875rem] leading-4 text-sub">외부 단기근로자 초대</p>
           </button>
           <button type="button" onClick={()=>chooseEntry('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
-            <p className="text-[0.875rem] font-extrabold">병원·약국 인력 모집</p><p className={`mt-1 text-[0.6875rem] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>공고 등록 · 지원자 관리</p>
+            <p className="text-[0.875rem] font-extrabold">병원·의원·약국</p><p className={`mt-1 text-[0.6875rem] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>직원 출퇴근·휴가 · 단기 인력 모집</p>
           </button>
         </section>
 
@@ -185,7 +185,7 @@ export default function ClaimFacilityPage() {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && !e.nativeEvent.isComposing && handleSearch()}
-            placeholder={canSearch?'병원·약국명 검색':'위에서 시작 방식을 선택해 주세요'}
+            placeholder={canSearch?'병원·의원·약국 이름 검색':'위에서 시작 방식을 선택해 주세요'}
             aria-label="사업장명 검색"
             disabled={!canSearch}
             className="h-11 min-w-0 flex-1 bg-transparent text-[1rem] outline-none placeholder:text-sub disabled:cursor-not-allowed"
@@ -311,7 +311,7 @@ export default function ClaimFacilityPage() {
             <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line"/>
             <h2 id="register-title" className="text-[1.1875rem] font-extrabold">이 사업장으로 등록할게요</h2>
             <p className="mt-1 text-[0.75rem] leading-5 text-sub">
-              지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정합니다. 등록 후 잇닿이 확인하면 공고 등록이 열려요.
+              지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정합니다. 직원 등록과 출퇴근·휴가 관리는 등록하면 바로 쓸 수 있고, 단기 인력 공고 등록만 잇닿이 확인한 뒤 열려요.
             </p>
             <div className="mt-4 rounded-xl bg-surface px-4 py-3 text-[0.75rem] text-sub">
               <span className="rounded-full bg-white px-2 py-0.5 text-[0.6875rem] font-bold text-primary">{TYPE_LABEL[registerHit.facilityType]??registerHit.typeLabel}</span>

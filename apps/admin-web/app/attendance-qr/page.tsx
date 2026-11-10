@@ -16,7 +16,7 @@ export default async function AttendanceQrPage(){
   const [profile,shop]=await Promise.all([getFacilityProfile(),getShop()]);
   const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL
     ?? (process.env.NODE_ENV === 'production' ? 'https://itdot.co.kr' : 'http://localhost:3003');
-  const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':shop?.mode==='gig'?'현장':'병원';
+  const facilityWord=shop?.facilityType==='pharmacy'?'약국':shop?.facilityType==='care_hospital'?'요양병원':shop?.mode==='gig'?'현장':shop?.facilityType==='small_hospital'?'병원·의원':'병원';
   // 긱워커 근무지의 QR 은 워커 앱의 긱 셸(/gig)로 연다. 의료 셸(/workplace)로 열면 긱워커는 다시 /gig 로 튕긴다.
   const workerPath=workerShellPaths(shop?.mode??'medical').attendance;
   const mode=profile?.attendance_mode??'gps_or_qr';

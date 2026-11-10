@@ -437,7 +437,7 @@ export async function requestUrgentReplacementAction(formData: FormData) {
     worker_auth_user_id: worker.auth_user_id, event_type: 'shift.urgent',
     dedupe_key: `shift.urgent:${target.id}:${hourKey}:${worker.auth_user_id}`,
     title: kind === 'no_show' ? '긴급 대체 근무 요청' : '48시간 내 긴급 근무',
-    body: `${target.shift_date} ${target.start_time.slice(0,5)} · ${target.department ?? '병동 근무'}`,
+    body: `${target.shift_date} ${target.start_time.slice(0,5)} · ${target.department ?? '근무'}`,
     data: { type: 'urgent_shift', shiftId: target.id },
   }));
   if (outbox.length) {

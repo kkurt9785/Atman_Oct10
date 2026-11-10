@@ -185,6 +185,16 @@ export async function getFacilityAttendanceQr(): Promise<string | null> {
   return data?.token ?? null;
 }
 
+// 답을 기다리는 휴가 신청 수 — 홈 '오늘 처리할 일'
+export async function getPendingLeaveCount(): Promise<number> {
+  const facilityId = await getCurrentFacilityId();
+  const sb = adminClient();
+  if (!sb || !facilityId) return 0;
+  const { count } = await sb.from('staff_leave_requests')
+    .select('id', { count: 'exact', head: true }).eq('facility_id', facilityId).eq('status', 'pending');
+  return count ?? 0;
+}
+
 export async function getClinicLeaveRequests() {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();

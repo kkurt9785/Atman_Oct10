@@ -55,7 +55,7 @@ const NOTICE: Record<string, string> = {
   no_schedule_gap: '앞으로 7일 근무표에는 새로 만들 공백이 없어요.',
   recommendation_applied: '인력 공백을 공고로 올리고 대상 근무자에게 알렸어요.',
   recommendation_changed: '근무표가 바뀌어 인력 공백 내용이 달라졌어요. 최신 내용을 다시 확인해 주세요.',
-  requirement_saved: '병동·직군별 필요 인원 기준을 저장했어요.',
+  requirement_saved: '부서·직군별 필요 인원 기준을 저장했어요.',
   requirement_off: '필요 인원 기준 사용을 중지했어요.',
   live_demo_reset: '시연을 처음 상태로 돌렸어요. 근무자 앱에서 새 공고에 직접 지원해 보세요.',
 };
@@ -111,7 +111,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       {!hasOperations && (
         <Card className="mt-3 mb-4 border border-amber-200 bg-amber-50">
           <p className="text-body font-extrabold text-ink">{scheduleGapCount > 0 ? `앞으로 7일에 채울 자리가 ${scheduleGapCount}명 있어요` : '반복되는 근무표를 자동으로 만들어 드려요'}</p>
-          <p className="text-label text-sub mt-1 leading-5">{scheduleGapCount > 0 ? '운영 자동화를 켜면 이 공백을 공고로 한 번에 만들고, 조건이 맞는 근무자에게 바로 알림이 가요. 지금은 아래에서 공백만 확인할 수 있어요.' : '병동·시간별 필요 인원을 한 번 저장해두면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.'}</p>
+          <p className="text-label text-sub mt-1 leading-5">{scheduleGapCount > 0 ? '운영 자동화를 켜면 이 공백을 공고로 한 번에 만들고, 조건이 맞는 근무자에게 바로 알림이 가요. 지금은 아래에서 공백만 확인할 수 있어요.' : '부서·시간별 필요 인원을 한 번 저장해두면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.'}</p>
           <p className="text-label text-sub mt-2 leading-5">Pro · Pharmacy Plus 요금제 기능이에요.</p>
           <Link href="/membership" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">요금제 살펴보기</Link>
         </Card>
@@ -152,7 +152,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
                     <div className="min-w-0">
                       <p className={`text-label font-extrabold ${alert.kind === 'no_show' ? 'text-red-600' : 'text-warn'}`}>{alert.kind === 'no_show' ? (alert.replacementEligible ? '30분 미출근 · 긴급 대체 가능' : '시작 시간 지남 · 출근 확인 필요') : '곧 시작 · 아직 미충원'}</p>
                       <p className="text-body font-bold mt-1">{alert.personName} · {dayLabel(alert.shiftDate)} {alert.startTime.slice(0,5)}</p>
-                      <p className="mt-0.5 text-[0.75rem] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 근무'} · {alert.department ?? (isPharmacy?'조제실':'병동')}</p>
+                      <p className="mt-0.5 text-[0.75rem] text-sub">{alert.employment === 'staff' ? '기존 직원' : '단기 근무'} · {alert.department ?? (isPharmacy?'조제실':'부서 미지정')}</p>
                     </div>
                     {alert.kind === 'no_show' && alert.employment === 'shift' && !alert.replacementEligible
                       ? <Link href="/timesheet#approvals" className="flex h-10 shrink-0 items-center rounded-xl bg-ink px-3 text-[0.75rem] font-bold whitespace-nowrap text-white">출근 확인</Link>
@@ -188,7 +188,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       <Fold id="staffing-recommendations" eyebrow="근무표·휴가·근태 자동 분석 · 앞으로 7일" title="인력 공백 알림" open={opened === 'staffing-recommendations'}
         badge={requirements.length === 0 ? '기준 필요' : recommendations.length > 0 ? `${recommendations.length}건` : '추가 공고 없음'} warn={requirements.length === 0 || recommendations.length > 0}>
         {requirements.length === 0 ? (
-          <Card className="border border-primary/20 bg-primary/5"><p className="text-body font-extrabold text-ink">먼저 병동별 필요 인원을 정해 주세요</p><p className="text-label text-sub mt-1">기준을 한 번 저장하면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.</p><a href="#staffing-settings" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">필요 인원 설정</a></Card>
+          <Card className="border border-primary/20 bg-primary/5"><p className="text-body font-extrabold text-ink">먼저 부서별 필요 인원을 정해 주세요</p><p className="text-label text-sub mt-1">기준을 한 번 저장하면 근무표·휴가·근태를 비교해 부족한 시간만 알려드려요.</p><a href="#staffing-settings" className="mt-3 inline-flex min-h-10 items-center rounded-xl bg-primary px-4 text-label font-extrabold text-white">필요 인원 설정</a></Card>
         ) : recommendations.length === 0 ? (
           <Card><p className="text-body font-extrabold text-ink">추가로 올릴 공고가 없어요</p><p className="text-label text-sub mt-1">고정 직원·확정 인력·모집 중 공고를 합쳐 필요 인원을 반영했어요. 모집 중 공고는 아직 충원된 인원이 아니니 지원 현황을 확인해 주세요.</p></Card>
         ) : (
@@ -197,7 +197,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
               const dateLabel = new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric', weekday: 'short', timeZone: 'Asia/Seoul' }).format(new Date(`${item.date}T00:00:00+09:00`));
               return <Card key={item.key} className="border border-amber-200 bg-amber-50/70">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><p className="text-[0.75rem] font-extrabold text-warn">{dateLabel} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p><p className="text-body font-extrabold text-ink mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} {ROLE_LABEL[item.role]} {item.shortage}명이 부족해요</p><p className="text-label text-sub mt-1 leading-5">{item.reason} · 기준 {item.required}명 / 현재 반영 {item.scheduled}명</p></div>
+                  <div className="min-w-0"><p className="text-[0.75rem] font-extrabold text-warn">{dateLabel} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p><p className="text-body font-extrabold text-ink mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 부서')} {ROLE_LABEL[item.role]} {item.shortage}명이 부족해요</p><p className="text-label text-sub mt-1 leading-5">{item.reason} · 기준 {item.required}명 / 현재 반영 {item.scheduled}명</p></div>
                   <span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[0.6875rem] font-extrabold text-primary">가능 인력풀 {item.candidateCount}명</span>
                 </div>
                 {item.candidateCount > 0 && <p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[0.75rem] text-sub">함께 일했던 근무자 중 이 시간대에 가능한 분이 <b className="text-ink">{item.candidateCount}명</b> 있어요. 직원과 함께 일한 근무자에게 먼저 요청해 보세요.</p>}
@@ -212,21 +212,21 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
         )}
       </Fold>
 
-      <Fold id="staffing-settings" eyebrow="최초 한 번 설정" title={isPharmacy ? '시간별 필요 인원' : '병동·시간별 필요 인원'} open={opened === 'staffing-settings'}
+      <Fold id="staffing-settings" eyebrow="최초 한 번 설정" title={isPharmacy ? '시간별 필요 인원' : '부서·시간별 필요 인원'} open={opened === 'staffing-settings'}
         badge={requirements.length > 0 ? `${requirements.length}개` : '설정 전'} warn={requirements.length === 0}>
         <p className="mb-3 px-1 text-label text-sub">공고 수가 아니라 실제 운영에 꼭 필요한 최소 인원이에요.</p>
         {requirements.length > 0 && <div className="space-y-2 mb-3">{requirements.map((item) => <Card key={item.id} className="py-3.5">
-          <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-body font-extrabold text-ink">{item.name} · {item.requiredHeadcount}명</p><p className="text-[0.75rem] text-sub mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 병동')} · {ROLE_LABEL[item.requiredRole]} · {item.weekdays.map((day) => DAY_LABEL[day]).join('·')} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p></div><form action={deactivateStaffingRequirementAction}><input type="hidden" name="requirement_id" value={item.id}/><button className="text-[0.6875rem] text-sub underline whitespace-nowrap">사용 중지</button></form></div>
+          <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-body font-extrabold text-ink">{item.name} · {item.requiredHeadcount}명</p><p className="text-[0.75rem] text-sub mt-1">{item.department ?? (isPharmacy ? '약국 전체' : '전체 부서')} · {ROLE_LABEL[item.requiredRole]} · {item.weekdays.map((day) => DAY_LABEL[day]).join('·')} · {item.startTime.slice(0,5)}~{item.endTime.slice(0,5)}</p></div><form action={deactivateStaffingRequirementAction}><input type="hidden" name="requirement_id" value={item.id}/><button className="text-[0.6875rem] text-sub underline whitespace-nowrap">사용 중지</button></form></div>
         </Card>)}</div>}
         <details className="bg-white rounded-2xl p-5" open={requirements.length === 0}>
           <summary className="cursor-pointer text-body font-extrabold text-ink">+ 필요 인원 기준 추가</summary>
           <form action={createStaffingRequirementAction} className="space-y-4 mt-5">
-            <input name="name" required maxLength={80} placeholder={isPharmacy ? '예: 평일 조제 인력' : '예: 3병동 주간 인력'} className="w-full h-12 rounded-xl bg-bg px-4 text-body"/>
-            <div className="grid grid-cols-2 gap-2"><input name="department" placeholder={isPharmacy ? '조제실 (비우면 약국 전체)' : '3병동'} className="h-12 rounded-xl bg-bg px-3"/><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <input name="name" required maxLength={80} placeholder={isPharmacy ? '예: 평일 조제 인력' : '예: 진료실 평일 인력, 3병동 주간 인력'} className="w-full h-12 rounded-xl bg-bg px-4 text-body"/>
+            <div className="grid grid-cols-2 gap-2"><input name="department" placeholder={isPharmacy ? '조제실 (비우면 약국 전체)' : '예: 진료실, 3병동'} className="h-12 rounded-xl bg-bg px-3"/><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className="grid grid-cols-3 gap-2"><input type="time" name="start_time" defaultValue="09:00" required aria-label="시작 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="time" name="end_time" defaultValue="18:00" required aria-label="종료 시간" className="h-12 rounded-xl bg-bg px-2"/><input type="number" name="required_headcount" min="1" max="100" defaultValue="2" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/></div>
             <div className="flex justify-between gap-1">{Object.entries(DAY_LABEL).map(([day,label]) => <label key={day} className="flex-1"><input type="checkbox" name="weekdays" value={day} defaultChecked={Number(day) <= 5} className="sr-only peer"/><span className="h-10 rounded-xl bg-bg text-sub peer-checked:bg-primary peer-checked:text-white flex items-center justify-center text-label font-bold">{label}</span></label>)}</div>
             <div><p className="text-[0.75rem] font-bold text-ink mb-2">부족할 때 생성할 대체 공고 조건</p><input type="number" name="replacement_hourly_wage" min={minimumHourlyWage() ?? 1} step="1" defaultValue={isPharmacy ? 35000 : 15000} required aria-label="대체 근무 시급" className="w-full h-12 rounded-xl bg-bg px-4"/></div>
-            <textarea name="replacement_description" required rows={3} placeholder={isPharmacy ? '조제 보조 및 고객 응대 업무' : '해당 병동의 단기 대체 근무'} className="w-full rounded-xl bg-bg px-4 py-3 resize-none"/>
+            <textarea name="replacement_description" required rows={3} placeholder={isPharmacy ? '조제 보조 및 고객 응대 업무' : '해당 부서의 단기 대체 근무'} className="w-full rounded-xl bg-bg px-4 py-3 resize-none"/>
             <button className="w-full h-12 rounded-xl bg-ink text-white text-body font-extrabold">필요 인원 기준 저장</button>
           </form>
         </details>
@@ -288,7 +288,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       <details className="bg-white rounded-2xl p-5">
         <summary className="cursor-pointer text-body font-extrabold text-ink">+ 새 반복 일정 만들기</summary>
         <form action={createShiftTemplateAction} className="space-y-4 mt-5">
-          <input name="name" required maxLength={80} placeholder={isPharmacy?'예: 토요일 대체약사':'예: 3병동 월·수·금 야간'} className="w-full h-12 rounded-xl bg-bg px-4 text-body"/>
+          <input name="name" required maxLength={80} placeholder={isPharmacy?'예: 토요일 대체약사':'예: 토요일 오전 진료, 월·수·금 야간'} className="w-full h-12 rounded-xl bg-bg px-4 text-body"/>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3"><select name="required_role" className="h-12 rounded-xl bg-bg px-3">{roleOptions.map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select><input type="number" name="required_headcount" min="1" max="20" defaultValue="1" required aria-label="필요 인원" className="h-12 rounded-xl bg-bg px-3"/><input type="number" name="hourly_wage" min={minimumHourlyWage() ?? 1} step="1" defaultValue={isPharmacy?35000:15000} required aria-label="시급" className="h-12 rounded-xl bg-bg px-3"/></div>
           <div className="grid grid-cols-2 gap-2"><input type="time" name="start_time" defaultValue={isPharmacy?'09:00':'22:00'} required className="h-12 rounded-xl bg-bg px-3"/><input type="time" name="end_time" defaultValue={isPharmacy?'13:00':'06:00'} required className="h-12 rounded-xl bg-bg px-3"/></div>
           <div className="flex justify-between gap-1">{Object.entries(DAY_LABEL).map(([day,label]) => <label key={day} className="flex-1"><input type="checkbox" name="weekdays" value={day} className="sr-only peer"/><span className="h-10 rounded-xl bg-bg text-sub peer-checked:bg-primary peer-checked:text-white flex items-center justify-center text-label font-bold">{label}</span></label>)}</div>

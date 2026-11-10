@@ -56,7 +56,7 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
     });
   }
   const isPharmacy=facilityType==='pharmacy';
-  const facilityWord=isPharmacy?'약국':facilityType==='care_hospital'?'요양병원':facilityType==='gigworker'?'현장':'병원';
+  const facilityWord=isPharmacy?'약국':facilityType==='care_hospital'?'요양병원':facilityType==='gigworker'?'현장':facilityType==='small_hospital'?'병원·의원':'병원';
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -99,7 +99,7 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
         </div>
 
         {!isPharmacy&&<><div className="mb-4">
-          <label className="block text-[0.8125rem] text-sub mb-1.5">병상 수</label>
+          <label className="block text-[0.8125rem] text-sub mb-1.5">병상 수 <span className="text-tertiary">· 입원실이 없으면 비워 두세요</span></label>
           <input
             type="number"
             name="bed_count"
@@ -111,18 +111,18 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
         </div>
 
         <div className="mb-4">
-          <label className="block text-[0.8125rem] text-sub mb-1.5">주 병동</label>
+          <label className="block text-[0.8125rem] text-sub mb-1.5">주 진료과·부서</label>
           <input
             type="text"
             name="main_department"
             defaultValue={profile?.main_department ?? ''}
-            placeholder="예: 요양병동, 재활병동"
+            placeholder="예: 치과, 내과, 재활병동"
             className="w-full border border-line rounded-xl px-4 py-3 text-[0.9375rem] outline-none focus:border-primary"
           />
         </div>
 
         <div>
-          <label className="block text-[0.8125rem] text-sub mb-1.5">EMR 시스템</label>
+          <label className="block text-[0.8125rem] text-sub mb-1.5">전자차트(EMR) 프로그램 <span className="text-tertiary">· 선택</span></label>
           <input
             type="text"
             name="emr_system"
@@ -157,7 +157,7 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
           name="intro"
           defaultValue={profile?.intro ?? ''}
           rows={4}
-          placeholder={isPharmacy?'예: 인수인계를 충분히 제공하고 반복근무를 우대합니다.':'예: 직원 간 분위기가 좋고 신규 간호사 적응을 적극 지원합니다.'}
+          placeholder={isPharmacy?'예: 인수인계를 충분히 제공하고 반복근무를 우대합니다.':'예: 직원 간 분위기가 좋고 새로 온 직원의 적응을 적극 도와요.'}
           className="w-full border border-line rounded-xl px-4 py-3 text-[0.9375rem] outline-none focus:border-primary resize-none"
         />
       </section>

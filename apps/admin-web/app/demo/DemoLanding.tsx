@@ -19,7 +19,7 @@ export type DemoKind = 'hospital' | 'gigworker';
 const CONTENT = {
   hospital: {
     title: '잇닿 관리자',
-    subtitle: '병원·약국·요양병원 근무 관리',
+    subtitle: '병원·의원·약국의 직원 출퇴근·휴가·근무 관리',
     video: 'https://itdot.co.kr/demo/itdot-admin-demo.mp4',
     // 영상 첫 장면은 소개 페이지라 누르는 화면처럼 보인다 — 45초의 '지원 현황·대타 요청' 장면을 대표 그림으로(ffmpeg -ss 45 … -vf scale=720:-1 → public/demo/admin-poster.jpg)
     poster: '/demo/admin-poster.jpg',

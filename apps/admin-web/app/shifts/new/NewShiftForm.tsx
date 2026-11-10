@@ -290,6 +290,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
                 rows={3}
                 placeholder={role === 'pharmacist' ? '예: 토요일 대체약사, 처방 조제·복약지도'
                   : role === 'pharmacy_staff' ? '예: 처방전 전산 입력 보조, 서류·재고·매대 정리'
+                  : role === 'dental_hygienist' ? '예: 스케일링·진료 보조, 기구 소독·준비'
                   : '예: 3층 일반병동 야간 간호 지원, 투약 및 활력징후 측정'}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -301,7 +302,7 @@ export default function NewShiftForm({ facilityType, recentShift, copiedShift=fa
               <input
                 type="text"
                 name="department"
-                placeholder={role === 'pharmacist' || role === 'pharmacy_staff' ? '예: 조제실, 전산·접수, 재고관리' : '예: 일반병동, 중환자실, 응급실'}
+                placeholder={role === 'pharmacist' || role === 'pharmacy_staff' ? '예: 조제실, 전산·접수, 재고관리' : role === 'dental_hygienist' ? '예: 진료실, 데스크, 소독실' : '예: 일반병동, 중환자실, 응급실'}
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full bg-bg rounded-xl px-4 py-3.5 text-body text-ink placeholder:text-sub focus:outline-none focus:ring-2 focus:ring-primary"
