@@ -6,7 +6,7 @@ import { CancelButton } from './CancelButton';
 import { ExpiredShiftBanner } from './ExpiredShiftBanner';
 import { OperationsFlow } from '@/components/OperationsFlow';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '무관' };
+const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', dental_hygienist: '치과위생사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '무관' };
 
 const STATUS_STYLE: Record<string, string> = {
   open:        'bg-primary/10 text-primary',

@@ -7,7 +7,7 @@ import { isDemoFacility } from '../demo-guard';
 export type PendingWorker = {
   id: string;
   name: string;
-  role: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff';
+  role: 'rn' | 'na' | 'dental_hygienist' | 'pharmacist' | 'pharmacy_staff';
   phone: string | null;
   licenseNumber: string | null;
   licensePhotoUrl: string | null;

@@ -12,9 +12,9 @@ import { todayKST } from '../date';
 import { nudgeNotificationDispatch } from '../notify-nudge';
 import { publicPostingBlockReason, shiftStartPassed, type PostingFacility } from '../posting-gate';
 
-const ALL_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff'] as const;
+const ALL_ROLES = ['rn', 'na', 'dental_hygienist', 'pharmacist', 'pharmacy_staff'] as const;
 const ROLE_LABEL: Record<string, string> = {
-  rn: '간호사', na: '간호조무사', pharmacist: '약사',
+  rn: '간호사', na: '간호조무사', dental_hygienist: '치과위생사', pharmacist: '약사',
   pharmacy_staff: '약국 전산·사무직', any: '직군 무관',
 };
 const PHARMACY_STAFF_LICENSED_TASK = /(조제|복약\s*지도|복약지도|의약품\s*(판매|조제)|처방\s*(검토|감사)|최종\s*(검수|확인))/;
@@ -27,7 +27,7 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
   const startTime = String(formData.get('start_time') ?? '');
   const endTime = String(formData.get('end_time') ?? '');
   const hourlyWage = Number(formData.get('hourly_wage'));
-  const requiredRole = String(formData.get('required_role') ?? '') as 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
+  const requiredRole = String(formData.get('required_role') ?? '') as 'rn' | 'na' | 'dental_hygienist' | 'pharmacist' | 'pharmacy_staff' | 'any';
   const description = String(formData.get('description') ?? '').trim();
   const department = String(formData.get('department') ?? '').trim() || null;
   const notes = String(formData.get('notes') ?? '').trim() || null;

@@ -5,7 +5,7 @@ import { getStaffAttendanceDetail } from '@/lib/db/attendance-history';
 import { AttendanceCalendar } from './AttendanceCalendar';
 
 const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기'};
-const ROLE:Record<string,string>={rn:'간호사',na:'간호조무사',pharmacist:'약사',pharmacy_staff:'약국 전산·사무직',coordinator:'코디네이터',admin:'관리·행정',other:'기타'};
+const ROLE:Record<string,string>={rn:'간호사',na:'간호조무사',dental_hygienist:'치과위생사',pharmacist:'약사',pharmacy_staff:'약국 전산·사무직',care_worker:'요양보호사',coordinator:'코디네이터',admin:'관리·행정',other:'기타'};
 function moveMonth(month:string,delta:number){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+delta);return d.toISOString().slice(0,7);}
 
 export default async function StaffAttendancePage({params,searchParams}:{params:Promise<{staffId:string}>;searchParams:Promise<{month?:string}>}){

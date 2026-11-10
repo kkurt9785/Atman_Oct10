@@ -6,7 +6,7 @@ import { readAllRows } from './read-all-rows';
 export type ShiftTemplateRow = {
   id: string;
   name: string;
-  requiredRole: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
+  requiredRole: 'rn' | 'na' | 'dental_hygienist' | 'pharmacist' | 'pharmacy_staff' | 'any';
   weekdays: number[];
   startTime: string;
   endTime: string;

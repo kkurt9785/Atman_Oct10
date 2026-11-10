@@ -10,7 +10,7 @@ import { CopyLinkButton } from './CopyLinkButton';
 
 export const dynamic = 'force-dynamic';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '직군 무관' };
+const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', dental_hygienist: '치과위생사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '직군 무관' };
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
 function dateLabel(date: string) {

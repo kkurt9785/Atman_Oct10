@@ -6,7 +6,7 @@ export type Applicant = {
   applicationId: string;
   workerId: string;
   name: string;
-  role: 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff';
+  role: 'rn' | 'na' | 'dental_hygienist' | 'pharmacist' | 'pharmacy_staff';
   verificationStatus: string;
   credentialReviewStatus: string;
   credentialVerificationMethod: string | null;

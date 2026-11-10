@@ -2,6 +2,7 @@ import { isGigStaff, isGigworkerFacility } from '@/lib/facility-mode';
 import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST, yesterdayKST } from '../date';
+import { normalizeWeekdayHours, staffHoursOn, type WeekdayHours } from '../staff-schedule';
 
 export type ClinicStaff = {
   id: string;
@@ -19,6 +20,11 @@ export type ClinicStaff = {
   scheduledToday: boolean;
   defaultStart: string;
   defaultEnd: string;
+  // 요일과 무관한 기본 시간과 요일별 예외. defaultStart/defaultEnd 는 '그 근무일'에 적용되는 시간이다.
+  baseStart: string;
+  baseEnd: string;
+  weekdayHours: WeekdayHours;
+  hireDate: string | null;
   status: 'active' | 'leave' | 'ended';
   attendanceStatus: string;
   checkInAt: string | null;
@@ -105,12 +111,14 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
     const inContract=assignment?true:(!row.contract_start||row.contract_start<=today)&&(!row.contract_end||row.contract_end>=today);
     const hasOpenAttendance=Boolean(att?.check_in_at&&!att?.check_out_at);
     const scheduledToday=row.status==='active'&&inContract&&(!enforceWeekdays||Boolean(assignment));
+    const dayHours=staffHoursOn({defaultStart:row.default_start_time,defaultEnd:row.default_end_time,weekdayHours:row.weekday_hours},att?.work_date??today);
     return {
       id: row.id, workerId: row.worker_id, phone: row.phone, name: row.name, role: row.role, department: assignment?.title??row.department,
       source: row.source, engagementType: row.engagement_type, workerKind: isGigStaff(row) ? 'gig' : 'staff',
       contractStart: assignment?.starts_on??row.contract_start, contractEnd: assignment?.ends_on??row.contract_end,
       workWeekdays, scheduledToday:scheduledToday||hasOpenAttendance,
-      defaultStart: assignment?.start_time??row.default_start_time, defaultEnd: assignment?.end_time??row.default_end_time,
+      defaultStart: assignment?.start_time??dayHours.start, defaultEnd: assignment?.end_time??dayHours.end,
+      baseStart: row.default_start_time, baseEnd: row.default_end_time, weekdayHours: normalizeWeekdayHours(row.weekday_hours), hireDate: row.contract_start ?? null,
       status: row.status, attendanceStatus: att?.status ?? (row.status === 'leave' || leaveSet.has(row.id) ? 'leave' : scheduledToday ? 'scheduled' : 'off'),
       checkInAt: att?.check_in_at ?? null, checkOutAt: att?.check_out_at ?? null,
       checkoutRequestedAt: att?.checkout_requested_at ?? null,

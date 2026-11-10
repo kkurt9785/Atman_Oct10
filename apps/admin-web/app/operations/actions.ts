@@ -14,7 +14,7 @@ import { loadPublicPostingBlock, shiftStartPassed } from '@/lib/posting-gate';
 import { replacementWindow, REPLACEMENT_TOO_SHORT } from '@/lib/replacement-window';
 import { isPublicDemoAccount, PUBLIC_DEMO_RESET_BLOCKED } from '@/lib/public-demo';
 
-const VALID_ROLES = ['rn', 'na', 'pharmacist', 'pharmacy_staff', 'any'];
+const VALID_ROLES = ['rn', 'na', 'dental_hygienist', 'pharmacist', 'pharmacy_staff', 'any'];
 
 function formText(formData: FormData, key: string) {
   return String(formData.get(key) ?? '').trim();

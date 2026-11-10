@@ -17,3 +17,36 @@ export function normalizeGigSchedule(mode:string,start:string,end:string,weekday
   if(!Array.from({length:Math.min(span,7)},(_,i)=>(first+i)%7||7).some(day=>days.includes(day)))throw new Error('선택한 기간에 해당 요일이 없어요. 날짜나 요일을 바꿔 주세요.');
   return days;
 }
+
+// 요일별 근무시간 — facility_staff.weekday_hours. 키는 ISO 요일('1'=월 … '7'=일), 없는 요일은 기본 출퇴근 시간.
+// 토요일 단축·야간진료 요일처럼 하루만 시간이 다른 직원을 위한 값이다. DB record_unified_attendance 가 같은 값으로 출퇴근을 판정한다.
+export type WeekdayHours=Record<string,{start:string;end:string}>;
+export const WEEKDAY_LABELS=['월','화','수','목','금','토','일'] as const;
+const HHMM=/^([01]\d|2[0-3]):[0-5]\d$/;
+export function normalizeWeekdayHours(value:unknown):WeekdayHours{
+  const result:WeekdayHours={};
+  if(!value||typeof value!=='object'||Array.isArray(value))return result;
+  for(const [day,raw] of Object.entries(value as Record<string,unknown>)){
+    const start=String((raw as {start?:unknown}|null)?.start??'').slice(0,5);
+    const end=String((raw as {end?:unknown}|null)?.end??'').slice(0,5);
+    if(/^[1-7]$/.test(day)&&HHMM.test(start)&&HHMM.test(end)&&start<end)result[day]={start,end};
+  }
+  return result;
+}
+export function parseWeekdayHours(form:FormData,workWeekdays:number[]):WeekdayHours{
+  const result:WeekdayHours={};
+  for(let day=1;day<=7;day++){
+    const start=String(form.get(`wh_start_${day}`)??'').trim().slice(0,5);
+    const end=String(form.get(`wh_end_${day}`)??'').trim().slice(0,5);
+    // 비워 두면 기본 시간, 근무요일이 아닌 날에 적힌 시간은 버린다
+    if((!start&&!end)||!workWeekdays.includes(day))continue;
+    if(!HHMM.test(start)||!HHMM.test(end)||end<=start)throw new Error(`${WEEKDAY_LABELS[day-1]}요일 근무시간을 확인해 주세요. 출근·퇴근을 둘 다 넣고, 퇴근이 출근보다 늦어야 해요.`);
+    result[String(day)]={start,end};
+  }
+  return result;
+}
+export function staffHoursOn(staff:{defaultStart:string;defaultEnd:string;weekdayHours?:unknown},date:string){
+  const day=String(new Date(`${date}T00:00:00Z`).getUTCDay()||7);
+  const override=normalizeWeekdayHours(staff.weekdayHours)[day];
+  return override?{start:`${override.start}:00`,end:`${override.end}:00`,custom:true}:{start:staff.defaultStart,end:staff.defaultEnd,custom:false};
+}

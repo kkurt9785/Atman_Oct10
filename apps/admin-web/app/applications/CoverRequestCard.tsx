@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { approveCover, rejectCoverClaim } from './actions';
 import type { CoverRequestRow } from '@/lib/db/cover';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
+const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', dental_hygienist: '치과위생사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직' };
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
 
 function whenLabel(row: CoverRequestRow) {

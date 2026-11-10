@@ -18,7 +18,7 @@ import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-work
 import { attendanceReviewCount } from '@/lib/today-headcount';
 import { isPublicDemoAccount, PUBLIC_DEMO_DAILY_REFRESH } from '@/lib/public-demo';
 
-const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
+const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', dental_hygienist: '치과위생사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
 const DAY_LABEL: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
 const ALERT_LIMIT = 8;
 // 첫 화면엔 '지금 확인할 일'만 펼친다. 나머지는 제목·숫자만 보이게 접고, 링크(#id)나 방금 한 작업(notice)이 가리키는 구역은 펼친다.
@@ -89,7 +89,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   const isPharmacy = shop?.facilityType === 'pharmacy';
   const roleOptions: [string, string][] = isPharmacy
     ? [['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직']]
-    : [['rn', ROLE_FULL_LABEL.rn], ['na', ROLE_FULL_LABEL.na], ['pharmacist', '약사'], ['pharmacy_staff', '약국 전산·사무직'], ['any', '자격 무관']];
+    : [['rn', ROLE_FULL_LABEL.rn], ['na', ROLE_FULL_LABEL.na], ['dental_hygienist', '치과위생사'], ['pharmacist', '약사'], ['any', '자격 무관']];
   // '지금 확인할 일'의 단일 기준은 개별 알림 목록이다. 요약 숫자도 여기서 파생해야 위·아래 숫자가 어긋나지 않는다.
   // (summary.urgentUnfilledCount 는 이미 시작한 시프트까지 세서 아래 카드 수와 달라졌다)
   const noShowAlerts = operationAlerts.filter((alert) => alert.kind === 'no_show');

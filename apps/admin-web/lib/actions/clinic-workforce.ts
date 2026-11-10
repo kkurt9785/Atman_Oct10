@@ -7,7 +7,8 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminContext } from '../admin-auth';
 import { adminClient, userClient } from '../supabase';
 import { todayKST, yesterdayKST } from '../date';
-import { normalizeGigSchedule, validDate } from '../staff-schedule';
+import { normalizeGigSchedule, parseWeekdayHours, staffHoursOn, validDate } from '../staff-schedule';
+import { STAFF_ROLE_KEYS } from '../constants';
 import { requireStaffCapacity } from '../billing-gates';
 import { nudgeNotificationDispatch } from '../notify-nudge';
 
@@ -67,6 +68,23 @@ async function enqueueStaffingReviewAlert(
   await nudgeNotificationDispatch();
 }
 
+const LEAVE_TYPE_LABEL: Record<string,string> = { annual:'연차', half_day:'반차', quarter_day:'반반차', hourly:'시간차', sick:'병가', other:'기타 휴가' };
+const shortDate = (value: string) => `${Number(value.slice(5,7))}/${Number(value.slice(8,10))}`;
+
+// 휴가 결과를 직원 본인에게 알린다 — 직원 화면은 다시 열기 전까지 '대기'라 푸시가 유일한 신호
+async function notifyStaffLeave(staffId: string, dedupeKey: string, title: string, body: string, decision: string) {
+  const sb = adminClient();
+  if (!sb) return;
+  const { data: staffRow } = await sb.from('facility_staff').select('worker_id, workers(auth_user_id)').eq('id', staffId).maybeSingle();
+  const authUserId = (Array.isArray(staffRow?.workers) ? staffRow?.workers[0] : staffRow?.workers)?.auth_user_id as string | undefined;
+  if (!authUserId) return;
+  await sb.from('notification_outbox').upsert({
+    worker_auth_user_id: authUserId, event_type: 'leave.decided', dedupe_key: dedupeKey, title, body,
+    data: { url: `/workplace?staffId=${staffId}`, kind: 'leave.decided', decision, staff_id: staffId },
+  }, { onConflict: 'dedupe_key', ignoreDuplicates: true });
+  await nudgeNotificationDispatch();
+}
+
 export async function addClinicStaffAction(form: FormData) {
   const context = await requireAdminContext(['owner','operator','super']);
   const sb = adminClient();
@@ -86,7 +104,7 @@ export async function addClinicStaffAction(form: FormData) {
   const { data: facility } = await sb.from('facilities').select('facility_type,registration_source').eq('id',context.facilityId).maybeSingle();
   // 긱 근무자 = 긱 사업장 소속이거나, 병원·약국이 '외부 단기근로자 초대'로 등록한 사람 (facility_staff.worker_kind)
   const isGigworker=isGigworkerFacility(facility)||text(form,'worker_kind')==='gig';
-  if (!name || !['rn','na','pharmacist','pharmacy_staff','coordinator','admin','other'].includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
+  if (!name || !STAFF_ROLE_KEYS.includes(role)) throw new Error('직원 이름과 직종을 확인해 주세요.');
   if(facility?.facility_type==='pharmacy'&&!['pharmacist','pharmacy_staff','admin','other'].includes(role)){
     throw new Error('약국 직원은 약사·약국 전산/사무직·관리 직종으로 등록해 주세요.');
   }
@@ -140,17 +158,20 @@ export async function recordStaffAttendanceAction(form: FormData) {
   const staffId = text(form, 'staff_id');
   const event = text(form, 'event');
   if (!['check_in','check_out','absent'].includes(event)) throw new Error('근태 처리 유형이 올바르지 않아요.');
-  const { data: staff } = await sb.from('facility_staff').select('id,default_start_time,default_end_time')
+  const { data: staffRow } = await sb.from('facility_staff').select('id,default_start_time,default_end_time,weekday_hours')
     .eq('id', staffId).eq('facility_id', context.facilityId).eq('status', 'active').maybeSingle();
-  if (!staff) throw new Error('근태 처리할 직원을 찾지 못했어요.');
+  if (!staffRow) throw new Error('근태 처리할 직원을 찾지 못했어요.');
   const now = new Date().toISOString();
   const kstTime = new Date(Date.now()+9*60*60*1000).toISOString().slice(11,19);
-  const overnight = staff.default_end_time <= staff.default_start_time;
-  const suggestedDate = overnight && kstTime < staff.default_end_time ? yesterdayKST() : todayKST();
+  const overnight = staffRow.default_end_time <= staffRow.default_start_time;
+  const suggestedDate = overnight && kstTime < staffRow.default_end_time ? yesterdayKST() : todayKST();
   const requestedDate = text(form,'work_date') || suggestedDate;
   if (![todayKST(),yesterdayKST()].includes(requestedDate) || (requestedDate===yesterdayKST()&&!overnight)) {
     throw new Error('처리할 근무일이 올바르지 않아요.');
   }
+  // 요일별 근무시간(예: 토요일 단축)이 있으면 그날 예정 시간으로 판정한다 — record_unified_attendance 와 같은 순서(근무일을 먼저 정한 뒤 요일 값 적용)
+  const hours = staffHoursOn({ defaultStart: staffRow.default_start_time, defaultEnd: staffRow.default_end_time, weekdayHours: staffRow.weekday_hours }, requestedDate);
+  const staff = { id: staffRow.id, default_start_time: hours.start, default_end_time: hours.end };
   const { data: attendance } = await sb.from('staff_attendances').select('id,check_in_at,check_out_at')
     .eq('staff_id',staffId).eq('work_date',requestedDate).maybeSingle();
   const base: Record<string, unknown> = {
@@ -170,7 +191,7 @@ export async function recordStaffAttendanceAction(form: FormData) {
   const graceMinutes = Math.max(0, Number(graceSetting?.late_grace_minutes ?? DEFAULT_LATE_GRACE_MINUTES));
   const earlyGraceMinutes = Math.max(0, Number(graceSetting?.early_leave_grace_minutes ?? DEFAULT_EARLY_LEAVE_GRACE_MINUTES));
   const startAt = new Date(`${requestedDate}T${staff.default_start_time}+09:00`);
-  const endAt = new Date(`${requestedDate}T${staff.default_end_time}+09:00`); if (overnight) endAt.setDate(endAt.getDate() + 1);
+  const endAt = new Date(`${requestedDate}T${staff.default_end_time}+09:00`); if (staff.default_end_time <= staff.default_start_time) endAt.setDate(endAt.getDate() + 1);
   const lateMinutes = Math.max(0, Math.floor((Date.now() - startAt.getTime()) / 60000) - graceMinutes);
   const earlyLeaveMinutes = Math.max(0, Math.floor((endAt.getTime() - Date.now()) / 60000) - earlyGraceMinutes);
   if (event === 'check_in') Object.assign(base, { check_in_at: now, status: lateMinutes > 0 ? 'late' : 'working', check_in_method:'ADMIN', check_in_status:'SUCCESS', late_minutes: lateMinutes });
@@ -242,7 +263,7 @@ export async function addStaffLeaveAction(form: FormData) {
   const endDate = text(form, 'end_date') || startDate;
   const leaveType = text(form, 'leave_type') || 'annual';
   const hourlyMinutes = leaveType === 'hourly' ? Number(text(form, 'hourly_minutes')) : null;
-  if (!staffId || !/^\\d{4}-\\d{2}-\\d{2}$/.test(startDate) || !/^\\d{4}-\\d{2}-\\d{2}$/.test(endDate) || endDate < startDate) {
+  if (!staffId || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate) {
     throw new Error('휴가 날짜와 직원을 확인해 주세요.');
   }
   const { data: requestId, error } = await sb.rpc('create_approved_staff_leave', {
@@ -251,6 +272,8 @@ export async function addStaffLeaveAction(form: FormData) {
     p_reason: text(form, 'reason') || null,
   });
   if (error || !requestId) throw new Error(error?.message || '휴가를 등록하지 못했어요.');
+  await notifyStaffLeave(staffId, `leave.decided:${requestId}:registered`, '휴가가 등록됐어요',
+    `${shortDate(startDate)}${endDate !== startDate ? `~${shortDate(endDate)}` : ''} ${LEAVE_TYPE_LABEL[leaveType] ?? '휴가'}를 관리자가 등록했어요.`, 'approved');
   if (['annual','sick','other'].includes(leaveType)) {
     await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${requestId}`, startDate, 'leave');
   }
@@ -267,7 +290,7 @@ export async function setStaffLeaveBalanceAction(form: FormData) {
   const grantedDays = Number(daysText);
   const year = Number(yearText);
   if (!staffId || !daysText || !Number.isFinite(grantedDays) || grantedDays < 0 || grantedDays > 365
-      || !/^\\d{4}$/.test(yearText) || year < 2020 || year > 2100) throw new Error('휴가 부여일수를 확인해 주세요.');
+      || !/^\d{4}$/.test(yearText) || year < 2020 || year > 2100) throw new Error('휴가 부여일수를 확인해 주세요.');
   const { error } = await sb.rpc('set_staff_leave_grant', {
     p_facility_id: context.facilityId, p_staff_id: staffId, p_year: year, p_granted_days: grantedDays,
   });
@@ -284,9 +307,16 @@ export async function decideStaffLeaveAction(form: FormData) {
   if (!['approved','rejected'].includes(decision)) throw new Error('승인 여부를 확인해 주세요.');
   const adminSb = adminClient();
   const { data: request } = adminSb ? await adminSb.from('staff_leave_requests')
-    .select('id,staff_id,facility_id,start_date,leave_type').eq('id', requestId).eq('facility_id', context.facilityId).maybeSingle() : { data: null };
+    .select('id,staff_id,facility_id,start_date,end_date,leave_type').eq('id', requestId).eq('facility_id', context.facilityId).maybeSingle() : { data: null };
   const { error } = await sb.rpc('decide_staff_leave_request', { p_request_id: requestId, p_decision: decision });
-  if (error) throw new Error('휴가 신청을 처리하지 못했어요.');
+  // DB 가 일부러 낸 안내(P0001: 잔여 부족·이미 처리됨 등)는 그대로 보여 준다 — 뭉뚱그리면 관리자가 무엇을 고쳐야 할지 모른다
+  if (error) throw new Error(error.code === 'P0001' && error.message ? `${error.message}${error.message.includes('잔여') ? ' 휴가 관리에서 부여일수를 먼저 넣어 주세요.' : ''}` : '휴가 신청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  if (request) {
+    const period = `${shortDate(request.start_date)}${request.end_date !== request.start_date ? `~${shortDate(request.end_date)}` : ''} ${LEAVE_TYPE_LABEL[request.leave_type] ?? '휴가'}`;
+    await notifyStaffLeave(request.staff_id, `leave.decided:${request.id}:${decision}`,
+      decision === 'approved' ? '휴가가 승인됐어요' : '휴가 신청이 반려됐어요',
+      decision === 'approved' ? `${period} 신청이 승인됐어요.` : `${period} 신청이 반려됐어요. 관리자에게 사유를 확인해 주세요.`, decision);
+  }
   if (decision === 'approved' && request && ['annual','sick','other'].includes(request.leave_type)) await enqueueStaffingReviewAlert(context.facilityId, request.staff_id, `leave:${request.id}`, request.start_date, 'leave');
   revalidatePath('/leave'); revalidatePath('/timesheet'); revalidatePath('/operations');
 }
@@ -436,14 +466,87 @@ export async function endGigStaffAction(form:FormData){
   revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/workroom');revalidatePath('/gig-pay');revalidatePath('/');
 }
 
-export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'unlink_worker'|'set_staff_pay'|'end_staff';
+// 직원 기본 정보 수정 — 이름·직종·부서·근무시간·근무요일·요일별 시간·입사일. 급여 기준은 setStaffPayAction 이 따로 맡는다.
+export async function updateClinicStaffAction(form:FormData){
+  const context=await requireAdminContext(['owner','operator','super']);
+  const sb=adminClient();
+  if(!sb)throw new Error('서버 설정을 확인해 주세요.');
+  const staffId=text(form,'staff_id');
+  const name=text(form,'name');
+  const role=text(form,'role');
+  const phone=text(form,'phone')||null;
+  const start=text(form,'default_start_time');
+  const end=text(form,'default_end_time');
+  const hireDate=text(form,'contract_start')||null;
+  const timeOk=(value:string)=>/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(value);
+  const [{data:staff},{data:facility}]=await Promise.all([
+    sb.from('facility_staff').select('id,status,worker_kind,engagement_type,contract_end').eq('id',staffId).eq('facility_id',context.facilityId).maybeSingle(),
+    sb.from('facilities').select('facility_type').eq('id',context.facilityId).maybeSingle(),
+  ]);
+  if(!staff||staff.status==='ended')throw new Error('수정할 직원을 찾지 못했어요.');
+  if(isGigStaff(staff))throw new Error('단기·긱 근무자는 근무 일정에서 수정해 주세요.');
+  if(!name||name.length>40||!STAFF_ROLE_KEYS.includes(role))throw new Error('직원 이름과 직종을 확인해 주세요.');
+  if(facility?.facility_type==='pharmacy'&&!['pharmacist','pharmacy_staff','admin','other'].includes(role)){
+    throw new Error('약국 직원은 약사·약국 전산/사무직·관리 직종으로 등록해 주세요.');
+  }
+  if(!timeOk(start)||!timeOk(end))throw new Error('기본 출근·퇴근 시간을 확인해 주세요.');
+  if(phone&&phone.replace(/\D/g,'').length<10)throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
+  if(hireDate&&(!validDate(hireDate)||(staff.contract_end&&hireDate>staff.contract_end)))throw new Error('입사일을 확인해 주세요.');
+  const workWeekdays=[...new Set(form.getAll('work_weekdays').map(Number).filter((day)=>Number.isInteger(day)&&day>=1&&day<=7))].sort();
+  if(!workWeekdays.length)throw new Error('근무요일을 하나 이상 선택해 주세요.');
+  const weekdayHours=parseWeekdayHours(form,workWeekdays);
+  const patch:Record<string,unknown>={
+    name,role,phone,department:text(form,'department')||null,
+    default_start_time:start,default_end_time:end,work_weekdays:workWeekdays,weekday_hours:weekdayHours,
+    updated_at:new Date().toISOString(),
+  };
+  // 기간제·임시 계약의 시작일은 계약 조건이라 여기서 바꾸지 않는다. 상시 직원만 입사일로 쓴다(연차 계산 기준).
+  if(staff.engagement_type==='regular')patch.contract_start=hireDate;
+  const {error}=await sb.from('facility_staff').update(patch).eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
+  if(error)throw new Error(error.code==='P0001'?error.message:'직원 정보를 저장하지 못했어요.');
+  revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/leave');revalidatePath('/payroll');revalidatePath('/');
+}
+
+// 직원 퇴사 처리 — 기록(근태·급여·휴가)은 남기고 목록·출퇴근·워크룸에서만 뺀다. 되돌리려면 다시 등록한다.
+export async function retireClinicStaffAction(form:FormData){
+  const context=await requireAdminContext(['owner','operator','super']);
+  await assertNotDemoFacility(context.facilityId);
+  const sb=adminClient();
+  if(!sb)throw new Error('서버 설정을 확인해 주세요.');
+  const staffId=text(form,'staff_id');
+  const lastDay=text(form,'last_day')||todayKST();
+  if(text(form,'confirm_name')===''||!validDate(lastDay)||lastDay>todayKST())throw new Error('직원 이름과 마지막 근무일(오늘 또는 지난 날짜)을 확인해 주세요.');
+  const {data:staff}=await sb.from('facility_staff').select('id,name,status,worker_kind,contract_start,contract_end').eq('id',staffId).eq('facility_id',context.facilityId).maybeSingle();
+  if(!staff||staff.status==='ended')throw new Error('이미 퇴사 처리됐거나 찾을 수 없는 직원이에요.');
+  if(isGigStaff(staff))throw new Error('단기·긱 근무자는 근무 종료로 처리해 주세요.');
+  if(text(form,'confirm_name')!==staff.name)throw new Error('확인용 이름이 직원 이름과 달라요. 정확히 입력해 주세요.');
+  if(staff.contract_start&&lastDay<staff.contract_start)throw new Error('마지막 근무일이 입사일보다 빨라요.');
+  const {count,error:attendanceError}=await sb.from('staff_attendances').select('id',{count:'exact',head:true})
+    .eq('staff_id',staffId).in('status',['working','late','checkout_pending']);
+  if(attendanceError)throw new Error('진행 중인 근태를 확인하지 못했어요.');
+  if((count??0)>0)throw new Error('출근 중이거나 조기 퇴근 승인 대기인 기록을 먼저 확정해 주세요.');
+  const now=new Date().toISOString();
+  const {error}=await sb.from('facility_staff').update({
+    status:'ended',updated_at:now,
+    // 급여 화면이 마지막 달을 '기간 중 종료'로 표시하도록 종료일을 남긴다
+    contract_end:staff.contract_end&&staff.contract_end<lastDay?staff.contract_end:lastDay,
+  }).eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
+  if(error)throw new Error(error.code==='P0001'?error.message:'퇴사 처리를 저장하지 못했어요.');
+  await sb.from('facility_staff_invites').update({status:'cancelled'}).eq('staff_id',staffId).eq('status','pending');
+  // 답을 기다리는 휴가 신청은 더 처리할 수 없으니 닫아 둔다
+  await sb.from('staff_leave_requests').update({status:'rejected',decided_by:context.user.id,decided_at:now,updated_at:now})
+    .eq('staff_id',staffId).eq('facility_id',context.facilityId).eq('status','pending');
+  revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/leave');revalidatePath('/payroll');revalidatePath('/workroom');revalidatePath('/');
+}
+
+export type WorkforceActionKind='add_staff'|'attendance'|'shift_attendance'|'add_leave'|'set_balance'|'decide_leave'|'early_checkout'|'shift_early_checkout'|'rotate_qr'|'convert_worker'|'create_invite'|'unlink_worker'|'set_staff_pay'|'end_staff'|'update_staff'|'retire_staff';
 export async function runWorkforceAction(kind:WorkforceActionKind,form:FormData):Promise<{ok:boolean;error?:string;data?:unknown}>{
   try{
     const actions:Record<WorkforceActionKind,(data:FormData)=>Promise<unknown>>={
       add_staff:addClinicStaffAction,attendance:recordStaffAttendanceAction,shift_attendance:recordShiftAdminAttendanceAction,add_leave:addStaffLeaveAction,
       set_balance:setStaffLeaveBalanceAction,decide_leave:decideStaffLeaveAction,
       early_checkout:decideEarlyCheckoutAction,shift_early_checkout:decideShiftEarlyCheckoutAction,rotate_qr:async()=>rotateFacilityAttendanceQrAction(),
-      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,unlink_worker:unlinkStaffWorkerAction,set_staff_pay:setStaffPayAction,end_staff:endGigStaffAction,
+      convert_worker:convertMatchedWorkerToStaffAction,create_invite:createStaffInviteAction,unlink_worker:unlinkStaffWorkerAction,set_staff_pay:setStaffPayAction,end_staff:endGigStaffAction,update_staff:updateClinicStaffAction,retire_staff:retireClinicStaffAction,
     };
     const data=await actions[kind](form);
     return {ok:true,data};
@@ -505,7 +608,7 @@ export async function convertMatchedWorkerToStaffAction(form: FormData) {
     if(pendingRow)return {staffId:pendingRow.id,inviteToken:pendingInvite.token as string};
   }
   await requireStaffCapacity(sb, context.facilityId);
-  const role = ['rn','na','pharmacist','pharmacy_staff'].includes(worker.role) ? worker.role : 'other';
+  const role = ['rn','na','pharmacist','pharmacy_staff','dental_hygienist','care_worker'].includes(worker.role) ? worker.role : 'other';
   // 계정·계좌 연결은 워커 본인이 초대를 수락할 때만 이루어진다 (긱 초대와 같은 원칙). 전화번호는 관리자 메모.
   const { data: created, error } = await sb.from('facility_staff').insert({
     facility_id: context.facilityId, worker_id: null, name: worker.name,

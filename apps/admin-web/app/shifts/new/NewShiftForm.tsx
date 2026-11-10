@@ -7,11 +7,12 @@ import { calcEstimatedShiftPay, shiftHourlyWageError } from '@/lib/pay';
 import { won } from '@/lib/format';
 import { todayKST } from '@/lib/date';
 
-type Role = 'rn' | 'na' | 'pharmacist' | 'pharmacy_staff' | 'any';
+type Role = 'rn' | 'na' | 'dental_hygienist' | 'pharmacist' | 'pharmacy_staff' | 'any';
 
 const ALL_ROLES: { value: Role; label: string }[] = [
   { value: 'rn', label: '간호사 (RN)' },
   { value: 'na', label: '간호조무사 (NA)' },
+  { value: 'dental_hygienist', label: '치과위생사' },
   { value: 'pharmacist', label: '약사' },
   { value: 'pharmacy_staff', label: '약국 전산·사무직' },
   { value: 'any', label: '자격 무관' },
