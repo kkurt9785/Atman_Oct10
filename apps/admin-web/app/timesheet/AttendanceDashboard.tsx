@@ -67,10 +67,16 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
   const head=todayHeadcount(staff,matched);
   const leavePeople=people.filter(p=>p.status==='leave');
   const workPeople=people.filter(p=>p.status!=='leave');
+  // 숫자 칸은 사람 기준 — 한 사람이 직원 근태와 단기 근무를 같이 가져도 1명으로 세어 '전체'와 합이 맞는다(근무 중 > 미출근 > 퇴근 순으로 한 칸에만)
+  const personKey=(p:Person)=>p.kind==='staff'?(p.staff.workerId?`worker:${p.staff.workerId}`:`staff:${p.staff.id}`):`worker:${p.shift.id}`;
+  const rank:Record<Filter,number>={working:3,waiting:2,completed:1,all:0,leave:0};
+  const personBucket=new Map<string,Filter>();
+  for(const p of workPeople){const next=bucket(p.status);const prev=personBucket.get(personKey(p));if(!prev||rank[next]>rank[prev])personBucket.set(personKey(p),next);}
+  const countOf=(key:Filter)=>[...personBucket.values()].filter(value=>value===key).length;
   const counts={
-    working:people.filter(p=>bucket(p.status)==='working').length,
-    waiting:people.filter(p=>bucket(p.status)==='waiting').length,
-    completed:people.filter(p=>p.status==='completed').length,
+    working:countOf('working'),
+    waiting:countOf('waiting'),
+    completed:countOf('completed'),
     issue:people.filter(p=>isIssue(p.status)).length+failures.length+arrivalAlerts.length,
   };
   const visible=filter==='leave'?leavePeople:filter==='all'?workPeople:workPeople.filter(p=>bucket(p.status)===filter);
