@@ -3,6 +3,7 @@ import { Card } from '@/components/ui';
 import { getAttendanceHistory } from '@/lib/db/attendance-history';
 import { HistoryActionForm } from './HistoryActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { AttendanceTabs } from '@/components/AttendanceTabs';
 import { formatDate } from '@/lib/format';
 import { getShop } from '@/lib/db/shop';
 
@@ -29,6 +30,7 @@ export default async function AttendanceHistoryPage({searchParams}:{searchParams
   const unsettled=rows.filter(row=>row.recognitionPending).length;
   return <main className="px-4 pb-28">
     <ManageBackLink href="/more/operations" label="근무 운영" />
+    <AttendanceTabs active="month"/>
     <div className="mt-3 px-1"><p className="text-label font-bold text-primary">수정·감사 기록</p><h1 className="text-display font-extrabold">근태 내역</h1><p className="mt-1 text-label text-sub">확인이 필요한 날짜를 찾고 출퇴근 기록을 수정해요.</p></div>
     <div className="mt-4 flex gap-2"><Link href={`/attendance-summary?month=${month}`} className="flex h-10 flex-1 items-center justify-center rounded-xl border border-line bg-white text-[0.75rem] font-bold">← 월 요약</Link><a href={`/api/attendance/export?month=${month}`} className="flex h-10 flex-1 items-center justify-center rounded-xl bg-ink text-[0.75rem] font-bold text-white">CSV 내려받기</a></div>
     <div className="mt-4 flex items-center justify-between rounded-2xl bg-white p-2 shadow-sm">{month>minMonth?<Link href={`/attendance-history?month=${moveMonth(month,-1)}&type=${type}&status=${status}`} className="flex h-9 w-9 items-center justify-center text-xl">‹</Link>:<span className="flex h-9 w-9 items-center justify-center text-xl text-line">‹</span>}<b className="text-[0.875rem]">{month.slice(0,4)}년 {Number(month.slice(5,7))}월</b>{month<current?<Link href={`/attendance-history?month=${moveMonth(month,1)}&type=${type}&status=${status}`} className="flex h-9 w-9 items-center justify-center text-xl">›</Link>:<span className="w-9 text-center text-line">›</span>}</div>

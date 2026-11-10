@@ -3,6 +3,7 @@ import { DynamicQrPanel } from './DynamicQrPanel';
 import { getFacilityProfile } from '@/lib/actions/facility';
 import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { AttendanceTabs } from '@/components/AttendanceTabs';
 import { workerShellPaths } from '@/lib/facility-mode';
 
 const MODE_LABEL:Record<string,string>={
@@ -26,6 +27,7 @@ export default async function AttendanceQrPage(){
   const networkEnabled=mode==='network'||(networkCount>0&&['gps','gps_or_qr'].includes(mode));
   return <main className="px-4 pb-28">
     <ManageBackLink href="/more/operations" label="근무 운영" />
+    <AttendanceTabs active="auth"/>
     <div className="mt-3 px-1"><p className="text-label font-bold text-primary">오늘 출퇴근을 한 곳에서</p><h1 className="text-display font-extrabold">출퇴근 인증센터</h1><p className="text-label text-sub mt-1">QR은 이 화면에 띄워두고, 위치·Wi-Fi 인증은 직원이 근무자 앱에서 출퇴근 버튼을 누르면 작동해요.</p></div>
     <section className="mt-4 rounded-2xl bg-ink p-4 text-white print:hidden">
       <div className="flex items-start justify-between gap-3"><div><p className="text-[0.6875rem] font-bold text-white/60">현재 운영 방식</p><p className="mt-1 text-[1rem] font-extrabold">{MODE_LABEL[mode]??mode}</p></div><span className="shrink-0 rounded-full bg-emerald-400/20 px-2.5 py-1 text-[0.6875rem] font-bold text-emerald-200">사용 중</span></div>

@@ -100,6 +100,16 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,on
   const noConsent=result?.reason==='LOCATION_CONSENT_REQUIRED';
   // 위치 동의가 없을 때 QR 안내는 위치를 못 잡은 경우(GPS_ERROR)와 같은 기준 — 강화 인증은 QR만으로 안 된다
   const offerQr=!qrToken&&!!result&&!result.ok&&canOfferAttendanceQr(noConsent?'GPS_ERROR':result.reason,mode,qrFallback);
+  // 실패하면 먼저 해 볼 것 하나만 크게 보여 주고 나머지는 '다른 방법 보기' 안에 둔다 — 버튼 네 개가 한 줄에 나와 뭘 눌러야 할지 몰랐다(2026-11-10 근태 화면 정리).
+  // 시간·배정·관리자 처리처럼 다시 눌러도 안 풀리는 실패는 확인 요청이 먼저다.
+  const who=gig?'사장님께':'사업장에';
+  const askFirst=!noConsent&&(mode==='admin'||['TIME_NOT_ALLOWED','ADMIN_REQUIRED','NOT_ASSIGNED','INVALID_STATE'].includes(result?.reason??''));
+  const wifiOther=noConsent&&mode!=='gps_qr';
+  const retryOther=askFirst&&mode!=='admin';
+  const mainAction='flex h-12 w-full items-center justify-center rounded-xl bg-ink text-[14px] font-extrabold text-white';
+  const otherRow='flex items-center justify-between gap-3 rounded-lg bg-white px-3';
+  const otherWhen='min-w-0 text-[11px] font-medium leading-4 text-sub';
+  const otherAction='flex h-11 shrink-0 items-center text-[12px] font-extrabold text-primary';
   // 실패한 그 시각으로 문장을 만든다 (다시 그려져도 시각이 바뀌지 않게 결과마다 한 번)
   const helpLink=useMemo(()=>{
     const base=helpHref??'/workroom';
@@ -114,15 +124,25 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,on
       {!result.ok&&result.reason==='QR_EXPIRED'&&<p className="mt-1 font-medium">관리자 화면의 새 QR을 다시 찍어 주세요. QR은 화면에서 60초마다 바뀌어요.</p>}
       {result.ok&&result.status==='pending'&&<p className="mt-1 font-medium">관리자가 승인하면 퇴근 시간과 근무시간이 확정돼요.</p>}
       {result.ok&&<p className="mt-1 font-medium">{new Date(result.checkOutAt??result.checkInAt??Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'})} · {METHOD[result.method??'']??result.method}{typeof result.distanceM==='number'?` · 사업장에서 ${result.distanceM}m`:''}{typeof result.accuracyM==='number'?` · 위치 오차 ±${Math.round(result.accuracyM)}m`:''}</p>}
-      {!result.ok&&noConsent&&<ul className="mt-1.5 space-y-0.5 font-medium leading-5">
-        <li>· 내 정보 › 개인정보·동의에서 위치정보 이용을 켜고 다시 눌러 주세요.</li>
-        {mode!=='gps_qr'&&<li>· 근무지 Wi-Fi에 연결돼 있으면 Wi-Fi로 확인할 수 있어요.</li>}
-        {offerQr&&<li>· 근무지에 출퇴근 QR이 있으면 QR로 인증할 수 있어요.</li>}
-        <li>· 어렵다면 {gig?'사장님께':'사업장에'} 확인을 요청해 주세요.</li>
-      </ul>}
-      {!result.ok&&<div className="mt-2 flex flex-wrap gap-2">{noConsent?<><Link href={`${gig?'/gig/settings':'/settings'}#privacy-title`} className="flex h-11 items-center rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">위치 동의 켜기</Link>{mode!=='gps_qr'&&<button type="button" onClick={onTryWithoutLocation} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">Wi-Fi로 확인</button>}</>:mode!=='admin'&&<button type="button" onClick={onRetry} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-red-600">다시 확인</button>}{offerQr&&<button type="button" onClick={()=>setQrHelp(true)} className="h-11 rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">동적 QR로 인증</button>}<Link href={helpLink} className="flex h-11 items-center rounded-lg bg-white px-3 text-[12px] font-extrabold text-primary">{gig?'사장님께':'사업장에'} 확인 요청</Link></div>}
+      {!result.ok&&locationIssue&&<p className="mt-1 font-medium leading-5">{locationIssue}</p>}
+      {!result.ok&&noConsent&&<p className="mt-1 font-medium leading-5">내 정보 › 개인정보·동의에서 위치정보 이용을 켜고 돌아와 다시 눌러 주세요.</p>}
+      {!result.ok&&<>
+        <div className="mt-2.5">{noConsent
+          ?<Link href={`${gig?'/gig/settings':'/settings'}#privacy-title`} className={mainAction}>위치 동의 켜기</Link>
+          :askFirst?<Link href={helpLink} className={mainAction}>{who} 확인 요청</Link>
+          :<button type="button" onClick={onRetry} className={mainAction}>다시 확인</button>}</div>
+        {(wifiOther||retryOther||offerQr||!askFirst)&&<details className="mt-1">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center text-[12px] font-bold underline underline-offset-4 [&::-webkit-details-marker]:hidden">다른 방법 보기</summary>
+          <div className="space-y-1.5">
+            {wifiOther&&<div className={otherRow}><span className={otherWhen}>근무지 Wi-Fi에 연결돼 있다면</span><button type="button" onClick={onTryWithoutLocation} className={otherAction}>Wi-Fi로 확인</button></div>}
+            {retryOther&&<div className={otherRow}><span className={otherWhen}>시간이 됐거나 상황이 바뀌었다면</span><button type="button" onClick={onRetry} className={otherAction}>다시 확인</button></div>}
+            {offerQr&&<div className={otherRow}><span className={otherWhen}>근무지에 출퇴근 QR이 있다면</span><button type="button" onClick={()=>setQrHelp(true)} className={otherAction}>동적 QR로 인증</button></div>}
+            {!askFirst&&<div className={otherRow}><span className={otherWhen}>그래도 안 되면</span><Link href={helpLink} className={otherAction}>{who} 확인 요청</Link></div>}
+          </div>
+        </details>}
+      </>}
     </div>}
-    {locationIssue&&!result?.ok&&<p role="alert" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-700">{locationIssue}</p>}
+    {locationIssue&&!result&&<p role="alert" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-700">{locationIssue}</p>}
     {qrHelp&&<div className="mt-2 rounded-xl border border-primary/20 bg-white p-3 text-[12px] leading-5 text-sub"><b className="text-ink">사업장 QR로 인증하는 방법</b><ol className="mt-1 list-decimal pl-4"><li>사업장 접수대·관리자 화면의 동적 출퇴근 QR을 확인해요.</li><li>아이폰은 기본 카메라, 갤럭시는 카메라의 QR 스캔으로 비춥니다.</li><li>권한 창이 나오면 카메라 허용을 누르고 열린 잇닿 화면에서 출퇴근 버튼을 누릅니다.</li></ol><button onClick={()=>setQrHelp(false)} className="mt-2 font-bold text-primary">확인</button></div>}
     {!hideModeHint&&<p className={`mt-2 text-center text-[11px] ${dark?'text-white/55':'text-sub'}`}>{mode==='gps_or_qr'?'누르면 사용 가능한 방법을 자동으로 확인해요.':`현재 인증: ${MODE_LABEL[mode]}`}{(mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr')?' 위치는 누른 순간에만 확인해요.':''}</p>}
   </>;

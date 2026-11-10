@@ -313,10 +313,9 @@ async function main() {
     // 새 메시지가 있는 방(근무자 말풍선이 있는 방)을 열어 대화 화면도 찍는다. 보내지는 않는다
     const roomHref = await cdp.send('Runtime.evaluate', { expression: `(() => { const links = Array.from(document.querySelectorAll('a[href^="/chats/"]')); const pick = links.find((a) => a.innerText.includes('새 메시지')) ?? links.find((a) => !/채용이 확정|근무$/.test(a.innerText.trim())); return pick?.getAttribute('href') ?? null; })()`, returnByValue: true });
     if (roomHref?.result?.value) { await go(`${adminOrigin}${roomHref.result.value}`); await sleep(1200); await shot('04-chat-room'); }
-    // 근태: 기본 탭은 '확인 필요' — 출근 시각이 보이는 '오늘 근무자' 탭으로 바꿔 맨 위(실시간 반영·확인 필요 수)부터 찍는다.
+    // 근태: 탭 없이 한 화면(확인 필요 카드 → 숫자 칸 → 오늘 근무자, 2026-11-10) — 맨 위부터 찍는다.
     // 아래로 내리면 시드 이상값(박서윤 출근 00:09)이 보여 스크롤하지 않는다(2026-11-05)
     await go(`${adminOrigin}/timesheet`); await waitFor(hasText('오늘 근무자'));
-    await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('button')).find((node) => node.textContent?.trim().startsWith('오늘 근무자'))?.click(); true` });
     await sleep(1200); await shot('05-timesheet');
     await go(`${adminOrigin}/payroll`); await sleep(1200); await shot('07-payroll');
     await go(`${adminOrigin}/attendance-qr`); await waitFor(hasText('인증 방법')); await shot('06-attendance-auth');

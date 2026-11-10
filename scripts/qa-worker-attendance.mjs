@@ -83,6 +83,8 @@ try {
     assert.equal(calls, 1);
     await page.screenshot({ path: path.join(directory, `${width}-time-error.png`), fullPage: true });
     attendanceMode = 'network';
+    // 시간 오류는 '확인 요청'이 먼저고 '다시 확인'은 '다른 방법 보기' 안에 있다(2026-11-10)
+    await page.getByText('다른 방법 보기', { exact: true }).click();
     await page.getByRole('button', { name: '다시 확인', exact: true }).click();
     await page.waitForFunction(() => !document.querySelector('button[aria-label="길게 눌러 출근 기록"]')?.disabled);
     assert.equal(calls, 2);

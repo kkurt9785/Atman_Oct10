@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectWorkplaceShift, selectWorkplaceStaff, currentStaffAttendance, staffAttendanceLabel, attendancePolicyHelp } from './workplace-selection';
+import { selectWorkplaceShift, selectWorkplaceStaff, currentStaffAttendance, staffAttendanceLabel, attendancePolicyHelp, staffAttendanceFact, attendancePolicyNote } from './workplace-selection';
 const row=(id:string,date:string,active=false,facility='a')=>({id,status:'accepted',checked_in_at:active?'2026-10-31T13:00:00Z':null,checked_out_at:null,shifts:{shift_date:date,start_time:'09:00',facilities:{id:facility}}});
 describe('workplace selection',()=>{
   it('never substitutes another staff member for a conflicting explicit staff and QR facility',()=>{
@@ -37,5 +37,17 @@ describe('workplace selection',()=>{
     expect(attendancePolicyHelp('gps_qr')).toContain('모두');
     expect(attendancePolicyHelp('admin')).not.toContain('QR');
     expect(attendancePolicyHelp('network')).toContain('네트워크');
+  });
+  it('states today as one fact line in Korean time',()=>{
+    expect(staffAttendanceFact(null)).toBe('아직 출근 전이에요');
+    expect(staffAttendanceFact({check_in_at:'2026-11-09T22:09:00Z',check_out_at:null,status:'working'})).toBe('07:09 출근 · 근무 중');
+    expect(staffAttendanceFact({check_in_at:'2026-11-09T22:09:00Z',check_out_at:null,status:'checkout_pending'})).toBe('07:09 출근 · 퇴근 승인 대기');
+    expect(staffAttendanceFact({check_in_at:'2026-11-09T22:09:00Z',check_out_at:'2026-11-10T09:02:00Z',status:'completed'})).toBe('07:09 출근 → 18:02 퇴근');
+    expect(staffAttendanceFact({check_in_at:null,check_out_at:null,status:'leave'})).toBe('오늘은 휴가예요');
+  });
+  it('explains the policy only when it differs from the default',()=>{
+    expect(attendancePolicyNote('gps_or_qr')).toBeNull();
+    expect(attendancePolicyNote('gps')).toBeNull();
+    expect(attendancePolicyNote('gps_qr')).toContain('모두');
   });
 });

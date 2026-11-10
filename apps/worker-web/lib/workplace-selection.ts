@@ -27,3 +27,16 @@ export function attendancePolicyHelp(mode: string) {
   if (mode === 'qr') return '현장의 동적 QR을 스캔하고 출퇴근 버튼을 눌러 주세요.';
   return '출퇴근할 때 현장 인증 정책을 확인해요. 인증이 어렵다면 화면의 안내를 따라 주세요.';
 }
+const factTime = (iso: string) => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
+// 지금 상태를 사실 한 줄로 — '현재 근무 중' 같은 상태 이름보다 '07:09 출근 · 근무 중'이 바로 읽힌다(2026-11-10 근태 화면 정리)
+export function staffAttendanceFact(row?: { check_in_at: string | null; check_out_at: string | null; status?: string } | null) {
+  if (row?.check_in_at && row.check_out_at) return `${factTime(row.check_in_at)} 출근 → ${factTime(row.check_out_at)} 퇴근`;
+  if (row?.check_out_at) return `${factTime(row.check_out_at)} 퇴근`;
+  if (row?.check_in_at) return `${factTime(row.check_in_at)} 출근 · ${row.status === 'checkout_pending' ? '퇴근 승인 대기' : '근무 중'}`;
+  if (row?.status === 'leave') return '오늘은 휴가예요';
+  return '아직 출근 전이에요';
+}
+// 기본 방식(위치·간편 인증)은 누르면 알아서 확인하니 설명이 필요 없다. 다르게 해야 하는 현장만 한 줄로 알린다.
+export function attendancePolicyNote(mode: string) {
+  return ['admin', 'gps_qr', 'network', 'qr'].includes(mode) ? attendancePolicyHelp(mode) : null;
+}

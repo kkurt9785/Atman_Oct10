@@ -5,6 +5,7 @@ import { getShop } from '@/lib/db/shop';
 import { getAdminContext } from '@/lib/admin-auth';
 import { facilityTypeLabel } from '@/lib/facility-label';
 import { attendancePersonKey } from '@/lib/attendance-recognition';
+import { AttendanceTabs } from '@/components/AttendanceTabs';
 
 const ENGAGEMENT:Record<string,string>={regular:'상시',fixed_term:'기간제',temporary:'임시',daily:'단기',shift:'공고 근무'};
 function moveMonth(month:string,delta:number){const d=new Date(`${month}-01T00:00:00Z`);d.setUTCMonth(d.getUTCMonth()+delta);return d.toISOString().slice(0,7);}
@@ -41,7 +42,8 @@ export default async function AttendanceSummaryPage({searchParams}:{searchParams
   const unsettled=rows.filter(row=>row.recognitionPending).length;
 
   return <main className="px-4 pb-28">
-    <div className="mt-3 px-1"><p className="text-label font-bold text-primary">{facilityWord} 월간 현황</p><h1 className="text-display font-extrabold">근태 요약</h1><p className="mt-1 text-label text-sub">먼저 전체 흐름을 보고, 필요한 기록만 상세 확인해요.</p></div>
+    <AttendanceTabs active="month"/>
+    <div className="mt-1 px-1"><p className="text-label font-bold text-primary">{facilityWord} 월간 현황</p><h1 className="text-display font-extrabold">근태 요약</h1><p className="mt-1 text-label text-sub">먼저 전체 흐름을 보고, 필요한 기록만 상세 확인해요.</p></div>
     <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-bg p-1" aria-label="조회 기간 바로가기">
       <Link href={`/attendance-summary?month=${current}`} className={`flex h-10 items-center justify-center rounded-xl text-[0.75rem] font-bold ${month===current?'bg-white text-primary shadow-sm':'text-sub'}`}>이번 달 · 집계 중</Link>
       <Link href={`/attendance-summary?month=${recentComplete}`} className={`flex h-10 items-center justify-center rounded-xl text-[0.75rem] font-bold ${month===recentComplete?'bg-white text-primary shadow-sm':'text-sub'}`}>지난달</Link>

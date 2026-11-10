@@ -3,6 +3,7 @@ import { Card } from '@/components/ui';
 import { getClinicLeaveRequests, getClinicStaff } from '@/lib/db/clinic-workforce';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
+import { AttendanceTabs } from '@/components/AttendanceTabs';
 import { formatDate } from '@/lib/format';
 import { todayKST } from '@/lib/date';
 import { LeaveGrantFields } from './LeaveGrantFields';
@@ -17,6 +18,7 @@ export default async function LeavePage(){
   const today=todayKST();
   return <main className="px-4 pb-28">
     <ManageBackLink href="/more/operations" label="근무 운영" />
+    <AttendanceTabs active="leave"/>
     <div className="mt-2 px-1"><p className="text-label font-bold text-primary">직원 신청 → 관리자 승인</p><h1 className="text-display font-extrabold">휴가 관리</h1><p className="text-label text-sub mt-1">직원이 신청하면 확인 후 승인하고, 승인 시에만 잔여시간이 차감돼요.</p></div>
     <Card className="mt-4 bg-primary text-white"><p className="text-label text-white/70">전체 직원 잔여 휴가</p><p className="text-money font-extrabold mt-1">{days(total)}일</p><p className="text-[0.6875rem] text-white/70 mt-2">사업장이 입력한 부여시간 기준</p></Card>
     <details className="mt-3 bg-primary/5 border border-primary/15 rounded-2xl group">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
@@ -10,7 +10,7 @@ import type { UpcomingShiftRow } from '@/lib/db/staff';
 import { AttendanceRealtime } from './AttendanceRealtime';
 import { todayHeadcount } from '@/lib/today-headcount';
 
-type Filter='all'|'working'|'issue'|'completed'|'leave';
+type Filter='all'|'working'|'waiting'|'completed'|'leave';
 type Failure={
   id:string; target_type:string; action:string; authentication_method:string|null;
   distance_meters:number|null; gps_accuracy_meters:number|null; failure_reason:string|null;
@@ -39,17 +39,19 @@ const FAIL:Record<string,string>={OUT_OF_RANGE:'사업장 반경 밖',GPS_ERROR:
 const ENGAGEMENT:Record<string,string>={regular:'상시 직원',fixed_term:'기간제',temporary:'임시 계약',daily:'단기 근무'};
 const fmt=(iso:string|null|undefined)=>iso?new Date(iso).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'}):'—';
 
-function group(status:string):Filter{
-  // 지각은 이미 출근한 사람 — '확인 필요'에 가두지 않고 근무 중 목록에서 뱃지로 보여준다(수동 처리 버튼도 거기 있음)
-  if(status==='working'||status==='late')return 'working';
+// 지각은 이미 출근한 사람 — '확인 필요'에 가두지 않고 근무 중 목록에서 뱃지로 보여준다(수동 처리 버튼도 거기 있음)
+const isIssue=(status:string)=>['absent','checkout_pending'].includes(status);
+// 숫자 칸 하나에 한 묶음: 근무 중(지각·퇴근 승인 대기 포함) · 미출근(출근 예정·결근) · 퇴근 · 휴가
+function bucket(status:string):Filter{
+  if(['working','late','checkout_pending'].includes(status))return 'working';
+  if(['scheduled','absent'].includes(status))return 'waiting';
   if(status==='completed')return 'completed';
-  if(['absent','checkout_pending'].includes(status))return 'issue';
+  if(status==='leave')return 'leave';
   return 'all';
 }
 
 export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAlerts,facilityId,summaryHref,isGigworker=false}:{staff:ClinicStaff[];matched:StaffRow[];upcoming:UpcomingShiftRow[];failures:Failure[];arrivalAlerts:ArrivalAlert[];facilityId:string|null;summaryHref:string;isGigworker?:boolean}){
   const [filter,setFilter]=useState<Filter>('all');
-  const [tab,setTab]=useState<'issue'|'today'|'upcoming'|null>(null);
   // 승인·반려가 끝난 조기 퇴근은 새로고침 결과를 기다리지 않고 바로 바꿔 보여 준다 — 처리 뒤에도 카드가 버튼째 남았다(2026-11-05 QA).
   // 같은 사람이 다시 요청하면 요청 시각이 달라 다시 보인다
   const [decided,setDecided]=useState<Record<string,'completed'|'working'>>({});
@@ -66,45 +68,37 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
   const leavePeople=people.filter(p=>p.status==='leave');
   const workPeople=people.filter(p=>p.status!=='leave');
   const counts={
-    working:people.filter(p=>p.status==='working'||p.status==='late').length,
+    working:people.filter(p=>bucket(p.status)==='working').length,
+    waiting:people.filter(p=>bucket(p.status)==='waiting').length,
     completed:people.filter(p=>p.status==='completed').length,
-    issue:people.filter(p=>group(p.status)==='issue').length+failures.length+arrivalAlerts.length,
+    issue:people.filter(p=>isIssue(p.status)).length+failures.length+arrivalAlerts.length,
   };
-  const activeFilter:Filter=filter==='leave'&&leavePeople.length===0?'all':filter;
-  const visible=activeFilter==='leave'?leavePeople:activeFilter==='all'?workPeople:workPeople.filter(p=>group(p.status)===activeFilter);
-  const issuePeople=people.filter(person=>group(person.status)==='issue');
+  const visible=filter==='leave'?leavePeople:filter==='all'?workPeople:workPeople.filter(p=>bucket(p.status)===filter);
+  const issuePeople=people.filter(person=>isIssue(person.status));
 
-  // 위아래로 늘어놓던 확인할 기록·오늘 근무자·7일 일정을 화면 위 탭으로 — 확인할 기록이 있으면 그 탭부터
-  const activeTab=tab??(counts.issue>0?'issue':'today');
-  useEffect(()=>{if(window.location.hash==='#approvals')setTab('issue');},[]);
+  // 탭 셋(확인 필요·오늘 근무자·7일 일정)을 한 화면으로 폈다 — 확인할 기록이 있으면 '오늘 근무자' 숫자를 보려고 탭을 한 번 더 눌러야 했다(2026-11-10 근태 화면 정리).
+  // 확인 필요는 있을 때만 맨 위 카드로, 그 아래 숫자 칸(누르면 그 상태만)과 오늘 근무자, 7일 일정은 맨 아래 접어 둔다.
   const todayCount=head.working;
-  const tabs=([['issue','확인 필요',counts.issue],['today','오늘 근무자',todayCount],...(isGigworker?[]:[['upcoming','7일 일정',upcoming.length]])] as [typeof activeTab,string,number][]);
+  const tiles=([['all','전체',todayCount],['working','근무 중',counts.working],['waiting','미출근',counts.waiting],['completed','퇴근',counts.completed],['leave','휴가',head.onLeave]] as [Filter,string,number][]);
 
   return <>
     <AttendanceRealtime facilityId={facilityId}/>
-    <nav aria-label="근태 화면 구분" className="sticky top-16 z-[9] -mx-4 mt-3 bg-bg/95 px-4 py-2 backdrop-blur">
-      <div className="grid gap-1 rounded-2xl bg-white p-1 shadow-sm" style={{gridTemplateColumns:`repeat(${tabs.length},minmax(0,1fr))`}}>
-        {tabs.map(([key,label,count])=><button key={key} type="button" onClick={()=>setTab(key)} aria-pressed={activeTab===key} className={`flex h-10 min-w-0 items-center justify-center gap-1 rounded-xl px-1 text-label font-extrabold ${activeTab===key?'bg-primary text-white':'text-sub active:bg-bg'}`}>
-          <span className="truncate">{label}</span>{count>0&&<span className={`shrink-0 rounded-full px-1.5 text-[0.6875rem] ${activeTab===key?'bg-white/25 text-white':key==='issue'?'bg-red-100 text-red-600':'bg-bg text-sub'}`}>{count}</span>}
-        </button>)}
-      </div>
-    </nav>
-
     {decidedNotice&&<p role="status" className="mt-3 rounded-xl bg-success/10 px-3 py-2 text-[0.75rem] font-bold text-success">{decidedNotice}</p>}
-    {activeTab==='issue'&&<section id="approvals" className="scroll-mt-32">
-      {counts.issue===0?<Card className="mt-3 py-5 text-center text-[0.8125rem] font-bold text-success">승인하거나 수정할 기록이 없어요.</Card>:<div className="mt-3 space-y-3">{arrivalAlerts.map(alert=><Card key={`arrival-${alert.shiftId??alert.staffId}`} className="border border-red-200 bg-red-50/40 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[0.75rem] font-extrabold text-red-600">시작 시간 지남 · 출근 확인 필요</p><p className="mt-1 text-body font-extrabold text-ink">{alert.personName}</p><p className="mt-1 text-[0.75rem] leading-5 text-sub">{alert.employment==='staff'?'기존 직원':'단기 근무'} · {alert.startTime.slice(0,5)} 시작{alert.department?` · ${alert.department}`:''}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[0.6875rem] font-extrabold text-red-600">미출근</span></div><p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[0.75rem] leading-5 text-sub">출근 기록이 들어오면 이 항목은 자동으로 사라져요. 연락하거나 {isGigworker?'사장님이':'관리자가'} 직접 처리한 뒤 근태를 확정해 주세요.</p></Card>)}{issuePeople.map(person=>{
+    <div id="approvals" className="scroll-mt-32">{counts.issue>0&&<section aria-labelledby="attendance-issue-title">
+      <h2 id="attendance-issue-title" className="mt-4 flex items-center gap-2 px-1 text-[0.9375rem] font-extrabold text-ink">확인 필요<span className="rounded-full bg-red-100 px-2 py-0.5 text-[0.75rem] text-red-600">{counts.issue}건</span></h2>
+      <div className="mt-2 space-y-3">{arrivalAlerts.map(alert=><Card key={`arrival-${alert.shiftId??alert.staffId}`} className="border border-red-200 bg-red-50/40 p-4"><div className="flex items-start justify-between gap-3"><div><p className="text-[0.75rem] font-extrabold text-red-600">시작 시간 지남 · 출근 확인 필요</p><p className="mt-1 text-body font-extrabold text-ink">{alert.personName}</p><p className="mt-1 text-[0.75rem] leading-5 text-sub">{alert.employment==='staff'?'기존 직원':'단기 근무'} · {alert.startTime.slice(0,5)} 시작{alert.department?` · ${alert.department}`:''}</p></div><span className="shrink-0 rounded-full bg-white px-2.5 py-1 text-[0.6875rem] font-extrabold text-red-600">미출근</span></div><p className="mt-3 rounded-xl bg-white/80 px-3 py-2 text-[0.75rem] leading-5 text-sub">출근 기록이 들어오면 이 항목은 자동으로 사라져요. 연락하거나 {isGigworker?'사장님이':'관리자가'} 직접 처리한 뒤 근태를 확정해 주세요.</p></Card>)}{issuePeople.map(person=>{
         const staffRow=person.kind==='staff'?person.staff:null;const shiftRow=person.kind==='shift'?person.shift:null;const state=STATUS[person.status]??STATUS.scheduled;
         const requestedAt=staffRow?.checkoutRequestedAt??shiftRow?.checkoutRequestedAt;
         return <Card key={`issue-${person.key}`} className="border border-amber-200 p-4"><div className="flex justify-between"><div><b>{person.name}</b><p className="mt-1 text-[0.75rem] text-sub">{person.subtitle}</p>{person.status==='checkout_pending'&&<p className="mt-2 text-[0.75rem] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(requestedAt)}</p>}</div><span className={`h-fit rounded-full px-2.5 py-1 text-[0.6875rem] font-bold ${state.style}`}>{state.label}</span></div>{staffRow?.attendanceStatus==='checkout_pending'&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}} onSuccess={decide(person,'working')}><button className="h-11 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}} onSuccess={decide(person,'completed')}><button className="h-11 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}{shiftRow?.todayStatus==='승인대기'&&shiftRow.applicationId&&<div className="mt-3 grid grid-cols-2 gap-2"><WorkforceActionForm kind="shift_early_checkout" values={{application_id:shiftRow.applicationId,decision:'rejected'}} onSuccess={decide(person,'working')}><button className="h-11 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="shift_early_checkout" values={{application_id:shiftRow.applicationId,decision:'approved'}} onSuccess={decide(person,'completed')}><button className="h-11 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div>}</Card>;
-      })}{failures.length>0&&<details className="rounded-2xl border border-red-100 bg-white p-4"><summary className="cursor-pointer list-none font-extrabold">인증 실패 {failures.length}건 <span className="float-right text-[0.75rem] text-sub">확인 ›</span></summary><div className="mt-3 divide-y divide-line">{failures.map(row=><div key={row.id} className="py-3"><b className="text-[0.75rem]">{row.worker_name??'근로자'} · {FAIL[row.failure_reason??'']??row.failure_reason}</b><p className="mt-1 text-[0.6875rem] text-sub">{AUTH[row.authentication_method??'']??row.authentication_method} · {fmt(row.created_at)}</p></div>)}</div></details>}</div>}
-    </section>}
+      })}{failures.length>0&&<details className="rounded-2xl border border-red-100 bg-white p-4"><summary className="cursor-pointer list-none font-extrabold">인증 실패 {failures.length}건 <span className="float-right text-[0.75rem] text-sub">확인 ›</span></summary><div className="mt-3 divide-y divide-line">{failures.map(row=><div key={row.id} className="py-3"><b className="text-[0.75rem]">{row.worker_name??'근로자'} · {FAIL[row.failure_reason??'']??row.failure_reason}</b><p className="mt-1 text-[0.6875rem] text-sub">{AUTH[row.authentication_method??'']??row.authentication_method} · {fmt(row.created_at)}</p></div>)}</div></details>}</div>
+    </section>}</div>
 
-    {activeTab==='today'&&<>
-    <div className="flex gap-1 rounded-xl bg-white p-1 shadow-sm">
-      {([['all','전체',todayCount],['working','근무 중',counts.working],['completed','퇴근',counts.completed],...(leavePeople.length>0?[['leave','휴가',head.onLeave]]:[])] as [Filter,string,number][]).map(([key,label,count])=><button key={key} type="button" onClick={()=>setFilter(key)} aria-pressed={activeFilter===key} className={`h-10 flex-1 rounded-lg text-[0.75rem] font-bold ${activeFilter===key?'bg-ink text-white':key==='leave'?'text-purple-600':'text-sub'}`}>{label} {count}</button>)}
+    <h2 className="mt-5 px-1 text-[0.9375rem] font-extrabold text-ink">오늘 근무자</h2>
+    <div role="group" aria-label="상태별 인원 · 누르면 그 상태만 보여요" className="mt-2 grid grid-cols-5 gap-1 rounded-2xl bg-white p-1 shadow-sm">
+      {tiles.map(([key,label,count])=><button key={key} type="button" onClick={()=>setFilter(key)} aria-pressed={filter===key} className={`flex min-h-[3.75rem] min-w-0 flex-col items-center justify-center rounded-xl ${filter===key?'bg-ink text-white':'text-sub active:bg-bg'}`}><b className={`text-[1.375rem] leading-7 ${filter===key?'text-white':count===0?'text-tertiary':key==='waiting'?'text-warn':key==='leave'?'text-purple-600':'text-ink'}`}>{count}</b><span className="text-[0.6875rem] font-bold">{label}</span></button>)}
     </div>
 
-    {visible.length===0?<Card className="mt-3 py-9 text-center"><p className="font-bold">{people.length?(activeFilter==='all'?'오늘 근무할 사람이 없어요':'해당 상태의 근무자가 없어요'):'오늘 관리할 근무자가 없어요'}</p>{activeFilter==='all'&&leavePeople.length>0&&<p className="mt-1 text-label text-sub">휴가 {head.onLeave}명은 '휴가'에서 볼 수 있어요.</p>}{people.length===0&&<Link href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</Link>}</Card>:
+    {visible.length===0?<Card className="mt-3 py-9 text-center"><p className="font-bold">{people.length?(filter==='all'?'오늘 근무할 사람이 없어요':'해당 상태의 근무자가 없어요'):'오늘 관리할 근무자가 없어요'}</p>{filter==='all'&&leavePeople.length>0&&<p className="mt-1 text-label text-sub">휴가 {head.onLeave}명은 '휴가'에서 볼 수 있어요.</p>}{people.length===0&&<Link href="/staff" className="mt-2 inline-block text-label font-bold text-primary">직원 등록하기 →</Link>}</Card>:
       <div className="mt-3 space-y-3">{visible.map(person=>{
         const state=STATUS[person.status]??STATUS.scheduled;
         const staffRow=person.kind==='staff'?person.staff:null;
@@ -117,7 +111,8 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
             {person.status==='completed'&&<div className="mt-1 text-[0.6875rem] font-bold text-success">근태 확정 · 급여 검토 가능</div>}
             {staffRow&&(staffRow.lateMinutes>0||staffRow.earlyLeaveMinutes>0)&&<div className="mt-1 text-[0.6875rem] text-warn">{staffRow.lateMinutes>0?`지각 ${staffRow.lateMinutes}분`:''}{staffRow.earlyLeaveMinutes>0?` · 조퇴 ${staffRow.earlyLeaveMinutes}분`:''}</div>}
           </div>
-          {staffRow&&person.status==='checkout_pending'&&<div className="mt-3 rounded-xl border border-warn/30 bg-warn/5 p-3"><p className="text-[0.75rem] font-bold text-warn">예정 시간 전 퇴근 요청 · {fmt(staffRow.checkoutRequestedAt)}</p><div className="mt-2 grid grid-cols-2 gap-2"><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'rejected'}} onSuccess={decide(person,'working')}><button className="h-11 w-full rounded-lg border border-line bg-white text-[0.75rem] font-bold">반려</button></WorkforceActionForm><WorkforceActionForm kind="early_checkout" values={{staff_id:staffRow.id,work_date:staffRow.workDate,decision:'approved'}} onSuccess={decide(person,'completed')}><button className="h-11 w-full rounded-lg bg-primary text-[0.75rem] font-bold text-white">퇴근 승인</button></WorkforceActionForm></div></div>}
+          {/* 조기 퇴근 승인·반려 버튼은 위 '확인 필요' 카드 한 곳에만 둔다 — 같은 버튼이 두 군데 있었다 */}
+          {person.status==='checkout_pending'&&<a href="#approvals" className="mt-2 flex min-h-11 items-center text-[0.75rem] font-bold text-warn">예정 시간 전 퇴근 요청 · 위 '확인 필요'에서 승인해요 ↑</a>}
           <details className="mt-3">
             <summary className="flex min-h-10 cursor-pointer list-none items-center justify-end text-right text-[0.75rem] font-bold text-sub">{isGigworker?'사장님이 직접 처리':'관리자 직접 처리'} ···</summary>
             <div className="mt-2 grid grid-cols-3 gap-2">
@@ -127,9 +122,9 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
           </details>
         </Card>;
       })}</div>}
-    </>}
 
-    {activeTab==='upcoming'&&!isGigworker&&<section>{upcoming.length===0?<Card className="mt-3 py-6 text-center text-[0.8125rem] font-bold text-sub">예정된 확정 근무가 없어요.</Card>:<Card className="mt-3 divide-y divide-line p-0">{upcoming.map(row=><div key={row.id} className="flex items-center justify-between px-4 py-3"><div><b className="text-[0.8125rem]">{row.name}</b><p className="mt-0.5 text-[0.6875rem] text-sub">{row.job}</p></div><p className="text-right text-[0.75rem] font-bold text-primary">{row.shiftDate.slice(5).replace('-','/')}<span className="block text-[0.6875rem] text-sub">{row.startTime.slice(0,5)}~{row.endTime.slice(0,5)}</span></p></div>)}</Card>}</section>}
-    <section className="mt-5"><div className="grid grid-cols-2 gap-2"><Link href={summaryHref} className="rounded-2xl bg-primary p-4 text-white"><b className="text-[0.875rem]">월 근태 요약</b><p className="mt-1 text-[0.6875rem] text-white/75">누적시간·지각·조퇴</p></Link><Link href="/attendance-history" className="rounded-2xl bg-white p-4 shadow-card"><b className="text-[0.875rem]">전체 근태 내역</b><p className="mt-1 text-[0.6875rem] text-sub">근무자별 기록과 수정</p></Link></div></section>
+    {!isGigworker&&upcoming.length>0&&<details className="mt-4 rounded-2xl bg-white shadow-card"><summary className="flex min-h-12 cursor-pointer list-none items-center justify-between px-4 text-[0.8125rem] font-extrabold [&::-webkit-details-marker]:hidden">앞으로 7일 확정된 단기 근무 {upcoming.length}건<span className="text-[0.75rem] text-sub">보기 ›</span></summary><div className="divide-y divide-line border-t border-line">{upcoming.map(row=><div key={row.id} className="flex items-center justify-between px-4 py-3"><div><b className="text-[0.8125rem]">{row.name}</b><p className="mt-0.5 text-[0.6875rem] text-sub">{row.job}</p></div><p className="text-right text-[0.75rem] font-bold text-primary">{row.shiftDate.slice(5).replace('-','/')}<span className="block text-[0.6875rem] text-sub">{row.startTime.slice(0,5)}~{row.endTime.slice(0,5)}</span></p></div>)}</div></details>}
+    {/* 월 요약은 위 탭 띠('월별')에 있다 — 초대 근무(긱) 사업장은 띠가 없어 두 칸을 그대로 둔다 */}
+    <section className="mt-5">{isGigworker?<div className="grid grid-cols-2 gap-2"><Link href={summaryHref} className="rounded-2xl bg-primary p-4 text-white"><b className="text-[0.875rem]">월 근태 요약</b><p className="mt-1 text-[0.6875rem] text-white/75">누적시간·지각·조퇴</p></Link><Link href="/attendance-history" className="rounded-2xl bg-white p-4 shadow-card"><b className="text-[0.875rem]">전체 근태 내역</b><p className="mt-1 text-[0.6875rem] text-sub">근무자별 기록과 수정</p></Link></div>:<Link href="/attendance-history" className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-card"><span><b className="text-[0.875rem]">전체 근태 내역</b><span className="mt-1 block text-[0.6875rem] text-sub">지난 기록을 날짜별로 찾고 고쳐요</span></span><span className="font-bold text-primary">→</span></Link>}</section>
   </>;
 }
