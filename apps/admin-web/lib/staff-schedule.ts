@@ -20,6 +20,19 @@ export function normalizeGigSchedule(mode:string,start:string,end:string,weekday
 
 // 요일별 근무시간 — facility_staff.weekday_hours. 키는 ISO 요일('1'=월 … '7'=일), 없는 요일은 기본 출퇴근 시간.
 // 토요일 단축·야간진료 요일처럼 하루만 시간이 다른 직원을 위한 값이다. DB record_unified_attendance 가 같은 값으로 출퇴근을 판정한다.
+// 휴게시간 선택지(분). 점심이 긴 의원(1시간 30분·2시간)까지 넣었다. 저장된 값이 목록에 없으면 그 값도 고를 수 있게 붙인다.
+export const BREAK_MINUTE_OPTIONS=[0,30,60,90,120] as const;
+export function breakMinuteOptions(current?:number|null):number[]{
+  const list:number[]=[...BREAK_MINUTE_OPTIONS];
+  if(typeof current==='number'&&Number.isInteger(current)&&current>=0&&!list.includes(current))list.push(current);
+  return list.sort((a,b)=>a-b);
+}
+export function breakMinutesLabel(minutes:number):string{
+  if(minutes<=0)return '없음';
+  const hours=Math.floor(minutes/60),rest=minutes%60;
+  return hours===0?`${rest}분`:rest===0?`${hours}시간`:`${hours}시간 ${rest}분`;
+}
+
 export type WeekdayHours=Record<string,{start:string;end:string}>;
 export const WEEKDAY_LABELS=['월','화','수','목','금','토','일'] as const;
 const HHMM=/^([01]\d|2[0-3]):[0-5]\d$/;

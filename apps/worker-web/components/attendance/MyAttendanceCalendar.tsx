@@ -44,10 +44,10 @@ export function MyAttendanceCalendar({ staffId, refreshKey = 0, includeShiftAtte
     // 휴가를 신청·승인받아도 달력이 비어 보였다(2026-11-10 근태 화면 정리). 못 읽어도 근태는 그대로 보여 준다.
     const leaveMap: Record<string, LeaveDay> = {};
     if (staffId) {
-      const { data: leaveRows } = await supabase.from('staff_leave_requests').select('leave_type,start_date,end_date,status').eq('staff_id', staffId).in('status', ['approved', 'pending']).lte('start_date', end);
-      for (const leave of (leaveRows ?? []) as { leave_type: string; start_date: string; end_date: string | null; status: LeaveDay['status'] }[]) {
+      const { data: leaveRows } = await supabase.from('staff_leave_requests').select('*').eq('staff_id', staffId).in('status', ['approved', 'pending']).lte('start_date', end);
+      for (const leave of (leaveRows ?? []) as { leave_type: string; start_date: string; end_date: string | null; status: LeaveDay['status']; half_day_period?: string | null }[]) {
         const last = leave.end_date && leave.end_date > leave.start_date ? leave.end_date : leave.start_date;
-        for (let date = leave.start_date < `${month}-01` ? `${month}-01` : leave.start_date; date <= last && date <= end; date = nextDay(date)) if (leaveMap[date]?.status !== 'approved') leaveMap[date] = { type: leave.leave_type, status: leave.status };
+        for (let date = leave.start_date < `${month}-01` ? `${month}-01` : leave.start_date; date <= last && date <= end; date = nextDay(date)) if (leaveMap[date]?.status !== 'approved') leaveMap[date] = { type: leave.half_day_period ? `${leave.leave_type}:${leave.half_day_period}` : leave.leave_type, status: leave.status };
       }
     }
     let workerRows: Row[] = [];

@@ -12,7 +12,7 @@ import { isGigLink } from '@/lib/worker-mode';
 import { selectWorkplaceShift, selectWorkplaceStaff, currentStaffAttendance, staffAttendanceFact, attendancePolicyNote } from '@/lib/workplace-selection';
 import { isMissingColumnError, staffHoursOn, staffWorkDate, type WeekdayHours } from '@/lib/staff-hours';
 import { attendanceWindow, attendanceWindowLine, type AttendanceWindowSettings } from '@/lib/attendance-window';
-import { formatLeaveAmount, leaveRequestLine } from '@/lib/leave-display';
+import { formatLeaveAmount, leaveRequestLine, splitLeaveChoice } from '@/lib/leave-display';
 import { nudgeAdminDispatch } from '@/lib/shifts';
 
 // 병원·약국 직원·단기 근무의 출퇴근·휴가. 긱 근무 연결(facility_staff.worker_kind='gig')은 /gig 가 맡는다.
@@ -22,7 +22,7 @@ import { nudgeAdminDispatch } from '@/lib/shifts';
 type FacilityRef={id:string;name:string};
 type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; weekday_hours?:WeekdayHours|null; facilities:FacilityRef|FacilityRef[] };
 const STAFF_FIELDS='id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)';
-type Leave = { id:string; leave_type:string; start_date:string; end_date:string; requested_minutes:number; status:string };
+type Leave = { id:string; leave_type:string; start_date:string; end_date:string; requested_minutes:number; status:string; half_day_period?:string|null };
 type AttendanceState={staff_id:string;check_in_at:string|null;check_out_at:string|null;work_date:string;status?:string;break_minutes?:number};
 type ShiftAttendanceRef={checkout_requested_at:string|null};
 type ShiftTarget={id:string;checked_in_at:string|null;checked_out_at:string|null;shift_attendances?:ShiftAttendanceRef|ShiftAttendanceRef[];shifts:{shift_date:string;start_time:string;end_time:string;facilities:FacilityRef|FacilityRef[]}|Array<{shift_date:string;start_time:string;end_time:string;facilities:FacilityRef|FacilityRef[]}>};
@@ -37,7 +37,7 @@ function minutesUntilShift(shift:{shift_date:string;start_time:string;end_time:s
 const shiftCheckoutRequested=(target:ShiftTarget)=>Array.isArray(target.shift_attendances)?target.shift_attendances[0]?.checkout_requested_at:target.shift_attendances?.checkout_requested_at;
 const facilityOf=(staff:Staff)=>(Array.isArray(staff.facilities)?staff.facilities[0]:staff.facilities)??null;
 const TYPES = [
-  ['annual','연차 · 종일'],['half_day','반차 · 4시간'],['quarter_day','반반차 · 2시간'],
+  ['annual','연차 · 종일'],['half_day:am','오전 반차 · 4시간'],['half_day:pm','오후 반차 · 4시간'],['quarter_day','반반차 · 2시간'],
   ['hourly','시간차'],['sick','병가'],['other','기타'],
 ];
 
@@ -162,14 +162,18 @@ function WorkplaceContent() {
 
   async function requestLeave(formData:FormData){
     setMessage('');
-    const type=String(formData.get('leave_type'));
-    const {error}=await supabase.rpc('submit_staff_leave_request_v2',{
+    // 반차는 '오전 반차'·'오후 반차'를 한 칸에서 고른다(half_day:am|pm)
+    const {type,period}=splitLeaveChoice(String(formData.get('leave_type')));
+    const args={
       p_staff_id:selectedStaffId,
       p_leave_type:type,p_start_date:String(formData.get('start_date')),
       p_end_date:String(formData.get('end_date')||formData.get('start_date')),
       p_hourly_minutes:type==='hourly'?Number(formData.get('hourly_minutes')):null,
       p_reason:String(formData.get('reason')||''),
-    });
+    };
+    let {error}=await supabase.rpc('submit_staff_leave_request_v3',{...args,p_half_day_period:period});
+    // 새 함수가 아직 DB 에 없으면(PGRST202) 예전 함수로 신청한다 — 오전·오후 표시만 빠진다
+    if(error?.code==='PGRST202')({error}=await supabase.rpc('submit_staff_leave_request_v2',args));
     setMessage(error?error.message.replace(/^.*?: /,''):'휴가 신청을 보냈어요. 관리자 승인 후 차감돼요.');
     if(error)return;
     // 신청이 들어가면 DB 트리거가 관리자 알림을 쌓는다. 발송 cron 은 하루 한 번이라 바로 나가도록 깨운다 — 실패해도 신청은 이미 끝났다
@@ -191,7 +195,7 @@ function WorkplaceContent() {
     const year=new Date().getFullYear();
     const [{data:balance},{data:requests}]=await Promise.all([
       supabase.from('staff_leave_balances').select('granted_minutes,used_minutes').eq('staff_id',selectedStaffId).eq('leave_year',year).maybeSingle(),
-      supabase.from('staff_leave_requests').select('id,leave_type,start_date,end_date,requested_minutes,status').eq('staff_id',selectedStaffId).order('created_at',{ascending:false}).limit(5),
+      supabase.from('staff_leave_requests').select('*').eq('staff_id',selectedStaffId).order('created_at',{ascending:false}).limit(5),
     ]);
     setLeaveMinutes(Math.max(0,Number(balance?.granted_minutes??0)-Number(balance?.used_minutes??0)));
     setLeaves((requests??[]) as Leave[]);

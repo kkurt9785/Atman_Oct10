@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { STAFF_ROLE_LABEL } from '@/lib/constants';
-import { WEEKDAY_LABELS, type WeekdayHours } from '@/lib/staff-schedule';
+import { WEEKDAY_LABELS, breakMinuteOptions, breakMinutesLabel, type WeekdayHours } from '@/lib/staff-schedule';
 
 const inputClass='mt-1.5 h-11 w-full rounded-xl border border-line bg-white px-3 text-[0.8125rem] text-ink outline-none focus:border-primary';
 const PHARMACY_ROLES=['pharmacist','pharmacy_staff','admin','other'];
@@ -12,10 +12,10 @@ const CLINIC_ROLES=['rn','na','dental_hygienist','pharmacist','coordinator','adm
 export type EditableStaff={
   id:string; name:string; role:string; department:string|null; phone:string|null;
   engagementType:string; baseStart:string; baseEnd:string; workWeekdays:number[];
-  weekdayHours:WeekdayHours; hireDate:string|null;
+  weekdayHours:WeekdayHours; hireDate:string|null; defaultBreakMinutes:number;
 };
 
-// 직원 정보 수정 — 이름·직종·부서·연락처·입사일·기본 근무시간·근무요일·요일별 시간.
+// 직원 정보 수정 — 이름·직종·부서·연락처·입사일·기본 근무시간·휴게시간·근무요일·요일별 시간.
 export function StaffEditForm({staff,facilityType,today}:{staff:EditableStaff;facilityType?:string;today:string}){
   const [days,setDays]=useState<number[]>(staff.workWeekdays);
   const roleKeys=facilityType==='pharmacy'?PHARMACY_ROLES:CLINIC_ROLES;
@@ -33,6 +33,7 @@ export function StaffEditForm({staff,facilityType,today}:{staff:EditableStaff;fa
     {staff.engagementType==='regular'&&<label className="col-span-2 text-[0.75rem] font-medium text-sub">입사일 <span className="font-normal text-tertiary">· 연차 계산 기준이에요</span><input name="contract_start" type="date" max={today} defaultValue={staff.hireDate??''} className={inputClass}/></label>}
     <label className="text-[0.75rem] font-medium text-sub">기본 출근<input name="default_start_time" type="time" required defaultValue={staff.baseStart.slice(0,5)} className={inputClass}/></label>
     <label className="text-[0.75rem] font-medium text-sub">기본 퇴근<input name="default_end_time" type="time" required defaultValue={staff.baseEnd.slice(0,5)} className={inputClass}/></label>
+    <label className="col-span-2 text-[0.75rem] font-medium text-sub">휴게시간 <span className="font-normal text-tertiary">· 점심처럼 근무시간에서 빼는 시간이에요. 저장한 뒤 퇴근부터 적용돼요</span><select name="default_break_minutes" defaultValue={String(staff.defaultBreakMinutes)} className={inputClass}>{breakMinuteOptions(staff.defaultBreakMinutes).map((minutes)=><option key={minutes} value={minutes}>{breakMinutesLabel(minutes)}</option>)}</select></label>
     <fieldset className="col-span-2"><legend className="mb-1.5 text-[0.75rem] font-medium text-sub">근무요일</legend>
       <div className="grid grid-cols-7 gap-1.5">{WEEKDAY_LABELS.map((label,index)=>{const day=index+1;return <label key={day} className="flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-line bg-white text-[0.75rem] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={day} checked={days.includes(day)} onChange={()=>toggle(day)} className="sr-only"/>{label}</label>;})}</div>
     </fieldset>

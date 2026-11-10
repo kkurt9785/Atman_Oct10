@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
 import { Wordmark } from '@/components/BrandMark';
 import { AdminInstallButton } from '@/components/AdminInstallButton';
+import { PLAN_INTRO, TRIAL_DAYS } from '@/lib/plan-intro';
 
 // 카카오톡 인앱 브라우저는 OAuth 리다이렉트와 홈 화면 설치를 둘 다 막는다.
 // worker-web의 startKakaoLogin과 같은 방식으로 외부 브라우저로 먼저 내보낸다.
@@ -184,10 +185,25 @@ function LoginInner() {
         </button>
         <p className="-mt-1 text-center text-[0.6875rem] leading-4 text-sub">처음이면 관리자 계정이 만들어져요. 단기·행사 근태는 사업자 서류 없이 바로 시작할 수 있어요.</p>
 
+        {/* 가입 전에 "우리 업종도 되나·월 얼마인가"가 보이게 한다 — 요금은 가입 뒤 설정 → 요금제에만 있었다(2026-11-10 치과원장 QA) */}
+        <section aria-labelledby="plan-intro-title" className="rounded-2xl border border-line bg-white p-3">
+          <p id="plan-intro-title" className="px-1 text-[0.8125rem] font-extrabold text-ink">{TRIAL_DAYS}일 무료 체험 · <span className="text-primary">치과·의원도 쓸 수 있어요</span></p>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            {PLAN_INTRO.map((plan) => (
+              <div key={plan.key} className="rounded-xl bg-bg px-1.5 py-2 text-center">
+                <p className="text-[0.75rem] font-extrabold text-ink">{plan.label}</p>
+                <p className="mt-0.5 text-[0.6875rem] font-semibold leading-4 text-sub">{plan.price}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-2 px-1 text-[0.6875rem] leading-4 text-sub">체험 뒤 월 요금이에요(부가세 별도). 치과의원은 병원·의원 요금이에요.</p>
+        </section>
+
         {showDemoLogin && (
           <section className="mt-1 rounded-2xl border border-line bg-white p-3" aria-labelledby="demo-title">
             <p id="demo-title" className="px-1 text-[0.8125rem] font-extrabold text-ink"><span className="text-primary">가입 없이 시연하기</span> · 유형을 선택하세요</p>
-            <p className="mt-2 px-1 text-xs leading-5 text-sub">공개 시연 계정으로 들어가요. 실제 개인정보는 입력하지 마세요. 다른 방문자와 데이터를 함께 사용하며, 이전 시연 내용이 남아 있을 수 있어요.</p>
+            <p className="mt-2 px-1 text-xs font-bold leading-5 text-ink">치과·의원은 ‘병원’ 시연과 같은 화면이에요.</p>
+            <p className="mt-1 px-1 text-xs leading-5 text-sub">공개 시연 계정으로 들어가요. 실제 개인정보는 입력하지 마세요. 다른 방문자와 데이터를 함께 사용하며, 이전 시연 내용이 남아 있을 수 있어요.</p>
             {demoLoadingKey&&<p role="status" className="mt-2 px-1 text-sm text-primary">시연 계정과 현장을 연결하고 있어요…</p>}
             <div className="mt-2 grid grid-cols-2 gap-2">
               {DEMO_ACCOUNTS.map((account) => {

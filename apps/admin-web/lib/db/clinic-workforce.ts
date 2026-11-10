@@ -25,6 +25,7 @@ export type ClinicStaff = {
   baseEnd: string;
   weekdayHours: WeekdayHours;
   hireDate: string | null;
+  defaultBreakMinutes: number;
   status: 'active' | 'leave' | 'ended';
   attendanceStatus: string;
   checkInAt: string | null;
@@ -123,6 +124,7 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       workWeekdays, scheduledToday:scheduledToday||hasOpenAttendance,
       defaultStart: assignment?.start_time??dayHours.start, defaultEnd: assignment?.end_time??dayHours.end,
       baseStart: row.default_start_time, baseEnd: row.default_end_time, weekdayHours: normalizeWeekdayHours(row.weekday_hours), hireDate: row.contract_start ?? null,
+      defaultBreakMinutes: Number.isInteger(row.default_break_minutes) ? row.default_break_minutes : 60,
       status: row.status, attendanceStatus: att?.status ?? (row.status === 'leave' || leaveSet.has(row.id) ? 'leave' : scheduledToday ? 'scheduled' : 'off'),
       checkInAt: att?.check_in_at ?? null, checkOutAt: att?.check_out_at ?? null,
       checkoutRequestedAt: att?.checkout_requested_at ?? null,
@@ -201,12 +203,25 @@ export async function getPendingLeaveCount(): Promise<number> {
   return count ?? 0;
 }
 
+// 주간 근무표용 — 그 주에 걸친 휴가(승인·신청 중)
+export async function getWeekLeaves(weekStart: string, weekEnd: string) {
+  const facilityId = await getCurrentFacilityId();
+  const sb = adminClient();
+  if (!sb || !facilityId) return [];
+  const { data, error } = await sb.from('staff_leave_requests').select('*')
+    .eq('facility_id', facilityId).in('status', ['approved', 'pending'])
+    .lte('start_date', weekEnd).gte('end_date', weekStart);
+  if (error) throw new Error(`휴가 정보를 불러오지 못했어요: ${error.message}`);
+  return (data ?? []) as Array<{ staff_id: string; leave_type: string; start_date: string; end_date: string | null; status: string; half_day_period?: string | null }>;
+}
+
 export async function getClinicLeaveRequests() {
   const facilityId = await getCurrentFacilityId();
   const sb = adminClient();
   if (!sb || !facilityId) return [];
   const { data } = await sb.from('staff_leave_requests')
-    .select('id,staff_id,leave_type,start_date,end_date,requested_minutes,status,reason,facility_staff(name)')
+    // 열 목록 대신 * — half_day_period(반차 오전·오후) 열이 DB 에 생기기 전에도 목록이 비지 않는다
+    .select('*,facility_staff(name)')
     .eq('facility_id', facilityId).order('start_date', { ascending: false }).limit(30);
   return data ?? [];
 }

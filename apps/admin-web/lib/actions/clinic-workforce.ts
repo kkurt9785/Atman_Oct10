@@ -8,6 +8,7 @@ import { requireAdminContext } from '../admin-auth';
 import { adminClient, userClient } from '../supabase';
 import { todayKST, yesterdayKST } from '../date';
 import { normalizeGigSchedule, parseWeekdayHours, staffHoursOn, validDate } from '../staff-schedule';
+import { leaveTypeLabel, splitLeaveChoice } from '../leave-label';
 import { STAFF_ROLE_KEYS } from '../constants';
 import { requireStaffCapacity } from '../billing-gates';
 import { nudgeNotificationDispatch } from '../notify-nudge';
@@ -68,7 +69,6 @@ async function enqueueStaffingReviewAlert(
   await nudgeNotificationDispatch();
 }
 
-const LEAVE_TYPE_LABEL: Record<string,string> = { annual:'연차', half_day:'반차', quarter_day:'반반차', hourly:'시간차', sick:'병가', other:'기타 휴가' };
 const shortDate = (value: string) => `${Number(value.slice(5,7))}/${Number(value.slice(8,10))}`;
 
 // 휴가 결과를 직원 본인에게 알린다 — 직원 화면은 다시 열기 전까지 '대기'라 푸시가 유일한 신호
@@ -117,6 +117,7 @@ export async function addClinicStaffAction(form: FormData) {
   }
   if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
   if(!Number.isInteger(breakMinutes)||breakMinutes<0||breakMinutes>720)throw new Error('휴게시간을 확인해 주세요.');
+  if (engagementType === 'regular' && contractStart && !validDate(contractStart)) throw new Error('입사일을 확인해 주세요.');
   if (engagementType !== 'regular' && (!contractStart || !contractEnd || !validDate(contractStart) || !validDate(contractEnd) || contractEnd < contractStart)) throw new Error('계약 시작일과 종료일을 확인해 주세요.');
   if (phone && (isGigworker ? !/^010\d{8}$/.test(normalizedPhone) : normalizedPhone.length < 10)) throw new Error('휴대전화 번호를 정확히 입력해 주세요.');
   let workWeekdays = form.getAll('work_weekdays').map(Number).filter((day)=>day>=1&&day<=7);
@@ -126,6 +127,9 @@ export async function addClinicStaffAction(form: FormData) {
     workWeekdays=[new Date(`${contractStart}T00:00:00Z`).getUTCDay()||7];
   }
   if(isGigworker&&contractStart!==contractEnd&&workWeekdays.length===0)throw new Error('반복 근무 요일을 하나 이상 선택해 주세요.');
+  // 직원은 등록할 때 요일별 시간(토요일 단축 등)까지 한 번에 받는다. 긱 근무자는 근무 일정이 따로 있어 받지 않는다.
+  const staffWeekdays = workWeekdays.length ? workWeekdays : [1,2,3,4,5];
+  const weekdayHours = isGigworker ? null : parseWeekdayHours(form, staffWeekdays);
   await requireStaffCapacity(sb, context.facilityId);
   const { data: created, error } = await sb.from('facility_staff').insert({
     facility_id: context.facilityId, worker_id: null, name, phone,
@@ -136,7 +140,8 @@ export async function addClinicStaffAction(form: FormData) {
     default_end_time: text(form, 'default_end_time') || '18:00',
     default_break_minutes: breakMinutes,
     pay_basis: payBasis||null, pay_rate:Number.isInteger(payRate)&&payRate>0?payRate:null, bank_name:bankName, account_last4:accountLast4,
-    work_weekdays: workWeekdays.length ? workWeekdays : [1,2,3,4,5],
+    work_weekdays: staffWeekdays,
+    ...(weekdayHours ? { weekday_hours: weekdayHours } : {}),
     created_by: context.user.id,
   }).select('id').single();
   if (error) throw new Error('직원을 등록하지 못했어요.');
@@ -261,19 +266,23 @@ export async function addStaffLeaveAction(form: FormData) {
   const staffId = text(form, 'staff_id');
   const startDate = text(form, 'start_date');
   const endDate = text(form, 'end_date') || startDate;
-  const leaveType = text(form, 'leave_type') || 'annual';
+  // 반차는 화면에서 '오전 반차'·'오후 반차'를 한 칸으로 고른다(half_day:am|pm)
+  const { type: leaveType, period: halfDayPeriod } = splitLeaveChoice(text(form, 'leave_type') || 'annual');
   const hourlyMinutes = leaveType === 'hourly' ? Number(text(form, 'hourly_minutes')) : null;
   if (!staffId || !/^\d{4}-\d{2}-\d{2}$/.test(startDate) || !/^\d{4}-\d{2}-\d{2}$/.test(endDate) || endDate < startDate) {
     throw new Error('휴가 날짜와 직원을 확인해 주세요.');
   }
-  const { data: requestId, error } = await sb.rpc('create_approved_staff_leave', {
+  const args = {
     p_facility_id: context.facilityId, p_staff_id: staffId, p_leave_type: leaveType,
     p_start_date: startDate, p_end_date: endDate, p_hourly_minutes: hourlyMinutes,
     p_reason: text(form, 'reason') || null,
-  });
+  };
+  let { data: requestId, error } = await sb.rpc('create_approved_staff_leave_v2', { ...args, p_half_day_period: halfDayPeriod });
+  // 새 함수가 아직 DB 에 없으면(PGRST202) 예전 함수로 등록한다 — 오전·오후 표시만 빠진다
+  if (error?.code === 'PGRST202') ({ data: requestId, error } = await sb.rpc('create_approved_staff_leave', args));
   if (error || !requestId) throw new Error(error?.message || '휴가를 등록하지 못했어요.');
   await notifyStaffLeave(staffId, `leave.decided:${requestId}:registered`, '휴가가 등록됐어요',
-    `${shortDate(startDate)}${endDate !== startDate ? `~${shortDate(endDate)}` : ''} ${LEAVE_TYPE_LABEL[leaveType] ?? '휴가'}를 관리자가 등록했어요.`, 'approved');
+    `${shortDate(startDate)}${endDate !== startDate ? `~${shortDate(endDate)}` : ''} ${leaveTypeLabel(leaveType, halfDayPeriod, '기타 휴가')}를 관리자가 등록했어요.`, 'approved');
   if (['annual','sick','other'].includes(leaveType)) {
     await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${requestId}`, startDate, 'leave');
   }
@@ -307,12 +316,12 @@ export async function decideStaffLeaveAction(form: FormData) {
   if (!['approved','rejected'].includes(decision)) throw new Error('승인 여부를 확인해 주세요.');
   const adminSb = adminClient();
   const { data: request } = adminSb ? await adminSb.from('staff_leave_requests')
-    .select('id,staff_id,facility_id,start_date,end_date,leave_type').eq('id', requestId).eq('facility_id', context.facilityId).maybeSingle() : { data: null };
+    .select('*').eq('id', requestId).eq('facility_id', context.facilityId).maybeSingle() : { data: null };
   const { error } = await sb.rpc('decide_staff_leave_request', { p_request_id: requestId, p_decision: decision });
   // DB 가 일부러 낸 안내(P0001: 잔여 부족·이미 처리됨 등)는 그대로 보여 준다 — 뭉뚱그리면 관리자가 무엇을 고쳐야 할지 모른다
   if (error) throw new Error(error.code === 'P0001' && error.message ? `${error.message}${error.message.includes('잔여') ? ' 휴가 관리에서 부여일수를 먼저 넣어 주세요.' : ''}` : '휴가 신청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
   if (request) {
-    const period = `${shortDate(request.start_date)}${request.end_date !== request.start_date ? `~${shortDate(request.end_date)}` : ''} ${LEAVE_TYPE_LABEL[request.leave_type] ?? '휴가'}`;
+    const period = `${shortDate(request.start_date)}${request.end_date !== request.start_date ? `~${shortDate(request.end_date)}` : ''} ${leaveTypeLabel(request.leave_type, request.half_day_period, '기타 휴가')}`;
     await notifyStaffLeave(request.staff_id, `leave.decided:${request.id}:${decision}`,
       decision === 'approved' ? '휴가가 승인됐어요' : '휴가 신청이 반려됐어요',
       decision === 'approved' ? `${period} 신청이 승인됐어요.` : `${period} 신청이 반려됐어요. 관리자에게 사유를 확인해 주세요.`, decision);
@@ -466,7 +475,7 @@ export async function endGigStaffAction(form:FormData){
   revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/workroom');revalidatePath('/gig-pay');revalidatePath('/');
 }
 
-// 직원 기본 정보 수정 — 이름·직종·부서·근무시간·근무요일·요일별 시간·입사일. 급여 기준은 setStaffPayAction 이 따로 맡는다.
+// 직원 기본 정보 수정 — 이름·직종·부서·근무시간·휴게시간·근무요일·요일별 시간·입사일. 급여 기준은 setStaffPayAction 이 따로 맡는다.
 export async function updateClinicStaffAction(form:FormData){
   const context=await requireAdminContext(['owner','operator','super']);
   const sb=adminClient();
@@ -478,6 +487,10 @@ export async function updateClinicStaffAction(form:FormData){
   const start=text(form,'default_start_time');
   const end=text(form,'default_end_time');
   const hireDate=text(form,'contract_start')||null;
+  // 휴게시간 칸이 없는 옛 화면에서 저장하면 건드리지 않는다
+  const breakRaw=text(form,'default_break_minutes');
+  const breakMinutes=breakRaw===''?null:Number(breakRaw);
+  if(breakMinutes!==null&&(!Number.isInteger(breakMinutes)||breakMinutes<0||breakMinutes>720))throw new Error('휴게시간을 확인해 주세요.');
   const timeOk=(value:string)=>/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(value);
   const [{data:staff},{data:facility}]=await Promise.all([
     sb.from('facility_staff').select('id,status,worker_kind,engagement_type,contract_end').eq('id',staffId).eq('facility_id',context.facilityId).maybeSingle(),
@@ -502,6 +515,7 @@ export async function updateClinicStaffAction(form:FormData){
   };
   // 기간제·임시 계약의 시작일은 계약 조건이라 여기서 바꾸지 않는다. 상시 직원만 입사일로 쓴다(연차 계산 기준).
   if(staff.engagement_type==='regular')patch.contract_start=hireDate;
+  if(breakMinutes!==null)patch.default_break_minutes=breakMinutes;
   const {error}=await sb.from('facility_staff').update(patch).eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
   if(error)throw new Error(error.code==='P0001'?error.message:'직원 정보를 저장하지 못했어요.');
   revalidatePath('/staff');revalidatePath('/timesheet');revalidatePath('/leave');revalidatePath('/payroll');revalidatePath('/');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatLeaveAmount, leaveRequestLine, leaveTypeLabel } from '@/lib/leave-display';
+import { formatLeaveAmount, leaveRequestLine, leaveTypeLabel, splitLeaveChoice } from '@/lib/leave-display';
 
 describe('formatLeaveAmount — 휴가는 일 단위로 먼저, 시간은 괄호로', () => {
   it('하루는 8시간(480분)이다', () => {
@@ -30,6 +30,16 @@ describe('leaveRequestLine — 신청 내역 한 줄에 휴가 종류가 보인�
   });
   it('하루짜리는 날짜 하나만', () => {
     expect(leaveRequestLine({ leave_type: 'half_day', start_date: '2026-11-11', end_date: '2026-11-11', requested_minutes: 240 })).toBe('반차 · 2026-11-11 · 0.5일 (4시간)');
+  });
+  it('반차는 오전·오후가 붙고, 시간대 없는 예전 기록은 그냥 반차', () => {
+    expect(leaveRequestLine({ leave_type: 'half_day', start_date: '2026-11-11', end_date: '2026-11-11', requested_minutes: 240, half_day_period: 'am' })).toBe('오전 반차 · 2026-11-11 · 0.5일 (4시간)');
+    expect(leaveTypeLabel('half_day', 'pm')).toBe('오후 반차');
+    expect(leaveTypeLabel('half_day:pm')).toBe('오후 반차');
+    expect(leaveTypeLabel('half_day', null)).toBe('반차');
+    expect(leaveTypeLabel('annual', 'am')).toBe('연차');
+    expect(splitLeaveChoice('half_day:am')).toEqual({ type: 'half_day', period: 'am' });
+    expect(splitLeaveChoice('half_day:night')).toEqual({ type: 'half_day', period: null });
+    expect(splitLeaveChoice('annual')).toEqual({ type: 'annual', period: null });
   });
   it('모르는 종류는 그냥 휴가', () => {
     expect(leaveTypeLabel('sick')).toBe('병가');

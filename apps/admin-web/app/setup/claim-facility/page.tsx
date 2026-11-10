@@ -8,6 +8,7 @@ import { uploadBrnDocument } from '@/lib/brn-document-client';
 import { FacilityPinMap } from '@/components/FacilityPinMap';
 import type { FacilitySearchHit } from '@/app/api/facility-search/route';
 import { GigworkerWorkspaceStart } from './GigworkerWorkspaceStart';
+import { PLAN_INTRO, TRIAL_DAYS } from '@/lib/plan-intro';
 
 const TYPE_LABEL: Record<string, string> = {
   care_hospital:    '요양병원',
@@ -352,11 +353,11 @@ export default function ClaimFacilityPage() {
                 <p className="mt-1 text-[0.75rem] text-sub">사업자등록증 제출은 담당자 확인 단계에서 따로 안내해 드려요.</p>
                 <p className="mt-4 text-[0.75rem] font-bold text-sub">사업장 유형</p>
                 <div className="mt-1 grid grid-cols-3 gap-2">
-                  <button type="button" onClick={()=>setRequestType('pharmacy')} aria-pressed={requestType==='pharmacy'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='pharmacy'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">약국</span><span className="mt-1 block text-[0.6875rem] font-medium text-sub">5명 59,000원부터</span></button>
-                  <button type="button" onClick={()=>setRequestType('medical')} aria-pressed={requestType==='medical'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='medical'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">병원·의원</span><span className="mt-1 block text-[0.6875rem] font-medium text-sub">10명 69,000원</span></button>
-                  <button type="button" onClick={()=>setRequestType('care')} aria-pressed={requestType==='care'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='care'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">요양병원</span><span className="mt-1 block text-[0.6875rem] font-medium text-sub">20명 119,000원</span></button>
+                  <button type="button" onClick={()=>setRequestType('pharmacy')} aria-pressed={requestType==='pharmacy'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='pharmacy'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">약국</span><span className="mt-1 block text-[0.6875rem] font-medium text-sub">{PLAN_INTRO[0].price}</span></button>
+                  <button type="button" onClick={()=>setRequestType('medical')} aria-pressed={requestType==='medical'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='medical'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">병원·의원</span><span className="mt-1 block text-[0.6875rem] font-medium text-sub">{PLAN_INTRO[1].price}</span></button>
+                  <button type="button" onClick={()=>setRequestType('care')} aria-pressed={requestType==='care'} className={`min-h-16 rounded-xl border px-2 text-center text-[0.8125rem] font-bold ${requestType==='care'?'border-primary bg-primary/5 text-primary':'border-line'}`}><span className="block">요양병원</span><span className="mt-1 block text-[0.6875rem] font-medium text-sub">{PLAN_INTRO[2].price}</span></button>
                 </div>
-                <p className="mt-2 text-[0.6875rem] leading-4 text-sub">30일 무료 체험 후 선택한 업종과 관리 인원에 맞는 요금제만 보여 드려요.</p>
+                <p className="mt-2 text-[0.6875rem] leading-4 text-sub">{TRIAL_DAYS}일 무료 체험 후 선택한 업종과 관리 인원에 맞는 요금제만 보여 드려요.</p>
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <label className="col-span-2 text-[0.75rem] font-bold text-sub">사업장명<input value={requestForm.name} onChange={e=>updateRequest('name',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="사업장명"/></label>
                   <label className="col-span-2 text-[0.75rem] font-bold text-sub">주소<input value={requestForm.address} onChange={e=>updateRequest('address',e.target.value)} className="mt-1 h-11 w-full rounded-xl border border-line px-3 text-[0.875rem]" placeholder="도로명 주소"/></label>

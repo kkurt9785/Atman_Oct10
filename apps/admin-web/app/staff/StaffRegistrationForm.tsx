@@ -5,16 +5,20 @@ import { useState } from 'react';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ContractRangePicker } from '@/components/ContractRangePicker';
 import { CopyInviteButton } from './CopyInviteButton';
+import { WEEKDAY_LABELS, breakMinuteOptions, breakMinutesLabel } from '@/lib/staff-schedule';
 
 const inputClass='mt-2 w-full h-12 rounded-xl border border-line bg-white px-3 text-body text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/10';
 type CreatedStaff={inviteToken?:string|null};
 
-export function StaffRegistrationForm({facilityType='clinic',initialEngagementType,workerOrigin,workerKind='staff'}:{facilityType?:string;initialEngagementType?:string;workerOrigin?:string;workerKind?:'staff'|'gig'}){
+export function StaffRegistrationForm({facilityType='clinic',initialEngagementType,workerOrigin,workerKind='staff',today}:{facilityType?:string;initialEngagementType?:string;workerOrigin?:string;workerKind?:'staff'|'gig';today?:string}){
   const [engagementType,setEngagementType]=useState(initialEngagementType??'');
   const [payBasis,setPayBasis]=useState(initialEngagementType?'hourly':'monthly');
   const [scheduleMode,setScheduleMode]=useState<'single'|'range'|'repeat'>('single');
   const [singleDate,setSingleDate]=useState('');
   const [inviteUrl,setInviteUrl]=useState('');
+  // 직원 등록의 근무요일 — 요일별 시간 칸이 고른 요일만 따라오게 상태로 둔다
+  const [days,setDays]=useState<number[]>([1,2,3,4,5]);
+  const toggleDay=(day:number)=>setDays((current)=>current.includes(day)?current.filter((value)=>value!==day):[...current,day].sort());
   const needsContract=engagementType&&engagementType!=='regular';
   const isPharmacy=facilityType==='pharmacy';
   const isGigworker=isGigworkerFacility({facility_type:facilityType});
@@ -76,7 +80,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
     </WorkforceActionForm>;
   }
 
-  return <WorkforceActionForm kind="add_staff" resetOnSuccess successMessage="직원을 등록했어요." className="px-5 pb-6">
+  return <WorkforceActionForm kind="add_staff" resetOnSuccess successMessage="직원을 등록했어요." onSuccess={()=>setDays([1,2,3,4,5])} className="px-5 pb-6">
     <section className="grid grid-cols-2 gap-x-3 gap-y-4 border-t border-line pt-5">
       <h3 className="col-span-2 text-[0.8125rem] font-extrabold text-ink">기본 정보</h3>
       <label className="col-span-2 text-label font-medium text-sub">이름<input name="name" required maxLength={80} className={inputClass} placeholder="예: 김지영"/></label>
@@ -97,15 +101,29 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
           <option value="daily">단기 근무</option>
         </select>
       </label>
-      {engagementType==='regular'&&<p className="mt-3 rounded-xl bg-white px-3 py-3 text-[0.75rem] leading-5 text-sub">상시 직원은 계약 종료일을 입력하지 않아도 돼요.</p>}
+      {engagementType==='regular'&&<label className="mt-4 block text-label font-medium text-sub">입사일 <span className="font-normal text-tertiary">· 연차 계산 기준이에요. 몰라도 나중에 넣을 수 있어요</span><input name="contract_start" type="date" max={today} className={inputClass}/></label>}
+      {engagementType==='regular'&&<p className="mt-2 text-[0.75rem] leading-5 text-sub">상시 직원은 계약 종료일을 입력하지 않아도 돼요.</p>}
       {needsContract&&<ContractRangePicker/>}
     </section>
 
     <section className="mt-8 grid grid-cols-2 gap-x-3 gap-y-5 border-t border-line pt-6">
-      <div className="col-span-2"><h3 className="text-[0.8125rem] font-extrabold text-ink">기본 근무시간</h3><p className="mt-1 text-[0.75rem] leading-5 text-sub">야간근무는 퇴근시간을 다음 날 시간으로 선택해 주세요. 토요일처럼 시간이 다른 요일은 등록한 뒤 '정보 수정'에서 넣을 수 있어요.</p></div>
+      <div className="col-span-2"><h3 className="text-[0.8125rem] font-extrabold text-ink">기본 근무시간</h3><p className="mt-1 text-[0.75rem] leading-5 text-sub">야간근무는 퇴근시간을 다음 날 시간으로 선택해 주세요. 토요일처럼 시간이 다른 요일은 아래에서 바로 넣을 수 있어요.</p></div>
       <label className="text-label font-medium text-sub">기본 출근<input name="default_start_time" type="time" defaultValue="09:00" className={inputClass}/></label>
       <label className="text-label font-medium text-sub">기본 퇴근<input name="default_end_time" type="time" defaultValue="18:00" className={inputClass}/></label>
-      <fieldset className="col-span-2"><legend className="text-label font-medium text-sub mb-3">기본 근무요일</legend><div className="grid grid-cols-7 gap-1.5">{[['1','월'],['2','화'],['3','수'],['4','목'],['5','금'],['6','토'],['7','일']].map(([value,label])=><label key={value} className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-line bg-white text-[0.75rem] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={value} defaultChecked={Number(value)<=5} className="sr-only"/>{label}</label>)}</div></fieldset>
+      <label className="col-span-2 text-label font-medium text-sub">휴게시간 <span className="font-normal text-tertiary">· 점심처럼 근무시간에서 빼는 시간이에요</span><select name="default_break_minutes" defaultValue="60" className={inputClass}>{breakMinuteOptions().map((minutes)=><option key={minutes} value={minutes}>{breakMinutesLabel(minutes)}</option>)}</select></label>
+      <fieldset className="col-span-2"><legend className="text-label font-medium text-sub mb-3">기본 근무요일</legend><div className="grid grid-cols-7 gap-1.5">{WEEKDAY_LABELS.map((label,index)=>{const day=index+1;return <label key={day} className="flex min-h-11 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border border-line bg-white text-[0.75rem] font-bold has-[:checked]:border-primary has-[:checked]:bg-primary/5 has-[:checked]:text-primary"><input name="work_weekdays" type="checkbox" value={day} checked={days.includes(day)} onChange={()=>toggleDay(day)} className="sr-only"/>{label}</label>;})}</div></fieldset>
+      <details className="col-span-2 rounded-xl border border-line bg-white">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-3 text-[0.75rem] font-bold text-ink"><span>요일마다 시간이 다르면</span><span className="text-sub">예: 토요일 9~13시 ›</span></summary>
+        <div className="px-3 pb-3">
+          <p className="text-[0.6875rem] leading-4 text-sub">시간이 다른 요일만 적어 주세요. 비워 두면 기본 출근·퇴근 시간을 써요. 출퇴근 지각·조퇴 판정도 이 시간으로 해요.</p>
+          {days.length===0&&<p className="mt-2 text-[0.6875rem] font-bold text-warn">근무요일을 먼저 골라 주세요.</p>}
+          {days.map((day)=><div key={day} className="mt-2 grid grid-cols-[2rem_1fr_1fr] items-center gap-2">
+            <span className="text-[0.75rem] font-bold text-ink">{WEEKDAY_LABELS[day-1]}</span>
+            <input name={`wh_start_${day}`} type="time" aria-label={`${WEEKDAY_LABELS[day-1]}요일 출근`} className="h-11 rounded-xl border border-line bg-white px-2 text-[0.8125rem]"/>
+            <input name={`wh_end_${day}`} type="time" aria-label={`${WEEKDAY_LABELS[day-1]}요일 퇴근`} className="h-11 rounded-xl border border-line bg-white px-2 text-[0.8125rem]"/>
+          </div>)}
+        </div>
+      </details>
     </section>
     <section className="mt-8 border-t border-line pt-6">
       <h3 className="text-[0.8125rem] font-extrabold text-ink">급여 기준</h3>
@@ -117,7 +135,6 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
       <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-label font-medium text-sub">지급 은행<input name="bank_name" maxLength={40} className={inputClass} placeholder="예: 국민은행"/></label><label className="text-label font-medium text-sub">계좌 끝 4자리<input name="account_last4" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} className={inputClass} placeholder="1234"/></label></div>
       <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-5 text-amber-700">세금·4대보험·수당은 자동으로 공제하지 않아요. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
-    <input type="hidden" name="default_break_minutes" value="60"/>
     {/* 병원·약국의 '외부 단기근로자 초대'(entry=gigworker)는 직원이 아니라 긱 근무자로 저장한다 — 지급·계좌·비공개 대화가 열린다 */}
     <input type="hidden" name="worker_kind" value={workerKind}/>
     <button className="mt-7 h-12 w-full rounded-xl bg-ink text-white font-bold disabled:opacity-40">직원 등록하기</button>
