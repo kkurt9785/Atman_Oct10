@@ -11,6 +11,8 @@ import uuid
 
 def env_file(path):
     out = {}
+    if not os.path.exists(path):  # CI(밤 점검): .env.local 없이 환경변수로 받는다
+        return out
     with open(path, encoding="utf-8") as source:
         for raw in source:
             line = raw.strip()
@@ -22,6 +24,9 @@ def env_file(path):
 
 env = env_file("apps/worker-web/.env.local")
 env.update({k: v for k, v in env_file("apps/admin-web/.env.local").items() if k not in env})
+for key in ("SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
+    if os.environ.get(key):
+        env.setdefault(key, os.environ[key])
 base = (env.get("SUPABASE_URL") or env["NEXT_PUBLIC_SUPABASE_URL"]).rstrip("/")
 anon = env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
 service = env["SUPABASE_SERVICE_ROLE_KEY"]

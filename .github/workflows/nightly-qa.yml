@@ -1,0 +1,159 @@
+# 잇닿 밤 점검. 설명·설정 방법은 docs/NIGHTLY_QA.md
+#   1) checks    : 타입·단위 테스트·빌드·순수 점검·운영 읽기 전용 점검 (AI 없음, 무료)
+#   2) server-qa : 운영 시연 병원(demo1) 데이터로 서버 QA 31개. 운영 서비스 키는 이 작업의 한 단계에만 준다
+#   3) ai-fix    : 1·2 중 하나라도 실패했을 때만 Claude Code 가 진단하고 수정 PR 을 연다. 머지·배포는 사람이 한다
+name: nightly-qa
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # 매일 04:00 KST (UTC 19:00)
+  workflow_dispatch:
+    inputs:
+      ai_fix:
+        description: '실패하면 AI 진단·수정 PR 만들기'
+        type: boolean
+        default: true
+
+concurrency:
+  group: nightly-qa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/worker-web/package-lock.json
+            apps/admin-web/package-lock.json
+      - name: 의존성 설치
+        run: |
+          npm ci --prefix apps/worker-web
+          npm ci --prefix apps/admin-web
+      - name: 점검 실행
+        run: bash scripts/ci/run-checks.sh
+      - name: 요약
+        if: always()
+        run: cat ci-logs/summary.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checks-logs
+          path: ci-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  server-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: 서버 QA 31개 (운영 시연 병원 demo1)
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          mkdir -p ci-logs
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "::warning::SUPABASE_SERVICE_ROLE_KEY 시크릿이 없어 서버 QA 를 건너뜁니다."
+            echo "서버 QA: 건너뜀(시크릿 없음)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          set -o pipefail
+          python3 scripts/server_qa_demo1.py 2>&1 | tee ci-logs/server-qa.log
+      - name: 요약
+        if: always()
+        run: |
+          if [ -f ci-logs/server-qa.log ]; then
+            { echo '### 서버 QA'; echo '```'; grep -E 'FAIL|SUMMARY' ci-logs/server-qa.log | tail -40; echo '```'; } >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-qa-logs
+          path: ci-logs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  ai-fix:
+    needs: [checks, server-qa]
+    if: >-
+      always() &&
+      (needs.checks.result == 'failure' || needs.server-qa.result == 'failure') &&
+      (github.event_name == 'schedule' || inputs.ai_fix)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    env:
+      # 공개 값만. 운영 서비스 키는 이 작업에 주지 않는다.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false # 깃허브 토큰을 작업 폴더에 남기지 않는다(마지막 단계에서만 쓴다)
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            apps/worker-web/package-lock.json
+            apps/admin-web/package-lock.json
+      - name: 의존성 설치
+        run: |
+          npm ci --prefix apps/worker-web
+          npm ci --prefix apps/admin-web
+      - uses: actions/download-artifact@v4
+        with:
+          path: ci-logs
+          pattern: '*-logs'
+          merge-multiple: true
+      - name: Claude Code 진단·수정
+        timeout-minutes: 25
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::warning::CLAUDE_CODE_OAUTH_TOKEN 시크릿이 없어 AI 진단을 건너뜁니다."
+            exit 0
+          fi
+          npm install -g @anthropic-ai/claude-code > /dev/null
+          claude -p "$(cat scripts/ci/ai-fix-prompt.md)" \
+            --model sonnet \
+            --output-format text \
+            --allowedTools "Read,Grep,Glob,Edit,Write,Bash(npm --prefix apps/worker-web run typecheck:*),Bash(npm --prefix apps/worker-web test:*),Bash(npm --prefix apps/admin-web run typecheck:*),Bash(node scripts/qa-:*),Bash(git diff:*),Bash(git status:*)" \
+            > ci-logs/ai-transcript.txt 2>&1 || echo "::warning::Claude 실행이 정상 종료되지 않았습니다(ci-logs/ai-transcript.txt)."
+      - name: PR 또는 이슈 만들기
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: bash scripts/ci/report-result.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-fix-logs
+          path: ci-logs/
+          if-no-files-found: ignore
+          retention-days: 14
