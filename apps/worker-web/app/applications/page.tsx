@@ -11,6 +11,7 @@ import { cancelApplication, respondToInvitation } from '@/lib/shifts';
 import { cancelCover, listMyCovers, requestCover, type MyCover } from '@/lib/cover';
 import { facilityName, mobilityLabel, timeLabel } from '@/lib/shift-display';
 import { AttendanceActionButton, type AttendanceResult } from '@/components/attendance/AttendanceActionButton';
+import { useStaffFirst } from '@/lib/use-staff-first';
 
 // ── 타입 ───────────────────────────────────────────────────────
 type ApplicationStatus = 'invited' | 'applied' | 'accepted' | 'rejected' | 'cancelled' | 'expired' | 'completed';
@@ -392,6 +393,8 @@ export default function ApplicationsPage() {
   const [covers, setCovers] = useState<MyCover[]>([]);
   const [loadError, setLoadError] = useState('');
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // 직원으로 연결된 사람에게 이 화면의 주인공은 위쪽 일정이다 — 지원 내역 문구가 '공고에 지원해 보세요'라고 다그치지 않게
+  const staffFirst = useStaffFirst() === true;
   useEffect(() => {
     const reveal = (id = window.location.hash.slice(1)) => {
       if (!id.startsWith('application-')) return;
@@ -541,12 +544,12 @@ export default function ApplicationsPage() {
 
       <WorkAgenda revision={apps.map(app => `${app.id}:${app.status}:${app.checked_in_at}:${app.checked_out_at}`).join('|')} />
       <details open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)} className="mt-6">
-      <summary className="min-h-12 cursor-pointer rounded-xl bg-white p-4 font-bold">지원·근무 상세 내역 ({apps.length})</summary>
+      <summary className="min-h-12 cursor-pointer rounded-xl bg-white p-4 font-bold">{staffFirst ? '공고 근무 지원 내역' : '지원·근무 상세 내역'} ({apps.length})</summary>
       {loadError && <div role="alert" className="my-3 rounded-xl bg-amber-50 p-4"><p>{loadError}</p><button onClick={() => window.location.reload()} className="min-h-11 font-bold text-primary">다시 불러오기</button></div>}
       <div className="flex items-center justify-between mb-5">
         <p className="text-[14px] font-bold text-ink">지원 현황 {apps.length > 0 ? `(${apps.length})` : ''}</p>
-        <button onClick={() => router.push('/earnings')} className="text-[13px] font-bold text-primary bg-primary/8 px-3 py-2 rounded-xl">
-          급여 지급 현황 →
+        <button onClick={() => router.push('/earnings')} className="min-h-11 text-[13px] font-bold text-primary bg-primary/8 px-3 py-2 rounded-xl">
+          {staffFirst ? '이번 달 급여 →' : '급여 지급 현황 →'}
         </button>
       </div>
 
@@ -563,8 +566,8 @@ export default function ApplicationsPage() {
       {!loadError && (apps.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3">
             <span className="text-5xl">📋</span>
-            <p className="text-[17px] font-bold text-ink">아직 지원한 공고가 없어요</p>
-            <p className="text-[14px] text-sub text-center">마음에 드는 공고에 지원해 보세요</p>
+            <p className="text-[17px] font-bold text-ink">{staffFirst ? '지원한 공고 근무는 없어요' : '아직 지원한 공고가 없어요'}</p>
+            <p className="text-[14px] text-sub text-center">{staffFirst ? '직원 근무는 위 일정에서 보고, 출퇴근·휴가는 출퇴근 화면에서 해요' : '마음에 드는 공고에 지원해 보세요'}</p>
           </div>
         ) : visibleApps.length===0?<div className="rounded-2xl bg-white py-12 text-center"><p className="text-[15px] font-bold text-ink">이 상태의 근무가 없어요</p><button type="button" onClick={()=>setActivityFilter('all')} className="mt-2 text-[13px] font-bold text-primary">전체 내역 보기</button></div> : (
           visibleApps.map((a) => (

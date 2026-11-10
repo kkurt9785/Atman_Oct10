@@ -149,6 +149,8 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
   const holdStart=useRef<number|null>(null);
   const frame=useRef<number>(0);
   const fired=useRef(false);
+  // 짧게 한 번 누르고 뗀 사람에게만 보이는 안내 — 첫날 탭만 하고 '안 눌린다'고 여기는 일이 있었다(2026-11-10 치과 QA)
+  const [tapHint,setTapHint]=useState(false);
   const checkingIn=props.action==='check_in';
 
   useEffect(()=>()=>cancelAnimationFrame(frame.current),[]);
@@ -158,7 +160,7 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
     const ratio=Math.min(1,(performance.now()-holdStart.current)/HOLD_MS);
     setProgress(ratio);
     if(ratio>=1){
-      if(!fired.current){fired.current=true;holdStart.current=null;setProgress(0);if('vibrate' in navigator)navigator.vibrate?.(30);void run();}
+      if(!fired.current){fired.current=true;holdStart.current=null;setProgress(0);setTapHint(false);if('vibrate' in navigator)navigator.vibrate?.(30);void run();}
       return;
     }
     frame.current=requestAnimationFrame(tick);
@@ -170,11 +172,13 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
     frame.current=requestAnimationFrame(tick);
   }
   function stop(){
+    // 누르고 있다가 1초가 되기 전에 뗐다 = 기록되지 않았다. 아무 반응이 없으면 고장으로 보이므로 방법을 알려 준다
+    if(holdStart.current!=null&&!fired.current)setTapHint(true);
     holdStart.current=null;cancelAnimationFrame(frame.current);setProgress(0);
   }
   // 키보드·보조기기: Enter/Space 로도 바로 실행되게 (길게 누르기는 촉각 확인용이지 필수 조건이 아니다)
   function onKeyDown(event:React.KeyboardEvent<HTMLButtonElement>){
-    if(event.key==='Enter'||event.key===' '){event.preventDefault();if(!event.repeat)void run();}
+    if(event.key==='Enter'||event.key===' '){event.preventDefault();if(!event.repeat){setTapHint(false);void run();}}
   }
 
   const ringColor=checkingIn?'#1B64DA':'#FFFFFF';
@@ -197,6 +201,7 @@ export function TouchToCheckButton(props:AttendanceActionProps&{dark?:boolean}){
         <span className={`text-[11px] ${checkingIn?'text-white/85':'text-sub'}`}>{loading?MODE_LABEL[mode]:'길게 눌러 주세요'}</span>
       </span>
     </button>
+    {tapHint&&!loading&&<p role="status" className={`mt-3 rounded-xl px-3 py-2 text-center text-[13px] font-bold leading-5 ${props.dark?'bg-white/10 text-white':'bg-amber-50 text-amber-800'}`}>아직 기록되지 않았어요. 테두리가 다 찰 때까지 1초 동안 꾹 눌러 주세요.</p>}
     <div className="w-full">
       <AttendanceFeedback action={props.action} result={result} locationIssue={locationIssue} qrToken={props.qrToken} mode={mode} qrFallback={qrFallback} onRetry={()=>void run()} onTryWithoutLocation={()=>void run({withoutLocation:true})} dark={props.dark} helpHref={props.helpHref} prefillHelpDraft={props.prefillHelpDraft} hideModeHint={props.hideModeHint}/>
     </div>

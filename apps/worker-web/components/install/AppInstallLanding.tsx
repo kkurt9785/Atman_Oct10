@@ -93,7 +93,7 @@ export function AppInstallLanding() {
             <InstallGallery steps={steps} className="mt-3" /><InstallSteps steps={steps} className="mt-3" />
           </>}
         {install.error && <p role="alert" className="mt-3 text-[12px] font-bold text-red-600">{install.error}</p>}
-        <p className="mt-3 text-[12px] leading-5 text-sub">설치한 앱에서 새 근무 알림을 켤 수 있어요.</p>
+        <p className="mt-3 text-[12px] leading-5 text-sub">설치한 앱에서 알림을 켤 수 있어요.</p>
       </>;
     }
 
@@ -109,7 +109,7 @@ export function AppInstallLanding() {
         <p className="mt-1 text-[14px] leading-6 text-sub">{info.chromeIos ? '크롬' : '사파리'} 버튼을 순서대로 눌러 주세요.</p>
         <InstallGallery steps={steps} className="mt-3" />
         <InstallSteps steps={steps} className="mt-3" />
-        <p className="mt-3 rounded-2xl bg-primary-light px-3 py-2.5 text-[13px] leading-5 text-ink">추가한 <b>잇닿 근무자</b> 아이콘을 누르고 카카오로 한 번 로그인하면 끝이에요. 새 근무 알림도 앱에서 켜져요.</p>
+        <p className="mt-3 rounded-2xl bg-primary-light px-3 py-2.5 text-[13px] leading-5 text-ink">추가한 <b>잇닿 근무자</b> 아이콘을 누르고 카카오로 한 번 로그인하면 끝이에요. 알림도 설치한 앱에서 켜요.</p>
       </>;
     }
 
@@ -122,17 +122,18 @@ export function AppInstallLanding() {
   }
 
   return (
-    <main className="min-h-screen bg-white px-5 pb-[calc(88px+env(safe-area-inset-bottom))] pt-[max(28px,env(safe-area-inset-top))]">
+    // 낮은 화면(375×667)에서는 위 여백·머리말을 줄여 설치 순서가 첫 화면에 더 들어오게 한다(2026-11-10 QA: 순서가 스크롤 아래로 밀렸다)
+    <main className="min-h-screen bg-white px-5 pb-[calc(88px+env(safe-area-inset-bottom))] pt-[max(28px,env(safe-area-inset-top))] [@media(max-height:700px)]:pt-[max(14px,env(safe-area-inset-top))]">
       <div className="mx-auto max-w-md">
         <header className="flex items-center gap-3">
-          <img src="/icon-192.png" alt="" width={56} height={56} className="h-14 w-14 rounded-[16px] shadow-card" />
+          <img src="/icon-192.png" alt="" width={56} height={56} className="h-14 w-14 rounded-[16px] shadow-card [@media(max-height:700px)]:h-11 [@media(max-height:700px)]:w-11 [@media(max-height:700px)]:rounded-[13px]" />
           <div className="min-w-0">
             <h1 className="text-[22px] font-extrabold leading-7 tracking-[-0.5px] text-ink">잇닿 근무자</h1>
-            <p className="text-[13px] leading-5 text-sub">새 근무 알림부터 출근하기·지급 확인까지</p>
+            <p className="text-[13px] leading-5 text-sub">출근하기·휴가·급여 확인, 새 근무 알림까지</p>
           </div>
         </header>
-        <section className="mt-6">{panel()}</section>
-        <Link href="/" className="mb-10 mt-5 flex min-h-11 items-center justify-center text-[13px] font-bold text-sub">{info && (install.installed || install.pending) ? '웹에서 계속하기 →' : '설치 없이 웹에서 계속하기 →'}</Link>
+        <section className="mt-6 [@media(max-height:700px)]:mt-4">{panel()}</section>
+        <Link href="/" className="mb-10 mt-5 [@media(max-height:700px)]:mb-4 [@media(max-height:700px)]:mt-2 flex min-h-11 items-center justify-center text-[13px] font-bold text-sub">{info && (install.installed || install.pending) ? '웹에서 계속하기 →' : '설치 없이 웹에서 계속하기 →'}</Link>
       </div>
       {info && !info.kakao && <SafariToolbarPointer info={info} />}
     </main>

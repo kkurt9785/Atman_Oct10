@@ -4,7 +4,8 @@ import { AppInstallLanding } from '@/components/install/AppInstallLanding';
 // 카톡·문자로 보내는 설치 링크: itdot.co.kr/app
 export const metadata: Metadata = {
   title: '잇닿 근무자 앱 설치',
-  description: '눌러서 바로 설치해요. 새 근무 알림부터 출근하기·지급 확인까지 한 앱에서.',
+  // 직원(출퇴근·휴가·급여)과 일을 찾는 사람 둘 다에게 맞는 소개
+  description: '눌러서 바로 설치해요. 출근하기·휴가·급여 확인부터 새 근무 알림까지 한 앱에서.',
   alternates: { canonical: 'https://itdot.co.kr/app' },
   openGraph: {
     title: '잇닿 근무자 앱',

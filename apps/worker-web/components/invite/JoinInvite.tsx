@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { rememberWorkerShell } from '@/lib/worker-mode';
+import { loadWorkerShellContext, rememberWorkerShell } from '@/lib/worker-mode';
+import { inviteFailureAction } from '@/lib/invite-failure';
 import { WorkerModeBadge } from '@/components/worker/WorkerModeBadge';
 import { Wordmark } from '@/components/brand/BrandMark';
 import { BackButton } from '@/components/BackButton';
@@ -136,9 +137,23 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       if(authError&&authError.name!=='AuthSessionMissingError')throw authError;
       if (!invite?.ok) {
         clearInviteAutoclaim();
+        // 이미 수락한 초대를 다시 연 사람(홈 화면 앱이 이 주소에서 시작한다)은 실패 화면이 아니라 내 근무로 보낸다.
+        // 서버는 '쓴 초대'와 '없는 초대'를 구분해 주지 않아, 이 종류의 근무지에 이미 연결돼 있는지로 판단한다(lib/invite-failure.ts)
+        const context = user ? await loadWorkerShellContext(user).catch(() => null) : null;
+        if (!active) return;
+        const action = inviteFailureAction({ reason: invite?.reason, signedIn: Boolean(user), linked: Boolean(isGig ? context?.hasGig : context?.staffFirst) });
+        if (action === 'open_home') {
+          rememberClaimedInvite(token);
+          rememberWorkerShell(variant);
+          window.location.replace(ROUTES[variant].home);
+          return;
+        }
+        setSignedIn(Boolean(user));
         setDemoOnly(invite?.reason === 'DEMO_ONLY');
         setStatus('error');
-        setMessage(invite?.message ?? '초대 정보를 불러오지 못했어요. 사장님께 새 링크를 요청해 주세요.');
+        setMessage(action === 'ask_login'
+          ? `초대 링크가 만료됐거나 주소가 잘못됐어요. ${isGig ? '사장님께' : '근무지 관리자에게'} 새 초대 링크를 요청해 주세요.`
+          : invite?.message ?? `초대 정보를 불러오지 못했어요. ${isGig ? '사장님께' : '근무지 관리자에게'} 새 링크를 요청해 주세요.`);
         return;
       }
 
@@ -181,6 +196,13 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     // 초대 화면에서 이미 카카오 계속하기를 눌렀으므로 온보딩 스플래시에서 같은 버튼을 다시 묻지 않는다.
     if (!signedIn) { startKakaoLogin(); return; }
     window.location.href = '/onboarding?step=terms';
+  }
+
+  // 실패 화면에서 로그인 — 이미 수락한 사람은 로그인만 하면 내 근무가 열린다(근무 찾기 첫 화면을 거치지 않는다)
+  function loginToMyWork() {
+    rememberWorkerShell(variant);
+    window.localStorage.setItem('atman_auth_next', routes.home);
+    startKakaoLogin();
   }
 
   async function claimInvite(auto = false) {
@@ -251,7 +273,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     : null;
 
   return <main className={`min-h-screen px-5 pb-16 pt-8 [@media(max-height:700px)]:pt-4 ${isGig ? 'bg-gradient-to-b from-primary/15 via-bg to-bg' : 'bg-bg'}`}>
-    <div className="mx-auto mb-5 [@media(max-height:700px)]:mb-3 flex max-w-md items-center justify-between gap-3 px-1"><span className="flex items-center gap-1"><BackButton href="/" onClick={leaveInvite} /><Wordmark size={20} /></span><WorkerModeBadge shell={variant} /></div>
+    <div className="mx-auto mb-5 [@media(max-height:700px)]:mb-3 flex max-w-md items-center justify-between gap-3 px-1"><span className="flex items-center gap-1"><BackButton href="/" onClick={leaveInvite} /><Wordmark size={20} /></span><WorkerModeBadge shell={variant} staffFirst={!isGig} /></div>
     <section className="mx-auto max-w-md rounded-3xl bg-white p-6 [@media(max-height:700px)]:p-5 shadow-card">
       <div className={`flex h-12 w-12 [@media(max-height:700px)]:hidden items-center justify-center rounded-full text-xl ${status === 'success' ? 'bg-emerald-50 text-emerald-600' : status === 'error' ? 'bg-red-50 text-red-600' : 'bg-primary/10 text-primary'}`}>{status === 'success' ? '✓' : status === 'error' ? '!' : '↗'}</div>
       <p className="mt-5 [@media(max-height:700px)]:mt-0 text-[13px] font-bold text-primary">{isGig ? '초대 근무' : '직원 계정 연결'}</p>
@@ -282,7 +304,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
           <button type="button" onClick={() => void claimInvite()} className="flex min-h-11 w-full items-center justify-center text-[13px] font-bold text-sub">설치 없이 지금 수락하기</button>
         </> : <>
           <button type="button" onClick={() => setInstallGuide(true)} className="mt-5 [@media(max-height:700px)]:mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">앱 추가하고 수락하기 · 방법 보기</button>
-          <p className="mt-2 text-center text-[11px] leading-5 text-sub">홈 화면에 추가한 잇닿 근무자에서 카카오로 한 번만 로그인하면 수락까지 끝나요 · 새 근무 알림도 받아요</p>
+          <p className="mt-2 text-center text-[11px] leading-5 text-sub">홈 화면에 추가한 잇닿 근무자에서 카카오로 한 번만 로그인하면 수락까지 끝나요{isGig ? ' · 새 근무 알림도 받아요' : ''}</p>
           <button type="button" onClick={() => void claimInvite()} className="mt-1 flex min-h-11 w-full items-center justify-center rounded-xl border border-line bg-white text-[13px] font-bold text-ink">설치 없이 지금 수락하기</button>
         </>) : <>
           <button type="button" onClick={() => void claimInvite()} className="mt-5 [@media(max-height:700px)]:mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
@@ -298,7 +320,10 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'success' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-80">근무 화면으로 이동 중...</button>}
       {status === 'error' && demoBlocked && <button type="button" onClick={async () => { await leaveDemo(); window.location.replace(window.location.href); }} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연 끝내고 이 초대 받기</button>}
       {status === 'error' && demoOnly && <Link href={isGig ? '/gig/demo' : '/demo'} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연으로 둘러보기</Link>}
-      {status === 'error' && !demoBlocked && !demoOnly && (canRetry ? <div className="mt-5 space-y-2"><button type="button" onClick={()=>setRetry(value=>value+1)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">초대 다시 불러오기</button><Link href={routes.home} className="flex min-h-11 items-center justify-center font-bold text-primary">내 근무에서 연결 결과 확인</Link></div> : <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 아래에서 내 근무를 열어 주세요. 링크가 만료됐다면 {isGig ? '사장님께' : '근무지 관리자에게'} 새 초대 링크나 QR을 요청해 주세요.</p><Link href={routes.home} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">내 근무 열기</Link></div>)}
+      {status === 'error' && !demoBlocked && !demoOnly && (canRetry ? <div className="mt-5 space-y-2"><button type="button" onClick={()=>setRetry(value=>value+1)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">초대 다시 불러오기</button><Link href={routes.home} className="flex min-h-11 items-center justify-center font-bold text-primary">내 근무에서 연결 결과 확인</Link></div> : !signedIn
+        // 로그인 전: '내 근무 열기'는 로그인 화면도 아닌 근무 찾기 첫 화면으로 떨어졌다 — 여기서 바로 로그인하게 한다
+        ? <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 로그인만 하면 {isGig ? '내 근무가' : '내 직장이'} 바로 열려요. 처음이라면 새 초대 링크를 받은 뒤 그 링크를 열어 주세요.</p><button type="button" onClick={loginToMyWork} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">{inKakaoTalk ? `${kakaoIos ? '사파리' : '크롬'}로 열고 로그인하기` : '이미 수락했어요 · 카카오로 로그인'}</button></div>
+        : <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 아래에서 내 근무를 열어 주세요. 링크가 만료됐다면 {isGig ? '사장님께' : '근무지 관리자에게'} 새 초대 링크나 QR을 요청해 주세요.</p><Link href={routes.home} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">내 근무 열기</Link></div>)}
     </section>
     {demoEnd && <DemoEndSheet kind={demoEnd} intent="leave" onClose={() => setDemoEnd(null)} />}
     {installGuide && <PwaInstallSheet onClose={() => { setInstallGuide(false); setInstallGuideSeen(true); }} note="추가한 잇닿 근무자 아이콘을 누르면 이 초대가 바로 열려요. 카카오로 한 번만 로그인하면 수락까지 끝나요." />}

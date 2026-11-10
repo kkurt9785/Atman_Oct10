@@ -65,9 +65,26 @@ export function isMedicalRole(role: string | null | undefined) {
   return Boolean(role) && role !== 'other';
 }
 
+// 어딘가에 직원(staff)으로 연결돼 있는가. 종료된 직원 연결은 kinds 를 만들 때 이미 빠진다.
+export function hasStaffLink(kinds: string[]) {
+  return kinds.some((kind) => !isGigKind(kind));
+}
+
 // 의료 셸을 쓸 이유가 하나라도 있는가 — 어딘가에 직원(staff)으로 연결됐거나 의료 직군으로 등록했거나.
 export function hasMedicalContext(kinds: string[], role: string | null | undefined) {
-  return kinds.some((kind) => !isGigKind(kind)) || isMedicalRole(role);
+  return hasStaffLink(kinds) || isMedicalRole(role);
+}
+
+// 셸 이름(스위치·배지에 보이는 글자). 의료 셸은 같은 화면 묶음이지만 얼굴이 둘이다:
+//   · 직원으로 연결된 사람(staffFirst) → '내 직장' — 출퇴근·휴가·급여가 먼저고 근무 찾기는 접어 둔다 (2026-11-10 치과 QA P1-12)
+//   · 그 밖의 사람 → '근무 찾기' (지금까지와 같다)
+// 새 모드를 따로 만들지 않고 이 이름 하나로 갈린다. 화면은 loadWorkerShellContext().staffFirst 를 본다.
+export type WorkerShellCopy = { label: string; detail: string };
+export function workerShellCopy(shell: WorkerShell, staffFirst = false): WorkerShellCopy {
+  if (shell === 'gig') return { label: '초대 근무', detail: '초대받은 근무 · 출퇴근' };
+  return staffFirst
+    ? { label: '내 직장', detail: '출퇴근 · 휴가 · 급여' }
+    : { label: '근무 찾기', detail: '병원·약국 공고 · 지원 · 출퇴근' };
 }
 
 export function getGigworkerModePreference() {
@@ -117,6 +134,8 @@ export type WorkerShellContext = {
   kinds: WorkerKind[];
   hasGig: boolean;
   hasMedical: boolean;
+  // 직원으로 연결된 사람 — 의료 셸에서 출퇴근·휴가·급여를 먼저 보여 준다
+  staffFirst: boolean;
   shell: WorkerShell;
   // 알림·워크룸을 셸별로 나눌 때 쓴다 (facility_staff.id / facilities.id)
   gigStaffIds: string[];
@@ -156,6 +175,7 @@ async function fetchWorkerShellContext(knownUser?: User | null): Promise<WorkerS
     kinds,
     hasGig: hasGigworkerLink(kinds),
     hasMedical: hasMedicalContext(kinds, role),
+    staffFirst: hasStaffLink(kinds),
     // 전용 긱 데모는 초대를 초기화해 아직 staff 연결이 없는 순간에도 /home 으로 새면 안 된다.
     shell: isGigworkerDemoEmail(user.email) ? 'gig' : resolveWorkerShell(kinds, role),
     gigStaffIds,

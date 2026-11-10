@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/BackButton';
+import { StaffPayEstimate } from '@/components/worker/StaffPayEstimate';
+import { useStaffFirst } from '@/lib/use-staff-first';
 
 type PaymentRow = {
   id: string;
@@ -45,6 +47,8 @@ export default function EarningsPage() {
   const [disputeTarget, setDisputeTarget] = useState<string | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
   const [confirmedId, setConfirmedId] = useState<string | null>(null);
+  // 직원으로 연결된 사람은 이번 달 예상 급여가 먼저고, 공고 근무 지급은 그 아래 — 받은 적 없으면 0원 칸을 내세우지 않는다
+  const staffFirst = useStaffFirst() === true;
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -81,16 +85,20 @@ export default function EarningsPage() {
   return <main className="min-h-screen bg-bg pb-20">
     <header className="bg-white px-5 pt-12 pb-5">
       {/* 설치 앱엔 브라우저 뒤로가기가 없고, 알림으로 바로 열리면 앞 화면도 없다 — 상위 화면(내 근무)으로 */}
-      <div className="mb-2"><BackButton href="/applications" label="내 근무" /></div>
+      <div className="mb-2">{staffFirst ? <BackButton href="/workplace" label="출퇴근" /> : <BackButton href="/applications" label="내 근무" />}</div>
       <p className="text-[12px] font-bold text-primary mb-1">사업장 직접 지급</p>
-      <h1 className="text-[26px] font-extrabold text-ink">급여 지급 현황</h1>
+      <h1 className="text-[26px] font-extrabold text-ink">{staffFirst ? '급여' : '급여 지급 현황'}</h1>
       <p className="text-[13px] text-sub mt-2 leading-5">임금은 근무한 사업장이 내가 등록한 본인 명의 계좌로 직접 보내요.</p>
     </header>
 
-    <section className="grid grid-cols-2 gap-3 px-5 -mt-1 py-5">
+    {/* 직원 연결이 없으면 아무것도 그리지 않는다 */}
+    <StaffPayEstimate />
+    {staffFirst && <h2 className="px-5 pt-6 text-[14px] font-extrabold text-ink">공고 근무 지급</h2>}
+
+    {(!staffFirst || rows.length > 0) && <section className="grid grid-cols-2 gap-3 px-5 -mt-1 py-5">
       <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-[12px] text-sub">지급 예정</p><p className="text-[20px] font-extrabold text-ink mt-1">{won(pending)}</p></div>
       <div className="bg-white rounded-2xl p-4 shadow-card"><p className="text-[12px] text-sub">지급 완료</p><p className="text-[20px] font-extrabold text-primary mt-1">{won(paid)}</p></div>
-    </section>
+    </section>}
 
     {/* 문의 안내는 지급 내역이 있을 때만 — '아래에서 확인 요청'이 가리킬 카드가 있어야 한다 */}
     {rows.length > 0 && <section className="mx-5 mb-5 rounded-2xl border border-primary/15 bg-primary/5 px-4 py-3" aria-label="지급 문의 안내">
@@ -99,10 +107,10 @@ export default function EarningsPage() {
     </section>}
 
     {actionError && <p role="alert" className="mx-5 mb-3 rounded-xl bg-red-50 px-4 py-3 text-[12px] font-bold text-red-600">{actionError}</p>}
-    <section className="px-5">
+    <section className={`px-5 ${staffFirst && rows.length === 0 ? 'pt-3' : ''}`}>
       {loading ? <div className="bg-white rounded-2xl p-8 text-center text-[13px] text-sub">지급 내역을 불러오는 중...</div>
       : loadError ? <div role="alert" className="bg-white rounded-2xl border border-red-200 p-8 text-center"><p className="font-bold text-red-600">지급 현황을 불러오지 못했어요</p><p className="text-[12px] text-sub mt-2">{loadError}</p><button type="button" onClick={() => void load()} className="mt-4 h-10 px-4 rounded-xl bg-ink text-white text-[13px] font-bold">다시 불러오기</button></div>
-      : rows.length === 0 ? <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2 leading-5">근무를 마치고 퇴근하기를 누르면, 사업장이 지급 내역을 만들어 여기에 보여 줘요.</p><Link href="/applications" className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-[13px] font-extrabold text-white">내 근무 보기</Link></div>
+      : rows.length === 0 ? staffFirst ? <p className="rounded-2xl bg-white p-5 text-[13px] leading-5 text-sub">공고 근무로 받을 지급 내역은 없어요. 다른 사업장의 공고 근무를 마치면 그 지급 내역이 여기에 따로 보여요.</p> : <div className="bg-white rounded-2xl p-8 text-center"><p className="font-bold text-ink">아직 지급 내역이 없어요</p><p className="text-[12px] text-sub mt-2 leading-5">근무를 마치고 퇴근하기를 누르면, 사업장이 지급 내역을 만들어 여기에 보여 줘요.</p><Link href="/applications" className="mt-4 inline-flex h-11 items-center rounded-xl bg-primary px-5 text-[13px] font-extrabold text-white">내 근무 보기</Link></div>
       : <div className="space-y-3">{rows.map((row) => {
         const shift = row.shifts; const state = STATUS[row.status] ?? STATUS.draft;
         const applicationId = attendanceApplicationId(row.shift_attendances);

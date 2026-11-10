@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 
 import {
-  GIG_KIND, hasMedicalContext, isMedicalShellPath, resolveWorkerShell,
+  GIG_KIND, hasMedicalContext, hasStaffLink, isMedicalShellPath, resolveWorkerShell, workerShellCopy,
 } from '@/lib/worker-mode';
 
 // 판정 재료는 근무자 연결의 종류(facility_staff.worker_kind)다 — 'gig' 또는 'staff'
@@ -56,5 +56,24 @@ describe('isMedicalShellPath — 가드 대상 경로', () => {
     expect(isMedicalShellPath('/settings/withdraw')).toBe(false);
     expect(isMedicalShellPath('/account-deletion')).toBe(false);
     expect(isMedicalShellPath('/settings/profile')).toBe(true);
+  });
+});
+
+describe('hasStaffLink · workerShellCopy — 직원 우선 화면(내 직장)', () => {
+  it('직원(staff) 연결이 하나라도 있어야 직원 우선이다 — 긱 연결만으로는 아니다', () => {
+    expect(hasStaffLink([HOSPITAL])).toBe(true);
+    expect(hasStaffLink([GIG, HOSPITAL])).toBe(true);
+    expect(hasStaffLink([GIG])).toBe(false);
+    expect(hasStaffLink([])).toBe(false);
+  });
+  it("직원에게는 의료 셸 이름이 '내 직장', 그 밖에는 지금까지처럼 '근무 찾기'", () => {
+    expect(workerShellCopy('medical', true).label).toBe('내 직장');
+    expect(workerShellCopy('medical', true).detail).toBe('출퇴근 · 휴가 · 급여');
+    expect(workerShellCopy('medical').label).toBe('근무 찾기');
+    expect(workerShellCopy('medical', false).label).toBe('근무 찾기');
+  });
+  it('초대 근무 셸 이름은 직원 여부와 상관없다', () => {
+    expect(workerShellCopy('gig', true)).toEqual(workerShellCopy('gig', false));
+    expect(workerShellCopy('gig').label).toBe('초대 근무');
   });
 });

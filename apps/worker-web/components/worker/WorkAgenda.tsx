@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { dateKST } from '@/lib/date';
-import { AGENDA_STATUS, agendaEndsAt, agendaTime, isPendingKind, slotLabel, sortAgenda, staffAgenda, type AgendaItem, type AgendaKind, type StaffPlan } from '@/lib/work-agenda';
+import { AGENDA_STATUS, agendaEndsAt, agendaTime, isPendingKind, slotLabel, sortAgenda, splitAgendaByNearness, staffAgenda, type AgendaItem, type AgendaKind, type StaffPlan } from '@/lib/work-agenda';
+import { isMissingColumnError } from '@/lib/staff-hours';
+
+const STAFF_PLAN_FIELDS = 'id,contract_start,contract_end,work_weekdays,default_start_time,default_end_time,facilities!facility_id(name)';
 
 export function WorkAgenda({ compact = false, revision = '' }: { compact?: boolean; revision?: string }) {
   const [items, setItems] = useState<AgendaItem[]>([]);
@@ -21,8 +24,10 @@ export function WorkAgenda({ compact = false, revision = '' }: { compact?: boole
         const { data: worker, error: workerError } = await supabase.from('workers').select('id,role').eq('auth_user_id', user.id).maybeSingle();
         if (workerError) throw workerError;
         const from = compact ? dateKST() : `${month}-01`;
+        const readStaff = (fields: string) => supabase.from('facility_staff').select(fields).eq('worker_id', worker?.id ?? '00000000-0000-0000-0000-000000000000').eq('worker_kind', 'staff').neq('status', 'ended');
         const [staff, applications] = await Promise.all([
-          supabase.from('facility_staff').select('id,contract_start,contract_end,work_weekdays,default_start_time,default_end_time,facilities!facility_id(name)').eq('worker_id', worker?.id ?? '00000000-0000-0000-0000-000000000000').eq('worker_kind', 'staff').neq('status', 'ended'),
+          // 요일별 근무시간(weekday_hours) 컬럼이 아직 없는 DB면 그 컬럼만 빼고 다시 읽는다 — 일정은 기본 시간으로 보인다
+          readStaff(`${STAFF_PLAN_FIELDS},weekday_hours`).then(result => isMissingColumnError(result.error) ? readStaff(STAFF_PLAN_FIELDS) : result),
           worker ? supabase.from('shift_applications').select('id,status,checked_in_at,checked_out_at,shifts(shift_date,start_time,end_time,status,required_role,facilities!facility_id(name))').eq('worker_id', worker.id).in('status', ['invited', 'applied', 'accepted', 'completed']) : Promise.resolve({ data: [], error: null }),
         ]);
         if (staff.error || applications.error) throw new Error();
@@ -71,6 +76,10 @@ export function WorkAgenda({ compact = false, revision = '' }: { compact?: boole
     <p className="mt-3 text-xs font-bold text-primary">{item.kind === 'staff' ? '내 사업장 · 근태 확인' : item.kind === 'missed' ? '출근 기록 없이 끝났어요 · 사업장에 알리기' : '근무 상세 · 지원 상태 확인'} →</p>
   </Link>;
   const visible = compact ? confirmed.slice(0, 1) : items.filter(item => item.date.startsWith(month) && (!selected || item.date === selected));
+  // 전체 목록(날짜를 고르지 않았을 때)에서만: 가까운 7일은 카드, 그 뒤 직원 예정은 한 줄씩 접어 둔다 — 같은 카드 스무 장이 줄줄이 서지 않게
+  const upcoming = compact || selected ? visible : visible.filter(item => !isPast(item));
+  const { near, later } = compact || selected ? { near: upcoming, later: [] as AgendaItem[] } : splitAgendaByNearness(upcoming, today);
+  const renderRow = (item: AgendaItem) => <Link key={item.id} href={item.href} className="flex min-h-11 items-center justify-between gap-2 rounded-xl px-2 text-sm active:bg-primary/5"><span className="font-bold">{item.date.slice(5).replace('-', '/')} ({'일월화수목금토'[new Date(`${item.date}T00:00:00Z`).getUTCDay()]})</span><span className="min-w-0 truncate text-sub">{agendaTime(item)} · {item.facility}</span></Link>;
   const days = new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate();
   const offset = new Date(`${month}-01T00:00:00Z`).getUTCDay();
   return <section aria-label="내 근무 일정" className="space-y-3">
@@ -78,10 +87,15 @@ export function WorkAgenda({ compact = false, revision = '' }: { compact?: boole
     <div className="flex items-center justify-between"><h2 className="text-lg font-extrabold">{compact ? '다음 내 근무' : '날짜별 일정'}</h2>{compact ? <Link className="min-h-11 flex items-center text-sm font-bold text-primary" href="/applications">전체 보기 →</Link> : <div className="flex gap-1">{[['list', '목록'], ['calendar', '달력']].map(([key, label]) => <button key={key} onClick={() => { setView(key); setSelected(''); }} aria-pressed={view === key} className={`min-h-11 rounded-xl px-3 text-sm ${view === key ? 'bg-ink text-white' : 'bg-white'}`}>{label}</button>)}</div>}</div>
     {!compact && <label className="flex items-center justify-between gap-2 text-sm">조회 월<input aria-label="일정 조회 월" type="month" value={month} onChange={e => { if (e.target.value) { setMonth(e.target.value); setSelected(''); } }} className="min-h-11 min-w-0 rounded-xl border border-line p-2 text-base" /></label>}
     {!compact && view === 'calendar' && <div className="rounded-2xl bg-white p-3"><div className="grid grid-cols-7 text-center text-xs">{'일월화수목금토'.split('').map(day => <span key={day} className="py-2">{day}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => { const date = `${month}-${String(i + 1).padStart(2, '0')}`, count = items.filter(item => item.date === date).length; return <button key={date} aria-label={`${date} 근무 ${count}건`} aria-pressed={selected === date} onClick={() => setSelected(selected === date ? '' : date)} className={`min-h-14 rounded-xl py-2 ${selected === date ? 'bg-primary text-white' : date === dateKST() ? 'bg-primary/10' : ''}`}><span className="block text-sm">{i + 1}</span><span className="block text-[10px]">{count ? `${count}건` : '·'}</span></button>; })}</div>{selected && <button className="min-h-11 text-sm font-bold text-primary" onClick={() => setSelected('')}>이 달 전체 보기</button>}</div>}
-    {(compact || selected ? visible : visible.filter(item => !isPast(item))).map(renderCard)}
+    {near.map(renderCard)}
+    {/* 가까운 일정이 하나도 없으면(다른 달을 볼 때) 접힌 채로 빈 화면처럼 보이지 않게 펼쳐 둔다 */}
+    {later.length > 0 && <details open={near.length === 0} className="rounded-2xl bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-bold text-sub">{near.length ? '이후' : '이 달'} 직원 근무 예정 {later.length}일</summary><div className="px-2 pb-3">{later.map(renderRow)}</div></details>}
     {!compact && !selected && visible.some(isPast) && <details className="rounded-2xl bg-white"><summary className="min-h-11 cursor-pointer px-4 py-3 text-sm font-bold text-sub">지난 일정 {visible.filter(isPast).length}건</summary><div className="space-y-3 px-3 pb-3">{visible.filter(isPast).map(renderCard)}</div></details>}
     {/* 홈(compact)은 바로 아래 '근무 찾기' 카드가 같은 곳으로 간다 — 같은 버튼을 두 번 두지 않는다 */}
-    {!visible.length && <div className="rounded-2xl bg-white p-5"><p className="font-bold">{compact ? '예정된 근무가 없어요' : '선택한 기간에 일정이 없어요'}</p>{!compact && <Link href="/shifts" className="mt-2 flex min-h-11 items-center font-bold text-primary">가능한 날짜로 근무 찾기 →</Link>}</div>}
+    {!visible.length && <div className="rounded-2xl bg-white p-5"><p className="font-bold">{compact ? '예정된 근무가 없어요' : '선택한 기간에 일정이 없어요'}</p>{!compact && (staffCount > 0
+      // 직원에게 빈 달은 '근무를 찾으라'가 아니라 '이 달엔 계약 일정이 없다'는 뜻이다
+      ? <p className="mt-2 text-sm leading-6 text-sub">계약 기간·근무 요일에 해당하는 날이 없어요. 일정이 다르면 사업장에 알려 주세요.</p>
+      : <Link href="/shifts" className="mt-2 flex min-h-11 items-center font-bold text-primary">가능한 날짜로 근무 찾기 →</Link>)}</div>}
     {staffCount > 0 && <p className="text-xs leading-5 text-sub">직원 일정은 계약 기간·요일로 잡은 예정이에요. 휴가·변경 사항과 실제 출퇴근은 내 사업장에서 확인해 주세요.</p>}
     {compact && pending.length > 0 && <Link href="/applications" className="flex min-h-14 items-center justify-between rounded-2xl bg-amber-50 p-4 text-sm font-bold">지원 대기·수락 요청 {pending.length}건 <span>확인 →</span></Link>}
   </section>;

@@ -14,10 +14,10 @@ import { PrivacySection } from '@/components/settings/PrivacySection';
 import { DemoSignupCard } from '@/components/DemoSignup';
 import { BankAccountRow } from '@/components/settings/BankAccountRow';
 import { useDemoSession } from '@/lib/demo-session';
-import { WORKER_ROLE_LABEL, type WorkerRole } from '@/lib/roles';
-import { getLinkKinds, hasGigworkerLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
-
-const PROFILE_TOTAL = 4;
+import { displayRoleLabel } from '@/lib/roles';
+import { getLinkKinds, hasGigworkerLink, isGigLink, rememberWorkerShell, setGigworkerModePreference } from '@/lib/worker-mode';
+import { PROFILE_TOTAL, profileFilledCount } from '@/lib/profile-fields';
+import { useStaffFirst } from '@/lib/use-staff-first';
 
 // 의료 워커 "내 정보". 긱워커 전용 설정은 /gig/settings — 여기서는 긱 근무가 연결돼 있으면 그 화면으로 가는 카드만 보여 준다.
 export default function SettingsPage() {
@@ -34,6 +34,9 @@ export default function SettingsPage() {
   const [showPwaGuide, setShowPwaGuide] = useState(false);
   const [locationSaved, setLocationSaved] = useState(false);
   const [gigworkerLinked, setGigworkerLinked] = useState(false);
+  // 사업장이 명부에 적은 직종 — 초대로 간편 가입한 직원(직군 'other')의 이름표에 쓴다
+  const [staffRole, setStaffRole] = useState<string | null>(null);
+  const staffFirst = useStaffFirst() === true;
 
   useEffect(() => {
     let active = true;
@@ -56,26 +59,25 @@ export default function SettingsPage() {
         // 활동 지역 행이 없는 계정도 있다 — single()이면 406
         supabase.from('worker_location_prefs').select('locations').maybeSingle(),
         supabase.from('workers')
-          .select('name, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
+          .select('id, name, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
           .eq('auth_user_id', user.id)
           .maybeSingle(),
-        supabase.from('facility_staff').select('worker_kind').neq('status', 'ended'),
+        supabase.from('facility_staff').select('worker_id,worker_kind,role').neq('status', 'ended'),
       ]);
 
       // 가입한 이름(계좌 예금주와 같은 이름)이 먼저, 카카오 닉네임은 이름이 없을 때만
       if (workerProf?.name) setName(workerProf.name);
       setGigworkerLinked(hasGigworkerLink(getLinkKinds(staffLinks)));
       setRole(workerProf?.role ?? '');
+      // 같은 계정이 사업장 관리자이기도 하면 다른 직원 행이 섞일 수 있어, 직종은 내 행에서만 읽는다
+      const myStaffLinks = ((staffLinks ?? []) as Array<{ worker_id: string | null; worker_kind?: string | null; role: string | null }>)
+        .filter((link) => workerProf?.id && link.worker_id === workerProf.id && !isGigLink(link));
+      setStaffRole(myStaffLinks.find((link) => link.role && link.role !== 'other')?.role ?? myStaffLinks[0]?.role ?? null);
       setLocations(locPref?.locations ?? []);
 
       if (workerProf) {
-        const filled = [
-          ['pharmacy_staff','rn','na'].includes(workerProf.role)?true:(workerProf.license_number || workerProf.license_photo_url),
-          workerProf.experience_years,
-          workerProf.last_workplace,
-          (workerProf.department_tags as string[] | null)?.length,
-        ].filter(Boolean).length;
-        setProfileFilled(filled);
+        // 면허 칸은 그 직군에서 필수일 때만 센다(lib/profile-fields.ts) — 치과위생사·요양보호사·기타 직군이 면허 때문에 미완성으로 남지 않게
+        setProfileFilled(profileFilledCount(workerProf));
       }
 
     }
@@ -121,8 +123,98 @@ export default function SettingsPage() {
     router.push('/gig');
   }
 
-  const roleLabel = WORKER_ROLE_LABEL[role as WorkerRole] ?? '';
+  const roleLabel = displayRoleLabel(role, staffRole);
   const profileDone = profileFilled >= PROFILE_TOTAL;
+
+  const profileCard = (
+        <Link href="/settings/profile">
+          <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1.5">
+                <p className="text-[15px] font-bold text-ink">내 프로필 카드</p>
+                {profileDone ? (
+                  <span className="text-[11px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">완성</span>
+                ) : staffFirst ? (
+                  // 직원에게 프로필 카드는 다른 근무에 지원할 때만 쓰인다 — 덜 채웠다고 재촉하지 않는다
+                  <span className="text-[11px] font-bold text-sub bg-bg px-2 py-0.5 rounded-full">선택</span>
+                ) : (
+                  <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    {profileFilled}/{PROFILE_TOTAL} 완료
+                  </span>
+                )}
+              </div>
+              <p className="text-[13px] text-tertiary">{staffFirst ? '다른 근무에 지원할 때 담당자에게 보이는 정보예요. 지금 직장 출퇴근에는 필요 없어요' : '지원한 사업장 담당자에게 보이는 정보예요'}</p>
+              {!profileDone && !staffFirst && (
+                <div className="mt-2 h-1.5 bg-bg rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${(profileFilled / PROFILE_TOTAL) * 100}%` }}
+                  />
+                </div>
+              )}
+            </div>
+            <span className="text-tertiary ml-3">›</span>
+          </div>
+        </Link>
+  );
+  const locationCard = (
+        <Link href="/settings/location">
+          <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
+            <div>
+              <p className="text-[15px] font-bold text-ink mb-1.5">활동 지역</p>
+              {locations.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {locations.map((l) => (
+                    <span key={l.label} className="text-[13px] text-sub bg-bg px-2.5 py-1 rounded-full">
+                      📍 {l.label} ({l.radius_km}km)
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[13px] text-tertiary">지역을 설정해 주세요</p>
+              )}
+            </div>
+            <span className="text-tertiary ml-3">›</span>
+          </div>
+        </Link>
+  );
+  const rewardsCard = (
+        <Link href="/rewards">
+          <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-[15px] font-bold text-ink">잇닿 리워드·친구 초대</p>
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">혜택</span>
+              </div>
+              <p className="mt-1.5 text-[13px] text-tertiary">첫 근무 진행과 초대 현황을 확인해요</p>
+            </div>
+            <span className="text-tertiary ml-3">›</span>
+          </div>
+        </Link>
+  );
+  const pushCard = (
+        <button
+          onClick={handlePushToggle}
+          role="switch"
+          aria-checked={pushEnabled}
+          aria-label={staffFirst ? '이 기기의 알림' : '이 기기의 새 근무 알림'}
+          disabled={pushLoading}
+          className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
+        >
+          <div className="text-left">
+            <p className="text-[15px] font-bold text-ink">{staffFirst ? '알림' : '새 근무 알림'}</p>
+            <p className="text-[13px] text-tertiary mt-0.5">
+              {pushLoading ? '알림 설정을 확인하고 있어요...' : staffFirst
+                ? (pushEnabled ? '내 직장 소식을 이 기기로 알려드려요' : '알림을 켜면 내 직장 소식을 바로 받아요')
+                : pushEnabled ? '내 직군·활동 지역의 새 근무를 이 기기로 알려드려요' : '알림을 켜면 내 지역 새 근무를 바로 받아요'}
+            </p>
+            <p className="mt-1 text-[11px] leading-4 text-sub">{staffFirst ? '출퇴근 안내·사업장 채팅을 앱 푸시로 받아요. 새 공고 알림도 이 스위치로 함께 켜지고 꺼져요' : '새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요'}</p>
+          </div>
+          <div className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 flex items-center px-1 ${pushEnabled ? 'bg-primary' : 'bg-line'}`}>
+            <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </div>
+        </button>
+  );
 
   return (
     <main className="px-4 pb-10 pt-[max(48px,env(safe-area-inset-top))]">
@@ -164,90 +256,26 @@ export default function SettingsPage() {
         </section>
       )}
 
-      {/* 내 프로필 카드 */}
-      <Link href="/settings/profile">
-        <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5">
-              <p className="text-[15px] font-bold text-ink">내 프로필 카드</p>
-              {profileDone ? (
-                <span className="text-[11px] font-bold text-success bg-success/10 px-2 py-0.5 rounded-full">완성</span>
-              ) : (
-                <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                  {profileFilled}/{PROFILE_TOTAL} 완료
-                </span>
-              )}
-            </div>
-            <p className="text-[13px] text-tertiary">지원한 사업장 담당자에게 보이는 정보예요</p>
-            {!profileDone && (
-              <div className="mt-2 h-1.5 bg-bg rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${(profileFilled / PROFILE_TOTAL) * 100}%` }}
-                />
-              </div>
-            )}
+      {/* 직원으로 연결된 사람: 알림·계좌가 먼저, 근무 찾기용 설정(프로필 카드·활동 지역·리워드)은 접어 둔다(2026-11-10 치과 QA P1-12).
+          연결이 없는 사람은 지금까지의 순서 그대로다 */}
+      {staffFirst ? <>
+        {pushCard}
+        <BankAccountRow />
+        <details className="mb-4 rounded-2xl bg-bg/60">
+          <summary className="flex min-h-11 cursor-pointer items-center px-2 text-[13px] font-bold text-sub">다른 근무를 찾을 때 쓰는 설정</summary>
+          <div className="pt-2">
+            {profileCard}
+            {locationCard}
+            {rewardsCard}
           </div>
-          <span className="text-tertiary ml-3">›</span>
-        </div>
-      </Link>
-
-      {/* 활동 지역 */}
-      <Link href="/settings/location">
-        <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
-          <div>
-            <p className="text-[15px] font-bold text-ink mb-1.5">활동 지역</p>
-            {locations.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {locations.map((l) => (
-                  <span key={l.label} className="text-[13px] text-sub bg-bg px-2.5 py-1 rounded-full">
-                    📍 {l.label} ({l.radius_km}km)
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[13px] text-tertiary">지역을 설정해 주세요</p>
-            )}
-          </div>
-          <span className="text-tertiary ml-3">›</span>
-        </div>
-      </Link>
-
-      <BankAccountRow />
-
-      <Link href="/rewards">
-        <div className="bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80">
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="text-[15px] font-bold text-ink">잇닿 리워드·친구 초대</p>
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-bold text-primary">혜택</span>
-            </div>
-            <p className="mt-1.5 text-[13px] text-tertiary">첫 근무 진행과 초대 현황을 확인해요</p>
-          </div>
-          <span className="text-tertiary ml-3">›</span>
-        </div>
-      </Link>
-
-      {/* 새 근무 알림 */}
-      <button
-        onClick={handlePushToggle}
-        role="switch"
-        aria-checked={pushEnabled}
-        aria-label="이 기기의 새 근무 알림"
-        disabled={pushLoading}
-        className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
-      >
-        <div className="text-left">
-          <p className="text-[15px] font-bold text-ink">새 근무 알림</p>
-          <p className="text-[13px] text-tertiary mt-0.5">
-            {pushLoading ? '알림 설정을 확인하고 있어요...' : pushEnabled ? '내 직군·활동 지역의 새 근무를 이 기기로 알려드려요' : '알림을 켜면 내 지역 새 근무를 바로 받아요'}
-          </p>
-          <p className="mt-1 text-[11px] leading-4 text-sub">새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요</p>
-        </div>
-        <div className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 flex items-center px-1 ${pushEnabled ? 'bg-primary' : 'bg-line'}`}>
-          <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${pushEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-        </div>
-      </button>
+        </details>
+      </> : <>
+        {profileCard}
+        {locationCard}
+        <BankAccountRow />
+        {rewardsCard}
+        {pushCard}
+      </>}
 
       {showPwaGuide && <PwaInstallSheet onClose={() => setShowPwaGuide(false)} />}
 

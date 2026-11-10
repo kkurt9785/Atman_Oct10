@@ -1,10 +1,12 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { BackButton } from '@/components/BackButton';
 import { getGigworkerModePreference, setGigworkerModePreference } from '@/lib/worker-mode';
 import { withdrawWorkerAccount } from '@/lib/withdraw-account';
+import { supabase } from '@/lib/supabase';
+import { withdrawMentionsLicense } from '@/lib/profile-fields';
 
 // 회원 탈퇴 — 무엇이 지워지고 무엇이 남는지 먼저 보여 주고, 확인 한 번으로 끝낸다
 export default function WithdrawPage() {
@@ -14,6 +16,18 @@ export default function WithdrawPage() {
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
   const inFlight = useRef(false);
+  // 면허 삭제 안내는 면허를 낼 일이 있는 직군이거나 실제로 올린 사람에게만 — 못 읽으면 그대로 보여 준다(lib/profile-fields.ts)
+  const [mentionsLicense, setMentionsLicense] = useState(true);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error: loadError } = await supabase.from('workers').select('role, license_number, license_photo_url').eq('auth_user_id', user.id).maybeSingle();
+      if (active && !loadError && data) setMentionsLicense(withdrawMentionsLicense(data));
+    })().catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   async function withdraw() {
     if (!agreed || inFlight.current) return;
@@ -52,11 +66,11 @@ export default function WithdrawPage() {
       <section className="mt-5 rounded-2xl bg-white p-5 shadow-sm">
         <p className="text-[15px] font-bold text-ink">탈퇴하면 삭제돼요</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6 text-sub">
-          <li>로그인 계정, 연락처, 생년월일, 면허번호·면허 사진, 프로필 사진</li>
+          <li>로그인 계정, 연락처, 생년월일, {mentionsLicense ? '면허번호·면허 사진, ' : ''}프로필 사진</li>
           <li>활동 지역, 지급 계좌번호, 알림 설정</li>
           <li>답하지 않은 근무 요청·지원, 진행 중인 대타 요청</li>
         </ul>
-        <p className="mt-2 text-[12px] leading-5 text-sub">면허 사진 파일은 탈퇴가 승인된 뒤 서버에서 순차 삭제해요. 일시적으로 실패하면 자동으로 다시 처리해요.</p>
+        {mentionsLicense && <p className="mt-2 text-[12px] leading-5 text-sub">면허 사진 파일은 탈퇴가 승인된 뒤 서버에서 순차 삭제해요. 일시적으로 실패하면 자동으로 다시 처리해요.</p>}
         <p className="mt-4 text-[15px] font-bold text-ink">3년 동안 보관돼요</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-[14px] leading-6 text-sub">
           <li>이미 한 근무의 출퇴근·지급 기록과 근무 관련 대화(이름·직군과 함께) — 사업장의 근로관계 기록이라 법에서 보관을 정하고 있어요. 3년이 지나면 이름 등을 지워 익명으로 바꿔요</li>

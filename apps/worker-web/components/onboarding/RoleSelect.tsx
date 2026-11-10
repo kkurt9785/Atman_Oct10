@@ -51,6 +51,13 @@ const ROLES: Array<{
     icon: <span className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-50 text-[16px]" aria-hidden>🤝</span>,
   },
   {
+    // 치과 의원 직원. 자격 확인은 사업장이 하므로 가입 때 서류를 받지 않는다.
+    id: 'dental_hygienist',
+    title: '치과위생사',
+    desc: '치과 의원·병원 진료 보조·예방 처치',
+    icon: <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sky-50 text-[16px]" aria-hidden>🦷</span>,
+  },
+  {
     // 초대받은 직원이 조리·영양·사무·시설처럼 위 목록에 없는 일을 할 때의 자리.
     // 자격 확인은 사업장이 이미 했으므로 서류를 받지 않는다.
     id: 'other',

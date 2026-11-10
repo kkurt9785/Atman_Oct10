@@ -3,18 +3,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isDemoEmail, MEDICAL_DEMOS, openDemoSession } from '@/lib/demo-session';
 import { InviteLinkPaste } from '@/components/invite/InviteLinkPaste';
-import { loadWorkerShellContext, rememberWorkerShell, WORKER_SHELL_HOME, type WorkerShell } from '@/lib/worker-mode';
+import { loadWorkerShellContext, rememberWorkerShell, workerShellCopy, WORKER_SHELL_HOME, type WorkerShell } from '@/lib/worker-mode';
 
 // 병원·약국 ↔ 긱 근무 전환은 이 스위치 하나. 두 홈의 같은 자리(맨 위)에 같은 모양으로 둔다.
 //   · 두 모드를 다 쓰면: 누르면 바로 전환
 //   · 반대쪽 모드가 아직 없으면: 무엇을 하면 열리는지 안내(직군 등록 / 초대 링크)
 //   · 시연 계정이면: 반대쪽 시연을 앱 안에서 바로 연다 — 초대 근무는 바로, 근무 찾기는 직군만 고르고
 //     (진행자용 /demo·/gig/demo 안내 페이지로 보내지 않는다. 가입·처음 화면은 화면 아래 시연 띠 DemoBar)
-const LABEL: Record<WorkerShell, string> = { medical: '근무 찾기', gig: '초대 근무' };
+//   · 직원으로 연결된 사람에게 의료 쪽 이름은 '근무 찾기'가 아니라 '내 직장'이다 — 이름은 lib/worker-mode.ts workerShellCopy 가 정한다
 
 export function ModeSwitch({ current }: { current: WorkerShell }) {
   const router = useRouter();
-  const [ctx, setCtx] = useState<{ hasGig: boolean; hasMedical: boolean; demo: boolean } | null>(null);
+  const [ctx, setCtx] = useState<{ hasGig: boolean; hasMedical: boolean; staffFirst: boolean; demo: boolean } | null>(null);
   const [sheet, setSheet] = useState<WorkerShell | null>(null);
   const [demoRoles, setDemoRoles] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -24,7 +24,7 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
     let active = true;
     void loadWorkerShellContext().then((context) => {
       if (!active || !context) return;
-      setCtx({ hasGig: context.hasGig, hasMedical: context.hasMedical, demo: isDemoEmail(context.user.email) });
+      setCtx({ hasGig: context.hasGig, hasMedical: context.hasMedical, staffFirst: context.staffFirst, demo: isDemoEmail(context.user.email) });
     }).catch(() => undefined);
     return () => { active = false; };
   }, []);
@@ -71,7 +71,7 @@ export function ModeSwitch({ current }: { current: WorkerShell }) {
           return (
             <button key={shell} type="button" role="tab" aria-selected={on} onClick={() => choose(shell)}
               className={`h-11 whitespace-nowrap rounded-full px-3.5 text-[12px] font-extrabold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${on ? 'bg-primary text-white' : 'text-sub active:bg-bg'}`}>
-              {LABEL[shell]}
+              {workerShellCopy(shell, ctx?.staffFirst).label}
             </button>
           );
         })}

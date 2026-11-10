@@ -71,24 +71,25 @@ export function Terms({ onNext }: { onNext: (value: TermsValue) => void }) {
           <p className="text-[15px] text-sub">잇닿 서비스 이용을 위해 동의가 필요해요.</p>
         </div>
         <div className="overflow-y-auto flex-1 px-6 pt-4">
-          <button type="button" onClick={toggleAll} className="flex items-center gap-3 w-full py-3 mb-2">
+          {/* 체크 줄·'보기' 링크는 누르는 범위가 44px 이 되게 한다 — 줄 높이(48px)는 예전과 같다(2026-11-10 QA: 44px 미만 10곳) */}
+          <button type="button" onClick={toggleAll} className="flex min-h-11 items-center gap-3 w-full py-3 mb-2">
             <Check on={allRequired && marketing} /><span className="text-[17px] font-bold text-ink">전체 동의</span>
           </button>
           <div className="h-px bg-line mb-2" />
           {REQUIRED.map((item) => (
-            <div key={item.id} className="flex items-center justify-between w-full py-3">
-              <button type="button" onClick={() => setChecked((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} className="flex items-center gap-3 text-left">
+            <div key={item.id} className="flex items-center justify-between w-full py-0.5">
+              <button type="button" onClick={() => setChecked((prev) => ({ ...prev, [item.id]: !prev[item.id] }))} className="flex min-h-11 flex-1 items-center gap-3 text-left">
                 <Check on={Boolean(checked[item.id])} />
                 <span className="text-[15px] text-ink"><span className="text-primary font-medium">(필수) </span>{item.label}</span>
               </button>
-              {item.href && <Link href={item.href} target="_blank" className="text-[13px] text-tertiary underline px-2">보기</Link>}
+              {item.href && <Link href={item.href} target="_blank" aria-label={`${item.label} 보기`} className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-[13px] text-tertiary underline px-2">보기</Link>}
             </div>
           ))}
-          <div className="flex items-center justify-between w-full py-3 mb-5">
-            <button type="button" onClick={() => setMarketing((value) => !value)} className="flex items-center gap-3 text-left">
+          <div className="flex items-center justify-between w-full py-0.5 mb-5">
+            <button type="button" onClick={() => setMarketing((value) => !value)} className="flex min-h-11 flex-1 items-center gap-3 text-left">
               <Check on={marketing} /><span className="text-[15px] text-ink"><span className="text-tertiary font-medium">(선택) </span>마케팅 알림 수신</span>
             </button>
-            <Link href="/legal/marketing" target="_blank" className="text-[13px] text-tertiary underline px-2">보기</Link>
+            <Link href="/legal/marketing" target="_blank" aria-label="마케팅 알림 수신 보기" className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center text-[13px] text-tertiary underline px-2">보기</Link>
           </div>
           <div className="bg-bg rounded-card p-4 mb-2">
             <p className="text-[14px] font-semibold text-sub mb-3">생년월일 입력</p>

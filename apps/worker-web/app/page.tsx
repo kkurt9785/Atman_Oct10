@@ -79,7 +79,7 @@ function RootInner() {
       {/* 두 쓰임새는 같은 앱의 기능이다 — 고르게 하지 않고, 눌러서 써 보게 한다 */}
       <ul className="mt-8 [@media(max-height:700px)]:mt-5 space-y-2" aria-label="잇닿 근무자 앱으로 할 수 있는 일">
         <li className="rounded-2xl bg-bg">
-          <FeatureCard icon={SEARCH_ICON} title="근무 찾기" tag="병원·약국 직군" desc="한 번 등록, 가까운 병원·약국 근무 알림" />
+          <FeatureCard icon={SEARCH_ICON} title="근무 찾기" tag="병원·의원·약국 직군" desc="한 번 등록, 병원·의원·약국 근무 알림" />
           {/* 직군을 누르면 바로 그 시연 — 펼치기 없이 한 번에 */}
           {DEMO_LOGIN_ENABLED && <div className="-mt-1 px-4 pb-4">
             <div className="grid grid-cols-4 gap-1.5">
@@ -98,6 +98,8 @@ function RootInner() {
         </li>
       </ul>
       {DEMO_LOGIN_ENABLED && <p className="mt-2 text-center text-[11px] text-tertiary">직군이나 써보기를 누르면 로그인 없이 바로 열려요</p>}
+      {/* 일을 찾지 않는 사람(병원·의원에 이미 다니는 직원)도 이 화면에 온다 — 위 두 카드에는 그 사람 얘기가 없었다(2026-11-10 치과 QA) */}
+      <p className="mt-2 text-center text-[12px] leading-5 text-sub [word-break:keep-all]"><b className="text-ink">병원·의원·약국 직원</b>이라면 근무지에서 받은 초대 링크로 출퇴근·휴가·급여를 바로 써요</p>
       {demoError && <p role="alert" className="mt-2 text-center text-[12px] font-bold text-red-600">{demoError}</p>}
 
       <div className="min-h-7 [@media(max-height:700px)]:min-h-3 flex-grow" />

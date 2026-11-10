@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { BackButton } from '@/components/BackButton';
 import { validateLicenseFile } from '@/components/onboarding/LicenseUpload';
+import { profileFieldsFor } from '@/lib/profile-fields';
+import { isGigLink } from '@/lib/worker-mode';
 
 type LicenseMode = 'photo' | 'text';
 
@@ -14,13 +16,7 @@ const EXPERIENCE_OPTIONS = [
   { value: '5년이상', label: '5년 이상' },
 ];
 
-const DEPT_TAGS = [
-  '일반병동', '중환자실', '응급실', '수술실',
-  '외래', '소아과', '정신과', '신생아실',
-  '요양원', '요양병원', '재활병원', '의원·클리닉',
-];
-const PHARMACIST_TAGS = ['조제실', '대체약사', '병원약국', '문전약국', '주말근무', '야간약국'];
-const PHARMACY_STAFF_TAGS = ['전산·접수', '서류관리', '재고관리', '매대관리', '고객 안내', '사무보조'];
+// 직군별 칸(면허 제목·선택 칩·입력 예시)은 lib/profile-fields.ts — 치과·기타 직군에 병동 칩과 '면허증 *'이 보이지 않게 한다
 
 export default function ProfileEditPage() {
   const router = useRouter();
@@ -37,16 +33,28 @@ export default function ProfileEditPage() {
   const [saving,         setSaving]         = useState(false);
   const [error,          setError]          = useState<string | null>(null);
   const [role,           setRole]           = useState('');
+  // 초대로 간편 가입한 직원은 직군이 'other' 라, 사업장이 명부에 적은 직종으로 칸을 고른다
+  const [staffRole,      setStaffRole]      = useState<string | null>(null);
+  // 직군을 알기 전에는 칸을 그리지 않는다 — 미리 그리면 치과 직원에게도 간호 기준 칸('면허증 *'·병동 칩)이 먼저 비친다.
+  // 서버가 미리 만든 화면에 입력칸이 없어져, 입력칸을 건드리는 브라우저 기능과 화면 맞추기(hydration)가 어긋날 일도 줄어든다(2026-11-10 QA React #418)
+  const [loaded,         setLoaded]         = useState(false);
 
   // Private bucket stores an object path. Preview uses a short-lived signed URL.
   useEffect(() => {
     let active = true;
     async function load() {
       const { data, error: loadError } = await supabase.from('workers')
-        .select('role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
+        .select('id, role, license_number, license_photo_url, experience_years, last_workplace, department_tags')
         .maybeSingle();
-      if (!active || loadError || !data) return;
+      if (!active) return;
+      // 못 읽어도 칸은 연다(중립 칸) — 저장할 때 서버가 다시 알려 준다
+      if (loadError || !data) { setLoaded(true); return; }
       setRole(data.role ?? '');
+      if (!data.role || data.role === 'other') {
+        const { data: links } = await supabase.from('facility_staff').select('role,worker_kind').eq('worker_id', data.id).neq('status', 'ended');
+        if (!active) return;
+        setStaffRole(((links ?? []) as Array<{ role: string | null; worker_kind?: string | null }>).find((link) => !isGigLink(link) && link.role && link.role !== 'other')?.role ?? null);
+      }
       if (data.license_photo_url) {
         setLicenseMode('photo');
         setLicensePhotoPath(data.license_photo_url);
@@ -59,8 +67,9 @@ export default function ProfileEditPage() {
       setExperience(data.experience_years ?? '');
       setLastWorkplace(data.last_workplace ?? '');
       setDeptTags(data.department_tags ?? []);
+      setLoaded(true);
     }
-    void load();
+    void load().catch(() => { if (active) setLoaded(true); });
     return () => { active = false; };
   }, []);
 
@@ -84,6 +93,13 @@ export default function ProfileEditPage() {
     );
   }
 
+  const fields = profileFieldsFor(role, staffRole);
+  const credential = fields.credential;
+  // 이력서(약국 전산·사무직)는 파일만 받는다
+  const resumeOnly = credential.kind === 'resume';
+  // 예전에 고른 칩이 지금 직군 목록에 없어도 보여 준다 — 안 보이면 지울 수도 없다
+  const tagOptions = [...fields.departmentTags, ...deptTags.filter((tag) => !fields.departmentTags.includes(tag))];
+
   async function handleSave() {
     setError(null);
     // 자격 확인은 사업장이 채용 확정 전에 수행한다 — 프로필 저장은 어떤 직군도 면허를 강제하지 않는다
@@ -92,7 +108,7 @@ export default function ProfileEditPage() {
     if (requiresLicense && licenseMode === 'photo' && !licenseFile && !licensePhotoPath) { setError('면허 사진을 등록해 주세요.'); return; }
     if (!experience) { setError('경력을 선택해 주세요.'); return; }
     if (!lastWorkplace.trim()) { setError('최근 근무지를 입력해 주세요.'); return; }
-    if (deptTags.length === 0) { setError('부서 태그를 최소 1개 선택해 주세요.'); return; }
+    if (deptTags.length === 0) { setError(`${fields.departmentTitle}를 최소 1개 선택해 주세요.`); return; }
 
     setSaving(true);
     let uploadedPath: string | null = null;
@@ -100,8 +116,8 @@ export default function ProfileEditPage() {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) throw new Error('로그인이 만료됐어요.');
 
-      let nextPath = licenseMode === 'photo' || role === 'pharmacy_staff' ? licensePhotoPath : null;
-      if ((licenseMode === 'photo' || role === 'pharmacy_staff') && licenseFile) {
+      let nextPath = licenseMode === 'photo' || resumeOnly ? licensePhotoPath : null;
+      if ((licenseMode === 'photo' || resumeOnly) && licenseFile) {
         const extByType: Record<string, string> = {
           'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp',
           'image/heic': 'heic', 'image/heif': 'heif', 'application/pdf': 'pdf',
@@ -119,7 +135,7 @@ export default function ProfileEditPage() {
       }
 
       const { error: updateError } = await supabase.rpc('update_my_worker_profile', {
-        p_license_number: role !== 'pharmacy_staff' && licenseMode === 'text' ? licenseNumber.trim() : null,
+        p_license_number: !resumeOnly && licenseMode === 'text' ? licenseNumber.trim() : null,
         p_license_path: nextPath,
         p_experience_years: experience,
         p_last_workplace: lastWorkplace.trim(),
@@ -148,14 +164,14 @@ export default function ProfileEditPage() {
         <h1 className="mt-2 text-[24px] font-extrabold text-ink">내 프로필 카드</h1>
       </div>
 
-      <div className="flex flex-col gap-5">
-        {/* 면허증 */}
+      {!loaded ? <p role="status" className="rounded-2xl bg-white p-5 text-[13px] text-sub shadow-sm">내 프로필을 불러오고 있어요…</p> : <div className="flex flex-col gap-5">
+        {/* 면허·자격 — 제목과 필수 표시는 직군마다 다르다 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
-          <p className="text-[13px] font-bold text-sub mb-1">{role === 'pharmacy_staff' ? '이력서' : role === 'rn' || role === 'na' ? '면허·자격 (선택)' : '면허증 *'}</p>
-          {(role === 'rn' || role === 'na') && <p className="mb-3 text-[12px] text-sub">미리 등록하면 사업장 확인이 빨라져요. 등록하지 않아도 지원할 수 있어요.</p>}
+          <p className="text-[13px] font-bold text-sub mb-1">{credential.title}</p>
+          {credential.hint && <p className="mb-3 text-[12px] text-sub">{credential.hint}</p>}
 
           {/* 탭 토글 — 이력서(전산·사무직)는 파일 업로드만 */}
-          {role !== 'pharmacy_staff' && <div className="flex bg-bg rounded-xl p-1 mb-4">
+          {!resumeOnly && <div className="flex bg-bg rounded-xl p-1 mb-4">
             {(['photo', 'text'] as LicenseMode[]).map((m) => (
               <button
                 key={m}
@@ -170,51 +186,54 @@ export default function ProfileEditPage() {
             ))}
           </div>}
 
-          {licenseMode === 'photo' || role === 'pharmacy_staff' ? (
+          {licenseMode === 'photo' || resumeOnly ? (
+            // 버튼 안에는 글자 요소(span)만 둔다 — 버튼 안의 div·p·input 은 HTML 규칙에 어긋나, 브라우저가 고쳐 읽으면 화면 맞추기가 어긋난다
+            <>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="w-full"
+              className="block w-full"
             >
               {licensePreview && (licenseFile?.type === 'application/pdf' || licensePhotoPath?.endsWith('.pdf')) ? (
-                <div className="flex w-full items-center gap-3 rounded-xl border border-line bg-bg px-4 py-4">
+                <span className="flex w-full items-center gap-3 rounded-xl border border-line bg-bg px-4 py-4">
                   <span className="text-3xl" aria-hidden="true">📄</span>
                   <span className="flex-1 text-left"><b className="block text-[13px] text-ink">PDF 문서 등록됨</b><span className="text-[11px] text-sub">탭하여 변경</span></span>
-                </div>
+                </span>
               ) : licensePreview ? (
-                <div className="relative w-full rounded-xl overflow-hidden border border-line">
+                <span className="relative block w-full rounded-xl overflow-hidden border border-line">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={licensePreview}
-                    alt={role === 'pharmacy_staff' ? '이력서 미리보기' : '면허증 미리보기'}
+                    alt={credential.previewAlt}
                     className="w-full object-cover max-h-52"
                   />
                   <span className="absolute bottom-2 right-2 text-[11px] font-semibold bg-black/50 text-white px-2 py-1 rounded-full">
                     탭하여 변경
                   </span>
-                </div>
+                </span>
               ) : (
-                <div className="w-full h-36 rounded-xl border-2 border-dashed border-line flex flex-col items-center justify-center gap-2 bg-bg active:bg-line/50">
-                  <span className="text-3xl">📋</span>
-                  <p className="text-[13px] font-semibold text-sub">{role === 'pharmacy_staff' ? '이력서 업로드' : '면허증 사진 업로드'}</p>
-                  <p className="text-[11px] text-tertiary">PDF, JPG, PNG, HEIC 가능</p>
-                </div>
+                <span className="w-full h-36 rounded-xl border-2 border-dashed border-line flex flex-col items-center justify-center gap-2 bg-bg active:bg-line/50">
+                  <span className="text-3xl" aria-hidden="true">📋</span>
+                  <span className="text-[13px] font-semibold text-sub">{credential.uploadLabel}</span>
+                  <span className="text-[11px] text-tertiary">PDF, JPG, PNG, HEIC 가능</span>
+                </span>
               )}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                className="hidden"
-                onChange={handleFileChange}
-              />
             </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+            </>
           ) : (
             <div className="flex items-center gap-2 bg-bg rounded-xl px-4 py-3.5">
               <span className="text-[15px] text-sub whitespace-nowrap">제</span>
               <input
                 type="text"
                 inputMode="numeric"
-                placeholder="면허번호 입력"
+                placeholder={credential.numberPlaceholder ?? '번호 입력'}
                 value={licenseNumber}
                 onChange={(e) => setLicenseNumber(e.target.value)}
                 className="flex-1 bg-transparent text-[16px] text-ink focus:outline-none"
@@ -250,7 +269,7 @@ export default function ProfileEditPage() {
           <p className="text-[13px] font-bold text-sub mb-3">최근 근무지 *</p>
           <input
             type="text"
-            placeholder={role === 'pharmacist' ? '예: ○○약국 대체약사' : role === 'pharmacy_staff' ? '예: ○○약국 전산·접수' : '예: ○○병원 중환자실'}
+            placeholder={fields.workplacePlaceholder}
             value={lastWorkplace}
             onChange={(e) => setLastWorkplace(e.target.value)}
             className="w-full bg-bg rounded-xl px-4 py-3.5 text-[16px] text-ink placeholder:text-tertiary focus:outline-none focus:ring-2 focus:ring-primary"
@@ -259,10 +278,10 @@ export default function ProfileEditPage() {
 
         {/* 주요 부서 */}
         <section className="bg-white rounded-2xl p-5 shadow-sm">
-          <p className="text-[13px] font-bold text-sub mb-1">주요 부서 <span className="font-normal">(복수 선택)</span> *</p>
-          <p className="text-[11px] text-tertiary mb-3">경험 있는 부서를 모두 선택해 주세요</p>
+          <p className="text-[13px] font-bold text-sub mb-1">{fields.departmentTitle} <span className="font-normal">(복수 선택)</span> *</p>
+          <p className="text-[11px] text-tertiary mb-3">{fields.departmentHint}</p>
           <div className="flex flex-wrap gap-2">
-            {(role === 'pharmacist' ? PHARMACIST_TAGS : role === 'pharmacy_staff' ? PHARMACY_STAFF_TAGS : DEPT_TAGS).map((tag) => (
+            {tagOptions.map((tag) => (
               <button
                 key={tag}
                 type="button"
@@ -293,7 +312,7 @@ export default function ProfileEditPage() {
         >
           {saving ? '저장 중...' : '저장하기'}
         </button>
-      </div>
+      </div>}
     </main>
   );
 }

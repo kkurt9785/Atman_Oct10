@@ -10,13 +10,18 @@ import { TouchToCheckButton, type AttendanceMode, type AttendanceResult } from '
 import { MyAttendanceCalendar } from '@/components/attendance/MyAttendanceCalendar';
 import { isGigLink } from '@/lib/worker-mode';
 import { selectWorkplaceShift, selectWorkplaceStaff, currentStaffAttendance, staffAttendanceLabel, attendancePolicyHelp } from '@/lib/workplace-selection';
+import { isMissingColumnError, staffHoursOn, staffWorkDate, type WeekdayHours } from '@/lib/staff-hours';
+import { attendanceWindow, attendanceWindowLine, type AttendanceWindowSettings } from '@/lib/attendance-window';
+import { formatLeaveAmount, leaveRequestLine } from '@/lib/leave-display';
+import { nudgeAdminDispatch } from '@/lib/shifts';
 
 // 병원·약국 직원·단기 근무의 출퇴근·휴가. 긱 근무 연결(facility_staff.worker_kind='gig')은 /gig 가 맡는다.
 // 긱워커만 쓰는 사람이 여기(QR 스캔 /workplace?attendanceToken= 포함)로 오면 ClientLayout 의 WorkerShellGuard 가 쿼리째 /gig 로 보낸다.
 // 병원 직원이면서 긱 근무도 하는 사람은 여기서 병원 근태만, /gig 에서 긱 근태만 본다 — 마지막에 쓴 셸 때문에 튕기지 않는다.
 
 type FacilityRef={id:string;name:string};
-type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; facilities:FacilityRef|FacilityRef[] };
+type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; weekday_hours?:WeekdayHours|null; facilities:FacilityRef|FacilityRef[] };
+const STAFF_FIELDS='id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)';
 type Leave = { id:string; leave_type:string; start_date:string; end_date:string; requested_minutes:number; status:string };
 type AttendanceState={staff_id:string;check_in_at:string|null;check_out_at:string|null;work_date:string;status?:string;break_minutes?:number};
 type ShiftAttendanceRef={checkout_requested_at:string|null};
@@ -54,7 +59,12 @@ function WorkplaceContent() {
   const [attendanceModes,setAttendanceModes]=useState<Record<string,AttendanceMode>>({});
   // 사업장별 '시작 후 몇 분까지 앱 출근이 되는지'(기본 60분) — 창이 지나면 서버가 거부하므로 버튼 대신 알리기를 보여 준다
   const [lateLimits,setLateLimits]=useState<Record<string,number>>({});
-  const [tab,setTab]=useState<'history'|'leave'>('history');
+  // 직원 출퇴근 가능 시간 안내용 — 서버와 같은 앞뒤 허용 분(행이 없으면 lib/attendance-window.ts 가 서버 기본값을 쓴다)
+  const [windowSettings,setWindowSettings]=useState<Record<string,AttendanceWindowSettings>>({});
+  // 홈의 '휴가' 바로가기(/workplace?tab=leave)로 오면 휴가 탭부터 연다
+  const [tab,setTab]=useState<'history'|'leave'>(params.get('tab')==='leave'?'leave':'history');
+  // 휴가 취소는 한 번 더 묻는다 — 작은 버튼을 잘못 눌러 승인 대기 중인 신청이 사라지지 않게
+  const [cancelTarget,setCancelTarget]=useState('');
   const [refreshKey,setRefreshKey]=useState(0);
 
   useEffect(()=>{ let active=true; void (async()=>{
@@ -74,21 +84,25 @@ function WorkplaceContent() {
       window.location.href='/';
       return;
     }
-    const {data,error:staffError}=await supabase.from('facility_staff').select('id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)').neq('status','ended').order('created_at',{ascending:false});
+    const readStaff=(fields:string)=>supabase.from('facility_staff').select(fields).neq('status','ended').order('created_at',{ascending:false});
+    // 요일별 근무시간(weekday_hours, 20261110100000) 컬럼이 아직 없는 DB에서도 출퇴근 화면은 열려야 한다
+    let {data,error:staffError}=await readStaff(`${STAFF_FIELDS},weekday_hours`);
+    if(isMissingColumnError(staffError))({data,error:staffError}=await readStaff(STAFF_FIELDS));
     if(!active)return;
     if(staffError)throw staffError;
-    const linked=((data??[]) as Staff[]).filter(item=>!isGigLink(item));
+    const linked=((data??[]) as unknown as Array<Staff&{worker_kind?:string|null}>).filter(item=>!isGigLink(item));
     const selectedStaff=selectWorkplaceStaff(linked,requestedFacility,requestedStaff);
     if(requestedStaff&&!selectedStaff)throw new Error('staff unavailable');
     setStaffList(linked);
     setSelectedStaffId(selectedStaff?.id??'');
     if(linked.length){
       const facilityIds=[...new Set(linked.map(item=>facilityOf(item)?.id).filter(Boolean))] as string[];
-      const {data:settings,error:settingsError}=await supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_after_minutes').in('facility_id',facilityIds);
+      const {data:settings,error:settingsError}=await supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_before_minutes,check_in_after_minutes,check_out_before_minutes,check_out_after_minutes').in('facility_id',facilityIds);
       if(!active)return;
     if(settingsError)throw settingsError;
       setAttendanceModes(Object.fromEntries((settings??[]).map(row=>[row.facility_id,row.authentication_mode as AttendanceMode])));
       setLateLimits(current=>({...current,...Object.fromEntries((settings??[]).filter(row=>typeof row.check_in_after_minutes==='number').map(row=>[row.facility_id,row.check_in_after_minutes as number]))}));
+      setWindowSettings(Object.fromEntries((settings??[]).map(row=>[row.facility_id,row as AttendanceWindowSettings])));
       const kstNow=new Date(Date.now()+9*60*60*1000);
       const since=new Date(Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),1)).toISOString().slice(0,10);
       const todayStr=kstNow.toISOString().slice(0,10);
@@ -157,11 +171,15 @@ function WorkplaceContent() {
       p_reason:String(formData.get('reason')||''),
     });
     setMessage(error?error.message.replace(/^.*?: /,''):'휴가 신청을 보냈어요. 관리자 승인 후 차감돼요.');
-    if(!error) window.setTimeout(()=>window.location.reload(),700);
+    if(error)return;
+    // 신청이 들어가면 DB 트리거가 관리자 알림을 쌓는다. 발송 cron 은 하루 한 번이라 바로 나가도록 깨운다 — 실패해도 신청은 이미 끝났다
+    void nudgeAdminDispatch().catch(()=>undefined);
+    // 새로 읽은 뒤에도 방금 낸 신청이 보이게 휴가 탭으로 돌아온다
+    window.setTimeout(()=>{const url=new URL(window.location.href);url.searchParams.set('tab','leave');window.location.replace(url.toString());},700);
   }
 
   async function cancelLeave(id:string){
-    setMessage('');
+    setMessage('');setCancelTarget('');
     const {error}=await supabase.rpc('cancel_staff_leave_request',{p_request_id:id});
     if(error){setMessage(error.message.replace(/^.*?: /,''));return;}
     setLeaves(current=>current.map(item=>item.id===id?{...item,status:'cancelled'}:item));
@@ -184,19 +202,26 @@ function WorkplaceContent() {
   const facility=staffFacility?.name??'';
   const staffAttendanceMode=staffFacility?.id?attendanceModes[staffFacility.id]??'gps_or_qr':'gps_or_qr';
   const currentAttendance=staff?attendance[staff.id]:null;
+  // 오늘(열린 기록이 있으면 그 근무일) 예정 시간. 요일별 시간이 있으면 그 값 — 서버 판정과 같은 순서(근무일은 기본 시간으로, 시간은 그 요일 값으로)
+  const todayHours=staff?staffHoursOn(staff,currentAttendance?.work_date??staffWorkDate(staff)):null;
+  const staffWindowLine=staff&&todayHours&&staffFacility?.id&&!currentAttendance?.check_out_at&&currentAttendance?.status!=='checkout_pending'&&staffAttendanceMode!=='admin'
+    ?attendanceWindowLine(attendanceWindow(todayHours.start,todayHours.end,windowSettings[staffFacility.id]),currentAttendance?.check_in_at?'check_out':'check_in'):null;
   return <main className="min-h-screen bg-bg px-4 pt-4 pb-28">
     <BackButton href="/home" label="홈" anyPrevious />
     {/* 사업장 직원이면 출퇴근·휴가, 단기 근무만 있으면 휴가가 없으니 출퇴근만 */}
     <p className="mt-2 text-[13px] font-bold text-primary">{staffList.length?'내 직장':'공고 근무'}</p><h1 className="text-[26px] font-extrabold text-ink mt-1">{staffList.length?'출퇴근·휴가':'출퇴근'}</h1>
     <LinkedNotice />
     {!loading&&staffList.length>0&&<Link href="/workroom" className="mt-4 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm active:bg-bg"><span><b className="block text-[15px] text-ink">사업장 워크룸</b><span className="mt-1 block text-[12px] text-sub">공지와 근무 대화를 한곳에서 확인해요</span></span><span className="text-[20px] font-bold text-primary">→</span></Link>}
+    {/* 직원에게 급여는 여기서 한 번에 닿아야 한다 — 예전엔 내 정보 > 급여로만 갔고 그마저 단기 근무 지급만 보였다(11/10 치과 QA P1-11) */}
+    {!loading&&staffList.length>0&&<Link href="/earnings" className="mt-3 flex items-center justify-between rounded-2xl bg-white px-5 py-4 shadow-sm active:bg-bg"><span><b className="block text-[15px] text-ink">이번 달 예상 급여</b><span className="mt-1 block text-[12px] text-sub">확정된 근태로 계산한 세전 금액을 확인해요</span></span><span className="text-[20px] font-bold text-primary">→</span></Link>}
     {loadError?<div role="alert" className="mt-6 rounded-2xl bg-amber-50 p-5"><p>{loadError}</p><button type="button" onClick={()=>setRetry(value=>value+1)} className="mt-3 min-h-11 font-bold text-primary">다시 불러오기</button><Link href="/applications" className="ml-4 font-bold text-primary">근무 목록 확인</Link></div>:loading?<div className="mt-6 bg-white rounded-2xl p-8 text-center text-sub">근태를 확인하고 있어요...</div>:
       <>{shiftTarget&&(()=>{const shift=Array.isArray(shiftTarget.shifts)?shiftTarget.shifts[0]:shiftTarget.shifts;const facility=Array.isArray(shift.facilities)?shift.facilities[0]:shift.facilities;const mode=attendanceModes[facility?.id]??'gps_or_qr';const action=shiftTarget.checked_in_at?'check_out':'check_in';const checkoutPending=Boolean(shiftCheckoutRequested(shiftTarget)&&!shiftTarget.checked_out_at);const {toStart,toEnd}=minutesUntilShift(shift);const missed=!shiftTarget.checked_in_at&&!shiftTarget.checked_out_at&&toEnd<=0;const lateLimit=lateLimits[facility?.id??'']??60;const windowClosed=!shiftTarget.checked_in_at&&!missed&&toStart<-lateLimit;return <><section className="mt-6 rounded-2xl bg-white p-5 shadow-sm"><p className="text-[13px] font-bold text-primary">오늘 확정된 공고 근무</p><h2 className="mt-1 text-[18px] font-extrabold">{facility?.name}</h2><p className="mt-1 text-[13px] text-sub">{shift.shift_date} · {shift.start_time.slice(0,5)}~{shift.end_time.slice(0,5)}</p>{!shiftTarget.checked_in_at&&!missed&&!windowClosed&&toStart<0&&<p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-center text-[13px] font-bold text-amber-700">시작 {-toStart}분 지났어요 · 지금 출근하기를 눌러 주세요</p>}{missed?<div className="mt-4 rounded-xl bg-amber-50 p-4 text-center"><p className="text-[14px] font-extrabold text-amber-800">출근 기록 없이 근무 시간이 지났어요</p><p className="mt-1 text-[12px] leading-5 text-amber-700">실제로 일했다면 사업장에 알려 근무 기록을 고쳐 달라고 해 주세요.</p><Link href={`/chat/${shiftTarget.id}`} className="mt-3 inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white">사업장 채팅으로 알리기</Link></div>:windowClosed?<div className="mt-4 rounded-xl bg-amber-50 p-4 text-center"><p className="text-[14px] font-extrabold text-amber-800">출근 가능 시간이 지났어요</p><p className="mt-1 text-[12px] leading-5 text-amber-700">앱 출근은 시작 후 {lateLimit}분까지만 돼요. 출근했다면 사업장에 알려 수동 기록을 요청해 주세요.</p><Link href={`/chat/${shiftTarget.id}`} className="mt-3 inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white">사업장 채팅으로 알리기</Link></div>:checkoutPending?<p className="mt-4 rounded-xl bg-amber-50 p-3 text-[13px] font-bold text-amber-700">조기 퇴근 승인 대기 중이에요. 관리자가 승인하면 근무시간과 지급 자료가 확정돼요.</p>:!shiftTarget.checked_out_at?<TouchToCheckButton key={shiftTarget.id+':'+action} helpHref={`/chat/${shiftTarget.id}`} targetType="shift" targetId={shiftTarget.id} action={action} qrToken={attendanceToken} mode={mode} onSuccess={(response)=>{setShiftTarget(current=>current?response.status==='pending'?{...current,shift_attendances:{checkout_requested_at:new Date().toISOString()}}:{...current,[action==='check_in'?'checked_in_at':'checked_out_at']:new Date().toISOString()}:current);setRefreshKey(k=>k+1);}}/>:<p className="mt-4 rounded-xl bg-emerald-50 p-3 text-[13px] font-bold text-emerald-700">근무가 완료됐어요.</p>}</section>{!staff&&<section className="mt-5 rounded-2xl bg-white p-5 shadow-sm"><h2 className="text-[18px] font-extrabold">내 근태 내역</h2><div className="mt-3"><MyAttendanceCalendar staffId={null} refreshKey={refreshKey}/></div></section>}</>})()}
       {      !staff?(!shiftTarget&&<div className="mt-6 bg-white rounded-2xl p-8 text-center"><b>{staffList.length>0?'이 사업장에는 연결된 직원 기록이 없어요':'오늘 배정된 근무가 없어요'}</b><p className="text-[13px] text-sub mt-2">{staffList.length>0?'다른 사업장 QR이나 링크로 들어온 것 같아요. 아래에서 내 직장을 고르면 출퇴근 화면이 열려요.':'단기 근무는 지원이 확정되면 여기에 출근 버튼이 생겨요. 사업장 직원이라면 관리자에게 잇닿 계정 연결을 요청해 주세요.'}</p>
         {/* 미연결 사업장(다른 QR·링크)으로 들어와도 내 직장 목록은 항상 고를 수 있어야 한다(10/20 P1 #8) */}
         {staffList.length>0&&<label className="block mt-4 text-left text-[12px] text-sub">관리할 직장<select value={staffList.some(item=>item.id===selectedStaffId)?selectedStaffId:''} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3"><option value="" disabled>내 직장 선택</option>{staffList.map(item=>{const name=facilityOf(item)?.name;return <option key={item.id} value={item.id}>{name??'사업장'} · {item.name}</option>;})}</select></label>}</div>):
       <>
-        <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · 기본 근무 {staff.default_start_time.slice(0,5)}~{staff.default_end_time.slice(0,5)}</p>
+        <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · {todayHours?.custom?'오늘 근무':'기본 근무'} {(todayHours?.start??staff.default_start_time).slice(0,5)}~{(todayHours?.end??staff.default_end_time).slice(0,5)}</p>
+          {staffWindowLine&&<p className="mt-1 text-[12px] text-sub">{staffWindowLine}</p>}
           {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=facilityOf(item)?.name;return <option key={item.id} value={item.id}>{name??'사업장'} · {item.name}</option>;})}</select></label>}
           <div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[12px] font-bold text-primary">{staffAttendanceLabel(currentAttendance)}</p><p className="mt-1 text-[13px] text-sub">{attendancePolicyHelp(staffAttendanceMode)}</p></div>
           {!currentAttendance?.check_out_at&&currentAttendance?.status!=='checkout_pending'&&<TouchToCheckButton key={staff.id+':'+(currentAttendance?.check_in_at?'check_out':'check_in')} targetType="staff" targetId={staff.id} action={currentAttendance?.check_in_at?'check_out':'check_in'} qrToken={attendanceToken} mode={staffAttendanceMode} onSuccess={(response:AttendanceResult)=>{const now=new Date().toISOString();const checkingOut=Boolean(currentAttendance?.check_in_at);setAttendance(current=>({...current,[staff.id]:{...(current[staff.id]??{staff_id:staff.id,work_date:new Date(Date.now()+9*60*60*1000).toISOString().slice(0,10),check_in_at:null,check_out_at:null}),...(checkingOut?(response.status==='pending'?{status:'checkout_pending'}:{check_out_at:response.checkOutAt??now,status:'completed'}):{check_in_at:response.checkInAt??now,status:'working'})}}));setRefreshKey(k=>k+1);}}/>}
@@ -213,7 +238,7 @@ function WorkplaceContent() {
           <div className="mt-3"><MyAttendanceCalendar staffId={staff.id} refreshKey={refreshKey}/></div>
           <p className="mt-3 text-[11px] leading-5 text-sub">수정이 필요한 기록은 사업장 관리자에게 요청하세요. 월 마감 후에는 급여 자료에 반영돼요.</p>
         </section>}
-        {tab==='leave'&&<section className="mt-3 bg-white rounded-2xl p-5 shadow-sm"><div className="flex justify-between items-start"><div><h2 className="font-extrabold text-[18px]">휴가 신청</h2><p className="text-[12px] text-sub mt-1">승인된 경우에만 잔여 휴가가 차감돼요.</p></div><div className="text-right"><p className="text-[11px] text-sub">잔여</p><b className="text-primary">{leaveMinutes/60}시간</b></div></div>
+        {tab==='leave'&&<section className="mt-3 bg-white rounded-2xl p-5 shadow-sm"><div className="flex justify-between items-start"><div><h2 className="font-extrabold text-[18px]">휴가 신청</h2><p className="text-[12px] text-sub mt-1">승인된 경우에만 잔여 휴가가 차감돼요.</p></div><div className="text-right"><p className="text-[11px] text-sub">잔여</p><b className="text-primary">{formatLeaveAmount(leaveMinutes)}</b></div></div>
           <form action={requestLeave} className="grid grid-cols-2 gap-3 mt-4">
             <label className="col-span-2 text-[12px] text-sub">유형<select name="leave_type" value={leaveType} onChange={e=>setLeaveType(e.target.value)} className="mt-1 w-full h-12 border border-line rounded-xl px-3 bg-white">{TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
             {leaveType==='hourly'&&<label className="col-span-2 text-[12px] text-sub">사용 시간<select name="hourly_minutes" className="mt-1 w-full h-12 border border-line rounded-xl px-3 bg-white">{[1,2,3,4,5,6,7].map(h=><option key={h} value={h*60}>{h}시간</option>)}</select></label>}
@@ -222,7 +247,8 @@ function WorkplaceContent() {
             <label className="col-span-2 text-[12px] text-sub">사유<input name="reason" className="mt-1 w-full h-12 border border-line rounded-xl px-3" placeholder="선택 입력"/></label>
             <button className="col-span-2 h-12 rounded-xl bg-primary text-white font-bold">관리자에게 신청</button>
           </form>
-          {leaves.length>0&&<div className="mt-5 border-t border-line pt-4"><p className="text-[13px] font-bold">최근 신청</p><div className="mt-2 divide-y divide-line">{leaves.map(l=><div key={l.id} className="flex items-center justify-between gap-2 py-2.5 text-[12px]"><span>{l.start_date}{l.end_date!==l.start_date?`~${l.end_date.slice(5)}`:''} · {l.requested_minutes/60}시간</span><span className="flex items-center gap-2"><b className={l.status==='approved'?'text-success':l.status==='rejected'?'text-red-600':l.status==='cancelled'?'text-sub':'text-amber-600'}>{l.status==='approved'?'승인':l.status==='rejected'?'반려':l.status==='cancelled'?'취소됨':'대기'}</b>{l.status==='pending'&&<button type="button" onClick={()=>void cancelLeave(l.id)} className="rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-sub">취소</button>}</span></div>)}</div></div>}
+          {leaves.length>0&&<div className="mt-5 border-t border-line pt-4"><p className="text-[13px] font-bold">최근 신청</p><div className="mt-2 divide-y divide-line">{leaves.map(l=><div key={l.id} className="py-2.5 text-[12px]"><div className="flex items-center justify-between gap-2"><span className="min-w-0 break-words">{leaveRequestLine(l)}</span><span className="flex shrink-0 items-center gap-2"><b className={l.status==='approved'?'text-success':l.status==='rejected'?'text-red-600':l.status==='cancelled'?'text-sub':'text-amber-600'}>{l.status==='approved'?'승인':l.status==='rejected'?'반려':l.status==='cancelled'?'취소됨':'대기'}</b>{l.status==='pending'&&cancelTarget!==l.id&&<button type="button" onClick={()=>setCancelTarget(l.id)} className="min-h-11 min-w-11 rounded-xl border border-line px-3 text-[12px] font-bold text-sub">취소</button>}</span></div>
+            {l.status==='pending'&&cancelTarget===l.id&&<div role="group" aria-label="휴가 신청 취소 확인" className="mt-2 rounded-xl bg-bg p-3"><p className="font-bold text-ink">이 휴가 신청을 취소할까요?</p><p className="mt-1 text-sub">취소하면 관리자 승인 대기에서 빠져요. 필요하면 다시 신청할 수 있어요.</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={()=>setCancelTarget('')} className="min-h-11 rounded-xl border border-line bg-white text-[13px] font-bold text-sub">그대로 두기</button><button type="button" onClick={()=>void cancelLeave(l.id)} className="min-h-11 rounded-xl bg-ink text-[13px] font-bold text-white">신청 취소</button></div></div>}</div>)}</div></div>}
         </section>}
       </>}
       </>}

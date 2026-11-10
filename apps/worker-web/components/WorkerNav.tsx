@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useStaffFirst } from '@/lib/use-staff-first';
 
 // 의료 워커(병원·약국 시프트) 전용 탭. 긱워커 탭은 components/gig/GigNav.tsx — 두 제품은 nav 를 공유하지 않는다.
 // 워크룸은 사업장에 직원으로 연결된 사람만 쓰므로 탭 대신 /workplace 안에서 연다 (탭 7개는 390px 에서 안 읽힌다).
@@ -12,10 +13,20 @@ const TABS = [
   { href: '/notifications', label: '소식', icon: 'notification' },
   { href: '/settings',     label: '내 정보', icon: 'profile' },
 ];
+// 직원으로 연결된 사람의 탭 — 둘째 자리가 '근무 찾기' 대신 '출퇴근'이다(2026-11-10 치과 QA P1-12).
+// 근무 찾기는 없어지지 않는다: 홈의 '다른 근무도 찾아보기'와 내 근무 화면에서 들어가고, 그때는 '내 근무' 탭이 켜진다.
+const STAFF_TABS = [
+  { href: '/home',         label: '홈',     icon: 'home' },
+  { href: '/workplace',    label: '출퇴근', icon: 'clock' },
+  { href: '/applications', label: '내 근무', icon: 'applications' },
+  { href: '/notifications', label: '소식', icon: 'notification' },
+  { href: '/settings',     label: '내 정보', icon: 'profile' },
+];
 
 const ICONS={
   home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></>,
   search:<><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5M7 10h6M10 7v6"/></>,
+  clock:<><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></>,
   applications:<><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></>,
   notification:<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></>,
   profile:<><circle cx="12" cy="8" r="3"/><path d="M5 21a7 7 0 0 1 14 0"/></>,
@@ -23,13 +34,17 @@ const ICONS={
 
 export function WorkerNav() {
   const path = usePathname();
+  // 판정 전(null)·직원 연결 없음(false)은 지금까지의 탭 그대로
+  const staffFirst = useStaffFirst() === true;
   return (
-    <nav aria-label="근무 찾기 메뉴" className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white border-t border-line flex z-30 pb-[env(safe-area-inset-bottom)]">
-      {TABS.map((t) => {
+    <nav aria-label={staffFirst ? '내 직장 메뉴' : '근무 찾기 메뉴'} className="fixed bottom-0 inset-x-0 mx-auto max-w-app bg-white border-t border-line flex z-30 pb-[env(safe-area-inset-bottom)]">
+      {(staffFirst ? STAFF_TABS : TABS).map((t) => {
         const active = path.startsWith(t.href)
           || (t.href === '/shifts' && path.startsWith('/map'))
           // 대타·근무지·워크룸·급여는 '내 근무'에서, 리워드는 '내 정보'에서 들어간다 — 그 화면에서도 탭이 켜져 있어야 길을 잃지 않는다
-          || (t.href === '/applications' && ['/earnings', '/cover', '/workplace', '/workroom', '/store'].some((p) => path.startsWith(p)))
+          // 직원 탭에서는 워크룸·급여가 '출퇴근'에 붙고, 근무 찾기·지도가 '내 근무'에 붙는다
+          || (t.href === '/applications' && (staffFirst ? ['/cover', '/store', '/shifts', '/map'] : ['/earnings', '/cover', '/workplace', '/workroom', '/store']).some((p) => path.startsWith(p)))
+          || (staffFirst && t.href === '/workplace' && ['/workroom', '/earnings'].some((p) => path.startsWith(p)))
           || (t.href === '/settings' && path.startsWith('/rewards'));
         return (
           <Link
