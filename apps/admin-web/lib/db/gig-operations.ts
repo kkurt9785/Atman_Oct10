@@ -69,7 +69,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   const { data: staffRows, error: staffError } = await readAllRows(() => sb.from('facility_staff')
     .select('id,name,worker_id,department,default_start_time,default_end_time,contract_start')
     .eq('facility_id', facilityId).neq('status', 'ended'));
-  if (staffError) throw new Error('긱워커 운영 현황을 불러오지 못했어요.');
+  if (staffError) throw new Error('단기 근무 운영 현황을 불러오지 못했어요.');
   const staffIds = (staffRows ?? []).map((row) => row.id as string);
   if (staffIds.length === 0) return empty;
 
@@ -87,7 +87,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
     sb.from('facility_attendance_settings').select('late_grace_minutes').eq('facility_id', facilityId).maybeSingle(),
   ]);
   const failed = [assignmentResult.error, attendanceResult.error, inviteResult.error, bankResult.error, payoutResult.error, messageResult.error, 'error' in readResult ? readResult.error : null, graceResult.error].find(Boolean);
-  if (failed) throw new Error('긱워커 운영 데이터를 한 번에 불러오지 못했어요.');
+  if (failed) throw new Error('단기 근무 운영 데이터를 한 번에 불러오지 못했어요.');
 
   const assignments = ((assignmentResult.data ?? []) as AssignmentRow[]).sort((a,b) => a.starts_on.localeCompare(b.starts_on));
   const assignmentsByStaff = new Map<string, AssignmentRow[]>();
@@ -109,7 +109,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   // 지급 화면과 같은 근태 ID 기준. 같은 날 추가 근무와 취소된 과거 지급도 포함한다.
   const { data: completedRows, error: completedError } = await readAllRows(() => sb.from('staff_attendances').select('id,staff_id,work_date,check_out_at')
     .eq('facility_id', facilityId).eq('status', 'completed').not('check_in_at', 'is', null).not('check_out_at', 'is', null).gte('work_date', '2020-01-01').lte('work_date', today));
-  if (completedError) throw new Error('긱워커 미정산 근무를 모두 불러오지 못했어요.');
+  if (completedError) throw new Error('아직 지급하지 않은 단기 근무를 모두 불러오지 못했어요.');
   const unpaidDays = new Map<string,Set<string>>();
   for (const row of (completedRows ?? []) as Array<{ id: string; staff_id: string; work_date: string; check_out_at: string | null }>) {
     if (isAttendanceCovered(row, payouts.filter((p) => p.staff_id === row.staff_id))) continue;

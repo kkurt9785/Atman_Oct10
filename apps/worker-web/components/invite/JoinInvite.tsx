@@ -243,7 +243,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
     } catch { /* 안내 없이 진행 */ }
     window.location.replace(routes.home);
     setStatus('success');
-    setMessage(`${preview?.facilityName ?? '근무지'}와 이어졌어요. 출퇴근은 근무지에서 '출근하기'·'퇴근하기' 버튼으로 기록해요.`);
+    setMessage(`${preview?.facilityName ? `${preview.facilityName} ` : ''}근무지와 이어졌어요. 출퇴근은 근무지에서 '출근하기'·'퇴근하기' 버튼으로 기록해요.`);
     } catch {setStatus('error');setCanRetry(true);setMessage('연결 결과를 확인하지 못했어요. 이미 연결됐을 수 있으니 내 근무를 먼저 확인하거나 초대를 다시 불러와 주세요.');}
     finally {claiming.current=false;}
   }

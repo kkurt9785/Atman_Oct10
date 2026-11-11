@@ -171,7 +171,7 @@ export default function ClaimFacilityPage() {
 
         <section className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-sm" aria-label="시작 방식">
           <button type="button" onClick={()=>chooseEntry('gigworker')} aria-pressed={false} className="rounded-xl bg-bg px-3 py-3 text-left text-ink">
-            <p className="text-[0.875rem] font-extrabold">단기·행사 근태 시작</p><p className="mt-1 text-[0.6875rem] leading-4 text-sub">외부 단기근로자 초대</p>
+            <p className="text-[0.875rem] font-extrabold">단기·행사 근태 시작</p><p className="mt-1 text-[0.6875rem] leading-4 text-sub">외부 단기 근무자 초대</p>
           </button>
           <button type="button" onClick={()=>chooseEntry('recruit')} aria-pressed={entryChoice==='recruit'} className={`rounded-xl px-3 py-3 text-left ${entryChoice==='recruit'?'bg-primary text-white':'bg-bg text-ink'}`}>
             <p className="text-[0.875rem] font-extrabold">병원·의원·약국</p><p className={`mt-1 text-[0.6875rem] leading-4 ${entryChoice==='recruit'?'text-white/80':'text-sub'}`}>직원 출퇴근·휴가 · 단기 인력 모집</p>
@@ -312,7 +312,7 @@ export default function ClaimFacilityPage() {
             <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line"/>
             <h2 id="register-title" className="text-[1.1875rem] font-extrabold">이 사업장으로 등록할게요</h2>
             <p className="mt-1 text-[0.75rem] leading-5 text-sub">
-              지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정합니다. 직원 등록과 출퇴근·휴가 관리는 등록하면 바로 쓸 수 있고, 단기 인력 공고 등록만 잇닿이 확인한 뒤 열려요.
+              지도 검색 정보로 기본값을 채웠어요. 등록할 때 같은 위치의 심평원 요양기관 정보와 자동으로 대조해 종별을 확정해요. 직원 등록과 출퇴근·휴가 관리는 등록하면 바로 쓸 수 있고, 단기 인력 공고 등록만 잇닿이 확인한 뒤 열려요.
             </p>
             <div className="mt-4 rounded-xl bg-surface px-4 py-3 text-[0.75rem] text-sub">
               <span className="rounded-full bg-white px-2 py-0.5 text-[0.6875rem] font-bold text-primary">{TYPE_LABEL[registerHit.facilityType]??registerHit.typeLabel}</span>

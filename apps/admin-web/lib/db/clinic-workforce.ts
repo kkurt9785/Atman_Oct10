@@ -172,7 +172,7 @@ export async function getTodayAttendanceFailures(){
     applicationIds.length?sb.from('shift_applications').select('id,workers(name)').in('id',applicationIds):Promise.resolve({data:[]}),
   ]);
   if('error' in staffResult&&staffResult.error)throw new Error(`직원 이름을 불러오지 못했어요: ${staffResult.error.message}`);
-  if('error' in applicationResult&&applicationResult.error)throw new Error(`단기근로자 이름을 불러오지 못했어요: ${applicationResult.error.message}`);
+  if('error' in applicationResult&&applicationResult.error)throw new Error(`단기 근무자 이름을 불러오지 못했어요: ${applicationResult.error.message}`);
   const staff=staffResult.data;
   const applications=applicationResult.data;
   const staffNames=new Map((staff??[]).map((row:any)=>[row.id,row.name]));

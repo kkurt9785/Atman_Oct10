@@ -123,7 +123,7 @@ export function Splash({ inviteVariant = null }: { inviteVariant?: WorkerShell |
         {showDemoLogin && (
           <div className="rounded-2xl border border-line bg-white p-4">
             <p className="mb-1 text-[13px] font-bold text-ink">{gigInvite ? '초대 근무 시연 계정' : '시연용 근무자 로그인'}</p>
-            {gigInvite && <p className="mb-3 text-[11px] leading-4 text-sub">내 초대를 연결하기 전, 별도 데모 워커로 화면을 먼저 볼 수 있어요.</p>}
+            {gigInvite && <p className="mb-3 text-[11px] leading-4 text-sub">내 초대를 연결하기 전, 시연 계정으로 화면을 먼저 볼 수 있어요.</p>}
             <div className="grid grid-cols-1 gap-2">
               {visibleDemoWorkers.map((worker) => (
                 <button

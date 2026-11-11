@@ -54,7 +54,7 @@ export function DemoShareCard() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      window.prompt('아래 데모 주소를 복사해 주세요.', link.url);
+      window.prompt('아래 시연 주소를 복사해 주세요.', link.url);
     }
   }
 

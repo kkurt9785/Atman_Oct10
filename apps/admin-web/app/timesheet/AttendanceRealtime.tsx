@@ -30,7 +30,7 @@ async function resolveName(log: AuthLog): Promise<string> {
     const worker = Array.isArray(workers) ? workers[0] : workers;
     if (worker?.name) return worker.name;
   }
-  return '근로자';
+  return '근무자';
 }
 
 export function AttendanceRealtime({ facilityId }: { facilityId: string | null }) {
@@ -60,7 +60,7 @@ export function AttendanceRealtime({ facilityId }: { facilityId: string | null }
       { event: 'INSERT', schema: 'public', table: 'attendance_auth_logs', filter: `facility_id=eq.${facilityId}` },
       async ({ new: raw }) => {
         const log = raw as AuthLog;
-        const name = await resolveName(log).catch(()=>'근로자');
+        const name = await resolveName(log).catch(()=>'근무자');
         const action = log.action === 'check_in' ? '출근' : '퇴근';
         const message = log.result === 'SUCCESS'
           ? (log.action==='check_out'?`${name}님의 퇴근 요청이 접수됐어요. 승인 상태를 확인해 주세요.`:`${name}님이 출근 처리됐어요.`)

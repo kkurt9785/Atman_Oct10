@@ -78,7 +78,7 @@ export default async function LiveDemoPage({ searchParams }: { searchParams: Pro
       <LiveDemoLocationButton />
       <form action={prepareLiveDemoAction} className="mt-2"><button className="min-h-11 w-full rounded-xl bg-violet-600 px-4 text-[0.8125rem] font-extrabold text-white">2. 연결된 근무자에게 시연 공고 보내기</button></form>
       {isPublicDemoAccount(context.user.email) && <p className="mt-2 text-[0.6875rem] font-bold leading-5 text-violet-700">{PUBLIC_DEMO_DAILY_REFRESH}</p>}
-      <p className="mt-2 text-[0.6875rem] leading-5 text-sub">1번은 이 데모 시설 좌표와 연결된 근무자의 공고 탐색 지역만 현재 위치로 맞춰요. 2번은 근무자가 해당 공고를 바로 여는 알림을 보내요. GPS 100m · QR 보완으로 준비되며, 일반 운영 데이터와 실제 구독 사업장 설정은 건드리지 않아요.</p>
+      <p className="mt-2 text-[0.6875rem] leading-5 text-sub">1번은 이 시연 사업장 좌표와 연결된 근무자의 공고 탐색 지역만 현재 위치로 맞춰요. 2번은 근무자가 해당 공고를 바로 여는 알림을 보내요. GPS 100m · QR 보완으로 준비되며, 일반 운영 데이터와 실제 구독 사업장 설정은 건드리지 않아요.</p>
     </Card>
 
     <section className="mt-6"><div className="mb-3 flex items-end justify-between px-1"><div><p className="text-[0.75rem] font-bold text-primary">관리자 화면 순서</p><h2 className="text-title font-extrabold text-ink">지원부터 지급 완료까지</h2></div><Link href="/live-demo" className="text-[0.75rem] font-bold text-primary">새로고침</Link></div>
@@ -97,6 +97,6 @@ export default async function LiveDemoPage({ searchParams }: { searchParams: Pro
           </div>}</Card>;
       })}</div>}
     </section>
-    <p className="mt-6 px-1 text-[0.75rem] leading-5 text-sub">시연용 지급 완료는 실제 이체를 실행하지 않고 데모 지급 상태와 근무자 알림만 바꿔요. 일반 구독 사업장은 기존의 금액 검토 → 지급 승인 → 이체 준비 → 지급 완료 절차를 그대로 써요.</p>
+    <p className="mt-6 px-1 text-[0.75rem] leading-5 text-sub">시연용 지급 완료는 실제 이체를 실행하지 않고 시연 지급 상태와 근무자 알림만 바꿔요. 일반 구독 사업장은 기존의 금액 검토 → 지급 승인 → 이체 준비 → 지급 완료 절차를 그대로 써요.</p>
   </main>;
 }

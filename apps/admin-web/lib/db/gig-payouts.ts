@@ -95,7 +95,7 @@ export async function getGigPayoutBoard(accessToken?: string, until?: string): P
       .eq('facility_id', facilityId).eq('worker_kind', 'gig')),
     readAllRows(() => sb.from('gig_payouts').select('*').eq('facility_id', facilityId).neq('status', 'cancelled')),
   ]);
-  if (staffError || payoutError) throw new Error('긱워커 지급 정보를 모두 불러오지 못했어요.');
+  if (staffError || payoutError) throw new Error('단기 근무 지급 정보를 모두 불러오지 못했어요.');
   staff.sort((a, b) => String(a.name).localeCompare(String(b.name), 'ko'));
   payouts.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   // 전체 계좌번호는 워커가 근무 완료 후 명시적으로 전달한 경우에만,

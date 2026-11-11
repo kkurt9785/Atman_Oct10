@@ -159,7 +159,7 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
           name="intro"
           defaultValue={profile?.intro ?? ''}
           rows={4}
-          placeholder={isPharmacy?'예: 인수인계를 충분히 제공하고 반복근무를 우대합니다.':'예: 직원 간 분위기가 좋고 새로 온 직원의 적응을 적극 도와요.'}
+          placeholder={isPharmacy?'예: 인수인계를 충분히 제공하고 반복 근무를 우대해요.':'예: 직원 간 분위기가 좋고 새로 온 직원의 적응을 적극 도와요.'}
           className="w-full border border-line rounded-xl px-4 py-3 text-[0.9375rem] outline-none focus:border-primary resize-none"
         />
       </section>
@@ -178,7 +178,7 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
           ] as const).map(([value,title,description])=><label key={value} className={`flex cursor-pointer gap-3 rounded-xl border p-4 ${attendanceMode===value?'border-primary bg-primary/5':'border-line'}`}><input type="radio" name="attendance_preset" value={value} checked={attendanceMode===value} onChange={()=>setAttendanceMode(value)} className="mt-1 h-4 w-4 shrink-0"/><span><b className="block text-sm">{title}</b><span className="mt-1 block text-xs leading-5 text-sub">{description}</span></span></label>)}
         </fieldset>
         <details className="mb-4 rounded-xl border border-line p-3" open={['gps','qr','network'].includes(attendanceMode) ? true : undefined}><summary className="cursor-pointer text-sm font-bold">고급·기존 인증 방식</summary><p className="mt-2 text-xs text-sub">기존 설정은 자동으로 바꾸지 않아요. 아래 선택 시 위 기본 방식 대신 적용됩니다.</p><label className="mt-2 block text-xs">개별 방식<select aria-label="고급 인증 방식" value={['gps','qr','network'].includes(attendanceMode)?attendanceMode:''} onChange={e=>{if(e.target.value)setAttendanceMode(e.target.value as FacilityProfile['attendance_mode']);}} className="mt-1 h-12 w-full rounded-xl border border-line bg-white px-3 text-base"><option value="" disabled>필요한 경우 선택</option><option value="gps">기존 GPS 우선 · QR/네트워크 보완</option><option value="qr">동적 QR만</option><option value="network">등록 네트워크만</option></select></label></details>
-        <p className="mb-4 rounded-xl bg-blue-50 p-3 text-xs leading-5 text-sub">직원은 같은 출퇴근 버튼을 사용하고, 선택한 규칙은 서버에서 검사해요. QR은 사업장 관리자 화면에 표시되는 동적 QR을 사용합니다.</p>
+        <p className="mb-4 rounded-xl bg-blue-50 p-3 text-xs leading-5 text-sub">직원은 같은 출퇴근 버튼을 사용하고, 선택한 규칙은 서버에서 검사해요. QR은 사업장 관리자 화면에 표시되는 동적 QR을 사용해요.</p>
         <div className="grid grid-cols-2 gap-3">
           <label className="text-[0.75rem] text-sub">GPS 반경
             <select name="gps_radius_meters" defaultValue={profile?.gps_radius_meters??30} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">
@@ -209,7 +209,7 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
 
         <div className="mt-5 border-t border-line pt-4">
           <p className="text-[0.8125rem] font-bold text-ink">{facilityWord} 네트워크 인증</p>
-          <p className="text-[0.75rem] text-tertiary mt-1 leading-5">{facilityWord} Wi-Fi에 연결한 뒤 등록하세요. Wi-Fi 이름이 아닌 공인 IP를 비교합니다. 통신사·공유기·VPN 변경 또는 IPv4/IPv6 차이로 인증되지 않으면 다시 등록해 주세요. 간편 인증의 보완 수단 또는 고급 ‘등록 네트워크만’에서 사용하며, 강화 인증을 대신하지 않습니다.</p>
+          <p className="text-[0.75rem] text-tertiary mt-1 leading-5">{facilityWord} Wi-Fi에 연결한 뒤 등록하세요. Wi-Fi 이름이 아닌 공인 IP를 비교해요. 통신사·공유기·VPN 변경 또는 IPv4/IPv6 차이로 인증되지 않으면 다시 등록해 주세요. 간편 인증의 보완 수단 또는 고급 ‘등록 네트워크만’에서 사용하며, 강화 인증을 대신하지 않습니다.</p>
           {allowedIps.length > 0 && (
             <p className="mt-2 text-[0.75rem] text-sub">등록된 네트워크 {allowedIps.length}개: {allowedIps.join(', ')}</p>
           )}

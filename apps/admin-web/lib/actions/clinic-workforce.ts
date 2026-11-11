@@ -63,7 +63,7 @@ async function enqueueStaffingReviewAlert(
     event_type: 'staffing.gap_review',
     dedupe_key: `staffing.gap_review:${eventKey}:${authUserId}`,
     title: '인력 기준을 다시 확인해 주세요',
-    body: `${staff.name}님의 ${reason === 'leave' ? '휴가' : '결근'}이 반영됐어요. 부족 인원이 있는지 확인해 주세요.`,
+    body: `${staff.name}님의 ${reason === 'leave' ? '휴가가' : '결근이'} 반영됐어요. 부족 인원이 있는지 확인해 주세요.`,
     data: { url: '/operations#staffing-recommendations', facilityId, staffId, date, reason },
   })), { onConflict: 'dedupe_key', ignoreDuplicates: true });
   await nudgeNotificationDispatch();
@@ -372,9 +372,9 @@ export async function decideShiftEarlyCheckoutAction(form:FormData){
   if(!sb)throw new Error('서버 설정을 확인해 주세요.');
   const applicationId=text(form,'application_id');
   const decision=text(form,'decision');
-  if(!applicationId||!['approved','rejected'].includes(decision))throw new Error('단기근로자 조기 퇴근 승인 정보를 확인해 주세요.');
+  if(!applicationId||!['approved','rejected'].includes(decision))throw new Error('단기 근무자 조기 퇴근 승인 정보를 확인해 주세요.');
   const {error}=await sb.rpc('decide_shift_early_checkout',{p_application_id:applicationId,p_decision:decision});
-  if(error)throw new Error(error.message||'단기근로자 조기 퇴근 요청을 처리하지 못했어요.');
+  if(error)throw new Error(error.message||'단기 근무자 조기 퇴근 요청을 처리하지 못했어요.');
   // RPC 가 notification_outbox 에 결과 알림을 넣는다. 워커 화면은 새로고침 전까지 '승인 대기 중'이라 푸시가 유일한 신호.
   await nudgeNotificationDispatch();
   revalidatePath('/timesheet');revalidatePath('/payroll');revalidatePath('/');

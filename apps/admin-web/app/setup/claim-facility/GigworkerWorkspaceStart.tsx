@@ -103,7 +103,7 @@ export function GigworkerWorkspaceStart({ onBack, backLabel = '← 시작 방식
         <div className="rounded-3xl bg-white p-5 shadow-card">
           <p className="text-[0.8125rem] font-bold text-primary">{eyebrow}</p>
           <h1 className="mt-1 text-[1.5rem] font-extrabold text-ink">현장과 출퇴근 기준을 정해요</h1>
-          <p className="mt-2 text-[0.8125rem] leading-5 text-sub">{intro ?? '사업자등록이나 병원·약국 인증 없이, 단기근로자를 초대해 바로 근태를 시작할 수 있어요.'}</p>
+          <p className="mt-2 text-[0.8125rem] leading-5 text-sub">{intro ?? '사업자등록이나 병원·약국 인증 없이, 단기 근무자를 초대해 바로 근태를 시작할 수 있어요.'}</p>
 
           <label className="mt-6 block text-[0.8125rem] font-bold text-ink">
             근무지 이름

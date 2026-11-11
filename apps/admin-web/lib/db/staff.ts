@@ -50,7 +50,7 @@ function roleLabel(role: string | null): string {
     case 'care_worker': return '요양보호사';
     case 'pharmacy_staff': return '약국 전산·사무직';
     case 'cna': return 'CNA';
-    default:    return role ?? '스태프';
+    default:    return role ?? '직원';
   }
 }
 

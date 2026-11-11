@@ -105,7 +105,7 @@ function LoginInner() {
         access_token: loginData.accessToken,
         refresh_token: loginData.refreshToken,
       });
-      if (sessionError || !data.session) throw new Error('데모 세션을 만들지 못했어요.');
+      if (sessionError || !data.session) throw new Error('시연 화면을 열지 못했어요. 잠시 뒤 다시 시도해 주세요.');
 
       switched=true;
       try {sessionStorage.removeItem('itdot:pending-admin-notification');} catch {}

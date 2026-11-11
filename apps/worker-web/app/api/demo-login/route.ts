@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   if (isGigworkerDemo) {
     const { data: inviteToken, error: inviteError } = await client.rpc('reset_gigworker_invite_demo');
     if (inviteError || typeof inviteToken !== 'string') {
-      return NextResponse.json({ error: '긱워커 데모 초대를 준비하지 못했어요.' }, { status: 503 });
+      return NextResponse.json({ error: '시연 초대를 준비하지 못했어요. 잠시 뒤 다시 시도해 주세요.' }, { status: 503 });
     }
     gigInviteToken = inviteToken;
     const { data: linked, error: linkedError } = await client.from('facility_staff').select('id')

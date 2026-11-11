@@ -190,7 +190,7 @@ export default async function IntroPage({ searchParams }: { searchParams: IntroS
               gig={<li>· 한 달이 지나면 근무 만들기·초대는 잠기고, 근무지와 출퇴근 기록은 <b className="text-ink">그대로 보관</b>돼요</li>}
               other={<li>· 도입을 함께하는 <b className="text-ink">시범 사업장</b>은 초기 세팅과 3개월 이용을 지원해요</li>}
             />
-            <li>· 채용이 성사돼도 <b className="text-ink">채용 수수료는 0원</b>입니다</li>
+            <li>· 채용이 성사돼도 <b className="text-ink">채용 수수료는 0원</b>이에요</li>
             <li>· 임금은 사업장이 근무자에게 직접 지급해요 (잇닿은 임금을 보관하지 않아요)</li>
           </ul>
         </div>

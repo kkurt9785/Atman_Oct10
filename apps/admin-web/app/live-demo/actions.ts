@@ -95,7 +95,7 @@ export async function prepareLiveDemoAction() {
     const { data: recipients, error: recipientError } = await sb.rpc('get_shift_notification_recipients', {
       p_shift_id: shift.id,
     });
-    if (recipientError) throw new Error('시연 워커 알림 대상을 확인하지 못했어요.');
+    if (recipientError) throw new Error('시연 근무자 알림 대상을 확인하지 못했어요.');
     for (const recipient of recipients ?? []) {
       if (!recipient.auth_user_id) continue;
       outbox.push({

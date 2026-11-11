@@ -97,7 +97,7 @@ export async function requireStaffCapacity(sb: SupabaseClient, facilityId: strin
   const capacity=await getStaffCapacity(sb,facilityId);
   if(capacity.betaLocked)throw new Error(GIG_BETA_ENDED_MESSAGE);
   if(capacity.remaining>0)return;
-  throw new Error(`${capacity.planName}은 관리 대상 ${capacity.limit}명까지 등록할 수 있어요. 초대 대기·미래 계약도 포함돼요. 종료된 계약을 확인하거나 이용 현황에서 문의해 주세요.`);
+  throw new Error(`${capacity.planName} 요금제는 관리 대상 ${capacity.limit}명까지 등록할 수 있어요. 초대 대기·미래 계약도 포함돼요. 종료된 계약을 확인하거나 이용 현황에서 문의해 주세요.`);
 }
 
 // 렌더 게이트용 — throw 없이 boolean만. CTA 노출 여부 판단에 사용.

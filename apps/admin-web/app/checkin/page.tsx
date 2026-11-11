@@ -95,7 +95,7 @@ export default function CheckinPage() {
         if (!payload) {
           handledRef.current = true;
           stream?.getTracks().forEach((track) => track.stop());
-          setErrorMsg('이전 형식이거나 유효하지 않은 QR이에요. 워커 앱에서 QR을 새로 열어 주세요.');
+          setErrorMsg('이전 형식이거나 유효하지 않은 QR이에요. 근무자 앱에서 QR을 새로 열어 주세요.');
           setState('error');
           return;
         }
@@ -157,7 +157,7 @@ export default function CheckinPage() {
           </div>
           <canvas ref={canvasRef} className="hidden" />
           <p className="text-white/60 text-[0.875rem] mt-6 text-center">
-            워커 앱에서 방금 발급한 QR을 스캔해 주세요.<br />QR은 60초 후 만료되고 한 번만 사용할 수 있어요.
+            근무자 앱에서 방금 발급한 QR을 스캔해 주세요.<br />QR은 60초 후 만료되고 한 번만 사용할 수 있어요.
           </p>
         </>
       )}
