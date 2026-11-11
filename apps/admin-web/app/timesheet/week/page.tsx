@@ -18,7 +18,7 @@ function Cell({cell,isToday}:{cell:WeekCell;isToday:boolean}){
   return <td className={base}>
     <span className={`block text-[0.6875rem] font-bold leading-4 tabular-nums ${cell.custom?'text-primary':'text-ink'}`}>{cell.start}</span>
     <span className={`block text-[0.6875rem] leading-4 tabular-nums ${cell.custom?'text-primary':'text-sub'}`}>{cell.end}</span>
-    {cell.leaveLabel&&<span className={`block truncate text-[0.5625rem] font-extrabold leading-3 ${cell.leavePending?'text-sub':'text-amber-700'}`}>{cell.leaveLabel.replace(' ','')}{cell.leavePending?' 신청':''}</span>}
+    {cell.leaveLabel&&<span className={`block text-[0.5625rem] font-extrabold leading-3 [overflow-wrap:anywhere] ${cell.leavePending?'text-sub':'text-amber-700'}`}>{cell.leaveLabel.replace(' ','')}{cell.leavePending?' 신청':''}</span>}
   </td>;
 }
 
@@ -57,7 +57,7 @@ export default async function WeekSchedulePage({searchParams}:{searchParams:Prom
         </tr></thead>
         <tbody>
           {rows.map(row=><tr key={row.id} className="border-b border-line/60">
-            <th scope="row" className="px-2 text-left align-middle"><span className="block truncate text-[0.75rem] font-extrabold text-ink">{row.name}</span><span className="block truncate text-[0.625rem] font-medium text-sub">{row.role}</span></th>
+            <th scope="row" className="px-2 text-left align-middle"><span className="block text-[0.75rem] font-extrabold leading-4 text-ink [overflow-wrap:anywhere]">{row.name}</span><span className="block truncate text-[0.625rem] font-medium text-sub">{row.role}</span></th>
             {row.cells.map(cell=><Cell key={cell.date} cell={cell} isToday={cell.date===today}/>)}
           </tr>)}
         </tbody>

@@ -42,10 +42,10 @@ export function StaffEditForm({staff,facilityType,today}:{staff:EditableStaff;fa
       <div className="px-3 pb-3">
         <p className="text-[0.6875rem] leading-4 text-sub">시간이 다른 요일만 적어 주세요. 비워 두면 기본 출근·퇴근 시간을 써요. 출퇴근 지각·조퇴 판정도 이 시간으로 해요.</p>
         {days.length===0&&<p className="mt-2 text-[0.6875rem] font-bold text-warn">근무요일을 먼저 골라 주세요.</p>}
-        {days.map((day)=><div key={day} className="mt-2 grid grid-cols-[2rem_1fr_1fr] items-center gap-2">
+        {days.map((day)=><div key={day} className="mt-2 grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2">
           <span className="text-[0.75rem] font-bold text-ink">{WEEKDAY_LABELS[day-1]}</span>
-          <input name={`wh_start_${day}`} type="time" aria-label={`${WEEKDAY_LABELS[day-1]}요일 출근`} defaultValue={staff.weekdayHours[String(day)]?.start??''} className="h-11 rounded-xl border border-line bg-white px-2 text-[0.8125rem]"/>
-          <input name={`wh_end_${day}`} type="time" aria-label={`${WEEKDAY_LABELS[day-1]}요일 퇴근`} defaultValue={staff.weekdayHours[String(day)]?.end??''} className="h-11 rounded-xl border border-line bg-white px-2 text-[0.8125rem]"/>
+          <input name={`wh_start_${day}`} type="time" aria-label={`${WEEKDAY_LABELS[day-1]}요일 출근`} defaultValue={staff.weekdayHours[String(day)]?.start??''} className="h-11 w-full min-w-0 rounded-xl border border-line bg-white px-2 text-[0.8125rem]"/>
+          <input name={`wh_end_${day}`} type="time" aria-label={`${WEEKDAY_LABELS[day-1]}요일 퇴근`} defaultValue={staff.weekdayHours[String(day)]?.end??''} className="h-11 w-full min-w-0 rounded-xl border border-line bg-white px-2 text-[0.8125rem]"/>
         </div>)}
       </div>
     </details>
