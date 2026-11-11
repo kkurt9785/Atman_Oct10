@@ -9,6 +9,8 @@ import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { facilityTypeLabel } from '@/lib/facility-label';
 import { AccountClosureSection } from './AccountClosureSection';
+import { GuideResetButton } from '@/components/BetaGuide';
+import { isGuidePeriod } from '@/lib/db/guide';
 import { adminClient } from '@/lib/supabase';
 import { isGigworkerFacility } from '@/lib/facility-mode';
 
@@ -101,6 +103,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           {showAdmins && admins && <Row href="/settings?section=admins" title="관리자 권한" detail={`관리자 ${admins.length}명 · 급여 열람 권한`} />}
         </div>
       </section>
+      {await isGuidePeriod() && <section className="px-4 pb-8"><GuideResetButton /></section>}
       <section className="px-4 pb-10">
         <p className="mb-2 px-1 text-label font-bold text-sub">계정</p>
         <div className="overflow-hidden rounded-2xl bg-white shadow-card">

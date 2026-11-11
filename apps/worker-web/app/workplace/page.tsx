@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { BackButton } from '@/components/BackButton';
 import { LinkedNotice } from '@/components/invite/LinkedNotice';
+import { BetaGuide } from '@/components/guide/BetaGuide';
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
@@ -227,6 +228,11 @@ function WorkplaceContent() {
         {/* 미연결 사업장(다른 QR·링크)으로 들어와도 내 직장 목록은 항상 고를 수 있어야 한다(10/20 P1 #8) */}
         {staffList.length>0&&<label className="block mt-4 text-left text-[12px] text-sub">관리할 직장<select value={staffList.some(item=>item.id===selectedStaffId)?selectedStaffId:''} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3"><option value="" disabled>내 직장 선택</option>{staffList.map(item=>{const name=facilityOf(item)?.name;return <option key={item.id} value={item.id}>{name??'사업장'} · {item.name}</option>;})}</select></label>}</div>):
       <>
+        {!currentAttendance?.check_in_at&&['gps','gps_or_qr'].includes(staffAttendanceMode)&&<BetaGuide id="worker-attendance" className="mt-5" title="출근은 이렇게 찍어요" steps={[
+          { text: '아래 [출근하기]를 테두리가 다 찰 때까지 1초 꾹 눌러요.' },
+          { text: '위치 허용을 물으면 허용을 눌러요. 위치는 누른 순간에만 확인해요.' },
+          { text: '안 되면 화면에 뜨는 [다른 방법 보기]를 눌러 QR로 찍어요.' },
+        ]} />}
         <section className="mt-5 bg-white rounded-2xl p-5 shadow-sm"><p className="font-extrabold text-[18px]">{facility}</p><p className="text-[13px] text-sub mt-1">{staff.name} · {todayHours?.custom?'오늘 근무':'기본 근무'} {(todayHours?.start??staff.default_start_time).slice(0,5)}~{(todayHours?.end??staff.default_end_time).slice(0,5)}</p>
           {staffList.length>1&&<label className="block mt-4 text-[12px] text-sub">관리할 직장<select value={selectedStaffId} onChange={e=>setSelectedStaffId(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-line bg-white px-3">{staffList.map(item=>{const name=facilityOf(item)?.name;return <option key={item.id} value={item.id}>{name??'사업장'} · {item.name}</option>;})}</select></label>}
           <div className="mt-4 rounded-xl bg-bg p-3"><p className="text-[17px] font-extrabold text-ink">{staffAttendanceFact(currentAttendance)}</p>{staffWindowLine&&<p className="mt-1 text-[13px] font-bold text-primary">{staffWindowLine}</p>}{attendancePolicyNote(staffAttendanceMode)&&<p className="mt-1 text-[12px] leading-5 text-sub">{attendancePolicyNote(staffAttendanceMode)}</p>}</div>

@@ -18,6 +18,8 @@ import { StaffCapacitySummary } from '@/components/StaffCapacitySummary';
 import { StaffEditForm, StaffRetireForm } from './StaffEditForm';
 import { STAFF_ROLE_LABEL as ROLE } from '@/lib/constants';
 import { todayKST } from '@/lib/date';
+import { BetaGuide } from '@/components/BetaGuide';
+import { isGuidePeriod } from '@/lib/db/guide';
 import { WEEKDAY_LABELS } from '@/lib/staff-schedule';
 
 const TYPE: Record<string,string> = { regular:'상시 직원', fixed_term:'기간제', temporary:'임시 계약', daily:'단기 근무' };
@@ -58,6 +60,12 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
       </div>
       {gigworkerMode&&<p className="text-label text-sub mt-1">근무 일정만 등록하고 링크나 QR로 가입시켜요. 서로 전화번호를 몰라도 돼요.</p>}
     </div>
+
+    {!gigworkerMode&&!isGigworkerEntry&&await isGuidePeriod()&&<BetaGuide id="admin-staff" title="직원 등록은 이렇게 해요" steps={[
+      { text: '[＋ 직원 등록]을 눌러 이름·근무 형태·근무 시간을 넣어요.', done: clinicStaff.length > 0 },
+      { text: '등록한 직원 카드에서 [일회용 초대 만들기]를 눌러 카톡이나 QR로 보내요.', done: clinicStaff.some((s) => Boolean(s.workerId || s.inviteToken)) },
+      { text: '직원이 링크를 열어 카카오로 로그인하고 수락하면 카드에 "✓ 이어짐"이 떠요.', done: clinicStaff.some((s) => Boolean(s.workerId)) },
+    ]} />}
 
     {gigworkerMode&&<div className="grid grid-cols-3 gap-2">
       {(gigworkerMode?[['오늘 근무',`${clinicStaff.filter(s=>s.scheduledToday).length}명`],['초대 대기',`${clinicStaff.filter(s=>!s.workerId&&s.inviteToken).length}명`],['계정 연결',`${clinicStaff.filter(s=>s.workerId).length}명`]]:[['관리 직원',`${clinicStaff.length}명`],['계약·단기',`${contractCount}명`],['오늘 확정 인력',`${shiftStaff.length}명`]]).map(([label,value])=>

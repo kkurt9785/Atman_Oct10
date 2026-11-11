@@ -16,6 +16,8 @@ import { listGigProjects } from '@/lib/db/gig-projects';
 import { getActiveCoverRequests } from '@/lib/db/cover';
 import { adminClient } from '@/lib/supabase';
 import { getGigBetaStatus } from '@/lib/billing-gates';
+import { BetaGuide } from '@/components/BetaGuide';
+import { isGuidePeriod } from '@/lib/db/guide';
 import { attendanceReviewCount as countAttendanceReview, todayHeadcount } from '@/lib/today-headcount';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
@@ -96,6 +98,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
           : <Link href="/staff" className="flex min-h-tap items-center justify-center gap-1.5 rounded-2xl bg-primary text-body font-extrabold text-white shadow-btn active:opacity-85"><span className="text-[1.25rem] leading-none">＋</span>직원 등록</Link>}
         <Link href="/shifts/new" className="flex min-h-tap items-center justify-center gap-1.5 rounded-2xl border border-primary/30 bg-white text-body font-extrabold text-primary active:bg-bg"><span className="text-[1.25rem] leading-none">＋</span>근무자 모집</Link>
       </div>
+
+      {/* 베타 기간 사용 안내 — 닫거나 세 단계를 끝내거나 체험 기간이 지나면 사라진다 */}
+      {await isGuidePeriod() && <BetaGuide id="admin-home" title="세 단계면 출퇴근 관리가 시작돼요" steps={[
+        { text: '직원을 등록해요. 이름과 근무 시간만 넣으면 돼요.', href: '/staff#staff-register', cta: '직원 등록', done: clinicStaff.length > 0 },
+        { text: '등록한 직원에게 초대 링크를 보내요. 직원이 링크를 열어 수락하면 이어져요.', href: '/staff', cta: '직원 관리', done: clinicStaff.some((s) => Boolean(s.workerId)) },
+        { text: '직원이 근무자 앱에서 [출근하기]를 길게 누르면 오늘 출퇴근에 바로 보여요.', href: '/timesheet', cta: '오늘 출퇴근' },
+      ]} note="이 안내는 체험 기간에만 보여요. 닫아도 설정에서 다시 볼 수 있어요." />}
 
       {/* 첫 화면은 채용 공고보다 인력 공백과 다음 행동을 먼저 보여준다. */}
       <Card className={registeredShortage > 0 ? 'mb-4 border border-amber-200 bg-amber-50' : 'mb-4 shadow-sm'}>

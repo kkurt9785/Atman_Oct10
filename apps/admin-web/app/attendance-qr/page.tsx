@@ -5,6 +5,8 @@ import { getShop } from '@/lib/db/shop';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { AttendanceTabs } from '@/components/AttendanceTabs';
 import { workerShellPaths } from '@/lib/facility-mode';
+import { BetaGuide } from '@/components/BetaGuide';
+import { isGuidePeriod } from '@/lib/db/guide';
 
 const MODE_LABEL:Record<string,string>={
   gps_or_qr:'간편 인증 · 위치/등록 네트워크 · QR 보완',
@@ -25,10 +27,23 @@ export default async function AttendanceQrPage(){
   const gpsEnabled=['gps','gps_qr','gps_or_qr'].includes(mode);
   const qrEnabled=['qr','gps_qr'].includes(mode)||(['gps','gps_or_qr'].includes(mode)&&Boolean(profile?.qr_fallback_enabled));
   const networkEnabled=mode==='network'||(networkCount>0&&['gps','gps_or_qr'].includes(mode));
+  const showGuide=(gpsEnabled||qrEnabled)&&await isGuidePeriod();
+  const guideSteps=[
+    gpsEnabled
+      ? { text: `${shop?.mode==='gig'?'근무자는':'직원은'} 근무자 앱에서 [출근하기]를 1초 길게 눌러요. 위치는 누른 순간에만 확인해요.` }
+      : { text: `${shop?.mode==='gig'?'근무자가':'직원이'} 폰 카메라로 아래 QR을 비추고, 열린 화면에서 [출근하기]를 길게 눌러요.` },
+    gpsEnabled&&qrEnabled
+      ? { text: '위치가 안 잡히면 아래 QR을 폰 카메라로 비추게 해요. QR은 60초마다 바뀌니 이 화면을 띄워 두세요.' }
+      : gpsEnabled
+        ? { text: '위치가 안 잡히는 날은 오늘 근태 화면에서 관리자가 출근·퇴근을 직접 처리할 수 있어요.' }
+        : { text: 'QR은 60초마다 바뀌어요. 출퇴근 시간에는 이 화면을 띄워 두세요.' },
+    { text: '찍힌 기록은 바로 확인할 수 있어요.', href: '/timesheet', cta: '오늘 근태 보기' },
+  ];
   return <main className="px-4 pb-28">
     <ManageBackLink href={shop?.mode==='gig'?'/more':'/more/operations'} label={shop?.mode==='gig'?'관리':'근무 운영'} />
     <AttendanceTabs active="auth"/>
     <div className="mt-3 px-1"><p className="text-label font-bold text-primary">오늘 출퇴근을 한 곳에서</p><h1 className="text-display font-extrabold">출퇴근 인증센터</h1><p className="text-label text-sub mt-1">QR은 이 화면에 띄워두고, 위치·Wi-Fi 인증은 직원이 근무자 앱에서 출퇴근 버튼을 누르면 작동해요.</p></div>
+    {showGuide&&<BetaGuide id="admin-attendance" className="mt-4" title="출퇴근은 이렇게 찍어요" steps={guideSteps} />}
     <section className="mt-4 rounded-2xl bg-ink p-4 text-white print:hidden">
       <div className="flex items-start justify-between gap-3"><div><p className="text-[0.6875rem] font-bold text-white/60">현재 운영 방식</p><p className="mt-1 text-[1rem] font-extrabold">{MODE_LABEL[mode]??mode}</p></div><span className="shrink-0 rounded-full bg-emerald-400/20 px-2.5 py-1 text-[0.6875rem] font-bold text-emerald-200">사용 중</span></div>
       <div className="mt-3 flex gap-2"><Link href="/settings?section=attendance" className="flex h-9 flex-1 items-center justify-center rounded-lg bg-white/10 text-[0.75rem] font-bold">인증방식 변경</Link><Link href="/timesheet" className="flex h-9 flex-1 items-center justify-center rounded-lg bg-white text-[0.75rem] font-bold text-ink">오늘 근태 보기</Link></div>

@@ -5,6 +5,7 @@ import { ModeSwitch } from '@/components/worker/ModeSwitch';
 import { WorkAgenda } from '@/components/worker/WorkAgenda';
 import { PushNudge } from '@/components/worker/PushNudge';
 import { useStaffFirst } from '@/lib/use-staff-first';
+import { BetaGuide } from '@/components/guide/BetaGuide';
 
 export default function HomePage() {
   // 직원으로 연결된 사람은 출퇴근·휴가·급여가 먼저다. 근무 찾기는 없애지 않고 맨 아래에 접어 둔다(2026-11-10 치과 QA P1-12).
@@ -16,6 +17,11 @@ export default function HomePage() {
     <p className="mb-5 mt-2 text-sm text-sub">내 일정부터 확인하고 편하게 일을 시작하세요.</p>
     <WorkAgenda compact />
     {staffFirst === true && <>
+      <BetaGuide id="worker-home" title="출퇴근·휴가는 이렇게 해요" steps={[
+        { text: '근무지에 도착하면 출퇴근 화면에서 [출근하기]를 1초 길게 눌러요.', href: '/workplace', cta: '출퇴근 열기' },
+        { text: '위치가 안 잡히면 접수대나 관리자 화면에 뜬 출퇴근 QR을 폰 카메라로 비춰요.' },
+        { text: '휴가는 앱에서 신청해요. 관리자가 승인하면 반영돼요.', href: '/workplace?tab=leave', cta: '휴가 신청' },
+      ]} />
       <nav aria-label="내 직장 바로가기" className="mt-4 grid grid-cols-3 gap-3">
         <Link href="/workplace?tab=leave" className="flex min-h-[72px] flex-col items-center justify-center rounded-2xl border border-line bg-white px-2 text-center"><b className="text-sm font-extrabold text-ink">휴가</b><span className="mt-1 text-[11px] text-sub">신청·잔여</span></Link>
         <Link href="/earnings" className="flex min-h-[72px] flex-col items-center justify-center rounded-2xl border border-line bg-white px-2 text-center"><b className="text-sm font-extrabold text-ink">급여</b><span className="mt-1 text-[11px] text-sub">이번 달 예상</span></Link>
