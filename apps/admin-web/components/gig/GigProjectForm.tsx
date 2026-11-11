@@ -87,13 +87,14 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
       <label className="text-label font-medium text-sub">필요 인원<input name="headcount" type="number" min="1" max="200" required value={headcount} onChange={(event) => setHeadcount(event.target.value)} className={inputClass} /></label>
       <div className="col-span-2 rounded-xl bg-bg p-3 text-[0.75rem] leading-5 text-sub" aria-live="polite">
         {wageError && <p role="alert" className="font-bold text-red-600">{wageError}</p>}
-        <p>하루 {hoursText(workMinutes)} 근무{effectiveBreak > 0 ? ` (휴게 ${effectiveBreak}분 뺀 시간)` : ''}{rate > 0 ? <> · 1인 <b className="text-ink">{won(dailyPay)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * people)}</b></> : null}</> : ' · 시급을 넣으면 하루 금액이 보여요'}</p>
+        <p>하루 {hoursText(workMinutes)} 근무{effectiveBreak > 0 ? ` (휴게 ${effectiveBreak}분을 쉰 경우)` : ''}{rate > 0 ? <> · 1인 <b className="text-ink">{won(dailyPay)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * people)}</b></> : null}</> : ' · 시급을 넣으면 하루 금액이 보여요'}</p>
         {scheduleMode === 'repeat' && workDays === 0 && <p role="alert" className="mt-1 font-bold text-red-600">고른 요일이 이 기간 안에 없어요. 기간에 든 요일을 골라 주세요.</p>}
         {scheduleMode === 'repeat' && workDays > 0 && <p className="mt-1">기간 중 <b className="text-ink">{workDays}일</b> 근무{rate > 0 ? <> · 1인 <b className="text-ink">{won(dailyPay * workDays)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * workDays * people)}</b></> : null} (주휴수당 별도)</> : null}</p>}
         {scheduleMode === 'repeat' && rate > 0 && workDays > 0 && (holiday > 0
           ? <p className="mt-1">주 {daysPerWeek}일 {hoursText(weeklyMinutes)} → 개근한 주는 <b className="text-ink">주휴수당 약 {won(holiday)}</b>이 별도로 생겨요 (주 15시간 이상, 1인 기준).</p>
           : <p className="mt-1">주 {daysPerWeek}일 {hoursText(weeklyMinutes)} · 주 15시간 미만이라 주휴수당은 없어요.</p>)}
-        <p className="mt-1 text-tertiary">야간(22~06시)·연장 가산은 5인 이상 사업장에만 적용돼요. 금액 확정은 세무사·노무사와 확인해 주세요.</p>
+        <p className="mt-1 text-tertiary">예상 금액이에요. 실제 지급액은 출퇴근 기록으로 계산해요. 휴게시간은 자동으로 빠지지 않으니, 쉰 시간은 지급 전에 근태 내역에서 확인해 주세요.</p>
+        <p className="mt-1 text-tertiary">위 금액에는 야간(22~06시)·연장 가산이 들어 있지 않아요. 가산은 5인 이상 사업장에만 적용돼요. 정확한 금액은 세무사·노무사와 확인해 주세요.</p>
       </div>
       <label className="col-span-2 text-label font-medium text-sub">메모 <span className="font-normal text-tertiary">· 선택, 사장님만 봐요</span><input name="note" maxLength={500} defaultValue={project?.note ?? ''} className={inputClass} placeholder="예: 행사장 2층 안내데스크 집합" /></label>
     </section>

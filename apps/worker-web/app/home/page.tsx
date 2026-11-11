@@ -19,7 +19,7 @@ export default function HomePage() {
     {staffFirst === true && <>
       <BetaGuide id="worker-home" title="출퇴근·휴가는 이렇게 해요" steps={[
         { text: '근무지에 도착하면 출퇴근 화면에서 [출근하기]를 1초 길게 눌러요.', href: '/workplace', cta: '출퇴근 열기' },
-        { text: '위치가 안 잡히면 접수대나 관리자 화면에 뜬 출퇴근 QR을 폰 카메라로 비춰요.' },
+        { text: '위치가 안 잡히면 접수대나 관리자 화면에 뜬 출퇴근 QR을 폰 카메라로 비추고, 열린 화면에서 [출근하기]를 한 번 더 길게 눌러요.' },
         { text: '휴가는 앱에서 신청해요. 관리자가 승인하면 반영돼요.', href: '/workplace?tab=leave', cta: '휴가 신청' },
       ]} />
       <nav aria-label="내 직장 바로가기" className="mt-4 grid grid-cols-3 gap-3">

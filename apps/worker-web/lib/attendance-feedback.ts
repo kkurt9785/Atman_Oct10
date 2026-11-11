@@ -10,14 +10,17 @@ export function canOfferAttendanceQr(reason?: string, mode = 'gps_or_qr', qrFall
 export function attendanceLocationHelp(mode: string, denied: boolean, gig = false) {
   const who = gig ? '사장님께' : '관리자에게';
   const place = gig ? '근무지' : '사업장';
-  const how = '주소창의 자물쇠(ⓘ) → 권한 → 위치를 허용으로 바꿔 주세요.';
+  // 홈 화면에 추가한 앱과 아이폰에는 주소창 자물쇠가 없다 — 어디서나 통하는 '휴대폰 설정'으로 안내한다(2026-11-11 문구 QA).
+  const how = '휴대폰 설정에서 이 앱(브라우저로 열었다면 크롬·사파리)의 위치 권한을 허용으로 바꿔 주세요.';
   if (mode === 'gps_qr') return denied ? `강화 인증은 위치와 QR이 모두 필요해요. 휴대폰 위치 권한이 꺼져 있으면 ${how} 어려우면 ${who} 근태 확인을 요청해 주세요.` : `강화 인증에 필요한 위치를 확인하지 못했어요. 창가나 건물 밖에서 다시 눌러 보고, 어려우면 ${who} 확인을 요청해 주세요.`;
   return denied ? `위치를 쓸 수 없어요. 휴대폰 위치 권한이 꺼져 있으면 ${how} QR이나 ${place} Wi-Fi로도 인증할 수 있어요.` : `위치를 확인하지 못했어요. 다시 눌러 보거나 QR·${place} Wi-Fi로 인증해 주세요.`;
 }
 
 // 서버(record_unified_attendance)가 주는 실패 문구는 병원·약국 말투다. 초대 근무(/gig)에서는 상대가 '사장님', 장소가 '근무지'다.
 export function attendanceFailureText(message: string | undefined, gig: boolean) {
-  const text = (message ?? '출퇴근 인증에 실패했어요.').replace('QR 코드가 만료되었습니다.', 'QR이 만료됐어요.');
+  const text = (message ?? '출퇴근 인증에 실패했어요.').replace('QR 코드가 만료되었습니다.', 'QR이 만료됐어요.')
+    // 예전 서버 함수에 남은 말 — 화면 규칙(근무자·근무)에 맞춘다.
+    .replaceAll('근로자', '근무자').replaceAll('시프트', '근무').replaceAll('워커 계정', '계정');
   if (!gig) return text;
   return text.replaceAll('관리자 화면', '사장님 화면').replaceAll('관리자에게', '사장님께').replaceAll('사업장에 ', '사장님께 ').replaceAll('사업장', '근무지');
 }

@@ -174,7 +174,7 @@ export async function registerWorkplaceNetwork(): Promise<{ ip: string; allowed_
   if (!sb) throw new Error('서버 설정을 확인해 주세요.');
 
   const ip = await requestPublicIp();
-  if (!ip) throw new Error('현재 네트워크의 공인 IP를 확인할 수 없어요. 사업장 와이파이에 연결한 뒤 다시 시도해 주세요.');
+  if (!ip) throw new Error('지금 연결된 Wi-Fi를 확인하지 못했어요. 사업장 Wi-Fi에 연결한 뒤 다시 눌러 주세요.');
 
   const { data: settings } = await sb.from('facility_attendance_settings')
     .select('allowed_ips').eq('facility_id', context.facilityId).maybeSingle();
@@ -403,7 +403,7 @@ export async function setAdminPayrollVisibility(targetUserId: string, allow: boo
     .eq('facility_id', context.facilityId).eq('user_id', targetUserId)
     .select('user_id');
   if (error) throw new Error(error.message);
-  if (!updated?.length) throw new Error('이 사업장의 위임 관리자가 아니에요.');
+  if (!updated?.length) throw new Error('이 사업장의 운영 관리자가 아니에요.');
 
   const { error: auditError } = await sb.from('audit_logs').insert({
     actor_type: 'admin', actor_id: context.user.id,

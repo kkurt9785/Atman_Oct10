@@ -139,7 +139,7 @@ export default function CheckinPage() {
       {/* 풀스크린 화면의 유일한 탈출구 — 항상 노출 */}
       <a
         href="/"
-        aria-label="체크인 닫기"
+        aria-label="출퇴근 스캔 닫기"
         className="fixed top-4 right-4 z-50 w-11 h-11 rounded-full bg-white/15 text-white text-[1.25rem] flex items-center justify-center active:bg-white/30"
       >
         ✕
@@ -165,7 +165,7 @@ export default function CheckinPage() {
       {state === 'loading' && (
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-white text-[0.9375rem]">권한·위치·근무기록을 확인 중...</p>
+          <p className="text-white text-[0.9375rem]">확인하고 있어요…</p>
         </div>
       )}
 
@@ -177,7 +177,7 @@ export default function CheckinPage() {
             </svg>
           </div>
           <h2 className="text-[1.375rem] font-extrabold text-ink mb-1">
-            {result.action === 'checkin' ? '체크인 완료!' : '체크아웃·지급 요청 등록 완료!'}
+            {result.action === 'checkin' ? '출근 처리했어요' : '퇴근 처리하고 지급 요청을 등록했어요'}
           </h2>
           <p className="text-[1.0625rem] font-bold text-primary mb-1">{result.workerName}</p>
           <p className="text-[0.875rem] text-sub">{result.shiftDate} · {result.startTime.slice(0, 5)}</p>

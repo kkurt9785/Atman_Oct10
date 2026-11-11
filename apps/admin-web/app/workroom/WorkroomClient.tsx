@@ -156,7 +156,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
     <div className="-mx-4 mb-3 overflow-x-auto px-4 pt-3 [scrollbar-width:none]">
       <div className="flex w-max gap-2">
         <button type="button" onClick={()=>setSelectedStaffId('')} className={`h-10 rounded-full px-4 text-[0.75rem] font-extrabold ${!selectedStaffId?'bg-primary text-white':'border border-line bg-white text-sub'}`}>전체 공지</button>
-        {members.map((member)=><button key={member.id} type="button" disabled={!member.workerLinked} onClick={()=>setSelectedStaffId(member.id)} className={`h-10 rounded-full px-4 text-[0.75rem] font-extrabold ${selectedStaffId===member.id?'bg-ink text-white':member.workerLinked?'border border-line bg-white text-sub':'border border-line bg-bg text-tertiary opacity-50'}`}>{member.name}{!member.workerLinked?' · 초대 전':''}</button>)}
+        {members.map((member)=><button key={member.id} type="button" disabled={!member.workerLinked} onClick={()=>setSelectedStaffId(member.id)} className={`h-10 rounded-full px-4 text-[0.75rem] font-extrabold ${selectedStaffId===member.id?'bg-ink text-white':member.workerLinked?'border border-line bg-white text-sub':'border border-line bg-bg text-tertiary opacity-50'}`}>{member.name}{!member.workerLinked?' · 수락 전':''}</button>)}
       </div>
     </div>
 

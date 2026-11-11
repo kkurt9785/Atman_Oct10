@@ -55,7 +55,7 @@ export default function GigDemoPage() {
               {loading ? '시연 계정 준비 중...' : '시연 계정으로 시작'}
             </button>
           ) : (
-            <p className="rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>
+            <p className="rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">지금은 시연을 열 수 없어요.</p>
           )}
           {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-600">{error}</p>}
         </div>

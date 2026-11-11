@@ -55,7 +55,7 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
     const mode=policy.mode as AttendanceMode;
     setEffectiveMode(mode);setQrFallback(policy.qrFallback===true);
     const qrFacility=new URLSearchParams(window.location.search).get('facility');
-    if(qrToken&&qrFacility&&qrFacility!==policy.facilityId){setResult({ok:false,reason:'HOSPITAL_MISMATCH',message:'스캔한 QR과 선택한 현장이 달라요. QR의 현장을 선택하거나 해당 현장의 QR을 다시 스캔해 주세요.'});return;}
+    if(qrToken&&qrFacility&&qrFacility!==policy.facilityId){setResult({ok:false,reason:'HOSPITAL_MISMATCH',message:'찍은 QR이 지금 고른 근무지의 것이 아니에요. 근무지를 바꾸거나, 이 근무지의 QR을 다시 찍어 주세요.'});return;}
     if(mode==='admin') {setResult({ok:false,reason:'ADMIN_REQUIRED',message:`관리자 처리 방식이에요. ${isGigButton({prefillHelpDraft,helpHref})?'사장님에게':'사업장에'} 실제 근무 확인과 기록을 요청해 주세요.`});return;}
     let coords:{latitude:number;longitude:number;accuracy:number}|null=null;
     const wantsGps=mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr';
@@ -87,7 +87,7 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
     setResult(next);
     if(next.ok)onSuccess?.(next);
     } catch {
-      setResult({ok:false,reason:'NETWORK_ERROR',message:'출퇴근 처리 결과를 확인하지 못했어요. 연결 상태를 확인하고 다시 확인해 주세요.'});
+      setResult({ok:false,reason:'NETWORK_ERROR',message:'기록됐는지 확인하지 못했어요. 인터넷 연결을 본 뒤 다시 확인을 눌러 주세요.'});
     } finally {
       inFlight.current=false;setLoading(false);
     }
@@ -142,7 +142,7 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,on
           <div className="space-y-1.5">
             {wifiOther&&<div className={otherRow}><span className={otherWhen}>근무지 Wi-Fi에 연결돼 있다면</span><button type="button" onClick={onTryWithoutLocation} className={otherAction}>Wi-Fi로 확인</button></div>}
             {retryOther&&<div className={otherRow}><span className={otherWhen}>시간이 됐거나 상황이 바뀌었다면</span><button type="button" onClick={onRetry} className={otherAction}>다시 확인</button></div>}
-            {offerQr&&<div className={otherRow}><span className={otherWhen}>근무지에 출퇴근 QR이 있다면</span><button type="button" onClick={()=>setQrHelp(true)} className={otherAction}>동적 QR로 인증</button></div>}
+            {offerQr&&<div className={otherRow}><span className={otherWhen}>근무지에 출퇴근 QR이 있다면</span><button type="button" onClick={()=>setQrHelp(true)} className={otherAction}>QR로 찍는 방법 보기</button></div>}
             {!askFirst&&<div className={otherRow}><span className={otherWhen}>그래도 안 되면</span><Link href={helpLink} className={otherAction}>{who} 확인 요청</Link></div>}
           </div>
         </details>}

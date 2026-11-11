@@ -34,7 +34,7 @@ export function MessageSafetyActions({ source, messageId, authorId, label, onCha
         const { data, error: failure } = await supabase.rpc('set_safety_user_block', { p_peer: authorId, p_blocked: true, p_label: label });
         if (failure) throw new Error(failure.message);
         if (data !== true) throw new Error('차단 결과를 확인하지 못했어요.');
-        onChanged('사용자를 차단했어요. 내 정보의 차단 관리에서 해제할 수 있어요.');
+        onChanged('사용자를 차단했어요. 설정의 대화 안전·차단 관리에서 풀 수 있어요.');
       }
       setMode(null); setNote('');
     } catch (caught) {
@@ -58,7 +58,7 @@ export function MessageSafetyActions({ source, messageId, authorId, label, onCha
           <option value="harassment">욕설·괴롭힘·부적절한 내용</option><option value="spam">광고·스팸</option><option value="privacy">개인정보 침해</option><option value="other">기타</option>
         </select></label>
         <label className="block text-[14px] font-bold">추가 설명 (선택)<textarea value={note} onChange={event => setNote(event.target.value)} maxLength={1000} disabled={busy} rows={3} className="mt-1 w-full rounded-xl border border-line px-3 py-2 text-[16px]" /></label>
-      </div> : <p className="mt-4 text-[14px] leading-6 text-sub">{label}님의 대화와 채팅 알림을 숨기고 비공개 대화를 제한해요. 근태·급여 기록은 유지돼요. 차단은 내 정보에서 해제할 수 있어요.</p>}
+      </div> : <p className="mt-4 text-[14px] leading-6 text-sub">{label}님의 대화와 채팅 알림을 숨기고 비공개 대화를 제한해요. 근태·급여 기록은 유지돼요. 차단은 설정의 대화 안전·차단 관리에서 풀 수 있어요.</p>}
       {error && <p role="alert" className="mt-3 text-[14px] font-bold text-red-600">{error}</p>}
       <div className="mt-5 flex gap-2">
         <button type="button" disabled={busy} onClick={() => setMode(null)} className="min-h-12 flex-1 rounded-xl bg-bg px-3 text-[15px] font-bold disabled:opacity-50">닫기</button>

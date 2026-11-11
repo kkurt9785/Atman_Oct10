@@ -67,7 +67,7 @@ export function DemoSignupCard({ kind }: { kind: DemoKind }) {
     <section className="mt-4 rounded-2xl bg-ink p-5 text-white">
       <p className="text-[11px] font-extrabold text-white/60">지금은 시연 화면이에요</p>
       <p className="mt-1 text-[17px] font-extrabold leading-snug">마음에 드셨다면 내 계정으로 시작하세요</p>
-      <p className="mt-1.5 text-[12px] leading-5 text-white/70">카카오로 가입하고 직군·지역만 고르면 근처 새 근무를 알림으로 받아요. 시연 계정은 여러 분이 같이 써서 알림 동의 변경·탈퇴는 할 수 없어요.</p>
+      <p className="mt-1.5 text-[12px] leading-5 text-white/70">카카오로 가입하고 직군·지역만 고르면 근처 새 공고를 알림으로 받아요. 시연 계정은 여러 분이 같이 써서 알림 동의 변경·탈퇴는 할 수 없어요.</p>
       <div className="mt-4"><SignupButton /></div>
       <BackToStartButton tone="dark" />
     </section>
@@ -86,7 +86,7 @@ export function DemoEndSheet({ kind, intent = 'start', onClose }: { kind: DemoKi
         <h2 id="demo-end-title" className="mt-1 text-[20px] font-extrabold text-ink">{title}</h2>
         <p className="mt-2 text-[14px] leading-6 text-sub">{kind === 'gig'
           ? '초대 근무는 사장님이 보낸 초대 링크로 시작해요. 링크를 열면 카카오로 가입하고 출근하기·지급 확인을 내 계정으로 써요.'
-          : '카카오로 가입하고 직군·지역만 고르면, 근처에 새 근무가 열릴 때 알림으로 받아요.'}</p>
+          : '카카오로 가입하고 직군·지역만 고르면, 근처에 새 공고가 올라올 때 알림으로 받아요.'}</p>
         <div className="mt-5">{kind === 'gig' ? <GigStartOptions /> : <SignupButton />}</div>
         <BackToStartButton />
         <button type="button" onClick={onClose} className="mt-1 h-11 w-full text-[14px] font-bold text-sub">계속 둘러보기</button>

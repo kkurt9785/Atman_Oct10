@@ -43,7 +43,7 @@ for(const kind of ['settings','site','attendance']) {
   } else {
    await page.getByRole('button',{name:'출근하기',exact:true}).dblclick();
    await page.getByText(/강화 인증은 위치와 QR이 모두 필요/).waitFor();
-   assert.equal(await page.getByRole('button',{name:'동적 QR로 인증',exact:true}).count(),0);
+   assert.equal(await page.getByRole('button',{name:'QR로 찍는 방법 보기',exact:true}).count(),0);
    assert.equal(await page.evaluate(()=>window.calls.filter(n=>n==='record_unified_attendance').length),1);
    await page.evaluate(()=>{window.mode='admin';window.calls=[];});
    await page.getByRole('button',{name:'출근하기',exact:true}).click();
@@ -52,7 +52,7 @@ for(const kind of ['settings','site','attendance']) {
    await page.evaluate(()=>{window.mode='gps_or_qr';window.fallback=false;});
    await page.getByRole('button',{name:'출근하기',exact:true}).click();
    await page.getByText('위치 확인 필요',{exact:true}).waitFor();
-   assert.equal(await page.getByRole('button',{name:'동적 QR로 인증',exact:true}).count(),0);
+   assert.equal(await page.getByRole('button',{name:'QR로 찍는 방법 보기',exact:true}).count(),0);
   }
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
   await page.screenshot({path:path.join(directory,`${kind}-${width}.png`),fullPage:true});await page.close();console.log(`PASS ${kind} ${width}`);

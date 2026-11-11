@@ -22,7 +22,7 @@ describe('출퇴근 실패 문구', () => {
     expect(attendanceFailureText(undefined, true)).toBe('출퇴근 인증에 실패했어요.');
   });
   it('위치 권한을 막았을 때 어디서 켜는지 알려 준다', () => {
-    expect(attendanceLocationHelp('gps_or_qr', true, true)).toContain('권한 → 위치');
+    expect(attendanceLocationHelp('gps_or_qr', true, true)).toContain('휴대폰 설정에서');
     expect(attendanceLocationHelp('gps_or_qr', true, true)).toContain('근무지 Wi-Fi');
     expect(attendanceLocationHelp('gps_or_qr', false)).toContain('사업장 Wi-Fi');
   });

@@ -81,7 +81,7 @@ export default function ShiftMapPage(){
   useEffect(()=>{
     if(loading||!mapEl.current)return;
     const key=process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
-    if(!key){setError('지도 서비스 키가 설정되지 않았어요.');return;}
+    if(!key){setError('지금은 지도를 쓸 수 없어요. 목록으로 봐 주세요.');return;}
     const draw=()=>{
       window.kakao.maps.load(()=>{
         if(!mapEl.current)return;

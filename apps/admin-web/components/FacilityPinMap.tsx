@@ -21,7 +21,7 @@ export function FacilityPinMap({ lng, lat, radiusMeters = 100, onChange, classNa
 
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_KAKAO_JS_KEY;
-    if (!key) { setError('지도 키가 설정되지 않았어요.'); return; }
+    if (!key) { setError('지도를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); return; }
     function draw() {
       if (!window.kakao?.maps?.load) { setError('지도를 불러오지 못했어요. 검색된 위치로 등록되고, 위치는 나중에 설정에서 옮길 수 있어요.'); return; }
       window.kakao.maps.load(() => {
@@ -104,7 +104,7 @@ export function CurrentLocationButton({ radiusMeters = 30, onChange, className, 
         const rounded = Math.round(accuracy);
         setNote(
           rounded > radiusMeters
-            ? `위치를 가져왔지만 오차가 약 ${rounded}m로 인증 반경(${radiusMeters}m)보다 큽니다. 창가나 건물 밖에서 다시 누르거나, 지도에서 출입구로 맞춰 주세요.`
+            ? `위치를 가져왔지만 오차가 약 ${rounded}m로 인증 반경(${radiusMeters}m)보다 커요. 창가나 건물 밖에서 다시 누르거나, 지도에서 출입구로 맞춰 주세요.`
             : `현재 위치로 맞췄어요 · 오차 약 ${rounded}m`,
         );
       },

@@ -81,7 +81,7 @@ try {for(const width of [360,390]){
  console.log('PASS gig invite branch',width);
  await mount('attendance','?facility=b&attendanceToken=token');
  await page.getByRole('button',{name:'길게 눌러 출근 기록'}).press('Enter');
- await page.getByText('스캔한 QR과 선택한 현장이 달라요. QR의 현장을 선택하거나 해당 현장의 QR을 다시 스캔해 주세요.').waitFor();
+ await page.getByText('찍은 QR이 지금 고른 근무지의 것이 아니에요. 근무지를 바꾸거나, 이 근무지의 QR을 다시 찍어 주세요.').waitFor();
  assert.equal(await page.evaluate(()=>window.calls.includes('record_unified_attendance')),false);
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
  await mount('medicalDemo');page.once('dialog',dialog=>dialog.dismiss());

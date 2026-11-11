@@ -66,10 +66,10 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
     return <main className="px-4 pb-32">
       <GigOperationsBoard board={canViewPayroll?gigBoard:{...gigBoard,summary:{...gigBoard.summary,pay:0},workers:gigBoard.workers.map(row=>({...row,unpaidDays:0,bankShared:false,...(['pay','bank','paid'].includes(row.status)?{status:'off' as const,statusLabel:'근무 기록 확인'}:{})}))}} projects={canViewPayroll?gigProjects:gigProjects.map(project=>({...project,payRate:null}))} facilityId={context.facilityId} facilityName={shop.name} canViewPayroll={canViewPayroll}/>
       <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {[{href:'/timesheet',label:'근태 기록',detail:'출퇴근·조퇴 확인'},{href:'/gig-pay',label:'지급 관리',detail:'금액·계좌·지급일'},{href:'/attendance-qr',label:'현장 인증',detail:'GPS·동적 QR'}].filter(item=>canViewPayroll||item.href!=='/gig-pay').map((item)=><Link key={item.href} href={item.href} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><b className="text-[0.875rem] text-ink">{item.label}</b><span className="mt-1 block text-[0.6875rem] text-sub">{item.detail}</span><span className="mt-3 block text-right text-[0.875rem] font-bold text-primary">→</span></Link>)}
+        {[{href:'/timesheet',label:'오늘 근태',detail:'출퇴근·조퇴 확인'},{href:'/gig-pay',label:'지급 관리',detail:'금액·계좌·지급일'},{href:'/attendance-qr',label:'현장 인증',detail:'위치·QR 설정'}].filter(item=>canViewPayroll||item.href!=='/gig-pay').map((item)=><Link key={item.href} href={item.href} className="rounded-2xl bg-white p-4 shadow-sm active:bg-bg"><b className="text-[0.875rem] text-ink">{item.label}</b><span className="mt-1 block text-[0.6875rem] text-sub">{item.detail}</span><span className="mt-3 block text-right text-[0.875rem] font-bold text-primary">→</span></Link>)}
       </section>
-      <Link href="/membership" className="mt-5 flex items-center justify-between rounded-xl bg-bg px-4 py-3 text-[0.75rem] text-sub"><span>{betaLine}</span><b className="text-primary">이용 안내 →</b></Link>
-      {shop.isDemo && (()=>{const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL??(process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');const demoUrl=`${workerOrigin}/gig/demo`;return <section className="mt-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-card"><div className="flex items-center gap-4"><QrCanvas value={demoUrl} size={112} label="워커 시연 QR"/><div className="min-w-0"><p className="text-[0.6875rem] font-extrabold tracking-[0.12em] text-primary">근무자 폰</p><p className="mt-1 text-[0.9375rem] font-extrabold text-ink">이 QR을 찍으면 근무자 시연 계정으로 바로 시작돼요</p><p className="mt-1 break-all text-[0.75rem] text-sub">{demoUrl}</p><p className="mt-1 text-[0.6875rem] text-sub">초대 수락 → 출근하기 → 이 화면에 반영. 다시 찍으면 처음부터.</p></div></div></section>;})()}
+      <Link href="/membership" className="mt-5 flex items-center justify-between rounded-xl bg-bg px-4 py-3 text-[0.75rem] text-sub"><span>{betaLine}</span><b className="text-primary">이용 현황 →</b></Link>
+      {shop.isDemo && (()=>{const workerOrigin=process.env.NEXT_PUBLIC_WORKER_WEB_URL??(process.env.NODE_ENV==='production'?'https://itdot.co.kr':'http://localhost:3003');const demoUrl=`${workerOrigin}/gig/demo`;return <section className="mt-4 rounded-2xl border border-primary/20 bg-white p-4 shadow-card"><div className="flex items-center gap-4"><QrCanvas value={demoUrl} size={112} label="근무자 시연 QR"/><div className="min-w-0"><p className="text-[0.6875rem] font-extrabold tracking-[0.12em] text-primary">근무자 폰</p><p className="mt-1 text-[0.9375rem] font-extrabold text-ink">이 QR을 찍으면 근무자 시연 계정으로 바로 시작돼요</p><p className="mt-1 break-all text-[0.75rem] text-sub">{demoUrl}</p><p className="mt-1 text-[0.6875rem] text-sub">초대 수락 → 출근하기 → 이 화면에 반영. 다시 찍으면 처음부터.</p></div></div></section>;})()}
     </main>;
   }
 
@@ -101,8 +101,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
 
       {/* 베타 기간 사용 안내 — 닫거나 세 단계를 끝내거나 체험 기간이 지나면 사라진다 */}
       {await isGuidePeriod() && <BetaGuide id="admin-home" title="세 단계면 출퇴근 관리가 시작돼요" steps={[
-        { text: '직원을 등록해요. 이름과 근무 시간만 넣으면 돼요.', href: '/staff#staff-register', cta: '직원 등록', done: clinicStaff.length > 0 },
-        { text: '등록한 직원에게 초대 링크를 보내요. 직원이 링크를 열어 수락하면 이어져요.', href: '/staff', cta: '직원 관리', done: clinicStaff.some((s) => Boolean(s.workerId)) },
+        { text: '직원을 등록해요. 이름과 근무 형태만 넣으면 돼요.', href: '/staff#staff-register', cta: '직원 등록', done: clinicStaff.length > 0 },
+        { text: '직원 카드의 [초대 보내기]로 링크를 보내요. 직원이 링크를 열어 수락하면 이어져요.', href: '/staff', cta: '직원 관리', done: clinicStaff.some((s) => Boolean(s.workerId)) },
         { text: '직원이 근무자 앱에서 [출근하기]를 길게 누르면 오늘 출퇴근에 바로 보여요.', href: '/timesheet', cta: '오늘 출퇴근' },
       ]} note="이 안내는 체험 기간에만 보여요. 닫아도 설정에서 다시 볼 수 있어요." />}
 

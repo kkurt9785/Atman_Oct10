@@ -91,7 +91,7 @@ async function recordGigPayout(sb: Db, context: AdminContext, staffId: string, e
   ]);
   if (staffError || payoutError || bankError) throw new Error('지급 정보를 모두 확인하지 못했어요. 새로고침 후 다시 시도해 주세요.');
   if (!staff) throw new Error('근무자를 찾을 수 없어요.');
-  if (!isGigStaff(staff)) throw new Error('직원 급여는 급여 관리(/payroll)에서 처리해 주세요. 지급 관리는 단기·긱 근무자 전용이에요.');
+  if (!isGigStaff(staff)) throw new Error('직원 급여는 [급여 지급]에서 처리해 주세요. 지급 관리는 단기 근무자만 쓸 수 있어요.');
   if (!bankShare?.bank_account_id || !staff.worker_id) throw new Error('근무자가 지급 계좌를 전달한 뒤 지급할 수 있어요.');
   const { data: activeBank } = await sb.from('worker_bank_accounts').select('id').eq('id', bankShare.bank_account_id)
     .eq('worker_id', staff.worker_id).eq('is_primary', true).is('deleted_at', null).maybeSingle();

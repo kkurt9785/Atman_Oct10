@@ -14,9 +14,9 @@ type AuthLog = {
 };
 
 const FAILURE_LABEL: Record<string, string> = {
-  OUT_OF_RANGE: '사업장 반경 밖', GPS_ERROR: '위치 확인 실패', GPS_ACCURACY_LOW: 'GPS 정확도 낮음',
-  QR_EXPIRED: 'QR 만료', QR_INVALID: 'QR 무효', HOSPITAL_MISMATCH: '사업장 정보 불일치',
-  TIME_NOT_ALLOWED: '인증 가능시간 아님', NOT_ASSIGNED: '배정 정보 없음', ADMIN_REQUIRED: '관리자 승인 필요',
+  OUT_OF_RANGE: '근무지에서 떨어진 곳', GPS_ERROR: '위치 확인 실패', GPS_ACCURACY_LOW: '위치가 부정확함',
+  QR_EXPIRED: 'QR 시간이 지남', QR_INVALID: '맞지 않는 QR', HOSPITAL_MISMATCH: '다른 근무지의 QR',
+  TIME_NOT_ALLOWED: '출퇴근 가능 시간이 아님', NOT_ASSIGNED: '연결된 사람이 아님', ADMIN_REQUIRED: '직접 처리 필요',
 };
 
 async function resolveName(log: AuthLog): Promise<string> {

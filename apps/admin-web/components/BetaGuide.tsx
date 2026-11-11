@@ -47,6 +47,6 @@ export function GuideResetButton() {
     <p className="text-[0.875rem] font-extrabold text-ink">사용 안내</p>
     <p className="mt-1 text-[0.75rem] leading-5 text-sub">처음 쓰는 화면 위에 뜨는 안내예요. 닫아 둔 안내를 다시 볼 수 있어요.</p>
     <button type="button" onClick={reset} className="mt-3 h-10 rounded-xl border border-line px-4 text-[0.8125rem] font-bold text-ink active:bg-bg">사용 안내 다시 보기</button>
-    {done && <p role="status" className="mt-2 text-[0.75rem] font-bold text-success">다시 켰어요. 홈·직원 관리·출퇴근 인증 화면에서 보여요.</p>}
+    {done && <p role="status" className="mt-2 text-[0.75rem] font-bold text-success">다시 켰어요. 홈·직원 관리·출퇴근 인증센터에서 보여요.</p>}
   </div>;
 }

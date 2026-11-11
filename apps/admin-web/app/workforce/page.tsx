@@ -26,7 +26,7 @@ export default async function WorkforcePage() {
   }
   const [poolResult,shop] = await Promise.all([getWorkforcePool().then(members => ({ members, failed: false })).catch(() => ({ members: [], failed: true })),getShop()]);
   if (shop?.mode === 'gig') redirect('/');
-  if (poolResult.failed) return <main className="px-4 pb-28"><ManageBackLink href="/more/operations" label="근무 운영" /><Card className="mt-5 py-8 text-center"><h1 className="text-title font-bold">근무 이력을 불러오지 못했어요</h1><p role="alert" className="mt-2 text-label text-sub">기존 근무 이력은 변경되지 않았어요. 잠시 후 다시 확인해 주세요.</p><a href="/workforce" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white">다시 불러오기</a></Card></main>;
+  if (poolResult.failed) return <main className="px-4 pb-28"><ManageBackLink href="/more/operations" label="인력 운영" /><Card className="mt-5 py-8 text-center"><h1 className="text-title font-bold">근무 이력을 불러오지 못했어요</h1><p role="alert" className="mt-2 text-label text-sub">기존 근무 이력은 변경되지 않았어요. 잠시 후 다시 확인해 주세요.</p><a href="/workforce" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white">다시 불러오기</a></Card></main>;
   const members = poolResult.members;
   const facilityWord=facilityTypeLabel(shop?.facilityType);
   const active = members.filter((member) => member.status === 'active' && !member.credentialBlocked);
@@ -34,7 +34,7 @@ export default async function WorkforcePage() {
 
   return (
     <main className="px-4 pb-28">
-      <ManageBackLink href="/more/operations" label="근무 운영" />
+      <ManageBackLink href="/more/operations" label="인력 운영" />
       <div className="mt-3 mb-5 px-1">
         <p className="text-label font-bold text-primary">우리 {facilityWord} 근무 이력</p>
         <h1 className="text-display font-extrabold text-ink mt-1">함께한 근무자</h1>

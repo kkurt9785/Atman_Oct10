@@ -45,7 +45,7 @@ export function FacilityLocationSection({ initial, facilityWord, gpsRadiusMeters
           <FacilityPinMap className="mt-1.5" lng={form.lng as number} lat={form.lat as number} radiusMeters={gpsRadiusMeters} readOnly={!canEdit} onChange={({ lng, lat }) => canEdit && setForm(c => ({ ...c, lng, lat }))} />
         ) : (
           <div className="mt-1.5">
-            <p className="rounded-xl bg-amber-50 p-3 text-[0.75rem] leading-5 text-amber-700">아직 출퇴근 인증 위치가 없어요. 지금 사업장 안에 계시면 아래 버튼 한 번으로 정해집니다.</p>
+            <p className="rounded-xl bg-amber-50 p-3 text-[0.75rem] leading-5 text-amber-700">아직 출퇴근 인증 위치가 없어요. 지금 사업장 안에 계시면 아래 버튼 한 번으로 정해져요.</p>
             {canEdit && <><p className="my-2 text-xs text-sub">현장에 없어도 지도를 이동해 근무지를 누를 수 있어요. 처음 보이는 핀은 저장되지 않아요.</p><FacilityPinMap className="mt-2" lng={126.978} lat={37.5665} radiusMeters={gpsRadiusMeters} onChange={({ lng, lat }) => setForm(c => ({ ...c, lng, lat }))} /></>}
           </div>
         )}

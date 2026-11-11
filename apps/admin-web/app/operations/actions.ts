@@ -35,7 +35,7 @@ export async function resetFacilityLiveDemoAction() {
   const { data: facility } = await sb.from('facilities')
     .select('is_demo,business_registration_number').eq('id', context.facilityId).maybeSingle();
   if (!facility?.is_demo || !['DEMO-TARGET-0001','DEMO-TARGET-PHARMACY','DEMO-TARGET-0026'].includes(facility.business_registration_number)) {
-    throw new Error('세 영업 데모 시설에서만 초기화할 수 있어요.');
+    throw new Error('시연용 사업장에서만 처음 상태로 돌릴 수 있어요.');
   }
   const { error } = await sb.rpc('reset_three_facility_live_demo', { p_facility_id: context.facilityId });
   if (error) throw new Error('시연 공고를 초기화하지 못했어요. 잠시 후 다시 시도해 주세요.');
@@ -124,7 +124,7 @@ export async function createStaffingRequirementAction(formData: FormData) {
     replacement_hourly_wage: hourlyWage, replacement_description: description, created_by: context.user.id,
   });
   if (error?.code === '23505') throw new Error('같은 부서·직군·시간대의 필요 인원 기준이 이미 있어요.');
-  if (error) throw new Error('필요 인원 기준을 저장하지 못했어요. 마이그레이션 적용 상태를 확인해 주세요.');
+  if (error) throw new Error('필요 인원 기준을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
   revalidatePath('/operations');
   redirect('/operations?notice=requirement_saved');
 }

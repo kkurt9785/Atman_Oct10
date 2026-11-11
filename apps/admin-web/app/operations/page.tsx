@@ -105,7 +105,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   return (
     <main className="px-4 pb-28">
       <OpenOnHash />
-      <ManageBackLink href="/more/operations" label="근무 운영" />
+      <ManageBackLink href="/more/operations" label="인력 운영" />
       {notice && <p role="status" className="mt-3 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-[0.8125rem] font-bold text-success">{notice}</p>}
       {actionError && <p role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[0.8125rem] font-bold text-amber-800">{actionError}</p>}
       {!hasOperations && (

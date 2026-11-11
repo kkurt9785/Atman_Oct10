@@ -56,7 +56,7 @@ export function CreatePayoutForm({ staffId, amount, until, disabled, disabledRea
         <div><p className="text-[0.6875rem] text-sub">실지급</p><p className="text-[0.9375rem] font-extrabold text-primary">{won(tax.net)}</p></div>
       </div>
     </div>
-    <p className="mt-2 text-[0.75rem] leading-5 text-sub">앱에서 송금하지 않아요. 실제 이체를 마친 뒤 완료로 기록해 주세요.</p>
+    <p className="mt-2 text-[0.75rem] leading-5 text-sub">잇닿은 돈을 보내지 않아요. 은행 앱에서 이체를 마친 뒤에만 완료로 기록해 주세요. 완료 기록은 되돌릴 수 없어요.</p>
     {!later ? (
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button type="button" disabled={disabled || pending} onClick={() => submit('now')} className="min-h-14 rounded-xl bg-primary px-3 py-2 text-[0.8125rem] font-extrabold leading-5 text-white disabled:opacity-40">{pending ? '기록 중...' : <>이체 완료 기록<span className="block">{won(tax.net)}</span></>}</button>

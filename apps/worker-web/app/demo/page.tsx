@@ -74,7 +74,7 @@ export default function WorkerDemoPage() {
           <div className="mt-3"><InstallAppButton label="잇닿 근무자 앱 설치" /></div>
         </section>
 
-        {!ENABLED && <p className="mt-4 rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">이 배포에서는 시연 로그인이 꺼져 있어요.</p>}
+        {!ENABLED && <p className="mt-4 rounded-2xl bg-bg p-4 text-center text-[13px] text-sub">지금은 시연을 열 수 없어요.</p>}
         {error && <p role="alert" className="mt-3 text-center text-[12px] font-bold text-red-600">{error}</p>}
         <Link href="/" className="mt-4 flex h-10 items-center justify-center text-[13px] font-bold text-tertiary">일반 로그인으로 가기</Link>
       </div>

@@ -52,7 +52,7 @@ function RewardsContent(){
     const url=`${window.location.origin}/rewards?ref=${data.code}`;
     const text='잇닿에서 병원·약국 의료인력 근무 공고를 확인해 보세요. 프로필 확인과 첫 근무 완료 혜택이 있어요.';
     if(navigator.share){
-      try{await navigator.share({title:'잇닿 워커 초대',text,url});return;}catch{/* copy fallback */}
+      try{await navigator.share({title:'잇닿 근무자 초대',text,url});return;}catch{/* copy fallback */}
     }
     await navigator.clipboard.writeText(`${text}\n${url}`);
     setCopied(true);window.setTimeout(()=>setCopied(false),1800);

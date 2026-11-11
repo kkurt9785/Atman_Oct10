@@ -6,7 +6,7 @@ import {LINKED_INSTALL_KEY, LINKED_INSTALL_EVENT} from '@/lib/linked-install';
 import {useStaffFirst} from '@/lib/use-staff-first';
 const DISMISS_KEY='installBannerDismissedAt';
 // 직원으로 연결된 사람에게 설치 이유는 '새 근무'가 아니라 출퇴근이다. hint 를 직접 넘기면 그 문구가 우선한다.
-const DEFAULT_HINT='홈 화면에서 바로 새 근무를 확인해요', STAFF_HINT='홈 화면에서 바로 출퇴근해요';
+const DEFAULT_HINT='홈 화면에서 바로 새 공고를 확인해요', STAFF_HINT='홈 화면에서 바로 출퇴근해요';
 export function InstallBanner({hint}:{hint?:string}={}){
   const install=usePwaInstall(),[dismissed,setDismissed]=useState(true),[guide,setGuide]=useState(false);
   const staffFirst=useStaffFirst();

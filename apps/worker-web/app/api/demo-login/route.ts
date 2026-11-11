@@ -41,12 +41,12 @@ export async function POST(request: NextRequest) {
   const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!ALLOWED.has(email) || !password || !url || !anon) {
-    return NextResponse.json({ error: '데모 로그인을 사용할 수 없어요.' }, { status: 403 });
+    return NextResponse.json({ error: '시연 로그인을 쓸 수 없어요.' }, { status: 403 });
   }
   const client = createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } });
   const { data, error } = await client.auth.signInWithPassword({ email, password });
   if (error || !data.session) {
-    return NextResponse.json({ error: '데모 로그인에 실패했어요.' }, { status: 401 });
+    return NextResponse.json({ error: '시연 로그인에 실패했어요. 잠시 후 다시 눌러 주세요.' }, { status: 401 });
   }
   let gigInviteToken: string | null = null;
   let gigResume = false;

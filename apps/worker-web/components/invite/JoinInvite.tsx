@@ -313,7 +313,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
           </button>
           <p className="mt-2 text-center text-[11px] leading-5 text-sub">{!signedIn && inKakaoTalk ? `카카오톡 안에서는 로그인이 안 돼서 ${kakaoIos ? '사파리' : '크롬'}에서 이어서 해요 · 전화번호 없이 카카오 로그인으로만 연결` : '앱 설치 없이 바로 수락돼요 · 전화번호 없이 카카오 로그인으로만 연결'}</p>
         </>}
-        {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 지급 계좌 <b className="text-ink">{bankLabel}</b>가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
+        {isGig && signedIn && hasWorker && <p className="mt-2 rounded-xl bg-primary/5 px-3 py-2 text-center text-[11px] leading-5 text-sub">{bankLabel ? <>수락하면 내 지급 계좌(<b className="text-ink">{bankLabel}</b>) 정보가 이 근무지의 지급 담당자에게 전달돼요.</> : '수락 후 근태·지급 탭에서 지급 계좌를 등록·전달해 주세요.'}</p>}
         {isGig && DEMO_ENABLED && !signedIn && <Link href="/gig/demo" className="mt-2 flex min-h-11 items-center justify-center text-[12px] font-bold text-sub">내 초대가 아니라면 시연 먼저 보기 →</Link>}
       </>}
       {status === 'claiming' && <button disabled className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white opacity-60">연결 중...</button>}

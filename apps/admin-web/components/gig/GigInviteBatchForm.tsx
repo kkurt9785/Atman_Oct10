@@ -93,7 +93,7 @@ export function GigInviteBatchForm({ projectId, workerOrigin }: { projectId: str
 
   return <form onSubmit={submit} aria-busy={pending} className="mt-3 rounded-xl border border-line p-3">
     <p className="text-[0.75rem] font-extrabold text-ink">새 사람 초대</p>
-    <p className="mt-1 text-[0.6875rem] leading-4 text-sub">이 근무 일정·시급으로 등록되고 사람마다 일회용 초대가 만들어져요. 전화번호는 선택 정보이며 자동 연결에 사용하지 않아요.</p>
+    <p className="mt-1 text-[0.6875rem] leading-4 text-sub">이 근무의 일정·시급으로 등록되고 사람마다 초대 링크가 만들어져요. 초대는 자동으로 보내지지 않으니, 등록한 뒤 링크를 직접 보내 주세요. 전화번호는 적지 않아도 돼요.</p>
     <fieldset disabled={pending} className="min-w-0 disabled:opacity-60">
       <ul className="mt-2 space-y-2">
         {rows.map((row, index) => <li key={row.key} className={`grid gap-2 ${many ? 'grid-cols-[minmax(0,5fr)_minmax(0,7fr)_2.5rem]' : 'grid-cols-2'}`}>
@@ -136,7 +136,7 @@ export function GigInviteBatchForm({ projectId, workerOrigin }: { projectId: str
       </div>}
       {capped.length > 0 && <div role="alert" className="rounded-xl bg-amber-50 p-3 text-[0.75rem] leading-5 text-amber-800">
         <p className="font-extrabold">{capped.length}명은 인원 한도 때문에 등록하지 못했어요</p>
-        <p className="mt-1">지금 이용 중인 요금으로는 한 현장에 {outcome.limit}명까지 등록할 수 있어요. 수락을 기다리는 초대와 아직 시작 전인 근무자도 함께 세요.</p>
+        <p className="mt-1">지금 이용 중인 요금으로는 한 현장에 {outcome.limit}명까지 등록할 수 있어요. 수락을 기다리는 초대와 아직 시작 전인 근무자도 함께 세어요.</p>
         <p className="mt-1 font-bold">못 넣은 사람: {capped.map((row) => row.name).join(', ')} · 입력칸에 그대로 남겨 뒀어요.</p>
         <Link href="/membership" className="mt-1 inline-flex min-h-10 items-center font-extrabold text-primary">이용 현황 보기 →</Link>
       </div>}

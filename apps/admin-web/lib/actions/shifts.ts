@@ -142,7 +142,7 @@ export async function createShiftAction(formData: FormData): Promise<ShiftAction
         workers = data ?? [];
       }
 
-      const title = invitedWorker ? `${invitedWorker.name} 님, 반복근무 요청이 왔어요` : `새 근무 공고 — ${ROLE_LABEL[requiredRole]}`;
+      const title = invitedWorker ? `${invitedWorker.name}님, 반복 근무 요청이 왔어요` : `새 근무 공고 — ${ROLE_LABEL[requiredRole]}`;
       const body = `${shiftDate} ${startTime.slice(0,5)}~${endTime.slice(0,5)} · ${estimatedTotalPay.toLocaleString('ko-KR')}원`;
       const rows = (workers ?? [])
         .filter((worker: { auth_user_id: string | null }) => Boolean(worker.auth_user_id))

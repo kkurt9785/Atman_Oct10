@@ -30,7 +30,7 @@ export default async function VacancyPage({ searchParams }: { searchParams: Prom
   if (!vacancy) {
     return (
       <main className="px-4 pb-28">
-        <ManageBackLink href="/operations" label="운영" />
+        <ManageBackLink href="/operations" label="인력 운영" />
         <p className="mt-6 rounded-2xl bg-white p-6 text-center text-body text-sub shadow-card">결원 정보를 찾지 못했어요. 이미 처리됐거나 기준이 바뀌었을 수 있어요.</p>
       </main>
     );
@@ -47,7 +47,7 @@ export default async function VacancyPage({ searchParams }: { searchParams: Prom
 
   return (
     <main className="px-4 pb-28">
-      <ManageBackLink href="/operations" label="운영" />
+      <ManageBackLink href="/operations" label="인력 운영" />
       <div className="mt-2 mb-5 px-1">
         <p className="text-label font-bold text-primary">결원 채우기</p>
         <h1 className="mt-1 text-display font-extrabold text-ink">{dateLabel(vacancy.date)} {vacancy.startTime}~{vacancy.endTime}</h1>

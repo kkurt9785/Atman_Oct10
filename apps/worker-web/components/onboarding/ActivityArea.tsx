@@ -101,7 +101,7 @@ export function ActivityArea({
         근무 알림 받을<br />지역을 설정해요
       </h1>
       <p className="text-[15px] text-sub mb-6">
-        해당 지역에 새 근무가 열리면 바로 알려드려요
+        이 지역에 새 공고가 올라오면 바로 알려 드려요
       </p>
 
       {/* 지도 placeholder — 가입 화면에서만. 내 정보에서는 동작하지 않는 상자가 저장 버튼을 밀어내지 않게 뺀다 */}
@@ -200,7 +200,7 @@ export function ActivityArea({
 
       {/* 안내 */}
       <p className="text-[13px] text-tertiary text-center mt-2 mb-6">
-        💡 설정한 지역에 새 근무가 올라오면 알림으로 알려드려요
+        💡 설정한 지역에 새 공고가 올라오면 알림으로 알려 드려요
       </p>
 
       <div className="mt-auto">

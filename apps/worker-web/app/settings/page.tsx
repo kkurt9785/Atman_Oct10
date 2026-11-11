@@ -197,16 +197,16 @@ export default function SettingsPage() {
           onClick={handlePushToggle}
           role="switch"
           aria-checked={pushEnabled}
-          aria-label={staffFirst ? '이 기기의 알림' : '이 기기의 새 근무 알림'}
+          aria-label={staffFirst ? '이 기기의 알림' : '이 기기의 새 공고 알림'}
           disabled={pushLoading}
           className="w-full bg-white rounded-2xl p-5 mb-4 shadow-sm flex items-center justify-between active:opacity-80 disabled:opacity-60"
         >
           <div className="text-left">
-            <p className="text-[15px] font-bold text-ink">{staffFirst ? '알림' : '새 근무 알림'}</p>
+            <p className="text-[15px] font-bold text-ink">{staffFirst ? '알림' : '새 공고 알림'}</p>
             <p className="text-[13px] text-tertiary mt-0.5">
               {pushLoading ? '알림 설정을 확인하고 있어요...' : staffFirst
                 ? (pushEnabled ? '내 직장 소식을 이 기기로 알려드려요' : '알림을 켜면 내 직장 소식을 바로 받아요')
-                : pushEnabled ? '내 직군·활동 지역의 새 근무를 이 기기로 알려드려요' : '알림을 켜면 내 지역 새 근무를 바로 받아요'}
+                : pushEnabled ? '내 직군·활동 지역의 새 공고를 이 휴대폰으로 알려 드려요' : '알림을 켜면 내 지역 새 공고를 바로 받아요'}
             </p>
             <p className="mt-1 text-[11px] leading-4 text-sub">{staffFirst ? '출퇴근 안내·사업장 채팅을 앱 푸시로 받아요. 새 공고 알림도 이 스위치로 함께 켜지고 꺼져요' : '새 공고·채용 확정·사업장 채팅을 앱 푸시로 받아요'}</p>
           </div>

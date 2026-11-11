@@ -36,7 +36,7 @@ describe('공개 시연 계정 시연 초기화 차단', () => {
   it('영업 담당 개인 계정은 기존 검사(데모 시설 여부)로 넘어간다', async () => {
     mocks.context.mockResolvedValue({ facilityId: 'real', accessRole: 'owner', user: { id: 'u', email: 'owner@hospital.kr' } });
     mocks.from.mockReturnValue({ select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { is_demo: false, business_registration_number: 'X' } }) }) }) });
-    await expect(resetFacilityLiveDemoAction()).rejects.toThrow('세 영업 데모 시설에서만');
+    await expect(resetFacilityLiveDemoAction()).rejects.toThrow('시연용 사업장에서만');
     expect(mocks.redirect).not.toHaveBeenCalled();
     expect(mocks.rpc).not.toHaveBeenCalled();
   });

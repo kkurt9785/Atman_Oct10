@@ -32,7 +32,7 @@ export default function WorkerIntroPage() {
         <br />
         가까운 근무부터 시작해요
       </h1>
-      <p className="mt-3 text-[15px] leading-6 text-sub">공고 확인부터 지원, 사업장 채팅, 출퇴근과 지급 확인까지 한 앱에서 이어집니다.</p>
+      <p className="mt-3 text-[15px] leading-6 text-sub">공고 확인부터 지원, 사업장 채팅, 출퇴근과 지급 확인까지 한 앱에서 이어져요.</p>
       <div className="mt-5 flex flex-wrap gap-2">{ROLES.map((role) => <span key={role} className="rounded-full bg-white px-3 py-1.5 text-[12px] font-bold text-primary shadow-card">{role}</span>)}</div>
       <div className="mt-7 grid grid-cols-2 gap-2">
         <Link href="/onboarding" className="flex h-12 items-center justify-center rounded-btn bg-primary text-[15px] font-extrabold text-white">근무자로 시작하기</Link>
@@ -75,7 +75,7 @@ export default function WorkerIntroPage() {
     <section className="px-6 py-9">
       <h2 className="text-[21px] font-extrabold text-ink">꼭 알아둘 점</h2>
       <ul className="mt-4 space-y-3 rounded-card border border-line p-5 text-[13px] leading-5 text-sub">
-        <li><b className="text-ink">지원과 채용 확정은 다릅니다.</b> 사업장이 수락하면 근무가 확정되고 채팅으로 안내를 받을 수 있어요.</li>
+        <li><b className="text-ink">지원과 채용 확정은 달라요.</b> 사업장이 수락하면 근무가 확정되고 채팅으로 안내를 받을 수 있어요.</li>
         <li><b className="text-ink">자격은 채용 과정에서 사업장이 확인해요.</b> 잇닿은 자격 심사기관이 아니며, 면허·원본·공식 조회 등은 사업장 내부 절차로 확인해요.</li>
         <li><b className="text-ink">임금은 사업장이 직접 지급해요.</b> 근무 완료 후 지급 상태를 앱에서 확인하고, 입금이 확인되면 완료로 표시할 수 있어요.</li>
       </ul>

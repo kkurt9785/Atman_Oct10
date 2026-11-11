@@ -26,8 +26,8 @@ export function Approval({ role,onStart, onBrowse }: { role:WorkerRole|null; onS
             : isNursing
             ? '바로 근무를 둘러보고 지원할 수 있어요. 채용 확정 전 사업장이 자격을 확인해요.'
             : isOfficeStaff
-            ? '나의 정보에서 경력과 최근 근무지를 입력하면 바로 활동 승인이 완료돼요.'
-            : '나의 정보에서 면허를 등록하면 심사 후 근무에 지원할 수 있어요.'}
+            ? '내 정보에서 경력과 최근 근무지를 입력하면 바로 활동 승인이 완료돼요.'
+            : '내 정보에서 면허를 등록하면 심사 후 근무에 지원할 수 있어요.'}
         </p>
       </div>
 

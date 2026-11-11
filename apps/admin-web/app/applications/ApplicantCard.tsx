@@ -120,7 +120,7 @@ export function ApplicantCard({
               <span className="text-[0.9375rem] font-bold text-ink">{applicant.name}</span>
               {applicant.isDemo && (
                 <span className="text-[0.75rem] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                  데모
+                  시연
                 </span>
               )}
               <span className={`text-[0.8125rem] font-bold px-2 py-0.5 rounded-full ${ROLE_COLOR[applicant.role] ?? 'bg-line text-sub'}`}>

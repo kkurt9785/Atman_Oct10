@@ -79,7 +79,7 @@ try {
     const help = page.getByRole('link', { name: '사장님께 확인 요청', exact: true });
     await help.waitFor();
     assert.equal(await help.getAttribute('href'), `/gig/workroom?facility=${staff.facilities.id}`);
-    assert.equal(await page.getByRole('button', { name: '동적 QR로 인증', exact: true }).count(), 0);
+    assert.equal(await page.getByRole('button', { name: 'QR로 찍는 방법 보기', exact: true }).count(), 0);
     assert.equal(calls, 1);
     await page.screenshot({ path: path.join(directory, `${width}-time-error.png`), fullPage: true });
     attendanceMode = 'network';

@@ -58,12 +58,12 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
         <Link href="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-white text-[1.3125rem] text-ink shadow-sm active:bg-bg" aria-label="홈으로 돌아가기">←</Link>
         <div><p className="text-label font-bold text-primary">{gigworkerMode?'직접 초대한 단기 근무자':'우리 직원 · 계약 인력'}</p><h1 className="text-display font-extrabold text-ink">{gigworkerMode?'근무자 관리':'직원 관리'}</h1></div>
       </div>
-      {gigworkerMode&&<p className="text-label text-sub mt-1">근무 일정만 등록하고 링크나 QR로 가입시켜요. 서로 전화번호를 몰라도 돼요.</p>}
+      {gigworkerMode&&<p className="text-label text-sub mt-1">근무 일정만 등록하고 링크나 QR로 초대해요. 서로 전화번호를 몰라도 돼요.</p>}
     </div>
 
     {!gigworkerMode&&!isGigworkerEntry&&await isGuidePeriod()&&<BetaGuide id="admin-staff" title="직원 등록은 이렇게 해요" steps={[
-      { text: '[＋ 직원 등록]을 눌러 이름·근무 형태·근무 시간을 넣어요.', done: clinicStaff.length > 0 },
-      { text: '등록한 직원 카드에서 [일회용 초대 만들기]를 눌러 카톡이나 QR로 보내요.', done: clinicStaff.some((s) => Boolean(s.workerId || s.inviteToken)) },
+      { text: '[＋ 직원 등록]을 눌러 이름과 근무 형태를 넣어요. 근무 시간은 기본값이 채워져 있어요.', done: clinicStaff.length > 0 },
+      { text: '등록한 직원 카드에서 [초대 보내기]를 눌러 카톡으로 보내거나, [현장 QR]을 띄워 직원 폰으로 찍게 해요.', done: clinicStaff.some((s) => Boolean(s.workerId)) },
       { text: '직원이 링크를 열어 카카오로 로그인하고 수락하면 카드에 "✓ 이어짐"이 떠요.', done: clinicStaff.some((s) => Boolean(s.workerId)) },
     ]} />}
 
@@ -92,7 +92,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
       <summary className="list-none cursor-pointer px-5 py-4 flex items-center justify-between">
         <span className="font-bold text-body">＋ {gigworkerMode||isGigworkerEntry?'근무자 등록·초대':'기존 직원 직접 등록'}</span><span className="text-sub group-open:rotate-180">⌄</span>
       </summary>
-      {(gigworkerMode||isGigworkerEntry)&&<p className="px-5 text-[0.75rem] leading-5 text-sub">날짜·시간을 정한 뒤 링크를 보내거나 현장에서 QR을 보여주세요. 본인이 링크를 열어 수락하면 계정·워크룸이 연결돼요.</p>}
+      {(gigworkerMode||isGigworkerEntry)&&<p className="px-5 text-[0.75rem] leading-5 text-sub">날짜·시간을 정한 뒤 링크를 보내거나 현장에서 QR을 보여 주세요. 본인이 링크를 열어 수락하면 계정·워크룸이 연결돼요.</p>}
       <StaffRegistrationForm facilityType={shop?.facilityType} initialEngagementType={isGigworkerEntry?'temporary':undefined} workerOrigin={workerOrigin} workerKind={gigworkerMode||isGigworkerEntry?'gig':'staff'} today={today}/>
     </details>
 
