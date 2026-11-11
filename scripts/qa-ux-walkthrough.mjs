@@ -250,11 +250,11 @@ async function main() {
       await fill('input[name="starts_on"]', d(0)); await fill('input[name="ends_on"]', d(3));
       await fill('input[name="pay_rate"]', '15000'); await fill('input[name="headcount"]', '3');
       await shot('gig-work-new-filled');
-      await click('근무 만들기 → 근무자 잇기'); await sleep(2500); await settle();
+      await click('근무 만들기 → 근무자 초대'); await sleep(2500); await settle();
       await shot('gig-work-detail', '생성 직후 상세(참여자 0)');
       await fill('input[name="name"]', '[UX] 새 근무자');
       await click('등록하고 일회용 초대 만들기'); await sleep(2500); await settle();
-      await shot('gig-work-invited', '새 사람 잇기 후(링크 복사 버튼)');
+      await shot('gig-work-invited', '새 사람 초대 후(링크 복사 버튼)');
       await go(`${adminOrigin}/`); await shot('gig-home-after', '홈에 근무 건 카드 1/3');
       await go(`${adminOrigin}/staff?view=contract&entry=gigworker`); await shot('gig-staff');
       await go(`${adminOrigin}/workroom`); await shot('gig-workroom');

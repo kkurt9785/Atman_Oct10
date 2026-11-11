@@ -92,7 +92,7 @@ export function GigInviteBatchForm({ projectId, workerOrigin }: { projectId: str
   const link = (token?: string) => `${workerOrigin}/gig/join?token=${token ?? ''}`;
 
   return <form onSubmit={submit} aria-busy={pending} className="mt-3 rounded-xl border border-line p-3">
-    <p className="text-[0.75rem] font-extrabold text-ink">새 사람 잇기 (초대)</p>
+    <p className="text-[0.75rem] font-extrabold text-ink">새 사람 초대</p>
     <p className="mt-1 text-[0.6875rem] leading-4 text-sub">이 근무 일정·시급으로 등록되고 사람마다 일회용 초대가 만들어져요. 전화번호는 선택 정보이며 자동 연결에 사용하지 않아요.</p>
     <fieldset disabled={pending} className="min-w-0 disabled:opacity-60">
       <ul className="mt-2 space-y-2">

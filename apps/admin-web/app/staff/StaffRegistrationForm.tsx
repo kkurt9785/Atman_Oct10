@@ -22,7 +22,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
   const needsContract=engagementType&&engagementType!=='regular';
   const isPharmacy=facilityType==='pharmacy';
   const isGigworker=isGigworkerFacility({facility_type:facilityType});
-  // 긱 근무자 등록은 사업장 종류와 무관하게 간단 폼: 이름·일정·시급 → 잇기 링크. 직종·부서·계약 폼은 직원용이다.
+  // 긱 근무자 등록은 사업장 종류와 무관하게 간단 폼: 이름·일정·시급 → 초대 링크. 직종·부서·계약 폼은 직원용이다.
   const useGigForm=isGigworker||workerKind==='gig';
 
   if(useGigForm){
