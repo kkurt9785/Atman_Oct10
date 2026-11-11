@@ -59,6 +59,9 @@ export function nonTransactionReason(raw: string): string | null {
   raw = raw.normalize('NFKC'); // NFKC also folds full-width letters (Ａｍａｚｏｎ) and ㈜ so later rules see plain text
   // Anything a sender labels as an advertisement (토스오더 coupons, card promotions) is never a transaction, whatever amounts it quotes.
   if (/[(\[]\s*광고\s*[)\]]/.test(raw)) return '광고 안내';
+  // A colleague's comment relayed by a work tool (Flow web push "김*영님의 댓글 등록 업무명 : … 신한6877카드 - 127,000원 결제완료")
+  // quotes the company's payment, not the family's (2026-11-10: three of these were saved as 신한카드 spending).
+  if (/님의\s*(?:댓글|답글|글)\s*등록|업무명\s*[:：]|\bflow\.team\b/.test(raw)) return '업무 도구 알림';
   const benefit = /마일리지|포인트|적립률|적립\s*기준|적립금|캐시백|혜택/.test(raw);
   const rewardOffer = /(?:퀴즈|이벤트|출석|미션|응모|정답|참여)[\s\S]*(?:받아가|받으세요|받을\s*수|드려요|드립니다|당첨|추첨|증정)/.test(raw)
     || /친구가\s*떠나기\s*전에\s*눌러보세요|출석\s*티켓이\s*충전|복권\s*응모장|럭키볼\s*뽑기|동전\s*미션[\s\S]*동전을\s*모아보세요|클릭\s*한번에\s*응모하세요|카드로\s*커피값도\s*아낄\s*수\s*있어요/.test(raw);

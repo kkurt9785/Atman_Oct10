@@ -271,6 +271,22 @@ suite('benefit notices are not payments', () => {
   });
 });
 
+// 2026-11-10: the Mac relay forwarded Chrome web pushes from the company work tool (Flow) and three were saved as 신한카드 spending.
+suite('work-tool comment notifications', () => {
+  it.each([
+    'com.google.chrome 현장안전관리 acme.flow.team 김*영님의 댓글 등록 업무명 : 방한용품 구매 내용 : 11/10 신한6877카드 - 127,000원 결제완료 (이미지)',
+    'com.google.chrome 현장안전관리 flow.team 김*영님의 댓글 등록 업무명 : 방한용품 구매 내용 : 11/10 신한6877 - 436,800원 쿠팡 결제완료 (이미지)',
+    '[실행] ○○센터 김*영님의 댓글 등록 업무명 : 자재 구매 내용 : 11/10 신한 - 3,959,500원 입금완료 (전자결재 승인완료)',
+  ])('never saves a quoted company payment: %s', text => {
+    expect(nonTransactionReason(text)).toBe('업무 도구 알림');
+    expect(parseCardMessage(text, now)).toBeNull();
+  });
+  it('still reads a real card approval that only shares the words 등록 or 업무', () => {
+    expect(parseCardMessage('신한카드 승인 홍*동 4,500원 일시불 10/27 08:15 업무용품마트', now)).toMatchObject({ amount: 4500 });
+    expect(parseCardMessage('KB국민카드 홍*동님 10/27 12:34 차량등록사업소 10,000원 승인되었습니다', now)).toMatchObject({ amount: 10000 });
+  });
+});
+
 // Card-app push notifications (iOS 27 Shortcuts "알림" trigger / Mac relay / Galaxy) arrive as title + body joined by the ingest function.
 // The company name sits in the title and the body is a sentence, so these differ from SMS layouts.
 suite('card-app push notification parsing', () => {

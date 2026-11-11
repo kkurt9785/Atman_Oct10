@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-05",
+  "updated": "2026-11-11",
   "passed": {
     "messages": [
       "ad-coupon",
@@ -8,6 +8,9 @@
       "bank-withdraw-cafe",
       "bc-card-sms",
       "facepay-title-amount",
+      "flow-comment-approval",
+      "flow-comment-card",
+      "flow-comment-coupang",
       "hana-push",
       "hana-sms-last-year",
       "hyundai-push",

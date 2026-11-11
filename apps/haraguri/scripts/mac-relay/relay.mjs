@@ -18,6 +18,9 @@ const flag = name => args.includes(name);
 const opt = name => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
 const PAYMENT = /(승인|출금|결제|취소|이체|송금)/;
 const AMOUNT = /(\d{1,3}(?:,\d{3})+|\d+)\s*원|₩\s*[\d,]+|KRW\s*[\d,]+/;
+// Mac apps whose notifications quote other people's money: web pushes (Flow comments "신한6877카드 - 127,000원 결제완료"), work chat, mail.
+// Card alerts reach the Mac as mirrored iPhone app notifications or KakaoTalk 알림톡, never through these.
+const NOT_CARD_APPS = /^(com\.google\.chrome|com\.apple\.safari|org\.mozilla\.firefox|com\.microsoft\.edgemac|com\.brave\.browser|com\.naver\.whale|company\.thebrowser\.browser|com\.operasoftware\.opera|com\.tencent\.xinwechat|com\.tinyspeck\.slackmacgap|com\.microsoft\.teams|com\.hnc\.discord|ru\.keepcoder\.telegram|com\.apple\.mail|com\.anthropic\.)/i;
 
 function log(line) { mkdirSync(DIR, { recursive: true }); appendFileSync(LOG, `${new Date().toISOString()} ${line}\n`); if (flag('--verbose') || flag('--dry-run')) console.log(line); }
 function readJson(path, fallback) { try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return fallback; } }
@@ -97,7 +100,7 @@ async function scanNotifications(config, state, status) {
     const r = rows[i], d = decoded[i] || {};
     apps.add(r.app);
     const text = [d.title, d.subtitle, d.body].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
-    const isPayment = PAYMENT.test(text) && AMOUNT.test(text);
+    const isPayment = !NOT_CARD_APPS.test(r.app || '') && PAYMENT.test(text) && AMOUNT.test(text);
     recent.push({ id: r.id, app: r.app, chars: text.length, payment: isPayment });
     if (isPayment) {
       if (flag('--dry-run')) { log(`[dry-run][알림 ${r.app}] ${text.slice(0, 80)}`); sent++; }
