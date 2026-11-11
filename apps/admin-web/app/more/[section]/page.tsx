@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
+import { getShop } from '@/lib/db/shop';
 import { Card } from '@/components/ui';
 import { getAdminContext } from '@/lib/admin-auth';
 import { MANAGE_SECTIONS, visibleManageItems } from '@/lib/manage-menu';
@@ -9,7 +10,9 @@ export default async function ManageSectionPage({ params }: { params: Promise<{ 
   const { section: slug } = await params;
   const section = MANAGE_SECTIONS.find((item) => item.slug === slug);
   if (!section || section.href) notFound();
-  const context = await getAdminContext();
+  const [context, shop] = await Promise.all([getAdminContext(), getShop()]);
+  // 이 묶음들은 병원·약국용 메뉴다. 단기 근무지는 관리 첫 화면의 단기용 메뉴만 쓴다
+  if (shop?.mode === 'gig') redirect('/more');
   const items = visibleManageItems(section, context?.canViewPayroll === true);
 
   return <main className="px-4">

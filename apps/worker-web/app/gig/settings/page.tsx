@@ -35,7 +35,7 @@ export default function GigSettingsPage() {
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/'); return; }
+      if (!user) { router.replace('/gig'); return; }
       setName(user.user_metadata?.profile_nickname ?? '사용자');
       const [{ data: worker }, { data: staffLinks }] = await Promise.all([
         supabase.from('workers').select('id,role,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),

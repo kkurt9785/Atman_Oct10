@@ -26,7 +26,7 @@ export default async function AttendanceQrPage(){
   const qrEnabled=['qr','gps_qr'].includes(mode)||(['gps','gps_or_qr'].includes(mode)&&Boolean(profile?.qr_fallback_enabled));
   const networkEnabled=mode==='network'||(networkCount>0&&['gps','gps_or_qr'].includes(mode));
   return <main className="px-4 pb-28">
-    <ManageBackLink href="/more/operations" label="근무 운영" />
+    <ManageBackLink href={shop?.mode==='gig'?'/more':'/more/operations'} label={shop?.mode==='gig'?'관리':'근무 운영'} />
     <AttendanceTabs active="auth"/>
     <div className="mt-3 px-1"><p className="text-label font-bold text-primary">오늘 출퇴근을 한 곳에서</p><h1 className="text-display font-extrabold">출퇴근 인증센터</h1><p className="text-label text-sub mt-1">QR은 이 화면에 띄워두고, 위치·Wi-Fi 인증은 직원이 근무자 앱에서 출퇴근 버튼을 누르면 작동해요.</p></div>
     <section className="mt-4 rounded-2xl bg-ink p-4 text-white print:hidden">

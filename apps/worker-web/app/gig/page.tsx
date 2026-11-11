@@ -260,7 +260,7 @@ function GigTodayContent() {
                   onSuccess={(response: AttendanceResult) => {
                     const now = new Date().toISOString();
                     const checkingOut = Boolean(current?.check_in_at);
-                    setMessage(response.status==='pending'?'조기 퇴근 승인을 요청했어요. 사장님 승인 후 근무시간이 확정돼요.':`${checkingOut?'퇴근':'출근'} 기록을 저장했어요.${(response.lateMinutes??0)>0?` 지각 ${response.lateMinutes}분으로 기록됐어요.`:''}`);
+                    setMessage(response.status==='pending'?'조기 퇴근 승인을 요청했어요. 사장님 승인 후 근무시간이 확정돼요.':`${checkingOut?'퇴근':'출근'} 기록을 저장했어요.${!checkingOut&&(response.lateMinutes??0)>0?` 지각 ${response.lateMinutes}분으로 기록됐어요.`:''}`);
                     setAttendance((state) => ({ ...state, [staff.id]: {
                       ...(state[staff.id] ?? { staff_id: staff.id, work_date: kstDate(), check_in_at: null, check_out_at: null }),
                       ...(checkingOut

@@ -21,7 +21,7 @@ const STATUS_STYLE: Record<GigOperationStatus,string> = {
 function belongs(row:GigOperationWorker,filter:Filter) {
   if(filter==='all') return true;
   if(filter==='issue') return row.status==='review'||row.status==='late';
-  if(filter==='working') return row.status==='working'||row.status==='scheduled'||row.status==='completed';
+  if(filter==='working') return row.status==='working'||row.status==='scheduled'||row.status==='completed'||Boolean(row.checkInAt);
   if(filter==='invite') return row.status==='invite';
   return row.unpaidDays>0;
 }
@@ -97,7 +97,7 @@ export function GigOperationsBoard({ board, projects, facilityId, facilityName, 
   }
 
   const summary:[Filter,string,number,string][]=[
-    ['issue','확인 필요',board.summary.issue,board.summary.issue>0?'text-red-600':'text-ink'],['working','출근·근무',board.summary.working,'text-emerald-700'],
+    ['issue','확인 필요',board.summary.issue,board.summary.issue>0?'text-red-600':'text-ink'],['working','오늘 근무',board.summary.working,'text-emerald-700'],
     ['invite','초대 대기',board.summary.invite,'text-violet-700'],['pay','지급 준비',board.summary.pay,'text-primary'],
   ];
   // 근무(묶음) 없이 직원 화면에서 한 명씩 등록한 근무자도 7일 일정에는 나온다 — '0건'만 보이면 일정이 없는 줄 안다

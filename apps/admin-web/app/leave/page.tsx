@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Card } from '@/components/ui';
+import { getShop } from '@/lib/db/shop';
 import { getClinicLeaveRequests, getClinicStaff } from '@/lib/db/clinic-workforce';
 import { WorkforceActionForm } from '@/components/WorkforceActionForm';
 import { ManageBackLink } from '@/components/ManageBackLink';
@@ -13,6 +15,8 @@ const STATUS:Record<string,{label:string;style:string}>={pending:{label:'승인 
 const days=(minutes:number)=>(minutes/480).toLocaleString('ko-KR',{maximumFractionDigits:1});
 
 export default async function LeavePage(){
+  // 단기 근무지에는 휴가 관리가 없다 — 화면 쪽 이동만으로는 링크로 넘어올 때 열렸다(2026-11-11 단기 근로 QA)
+  if((await getShop())?.mode==='gig')redirect('/');
   const [staff,requests]=await Promise.all([getClinicStaff(),getClinicLeaveRequests()]);
   const total=staff.reduce((sum,s)=>sum+s.leaveMinutes,0);
   const today=todayKST();

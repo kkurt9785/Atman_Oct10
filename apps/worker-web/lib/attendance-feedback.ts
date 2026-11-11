@@ -6,9 +6,20 @@ export function canOfferAttendanceQr(reason?: string, mode = 'gps_or_qr', qrFall
   return ['OUT_OF_RANGE', 'GPS_ERROR', 'GPS_ACCURACY_LOW', 'QR_EXPIRED', 'QR_INVALID', 'HOSPITAL_MISMATCH'].includes(reason ?? '');
 }
 
-export function attendanceLocationHelp(mode: string, denied: boolean) {
-  if (mode === 'gps_qr') return denied ? '강화 인증은 위치와 QR이 모두 필요해요. 위치정보 동의와 휴대폰 권한을 확인해 주세요. 해결되지 않으면 관리자에게 근태 확인을 요청하세요.' : '강화 인증에 필요한 위치를 확인하지 못했어요. 창가나 건물 밖에서 다시 시도하고, 어려우면 관리자에게 확인을 요청하세요.';
-  return denied ? '위치정보 동의 또는 권한을 확인해 주세요. 허용된 경우 동적 QR이나 등록 네트워크로도 인증할 수 있어요.' : '위치를 확인하지 못했어요. 다시 시도하거나 사업장의 인증 규칙에 맞는 동적 QR·등록 네트워크를 이용해 주세요.';
+// 권한을 한 번 막으면 브라우저가 다시 묻지 않는다 — 어디서 켜는지와, 못 켜도 되는 다른 길(QR·Wi-Fi)을 같이 알려 준다(2026-11-11 단기 근로 QA).
+export function attendanceLocationHelp(mode: string, denied: boolean, gig = false) {
+  const who = gig ? '사장님께' : '관리자에게';
+  const place = gig ? '근무지' : '사업장';
+  const how = '주소창의 자물쇠(ⓘ) → 권한 → 위치를 허용으로 바꿔 주세요.';
+  if (mode === 'gps_qr') return denied ? `강화 인증은 위치와 QR이 모두 필요해요. 휴대폰 위치 권한이 꺼져 있으면 ${how} 어려우면 ${who} 근태 확인을 요청해 주세요.` : `강화 인증에 필요한 위치를 확인하지 못했어요. 창가나 건물 밖에서 다시 눌러 보고, 어려우면 ${who} 확인을 요청해 주세요.`;
+  return denied ? `위치를 쓸 수 없어요. 휴대폰 위치 권한이 꺼져 있으면 ${how} QR이나 ${place} Wi-Fi로도 인증할 수 있어요.` : `위치를 확인하지 못했어요. 다시 눌러 보거나 QR·${place} Wi-Fi로 인증해 주세요.`;
+}
+
+// 서버(record_unified_attendance)가 주는 실패 문구는 병원·약국 말투다. 초대 근무(/gig)에서는 상대가 '사장님', 장소가 '근무지'다.
+export function attendanceFailureText(message: string | undefined, gig: boolean) {
+  const text = (message ?? '출퇴근 인증에 실패했어요.').replace('QR 코드가 만료되었습니다.', 'QR이 만료됐어요.');
+  if (!gig) return text;
+  return text.replaceAll('관리자 화면', '사장님 화면').replaceAll('관리자에게', '사장님께').replaceAll('사업장에 ', '사장님께 ').replaceAll('사업장', '근무지');
 }
 
 export type GigAttendanceRecord = {

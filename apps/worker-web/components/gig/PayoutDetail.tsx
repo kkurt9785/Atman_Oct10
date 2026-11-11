@@ -1,6 +1,6 @@
 'use client';
 import { useId, useState } from 'react';
-import { hoursText, periodText, sharePayoutStatement, won, type PayoutStatement } from '@/lib/gig-pay';
+import { hoursText, payoutDateKST, periodText, sharePayoutStatement, won, type PayoutStatement } from '@/lib/gig-pay';
 
 // 지급 한 건 — 누르면 '왜 이 금액인지'(시간 × 시급 − 공제)를 펼치고 명세를 공유한다
 export type PayoutConfirm = { status: 'received' | 'missing' | null; onConfirm: (received: boolean) => Promise<string> };
@@ -38,7 +38,7 @@ export function PayoutDetail({ statement, right, confirm }: { statement: PayoutS
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">세전</dt><dd className="font-bold">{won(s.amount)}</dd></div>
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">공제</dt><dd className={`font-bold ${s.withholdingAmount > 0 ? 'text-red-600' : ''}`}>{s.withholdingAmount > 0 ? `사업소득 3.3% −${won(s.withholdingAmount)}` : '없음'}</dd></div>
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">실지급</dt><dd className="text-[14px] font-extrabold text-primary">{won(s.netAmount)}</dd></div>
-        <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">{s.status === 'paid' ? '지급일' : '지급 예정일'}</dt><dd className="font-bold">{(s.status === 'paid' ? (s.paidAt ?? s.payAt ?? '') : (s.payAt ?? '')).slice(0, 10) || '-'}</dd></div>
+        <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">{s.status === 'paid' ? '지급일' : '지급 예정일'}</dt><dd className="font-bold">{(s.status === 'paid' ? payoutDateKST(s.paidAt, s.payAt) : (s.payAt ?? '').slice(0, 10)) || '-'}</dd></div>
       </dl>
       {confirm && s.status === 'paid' && (confirm.status === null
         ? <div className="mt-3">

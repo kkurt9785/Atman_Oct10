@@ -173,7 +173,8 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   });
   return {today,workers,days,summary:{
     invite:workers.filter((row)=>row.status==='invite').length,
-    working:workers.filter((row)=>['scheduled','working','completed'].includes(row.status)).length,
+    // 오늘 일정이 있거나 오늘 출근한 사람 — 퇴근 뒤 지급 단계(pay·bank·paid)로 넘어가도 '오늘 근무'에서 빠지지 않게(퇴근하면 0명이 됐다)
+    working:workers.filter((row)=>['scheduled','working','completed'].includes(row.status)||Boolean(row.checkInAt)).length,
     issue:workers.filter((row)=>row.status==='review'||row.status==='late').length,
     pay:workers.filter((row)=>row.unpaidDays>0).length,
   }};

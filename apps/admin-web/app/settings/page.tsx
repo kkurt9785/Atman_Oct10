@@ -72,7 +72,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           {section === 'admins' && (showAdmins && admins
             ? <AdminAccessSection admins={admins} facilityWord={facilityWord} canInvite={context?.accessRole === 'owner' && !shop?.isDemo} />
             : <p className="px-5 pt-4 text-label text-sub">관리자 권한을 볼 수 없어요.</p>)}
-          {section === 'account' && <AccountClosureSection facilityName={shop?.name ?? ''} facilityWord={facilityWord} canClose={canClose} ownsActive={ownsActive} isDemo={Boolean(shop?.isDemo)} />}
+          {section === 'account' && <AccountClosureSection isGig={isGigworkerFacility(shop)} facilityName={shop?.name ?? ''} facilityWord={facilityWord} canClose={canClose} ownsActive={ownsActive} isDemo={Boolean(shop?.isDemo)} />}
         </div>
       </div>
     );
@@ -96,7 +96,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <div className="divide-y divide-line overflow-hidden rounded-2xl bg-white shadow-card">
           {showBrn && shop && <Row href="/settings?section=brn" title="사업자 서류" detail={ntsBlocked ? NTS_BLOCKED_DETAIL[shop.businessStatus ?? ''] : shop.brnSubmitted || shop.brnDocumentPath ? '제출했어요 · 확인 중' : '제출하면 공고를 올릴 수 있어요'} warn={ntsBlocked || (!shop.brnSubmitted && !shop.brnDocumentPath)} />}
           <Row href="/settings?section=location" title="위치·연락처" detail={location?.addressText || '주소를 등록해 주세요'} warn={!location?.addressText} />
-          <Row href="/settings?section=profile" title={`${facilityWord} 소개·규모`} detail={profile?.employee_count ? `총원 ${profile.employee_count}명` : '총원을 입력하면 부족 인원을 알려드려요'} warn={!profile?.employee_count} />
+          <Row href="/settings?section=profile" title={`${facilityWord} 소개·규모`} detail={profile?.employee_count ? `총원 ${profile.employee_count}명` : isGigworkerFacility(shop) ? '현장 소개를 적어 둘 수 있어요' : '총원을 입력하면 부족 인원을 알려드려요'} warn={!profile?.employee_count && !isGigworkerFacility(shop)} />
           <Row href="/settings?section=attendance" title="출퇴근 인증 규칙" detail={MODE_LABEL[profile?.attendance_mode ?? 'gps_or_qr'] ?? '앱에서 버튼만 누르기'} />
           {showAdmins && admins && <Row href="/settings?section=admins" title="관리자 권한" detail={`관리자 ${admins.length}명 · 급여 열람 권한`} />}
         </div>

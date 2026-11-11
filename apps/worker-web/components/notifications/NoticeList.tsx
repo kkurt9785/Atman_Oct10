@@ -33,6 +33,9 @@ export function NoticeList({ shell, eyebrow, title, emptyHint, back }: { shell: 
     setError('');
     if (!append) { setRows([]); setHasMore(false); cursorRef.current = null; }
     try {
+      // 로그인이 풀렸으면 '연결 상태' 탓으로 돌리지 않고 로그인 화면으로 보낸다
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { window.location.replace(shell === 'gig' ? '/gig' : '/'); return; }
       const context = await loadWorkerShellContext().catch(() => null);
       const result = await loadScopedNoticePage(async cursor => {
         const { data, error: rpcError } = await supabase.rpc('get_my_notifications_page', {

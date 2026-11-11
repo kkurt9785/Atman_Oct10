@@ -39,10 +39,11 @@ export function minutesText(minutes: number): string {
 
 export const ATTENDANCE_EXPORT_HEADER = ['근무일', '요일', '이름', '구분', '상태', '예정 출근', '예정 퇴근', '실제 출근', '실제 퇴근', '휴게(분)', '인정 근무시간', '인정 근무(분)', '지각(분)', '조퇴(분)', '인증 방식', '수정 사유', '시간 기준'];
 
-export function attendanceExportRow(r: AttendanceHistoryRow): Array<string | number> {
+// staffLabel: 직접 등록한 사람의 구분. 단기 근무지는 전원이 단기 근무자라 '단기 근무'로 쓴다(세무에서 일용·상용을 나눌 때 '직원'으로 묶였다)
+export function attendanceExportRow(r: AttendanceHistoryRow, staffLabel = '직원'): Array<string | number> {
   const pending = Boolean(r.recognitionPending);
   return [
-    r.workDate, weekdayOf(r.workDate), r.name, r.kind === 'staff' ? '직원' : '공고 근무',
+    r.workDate, weekdayOf(r.workDate), r.name, r.kind === 'staff' ? staffLabel : '공고 근무',
     ATTENDANCE_STATUS_LABEL[r.status] ?? r.status,
     r.scheduledStart?.slice(0, 5) ?? '', r.scheduledEnd?.slice(0, 5) ?? '',
     kstClock(r.checkInAt, r.workDate), kstClock(r.checkOutAt, r.workDate),
@@ -54,8 +55,8 @@ export function attendanceExportRow(r: AttendanceHistoryRow): Array<string | num
 }
 
 // 엑셀에서 1일부터 읽히게 날짜 오름차순 → 이름순
-export function attendanceExportRows(rows: AttendanceHistoryRow[]): Array<Array<string | number>> {
-  return [...rows].sort((a, b) => a.workDate.localeCompare(b.workDate) || a.name.localeCompare(b.name, 'ko')).map(attendanceExportRow);
+export function attendanceExportRows(rows: AttendanceHistoryRow[], staffLabel = '직원'): Array<Array<string | number>> {
+  return [...rows].sort((a, b) => a.workDate.localeCompare(b.workDate) || a.name.localeCompare(b.name, 'ko')).map((row) => attendanceExportRow(row, staffLabel));
 }
 
 export type StaffMonthStats = { attendDays: number; lateCount: number; earlyLeaveCount: number; absentDays: number };

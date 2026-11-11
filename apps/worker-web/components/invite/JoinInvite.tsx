@@ -309,7 +309,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
         </>) : <>
           <button type="button" onClick={() => void claimInvite()} className="mt-5 [@media(max-height:700px)]:mt-4 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">
             {/* 카카오톡 안에서는 로그인이 안 돼 버튼이 바깥 브라우저부터 연다(startKakaoLogin) — 라벨도 그렇게 */}
-            {!signedIn ? (inKakaoTalk ? `${kakaoIos ? '사파리' : '크롬'}로 열고 수락하기` : '카카오로 가입하고 초대 수락') : !hasWorker ? '인적사항 등록하고 초대 수락' : '초대 수락하고 연결'}
+            {!signedIn ? (inKakaoTalk ? `${kakaoIos ? '사파리로' : '크롬으로'} 열고 수락하기` : '카카오로 가입하고 초대 수락') : !hasWorker ? '인적사항 등록하고 초대 수락' : '초대 수락하고 연결'}
           </button>
           <p className="mt-2 text-center text-[11px] leading-5 text-sub">{!signedIn && inKakaoTalk ? `카카오톡 안에서는 로그인이 안 돼서 ${kakaoIos ? '사파리' : '크롬'}에서 이어서 해요 · 전화번호 없이 카카오 로그인으로만 연결` : '앱 설치 없이 바로 수락돼요 · 전화번호 없이 카카오 로그인으로만 연결'}</p>
         </>}
@@ -322,7 +322,7 @@ export function JoinInvite({ variant }: { variant: JoinVariant }) {
       {status === 'error' && demoOnly && <Link href={isGig ? '/gig/demo' : '/demo'} className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">시연으로 둘러보기</Link>}
       {status === 'error' && !demoBlocked && !demoOnly && (canRetry ? <div className="mt-5 space-y-2"><button type="button" onClick={()=>setRetry(value=>value+1)} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">초대 다시 불러오기</button><Link href={routes.home} className="flex min-h-11 items-center justify-center font-bold text-primary">내 근무에서 연결 결과 확인</Link></div> : !signedIn
         // 로그인 전: '내 근무 열기'는 로그인 화면도 아닌 근무 찾기 첫 화면으로 떨어졌다 — 여기서 바로 로그인하게 한다
-        ? <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 로그인만 하면 {isGig ? '내 근무가' : '내 직장이'} 바로 열려요. 처음이라면 새 초대 링크를 받은 뒤 그 링크를 열어 주세요.</p><button type="button" onClick={loginToMyWork} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">{inKakaoTalk ? `${kakaoIos ? '사파리' : '크롬'}로 열고 로그인하기` : '이미 수락했어요 · 카카오로 로그인'}</button></div>
+        ? <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 로그인만 하면 {isGig ? '내 근무가' : '내 직장이'} 바로 열려요. 처음이라면 새 초대 링크를 받은 뒤 그 링크를 열어 주세요.</p><button type="button" onClick={loginToMyWork} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">{inKakaoTalk ? `${kakaoIos ? '사파리로' : '크롬으로'} 열고 로그인하기` : '이미 수락했어요 · 카카오로 로그인'}</button></div>
         : <div className="mt-5 space-y-2"><p className="rounded-xl bg-bg p-3 text-[12px] leading-5 text-sub">이미 수락한 초대라면 아래에서 내 근무를 열어 주세요. 링크가 만료됐다면 {isGig ? '사장님께' : '근무지 관리자에게'} 새 초대 링크나 QR을 요청해 주세요.</p><Link href={routes.home} className="flex min-h-12 w-full items-center justify-center rounded-xl bg-primary font-bold text-white">내 근무 열기</Link></div>)}
     </section>
     {demoEnd && <DemoEndSheet kind={demoEnd} intent="leave" onClose={() => setDemoEnd(null)} />}

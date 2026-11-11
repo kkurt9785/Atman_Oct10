@@ -8,6 +8,7 @@ import { adminClient } from '../supabase';
 import { getStaffCapacity, requireGigBetaActive, requireStaffCapacity } from '../billing-gates';
 import { GIG_INVITE_BATCH_MAX } from '../gig-invite-lines';
 import { todayKST } from '../date';
+import { countWorkDays } from '../gig-period';
 import { hm, planStaffTimeSync, timeSyncNotice } from '../gig-time-sync';
 
 // 근무 건(프로젝트) 관리. 사람이 아니라 근무를 먼저 만들고 여러 명을 넣는다. 급여는 근무 건의 시급이 기준이다.
@@ -38,6 +39,7 @@ function readSchedule(form: FormData) {
   if (!Number.isInteger(headcount) || headcount < 1 || headcount > 200) throw new Error('필요 인원을 확인해 주세요.');
   if (startsOn === endsOn) weekdays = [new Date(`${startsOn}T00:00:00Z`).getUTCDay() || 7];
   if (weekdays.length === 0) throw new Error('반복 요일을 하나 이상 선택해 주세요.');
+  if (countWorkDays(startsOn, endsOn, weekdays) === 0) throw new Error('고른 요일이 근무 기간 안에 없어요. 기간에 든 요일을 골라 주세요.');
   return { title, starts_on: startsOn, ends_on: endsOn, work_weekdays: [...new Set(weekdays)].sort(), start_time: startTime, end_time: endTime, break_minutes: breakMinutes, pay_basis: 'hourly', pay_rate: payRate, headcount, note };
 }
 

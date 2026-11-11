@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase-browser';
 import { DemoShareCard } from './DemoShareCard';
 import { Wordmark } from '@/components/BrandMark';
 import { AdminInstallButton } from '@/components/AdminInstallButton';
-import { PLAN_INTRO, TRIAL_DAYS } from '@/lib/plan-intro';
+import { GIG_BETA_INTRO, PLAN_INTRO, TRIAL_DAYS } from '@/lib/plan-intro';
 
 // 카카오톡 인앱 브라우저는 OAuth 리다이렉트와 홈 화면 설치를 둘 다 막는다.
 // worker-web의 startKakaoLogin과 같은 방식으로 외부 브라우저로 먼저 내보낸다.
@@ -197,6 +197,7 @@ function LoginInner() {
             ))}
           </div>
           <p className="mt-2 px-1 text-[0.6875rem] leading-4 text-sub">체험 뒤 월 요금이에요(부가세 별도). 치과의원은 병원·의원 요금이에요.</p>
+          <p className="mt-1.5 rounded-xl bg-primary/5 px-2.5 py-2 text-[0.6875rem] font-semibold leading-4 text-ink">{GIG_BETA_INTRO}</p>
         </section>
 
         {showDemoLogin && (

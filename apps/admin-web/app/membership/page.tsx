@@ -88,7 +88,7 @@ export default async function MembershipPage({searchParams}:{searchParams:Promis
     {isGigworker && <><UsagePricing/><h2 className="mb-3 px-1 text-title font-extrabold">현재 적용되는 요금·이용 조건</h2></>}
     <PlanCards plans={plans} currentPlanCode={subscription?.plan_code}/>
     <StaffCapacitySummary facilityId={context.facilityId}/>
-    {canPay&&<PlanContact plans={plans} facilityId={context.facilityId}/>}
+    {canPay&&<PlanContact plans={plans} facilityId={context.facilityId} gig={isGigworker}/>}
     {!isGigworker && canPay && subscription?.plan_code && subscription.plan_code !== 'free' && <section className="mb-7 rounded-2xl border border-primary/20 bg-white p-4 shadow-card">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div><p className="text-body font-extrabold text-ink">이번 달 공고가 더 필요한가요?</p><p className="mt-1 text-[0.8125rem] leading-5 text-sub">요금제를 바로 바꾸지 않고 필요한 만큼 1건씩 추가할 수 있어요.</p></div>

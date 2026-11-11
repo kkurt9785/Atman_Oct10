@@ -114,7 +114,7 @@ export function AttendanceDashboard({staff,matched,upcoming,failures,arrivalAler
           <div className="mt-3 rounded-xl bg-bg px-3 py-2 text-label text-sub">
             <div>출근 <b className="text-ink">{fmt(person.checkInAt)}</b><span className="mx-2">→</span>퇴근 <b className="text-ink">{fmt(person.checkOutAt)}</b></div>
             {person.method&&<div className="mt-1 text-[0.6875rem]">인증 {AUTH[person.method]??person.method}{person.distance!=null?` · 사업장에서 ${person.distance}m`:''}</div>}
-            {person.status==='completed'&&<div className="mt-1 text-[0.6875rem] font-bold text-success">근태 확정 · 급여 검토 가능</div>}
+            {person.status==='completed'&&(isGigworker?<Link href="/gig-pay" className="mt-1 inline-flex min-h-8 items-center text-[0.6875rem] font-bold text-success">근태 확정 · 지급 관리에서 지급할 수 있어요 →</Link>:<div className="mt-1 text-[0.6875rem] font-bold text-success">근태 확정 · 급여 검토 가능</div>)}
             {staffRow&&(staffRow.lateMinutes>0||staffRow.earlyLeaveMinutes>0)&&<div className="mt-1 text-[0.6875rem] text-warn">{staffRow.lateMinutes>0?`지각 ${staffRow.lateMinutes}분`:''}{staffRow.earlyLeaveMinutes>0?` · 조퇴 ${staffRow.earlyLeaveMinutes}분`:''}</div>}
           </div>
           {/* 조기 퇴근 승인·반려 버튼은 위 '확인 필요' 카드 한 곳에만 둔다 — 같은 버튼이 두 군데 있었다 */}

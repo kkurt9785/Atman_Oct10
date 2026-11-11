@@ -56,16 +56,22 @@ export default function GigSettlementPage() {
   const [bankError, setBankError] = useState('');
   const [sharing, setSharing] = useState(false);
   const [shareError, setShareError] = useState('');
+  // 이미 전달한 계좌를 바꾸면 새 계좌는 전달 전 상태가 된다 — 조용히 버튼만 바뀌어 지급일에 계좌가 없었다(2026-11-11 단기 근로 QA)
+  const [reshareNeeded, setReshareNeeded] = useState(false);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setLoadError('');
     void (async () => {
+    // 로그인이 풀렸으면 오류가 아니라 로그인 버튼이 있는 초대 근무 첫 화면으로 보낸다 — '다시 불러오기'만 있는 화면에 갇혔다(2026-11-11 단기 근로 QA)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!active) return;
+    if (!session) { window.location.replace('/gig'); return; }
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (!active) return;
     if (authError) throw new Error('로그인 상태를 확인하지 못했어요. 다시 시도해 주세요.');
-    if (!user) { window.location.replace('/'); return; }
+    if (!user) { window.location.replace('/gig'); return; }
     const [{ data: worker, error: workerError }, { data: staffRows, error: staffError }] = await Promise.all([
       supabase.from('workers').select('id,name').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
       supabase.from('facility_staff').select('id,name,status,worker_kind,pay_basis,pay_rate,default_break_minutes,default_start_time,default_end_time,work_weekdays,contract_start,contract_end,terms_snapshot,terms_snapshot_at,facilities!facility_id(id,name)').order('created_at', { ascending: false }),
@@ -161,6 +167,7 @@ export default function GigSettlementPage() {
 
   async function saveBank(value: BankAccountValue) {
     setBankSaving(true); setBankError(''); setShareError('');
+    const hadShare = Boolean(currentShare);
     const { error } = await supabase.rpc('upsert_my_bank_account', {
       p_bank_code: value.bankCode, p_bank_name: value.bankName,
       p_account_number: value.accountNumber, p_account_holder_name: workerName,
@@ -169,6 +176,7 @@ export default function GigSettlementPage() {
     const { data } = await supabase.from('worker_bank_accounts').select('id,bank_name,account_number_last4')
       .eq('is_primary', true).is('deleted_at', null).maybeSingle();
     setBank((data as Bank | null) ?? null);
+    setReshareNeeded(hadShare);
     setBankOpen(false);
     setBankSaving(false);
   }
@@ -234,7 +242,7 @@ export default function GigSettlementPage() {
 
           {bank && !bankOpen && (currentShare
             ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3"><p className="text-[13px] font-extrabold text-emerald-700">{facility?.name}에 전달됨 ✓</p><p className="mt-1 text-[11px] leading-4 text-emerald-700/80">이 근무지의 지급 권한이 있는 담당자만 계좌를 확인할 수 있어요.</p></div>
-            : <button type="button" onClick={() => void shareBank()} disabled={sharing} className="mt-4 h-12 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60">{sharing ? '안전하게 전달 중...' : `${facility?.name}에 계좌 전달`}</button>)}
+            : <>{reshareNeeded && <p role="status" className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-700">계좌를 바꿨어요. 새 계좌는 아직 {facility?.name}에 전달되지 않았어요. 아래 버튼으로 다시 전달해 주세요.</p>}<button type="button" onClick={() => void shareBank()} disabled={sharing} className={`${reshareNeeded ? 'mt-2' : 'mt-4'} h-12 w-full rounded-xl bg-primary text-[14px] font-extrabold text-white disabled:opacity-60`}>{sharing ? '안전하게 전달 중...' : `${facility?.name}에 계좌 전달`}</button></>)}
           {shareError && <p role="alert" className="mt-2 text-[12px] font-bold text-red-600">{shareError}</p>}
         </section>
 

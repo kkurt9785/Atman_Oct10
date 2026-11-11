@@ -4,6 +4,7 @@ import { getWorkforcePool } from '@/lib/db/workforce';
 import { hours, formatShortDate } from '@/lib/format';
 import { getAdminContext } from '@/lib/admin-auth';
 import { getShop } from '@/lib/db/shop';
+import { redirect } from 'next/navigation';
 import { ManageBackLink } from '@/components/ManageBackLink';
 import { facilityTypeLabel } from '@/lib/facility-label';
 import { ROLE_FULL_LABEL } from '@/lib/constants';
@@ -24,6 +25,7 @@ export default async function WorkforcePage() {
     return <main className="px-4"><Card className="mt-8 py-10 text-center"><p className="text-body font-bold">인력 운영 권한이 필요해요</p><p className="text-label text-sub mt-2">사업장 소유자 또는 운영 담당자에게 요청해 주세요.</p></Card></main>;
   }
   const [poolResult,shop] = await Promise.all([getWorkforcePool().then(members => ({ members, failed: false })).catch(() => ({ members: [], failed: true })),getShop()]);
+  if (shop?.mode === 'gig') redirect('/');
   if (poolResult.failed) return <main className="px-4 pb-28"><ManageBackLink href="/more/operations" label="근무 운영" /><Card className="mt-5 py-8 text-center"><h1 className="text-title font-bold">근무 이력을 불러오지 못했어요</h1><p role="alert" className="mt-2 text-label text-sub">기존 근무 이력은 변경되지 않았어요. 잠시 후 다시 확인해 주세요.</p><a href="/workforce" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 font-bold text-white">다시 불러오기</a></Card></main>;
   const members = poolResult.members;
   const facilityWord=facilityTypeLabel(shop?.facilityType);

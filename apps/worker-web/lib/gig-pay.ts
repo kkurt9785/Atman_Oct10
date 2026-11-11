@@ -11,13 +11,14 @@ export const hoursText = (minutes: number) => `${Math.floor(minutes / 60)}시간
 export const periodText = (start: string, end: string) => (start === end ? start : `${start} ~ ${end}`);
 
 // 실제 기록한 휴게만 차감한다. 양쪽 앱과 지급 계산의 공용 규칙.
+import { payoutDateKST } from './shared/gig-pay/calculation';
 export { effectiveBreakMinutes, summarizeAttendancePeriod, payoutDateKST } from './shared/gig-pay/calculation';
 
 export function statementText(s: PayoutStatement) {
   const basis = s.payBasis === 'hourly' ? `시급 ${won(s.payRate)} × ${hoursText(s.workedMinutes)}`
     : s.payBasis === 'daily' ? `일급 ${won(s.payRate)} × ${s.workedDays}일`
     : `월 정액 ${won(s.payRate)}`;
-  const when = s.status === 'paid' ? `${(s.paidAt ?? s.payAt ?? '').slice(0, 10)} 지급 완료` : `${s.payAt ?? ''} 지급 예정`;
+  const when = s.status === 'paid' ? `${payoutDateKST(s.paidAt, s.payAt)} 지급 완료` : `${s.payAt ?? ''} 지급 예정`;
   return [
     `[잇닿 지급 명세] ${s.facilityName}`,
     `근무자: ${s.workerName}`,

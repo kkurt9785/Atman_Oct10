@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { GigActionForm } from './GigActionForm';
 import type { GigProject } from '@/lib/db/gig-projects';
+import { countWorkDays, defaultWeekdaysFor } from '@/lib/gig-period';
 import { minimumHourlyWage, hourlyWageError, lastWorkDate, calcBreakMinutes, weeklyHolidayPay } from '@/lib/pay';
 
 const inputClass = 'mt-2 h-12 w-full rounded-xl border border-line bg-white px-3 text-body text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary/10';
@@ -25,6 +26,9 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
   const [startsOn, setStartsOn] = useState(project?.startsOn ?? todayKST());
   const [endsOn, setEndsOn] = useState(project?.endsOn ?? todayKST());
   const [weekdays, setWeekdays] = useState<number[]>(project?.workWeekdays ?? [1, 2, 3, 4, 5]);
+  // 요일을 직접 고르기 전에는 기간에 맞춰 따라간다 — 토·일 행사를 넣어도 월~금이 그대로라 근무일이 0일이 됐다(2026-11-11 단기 근로 QA)
+  const [weekdaysTouched, setWeekdaysTouched] = useState(Boolean(project));
+  const changePeriod = (nextStart: string, nextEnd: string) => { setStartsOn(nextStart); setEndsOn(nextEnd); if (!weekdaysTouched) setWeekdays((current) => defaultWeekdaysFor(nextStart, nextEnd, current)); };
   const [startTime, setStartTime] = useState(project?.startTime.slice(0, 5) ?? '10:00');
   const [endTime, setEndTime] = useState(project?.endTime.slice(0, 5) ?? '18:00');
   // 휴게는 근무시간에 맞춰 자동(근무 구간 4h↑ 30분·8h30m↑ 60분, 법정 최소 — 공용 calcBreakMinutes) — 사장님이 직접 고르면 그 값을 쓴다
@@ -42,11 +46,11 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
   const wageError = payRate ? hourlyWageError(rate, startsOn, lastDate) : null;
   const people = Math.max(1, Number(headcount) || 1);
   const dailyPay = Math.round((workMinutes / 60) * rate);
-  const daysPerWeek = scheduleMode === 'single' ? 1 : weekdays.length;
+  // 기간·반복 근무의 총 근무일(시작~종료일 중 고른 요일). 7일 팝업처럼 기간 전체 인건비를 미리 보게 한다.
+  const workDays = scheduleMode === 'single' ? 1 : countWorkDays(startsOn, endsOn, weekdays);
+  const daysPerWeek = scheduleMode === 'single' ? 1 : Math.min(weekdays.length, workDays);
   const weeklyMinutes = workMinutes * daysPerWeek;
   const holiday = scheduleMode === 'repeat' ? weeklyHolidayPay(weeklyMinutes, rate) : 0;
-  // 기간·반복 근무의 총 근무일(시작~종료일 중 고른 요일). 7일 팝업처럼 기간 전체 인건비를 미리 보게 한다.
-  const workDays = scheduleMode === 'single' ? 1 : (() => { let n = 0; const end = Date.parse(`${endsOn}T00:00:00Z`); for (let t = Date.parse(`${startsOn}T00:00:00Z`); Number.isFinite(t) && t <= end && n < 400; t += 86400000) { const d = new Date(t).getUTCDay() || 7; if (weekdays.includes(d)) n += 1; } return n; })();
 
   return <GigActionForm kind={mode === 'create' ? 'create' : 'update'} values={project ? { project_id: project.id } : undefined}
     successMessage={mode === 'edit' ? '근무 건을 수정했어요. 참여자 일정도 함께 바뀌었어요.' : undefined}
@@ -57,18 +61,18 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
       <h3 className="text-[0.8125rem] font-extrabold text-ink">언제 하나요?</h3>
       <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="근무 일정 방식">
         <button type="button" onClick={() => { setScheduleMode('single'); setEndsOn(startsOn); }} aria-pressed={scheduleMode === 'single'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode === 'single' ? 'bg-primary text-white' : 'border border-line bg-white text-sub'}`}>하루 · 단기 행사</button>
-        <button type="button" onClick={() => setScheduleMode('repeat')} aria-pressed={scheduleMode === 'repeat'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode === 'repeat' ? 'bg-primary text-white' : 'border border-line bg-white text-sub'}`}>기간 · 반복 근무</button>
+        <button type="button" onClick={() => { setScheduleMode('repeat'); if (!weekdaysTouched) setWeekdays((current) => defaultWeekdaysFor(startsOn, endsOn, current)); }} aria-pressed={scheduleMode === 'repeat'} className={`h-11 rounded-xl text-[0.8125rem] font-extrabold ${scheduleMode === 'repeat' ? 'bg-primary text-white' : 'border border-line bg-white text-sub'}`}>기간 · 반복 근무</button>
       </div>
       {scheduleMode === 'single' ? <div className="mt-4">
         <label className="text-label font-medium text-sub">근무 날짜<input name="starts_on" type="date" required value={startsOn} onChange={(event) => { setStartsOn(event.target.value); setEndsOn(event.target.value); }} className={inputClass} /></label>
         <input type="hidden" name="ends_on" value={startsOn} />
       </div> : <>
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <label className="text-label font-medium text-sub">시작일<input name="starts_on" type="date" required value={startsOn} onChange={(event) => setStartsOn(event.target.value)} className={inputClass} /></label>
-          <label className="text-label font-medium text-sub">종료일<input name="ends_on" type="date" required value={endsOn} min={startsOn} onChange={(event) => setEndsOn(event.target.value)} className={inputClass} /></label>
+          <label className="text-label font-medium text-sub">시작일<input name="starts_on" type="date" required value={startsOn} onChange={(event) => changePeriod(event.target.value, endsOn < event.target.value ? event.target.value : endsOn)} className={inputClass} /></label>
+          <label className="text-label font-medium text-sub">종료일<input name="ends_on" type="date" required value={endsOn} min={startsOn} onChange={(event) => changePeriod(startsOn, event.target.value)} className={inputClass} /></label>
         </div>
         <fieldset className="mt-4"><legend className="mb-2 text-label font-medium text-sub">반복 요일</legend>
-          <div className="grid grid-cols-7 gap-1.5">{WEEKDAYS.map(([day, label]) => <label key={day} className={`flex h-10 cursor-pointer items-center justify-center rounded-xl text-[0.8125rem] font-bold ${weekdays.includes(day) ? 'bg-ink text-white' : 'border border-line bg-white text-sub'}`}><input type="checkbox" name="work_weekdays" value={day} checked={weekdays.includes(day)} onChange={(event) => setWeekdays((current) => event.target.checked ? [...current, day] : current.filter((item) => item !== day))} className="sr-only" />{label}</label>)}</div>
+          <div className="grid grid-cols-7 gap-1.5">{WEEKDAYS.map(([day, label]) => <label key={day} className={`flex h-10 cursor-pointer items-center justify-center rounded-xl text-[0.8125rem] font-bold ${weekdays.includes(day) ? 'bg-ink text-white' : 'border border-line bg-white text-sub'}`}><input type="checkbox" name="work_weekdays" value={day} checked={weekdays.includes(day)} onChange={(event) => { setWeekdaysTouched(true); setWeekdays((current) => event.target.checked ? [...current, day] : current.filter((item) => item !== day)); }} className="sr-only" />{label}</label>)}</div>
         </fieldset>
       </>}
       <div className="mt-4 grid grid-cols-2 gap-3">
@@ -84,8 +88,9 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
       <div className="col-span-2 rounded-xl bg-bg p-3 text-[0.75rem] leading-5 text-sub" aria-live="polite">
         {wageError && <p role="alert" className="font-bold text-red-600">{wageError}</p>}
         <p>하루 {hoursText(workMinutes)} 근무{effectiveBreak > 0 ? ` (휴게 ${effectiveBreak}분 뺀 시간)` : ''}{rate > 0 ? <> · 1인 <b className="text-ink">{won(dailyPay)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * people)}</b></> : null}</> : ' · 시급을 넣으면 하루 금액이 보여요'}</p>
-        {scheduleMode === 'repeat' && rate > 0 && workDays > 1 && <p className="mt-1">기간 중 {workDays}일 근무 · 1인 <b className="text-ink">{won(dailyPay * workDays)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * workDays * people)}</b></> : null} (주휴수당 별도)</p>}
-        {scheduleMode === 'repeat' && rate > 0 && (holiday > 0
+        {scheduleMode === 'repeat' && workDays === 0 && <p role="alert" className="mt-1 font-bold text-red-600">고른 요일이 이 기간 안에 없어요. 기간에 든 요일을 골라 주세요.</p>}
+        {scheduleMode === 'repeat' && workDays > 0 && <p className="mt-1">기간 중 <b className="text-ink">{workDays}일</b> 근무{rate > 0 ? <> · 1인 <b className="text-ink">{won(dailyPay * workDays)}</b>{people > 1 ? <> · {people}명 <b className="text-ink">{won(dailyPay * workDays * people)}</b></> : null} (주휴수당 별도)</> : null}</p>}
+        {scheduleMode === 'repeat' && rate > 0 && workDays > 0 && (holiday > 0
           ? <p className="mt-1">주 {daysPerWeek}일 {hoursText(weeklyMinutes)} → 개근한 주는 <b className="text-ink">주휴수당 약 {won(holiday)}</b>이 별도로 생겨요 (주 15시간 이상, 1인 기준).</p>
           : <p className="mt-1">주 {daysPerWeek}일 {hoursText(weeklyMinutes)} · 주 15시간 미만이라 주휴수당은 없어요.</p>)}
         <p className="mt-1 text-tertiary">야간(22~06시)·연장 가산은 5인 이상 사업장에만 적용돼요. 금액 확정은 세무사·노무사와 확인해 주세요.</p>
@@ -93,6 +98,6 @@ export function GigProjectForm({ mode, project }: { mode: 'create' | 'edit'; pro
       <label className="col-span-2 text-label font-medium text-sub">메모 <span className="font-normal text-tertiary">· 선택, 사장님만 봐요</span><input name="note" maxLength={500} defaultValue={project?.note ?? ''} className={inputClass} placeholder="예: 행사장 2층 안내데스크 집합" /></label>
     </section>
 
-    <button className="mt-6 h-12 w-full rounded-xl bg-ink font-bold text-white disabled:opacity-40">{mode === 'create' ? '근무 만들기 → 근무자 잇기' : '수정 저장'}</button>
+    <button disabled={workDays === 0} className="mt-6 h-12 w-full rounded-xl bg-ink font-bold text-white disabled:opacity-40">{mode === 'create' ? '근무 만들기 → 근무자 잇기' : '수정 저장'}</button>
   </GigActionForm>;
 }

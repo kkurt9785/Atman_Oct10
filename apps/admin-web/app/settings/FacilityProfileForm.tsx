@@ -56,6 +56,8 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
     });
   }
   const isPharmacy=facilityType==='pharmacy';
+  // 단기 근무지에는 병상·진료과·전자차트가 없다
+  const isGig=facilityType==='gigworker';
   const facilityWord=isPharmacy?'약국':facilityType==='care_hospital'?'요양병원':facilityType==='gigworker'?'현장':facilityType==='small_hospital'?'병원·의원':'병원';
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -94,11 +96,11 @@ export function FacilityProfileForm({ profile,facilityType,part }: { profile: Fa
             className="w-full border border-line rounded-xl px-4 py-3 text-[0.9375rem] outline-none focus:border-primary"
           />
           <p className="mt-1.5 text-[0.6875rem] leading-5 text-tertiary">
-            상시 근무가 필요한 전체 인원 기준이에요. 등록 직원 수와 비교해 부족 인원과 요금제 한도를 계산해요.
+            {isGig?'한 번에 함께 일하는 근무자 수예요. 비워 둬도 돼요.':'상시 근무가 필요한 전체 인원 기준이에요. 등록 직원 수와 비교해 부족 인원과 요금제 한도를 계산해요.'}
           </p>
         </div>
 
-        {!isPharmacy&&<><div className="mb-4">
+        {!isPharmacy&&!isGig&&<><div className="mb-4">
           <label className="block text-[0.8125rem] text-sub mb-1.5">병상 수 <span className="text-tertiary">· 입원실이 없으면 비워 두세요</span></label>
           <input
             type="number"

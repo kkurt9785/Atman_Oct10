@@ -6,8 +6,8 @@ import { supabase } from '@/lib/supabase-browser';
 const REASONS = ['폐업·운영 종료', '다른 서비스로 바꿔요', '쓸 일이 줄었어요', '기타'];
 
 // 설정 › 계정·사업장 종료. 되돌릴 수 없는 일이라 사업장 이름을 직접 입력하게 한다.
-export function AccountClosureSection({ facilityName, facilityWord, canClose, ownsActive, isDemo }: {
-  facilityName: string; facilityWord: string; canClose: boolean; ownsActive: boolean; isDemo: boolean;
+export function AccountClosureSection({ facilityName, facilityWord, canClose, ownsActive, isDemo, isGig = false }: {
+  facilityName: string; facilityWord: string; canClose: boolean; ownsActive: boolean; isDemo: boolean; isGig?: boolean;
 }) {
   const [typed, setTyped] = useState('');
   const [reason, setReason] = useState(REASONS[0]);
@@ -54,8 +54,8 @@ export function AccountClosureSection({ facilityName, facilityWord, canClose, ow
       <p className="text-label font-bold text-primary">{facilityWord} 닫기</p>
       <h2 className="mt-1 text-title font-extrabold text-ink">{facilityName}</h2>
       <ul className="mt-3 space-y-1 text-label leading-5 text-sub">
-        <li>· 열린 공고와 보낸 초대가 취소되고, 지원자·근무자에게 알림이 가요.</li>
-        <li>· 직원·근무자 연결이 끝나요. 근태·지급 기록은 3년간 보관돼요(임금대장).</li>
+        <li>· {isGig ? '보낸 초대가 취소되고, 근무자에게 알림이 가요.' : '열린 공고와 보낸 초대가 취소되고, 지원자·근무자에게 알림이 가요.'}</li>
+        <li>· {isGig ? '근무자' : '직원·근무자'} 연결이 끝나요. 근태·지급 기록은 3년간 보관돼요(임금대장).</li>
         <li>· 확정된 근무나 지급 대기가 남아 있으면 먼저 정리해야 닫을 수 있어요.</li>
         <li>· 되돌릴 수 없어요. 다시 쓰려면 새로 등록해요.</li>
       </ul>

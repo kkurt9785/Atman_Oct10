@@ -30,7 +30,8 @@ export function BankAccount({ onNext, onSkip, submitting, submitError, compact =
     <div className={compact ? 'flex flex-col' : 'flex flex-col min-h-screen px-6 pt-14 pb-10'}>
       {!compact && <p className="text-[13px] font-medium text-tertiary mb-2">가입 정보 마지막</p>}
       {!compact && <h1 className="text-[28px] font-bold text-ink letter-tight mb-2">임금 지급 계좌</h1>}
-      {!compact && <p className="text-[15px] text-sub mb-8">미리 안전하게 저장해 두고, 근무 완료 뒤 내가 전달할 때만 해당 관리자에게 보여요.</p>}
+      {/* 초대 가입에서는 저장하면 수락과 함께 바로 전달된다 — 아래 안내와 반대되는 말을 같이 보여 줬다(2026-11-11 단기 근로 QA) */}
+      {!compact && <p className="text-[15px] text-sub mb-8">{shareOnInviteAccept ? '저장하면 초대 수락과 함께 이 근무지의 지급 담당자에게 전달돼요.' : '미리 안전하게 저장해 두고, 근무 완료 뒤 내가 전달할 때만 해당 관리자에게 보여요.'}</p>}
       <div className="relative mb-4">
         <label id="bank-label" className="block text-[13px] font-bold text-ink mb-2">은행</label>
         <button type="button" aria-labelledby="bank-label bank-value" aria-haspopup="listbox" aria-expanded={showDropdown} aria-controls="bank-options" onClick={() => setShowDropdown((value) => !value)} className="w-full h-[52px] flex items-center justify-between px-4 bg-white rounded-card border border-line">
@@ -47,7 +48,7 @@ export function BankAccount({ onNext, onSkip, submitting, submitError, compact =
       </div>
       <div className="mt-auto">
         {submitError && <p role="alert" className="text-[13px] font-bold text-red-600 text-center mb-3">{submitError}</p>}
-        <Button onClick={() => selected && onNext({ bankCode: selected.code, bankName: selected.name, accountNumber: account })} disabled={!selected || account.length < 8 || submitting}>{submitting ? '처리 중...' : shareOnInviteAccept ? '계좌 저장하고 초대로 돌아가기' : '등록하고 시작하기'}</Button>
+        <Button onClick={() => selected && onNext({ bankCode: selected.code, bankName: selected.name, accountNumber: account })} disabled={!selected || account.length < 8 || submitting}>{submitting ? '처리 중...' : shareOnInviteAccept ? '계좌 저장하고 초대로 돌아가기' : compact ? '계좌 저장하기' : '등록하고 시작하기'}</Button>
         {onSkip && (
           <button type="button" onClick={onSkip} disabled={submitting} className="mt-3 h-11 w-full text-[14px] font-bold text-sub disabled:opacity-50">
             {skipLabel}

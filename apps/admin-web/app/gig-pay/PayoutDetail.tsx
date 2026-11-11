@@ -1,6 +1,6 @@
 'use client';
 import { useId, useState } from 'react';
-import { hoursText, periodText, sharePayoutStatement, won, type PayoutStatement } from '@/lib/pay-statement';
+import { hoursText, payoutDateKST, periodText, sharePayoutStatement, won, type PayoutStatement } from '@/lib/pay-statement';
 
 // 지급 한 건 — 누르면 '왜 이 금액인지'(시간 × 시급 − 공제)를 펼치고 명세를 공유한다
 export function PayoutDetail({ statement, right }: { statement: PayoutStatement; right?: React.ReactNode }) {
@@ -27,7 +27,7 @@ export function PayoutDetail({ statement, right }: { statement: PayoutStatement;
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">세전</dt><dd className="font-bold">{won(s.amount)}</dd></div>
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">공제</dt><dd className={`font-bold ${s.withholdingAmount > 0 ? 'text-red-600' : ''}`}>{s.withholdingAmount > 0 ? `사업소득 3.3% −${won(s.withholdingAmount)}` : '없음'}</dd></div>
         <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">실지급</dt><dd className="text-[0.9375rem] font-extrabold text-primary">{won(s.netAmount)}</dd></div>
-        <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">{s.status === 'paid' ? '지급일' : '지급 예정일'}</dt><dd className="font-bold">{(s.status === 'paid' ? (s.paidAt ?? s.payAt ?? '') : (s.payAt ?? '')).slice(0, 10) || '-'}</dd></div>
+        <div className="flex justify-between gap-3 py-1.5"><dt className="text-sub">{s.status === 'paid' ? '지급일' : '지급 예정일'}</dt><dd className="font-bold">{(s.status === 'paid' ? payoutDateKST(s.paidAt, s.payAt) : (s.payAt ?? '').slice(0, 10)) || '-'}</dd></div>
       </dl>
       <button type="button" onClick={() => void share()} className="mt-3 h-11 w-full rounded-xl border border-primary/30 bg-white text-[0.8125rem] font-extrabold text-primary active:opacity-80">명세 공유 · 복사</button>
       {notice && <p role="status" className="mt-2 text-center text-[0.75rem] font-bold text-sub">{notice}</p>}

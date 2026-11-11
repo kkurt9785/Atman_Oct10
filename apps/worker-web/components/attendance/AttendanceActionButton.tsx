@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { isLocationAllowed } from '@/lib/consents';
 import { BrandMark } from '@/components/brand/BrandMark';
 import Link from 'next/link';
-import { attendanceLocationHelp, canOfferAttendanceQr } from '@/lib/attendance-feedback';
+import { attendanceFailureText, attendanceLocationHelp, canOfferAttendanceQr } from '@/lib/attendance-feedback';
 import { attendanceHelpDraft } from '@/lib/attendance-window';
 
 export type AttendanceResult={ok:boolean;message?:string;reason?:string;method?:string;distanceM?:number;accuracyM?:number;action?:string;checkInAt?:string;checkOutAt?:string;status?:'approved'|'pending';lateMinutes?:number;earlyLeaveMinutes?:number};
@@ -67,12 +67,12 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
       setResult({ok:false,reason:'LOCATION_CONSENT_REQUIRED',message:mode==='gps_qr'?'이 근무지는 위치와 QR을 함께 확인해요. 위치정보 이용에 동의해야 출퇴근할 수 있어요.':'위치정보 이용 동의가 꺼져 있어 위치로 확인할 수 없어요.'});
       return;
     }
-    if(wantsGps&&!locationOk)setLocationIssue(attendanceLocationHelp(mode,true));
+    if(wantsGps&&!locationOk)setLocationIssue(attendanceLocationHelp(mode,true,isGigButton({prefillHelpDraft,helpHref})));
     // QR을 방금 찍고 들어온 경우(실내라 GPS가 안 잡히는 상황)는 위치를 오래 기다리지 않는다 — gps_qr(둘 다 필수)만 예외
     const gpsTimeout=mode==='gps_qr'?12_000:4_000;
     if(needsGps){try{coords=(await position(gpsTimeout)).coords;}catch(error){
       const code=(error as GeolocationPositionError)?.code;
-      setLocationIssue(attendanceLocationHelp(mode,code===1));
+      setLocationIssue(attendanceLocationHelp(mode,code===1,isGigButton({prefillHelpDraft,helpHref})));
     }}
     const {data,error}=await supabase.rpc('record_unified_attendance',{
       p_target_type:targetType,p_target_id:targetId,p_action:action,
@@ -118,14 +118,15 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,on
   },[helpHref,prefillHelpDraft,result,action]);
   return <>
     {result&&<div role="status" className={`mt-3 rounded-xl p-3 text-[12px] font-bold ${result.ok?(result.status==='pending'?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'):'bg-red-50 text-red-600'}`}>
-      <p>{result.ok?(action==='check_out'&&result.status==='pending'?'조기 퇴근 승인을 요청했어요.':action==='check_in'?'출근했어요.':'퇴근했어요. 오늘도 수고 많으셨어요.'):result.message}</p>
-      {result.ok&&(result.lateMinutes??0)>0&&<p className="mt-1 font-medium">지각 {result.lateMinutes}분으로 기록됐어요.</p>}
+      <p>{result.ok?(action==='check_out'&&result.status==='pending'?'조기 퇴근 승인을 요청했어요.':action==='check_in'?'출근했어요.':'퇴근했어요. 오늘도 수고 많으셨어요.'):attendanceFailureText(result.message,gig)}</p>
+      {/* 지각은 출근할 때만 알린다 — 서버가 퇴근 응답에도 '지금 − 예정 출근'을 실어 보내 퇴근 때 "지각 520분"이 떴다(2026-11-11 단기 근로 QA) */}
+      {result.ok&&action==='check_in'&&(result.lateMinutes??0)>0&&<p className="mt-1 font-medium">지각 {result.lateMinutes}분으로 기록됐어요.</p>}
       {result.ok&&result.status!=='pending'&&(result.earlyLeaveMinutes??0)>0&&<p className="mt-1 font-medium">예정보다 {result.earlyLeaveMinutes}분 일찍 퇴근한 것으로 기록됐어요.</p>}
-      {!result.ok&&result.reason==='QR_EXPIRED'&&<p className="mt-1 font-medium">관리자 화면의 새 QR을 다시 찍어 주세요. QR은 화면에서 60초마다 바뀌어요.</p>}
-      {result.ok&&result.status==='pending'&&<p className="mt-1 font-medium">관리자가 승인하면 퇴근 시간과 근무시간이 확정돼요.</p>}
-      {result.ok&&<p className="mt-1 font-medium">{new Date(result.checkOutAt??result.checkInAt??Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'})} · {METHOD[result.method??'']??result.method}{typeof result.distanceM==='number'?` · 사업장에서 ${result.distanceM}m`:''}{typeof result.accuracyM==='number'?` · 위치 오차 ±${Math.round(result.accuracyM)}m`:''}</p>}
+      {!result.ok&&result.reason==='QR_EXPIRED'&&<p className="mt-1 font-medium">{gig?'사장님':'관리자'} 화면의 새 QR을 다시 찍어 주세요. QR은 화면에서 60초마다 바뀌어요.</p>}
+      {result.ok&&result.status==='pending'&&<p className="mt-1 font-medium">{gig?'사장님이':'관리자가'} 승인하면 퇴근 시간과 근무시간이 확정돼요.</p>}
+      {result.ok&&<p className="mt-1 font-medium">{new Date(result.checkOutAt??result.checkInAt??Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'})} · {METHOD[result.method??'']??result.method}{typeof result.distanceM==='number'?` · ${gig?'근무지':'사업장'}에서 ${result.distanceM}m`:''}{typeof result.accuracyM==='number'?` · 위치 오차 ±${Math.round(result.accuracyM)}m`:''}</p>}
       {!result.ok&&locationIssue&&<p className="mt-1 font-medium leading-5">{locationIssue}</p>}
-      {!result.ok&&noConsent&&<p className="mt-1 font-medium leading-5">내 정보 › 개인정보·동의에서 위치정보 이용을 켜고 돌아와 다시 눌러 주세요.</p>}
+      {!result.ok&&noConsent&&<p className="mt-1 font-medium leading-5">{gig?'⚙ 앱 설정':'내 정보'} › 개인정보·동의에서 위치정보 이용을 켜고 돌아와 다시 눌러 주세요.</p>}
       {!result.ok&&<>
         <div className="mt-2.5">{noConsent
           ?<Link href={`${gig?'/gig/settings':'/settings'}#privacy-title`} className={mainAction}>위치 동의 켜기</Link>
@@ -143,7 +144,7 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,on
       </>}
     </div>}
     {locationIssue&&!result&&<p role="alert" className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold leading-5 text-amber-700">{locationIssue}</p>}
-    {qrHelp&&<div className="mt-2 rounded-xl border border-primary/20 bg-white p-3 text-[12px] leading-5 text-sub"><b className="text-ink">사업장 QR로 인증하는 방법</b><ol className="mt-1 list-decimal pl-4"><li>사업장 접수대·관리자 화면의 동적 출퇴근 QR을 확인해요.</li><li>아이폰은 기본 카메라, 갤럭시는 카메라의 QR 스캔으로 비춥니다.</li><li>권한 창이 나오면 카메라 허용을 누르고 열린 잇닿 화면에서 출퇴근 버튼을 누릅니다.</li></ol><button onClick={()=>setQrHelp(false)} className="mt-2 font-bold text-primary">확인</button></div>}
+    {qrHelp&&<div className="mt-2 rounded-xl border border-primary/20 bg-white p-3 text-[12px] leading-5 text-sub"><b className="text-ink">QR로 인증하는 방법</b><ol className="mt-1 list-decimal pl-4"><li>{gig?'사장님 휴대폰(관리자 앱)에 뜬 출퇴근 QR을 보여 달라고 해요.':'사업장 접수대나 관리자 화면에 뜬 출퇴근 QR을 확인해요.'}</li><li>아이폰은 기본 카메라, 갤럭시는 카메라의 QR 스캔으로 비춰요.</li><li>카메라 허용을 물으면 허용하고, 열린 잇닿 화면에서 출퇴근 버튼을 길게 눌러요.</li></ol><button onClick={()=>setQrHelp(false)} className="mt-2 font-bold text-primary">확인</button></div>}
     {!hideModeHint&&<p className={`mt-2 text-center text-[11px] ${dark?'text-white/55':'text-sub'}`}>{mode==='gps_or_qr'?'누르면 사용 가능한 방법을 자동으로 확인해요.':`현재 인증: ${MODE_LABEL[mode]}`}{(mode==='gps'||mode==='gps_qr'||mode==='gps_or_qr')?' 위치는 누른 순간에만 확인해요.':''}</p>}
   </>;
 }
