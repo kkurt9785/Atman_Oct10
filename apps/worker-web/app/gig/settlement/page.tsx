@@ -227,7 +227,8 @@ export default function GigSettlementPage() {
           </div>
           {month.holiday > 0
             ? <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 기록 {hoursText(month.weekMinutes)} 기준 주휴 참고액 <b className="text-ink">약 {won(month.holiday)}</b>. 실제 대상과 금액은 계약한 시간·개근 여부를 사장님과 확인해 주세요. 지급액에 자동 합산하지 않아요.</p>
-            : <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 기록 {hoursText(month.weekMinutes)}. 주휴수당은 실제 기록만으로 판단하지 않으며, 계약한 시간과 개근 여부 확인이 필요해요.</p>}
+            : <p className="mt-2 text-[11px] leading-4 text-sub">이번 주 기록 {hoursText(month.weekMinutes)}. 주휴수당은 실제 기록만으로 판단하지 않으며, 계약한 시간과 개근 여부를 사장님과 확인해 주세요.</p>}
+          <p className="mt-2 text-[11px] leading-4 text-sub">근무시간은 출퇴근 시각을 초까지 계산해요. 화면의 시·분으로 뺀 값과 1분 다를 수 있어요.</p>
           </>}
         </section>
 

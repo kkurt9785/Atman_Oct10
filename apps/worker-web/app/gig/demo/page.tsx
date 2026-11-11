@@ -44,7 +44,7 @@ export default function GigDemoPage() {
 
         <ol className="mt-6 space-y-2 rounded-2xl bg-bg p-4 text-[13px] leading-5 text-sub">
           <li><b className="text-primary">1.</b> 아래 버튼 → 초대 확인 화면에서 <b className="text-ink">초대 수락</b></li>
-          <li><b className="text-primary">2.</b> 오늘 근무 화면에서 <b className="text-ink">출근하기</b>를 길게 눌러 출근</li>
+          <li><b className="text-primary">2.</b> 사장님 화면(관리자 앱 시연 › 출퇴근 인증)의 QR을 카메라로 찍고 <b className="text-ink">출근하기</b>를 길게 눌러 출근</li>
           <li className="text-tertiary">공용 시연이에요. 이미 초대를 수락했다면 근무 화면으로 이어져요. 실제 개인정보는 입력하지 마세요.</li>
         </ol>
 

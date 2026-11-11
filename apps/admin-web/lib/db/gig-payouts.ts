@@ -3,6 +3,7 @@ import { adminClient, userClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { currentWeekRangeKST } from '../pay';
 import { readAllRows } from './read-all-rows';
+import { payReviewFlags } from '../gig-pay-review';
 import { effectiveBreakMinutes, isAttendanceCovered, type PayoutCoverage } from '../shared/gig-pay/calculation';
 export { effectiveBreakMinutes } from '../shared/gig-pay/calculation';
 
@@ -28,6 +29,8 @@ export type GigPayoutStaff = {
   unpaidSince: string; unpaidUntil: string; unpaidMinutes: number; unpaidDays: number; unpaidAmount: number;
   /** 이번 미지급 계산에서 차감한 휴게 합계 */
   unpaidBreakMinutes: number;
+  /** 같은 근무들의 예정 시간 합계(예정이 없는 근무가 섞이면 null) · 예정보다 길게 찍힌 근무 수 · 긴 근무인데 휴게 기록이 없는 근무 수 */
+  unpaidScheduledMinutes: number | null; unpaidOverScheduleRows: number; unpaidNoBreakRows: number;
   /** 이번 주(월~일) 인정 근무 분 — 주휴수당 안내용 */
   weekMinutes: number;
   /** 전날 시작한 야간근무 포함, 아직 퇴근 전인 근무가 있다 */
@@ -44,8 +47,8 @@ export function amountFor(basis: string | null, rate: number | null, minutes: nu
   return 0; // 월급은 근무 건마다 반복 지급할 수 없으므로 별도 급여 검토가 필요하다.
 }
 
-export type WorkSummary = { attendanceIds: string[]; minutes: number; days: number; breakMinutes: number; firstDate: string | null; lastDate: string | null; lastCheckOut: string | null };
-const EMPTY_WORK: WorkSummary = { attendanceIds: [], minutes: 0, days: 0, breakMinutes: 0, firstDate: null, lastDate: null, lastCheckOut: null };
+export type WorkSummary = { attendanceIds: string[]; minutes: number; days: number; breakMinutes: number; firstDate: string | null; lastDate: string | null; lastCheckOut: string | null; scheduledMinutes: number | null; overScheduleRows: number; noBreakRows: number };
+const EMPTY_WORK: WorkSummary = { attendanceIds: [], minutes: 0, days: 0, breakMinutes: 0, firstDate: null, lastDate: null, lastCheckOut: null, scheduledMinutes: 0, overScheduleRows: 0, noBreakRows: 0 };
 
 // 완료된 근무 기록을 묶어 시간·일수를 센다. 서버 액션도 같은 함수로 다시 계산한다 (클라이언트 값은 믿지 않는다).
 // 지급에 실제로 포함한 근태 ID로 제외한다. 중간 지급 취소·늦게 등록한 근태도 다시 계산한다.
@@ -53,11 +56,11 @@ export async function summarizeWork(
   sb: NonNullable<ReturnType<typeof adminClient>>, facilityId: string, staffId: string, since: string, until: string,
   options: { payouts?: PayoutCoverage[]; defaultBreakMinutes?: number | null } = {},
 ): Promise<WorkSummary> {
-  const { data, error } = await readAllRows(() => sb.from('staff_attendances').select('id,work_date,check_in_at,check_out_at,break_minutes,status')
+  const { data, error } = await readAllRows(() => sb.from('staff_attendances').select('id,work_date,check_in_at,check_out_at,break_minutes,status,scheduled_start,scheduled_end')
     .eq('facility_id', facilityId).eq('staff_id', staffId).eq('status', 'completed').gte('work_date', since).lte('work_date', until));
   if (error) throw new Error('근태를 불러오지 못해 지급 계산을 중단했어요. 다시 시도해 주세요.');
   const out: WorkSummary = { ...EMPTY_WORK, attendanceIds: [] }; const days = new Set<string>();
-  for (const row of (data ?? []) as Array<{ id: string; work_date: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null }>) {
+  for (const row of (data ?? []) as Array<{ id: string; work_date: string; check_in_at: string | null; check_out_at: string | null; break_minutes: number | null; scheduled_start: string | null; scheduled_end: string | null }>) {
     if (!row.check_in_at || !row.check_out_at) continue;
     const checkedOut = Date.parse(row.check_out_at);
     if (isAttendanceCovered(row, options.payouts ?? [])) continue;
@@ -65,6 +68,11 @@ export async function summarizeWork(
     const raw = Math.max(0, Math.round((checkedOut - Date.parse(row.check_in_at)) / 60000));
     const brk = effectiveBreakMinutes(raw, row.break_minutes, options.defaultBreakMinutes);
     out.minutes += Math.max(0, raw - brk); out.breakMinutes += brk; days.add(row.work_date);
+    // 금액 규칙은 그대로 — 지급 전에 사장님이 볼 근무만 센다(예정보다 길게 찍힘 · 긴 근무인데 휴게 기록 없음)
+    const review = payReviewFlags(raw, brk, row.scheduled_start, row.scheduled_end);
+    out.scheduledMinutes = out.scheduledMinutes === null || review.scheduled === null ? null : out.scheduledMinutes + review.scheduled;
+    if (review.overSchedule) out.overScheduleRows += 1;
+    if (review.noBreak) out.noBreakRows += 1;
     out.attendanceIds.push(row.id);
     if (!out.firstDate || row.work_date < out.firstDate) out.firstDate = row.work_date;
     if (!out.lastDate || row.work_date > out.lastDate) out.lastDate = row.work_date;
@@ -152,6 +160,7 @@ export async function getGigPayoutBoard(accessToken?: string, until?: string): P
       accountHolderName: sharedBank?.account_holder_name ?? null,
       bankSharedAt: sharedBank?.shared_at ?? null,
       unpaidSince: work.firstDate ?? since, unpaidUntil: work.lastDate ?? periodEnd, unpaidMinutes: work.minutes, unpaidDays: work.days,
+      unpaidScheduledMinutes: work.scheduledMinutes, unpaidOverScheduleRows: work.overScheduleRows, unpaidNoBreakRows: work.noBreakRows,
       unpaidBreakMinutes: work.breakMinutes, weekMinutes: weekMinutesByStaff.get(staffId) ?? 0, openToday: openTodayIds.has(staffId),
       unpaidAmount: amountFor(basis, rate, work.minutes, work.days),
       payouts: list,

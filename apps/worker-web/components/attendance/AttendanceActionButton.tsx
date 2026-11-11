@@ -6,6 +6,7 @@ import { BrandMark } from '@/components/brand/BrandMark';
 import Link from 'next/link';
 import { attendanceFailureText, attendanceLocationHelp, canOfferAttendanceQr } from '@/lib/attendance-feedback';
 import { attendanceHelpDraft } from '@/lib/attendance-window';
+import { useDemoSession } from '@/lib/demo-session';
 
 export type AttendanceResult={ok:boolean;message?:string;reason?:string;method?:string;distanceM?:number;accuracyM?:number;action?:string;checkInAt?:string;checkOutAt?:string;status?:'approved'|'pending';lateMinutes?:number;earlyLeaveMinutes?:number};
 export type AttendanceMode='gps'|'gps_qr'|'qr'|'network'|'admin'|'gps_or_qr';
@@ -97,6 +98,8 @@ function useAttendanceAction({targetType,targetId,action,qrToken,mode='gps_or_qr
 function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,onTryWithoutLocation,dark=false,helpHref,qrFallback,prefillHelpDraft=false,hideModeHint=false}:{action:'check_in'|'check_out';result:AttendanceResult|null;locationIssue:string|null;qrToken?:string|null;mode:AttendanceMode;onRetry:()=>void;onTryWithoutLocation:()=>void;dark?:boolean;helpHref?:string;qrFallback:boolean;prefillHelpDraft?:boolean;hideModeHint?:boolean}){
   const [qrHelp,setQrHelp]=useState(false);
   const gig=isGigButton({prefillHelpDraft,helpHref});
+  // 시연 계정은 위치 동의를 바꿀 수 없다(여럿이 같이 써서 DB에서 막혀 있다) — '위치 동의 켜기'로 보내면 막다른 길이라 QR로 찍는 법을 바로 알려 준다(2026-11-11 단기 근로 QA)
+  const demo=Boolean(useDemoSession());
   const noConsent=result?.reason==='LOCATION_CONSENT_REQUIRED';
   // 위치 동의가 없을 때 QR 안내는 위치를 못 잡은 경우(GPS_ERROR)와 같은 기준 — 강화 인증은 QR만으로 안 된다
   const offerQr=!qrToken&&!!result&&!result.ok&&canOfferAttendanceQr(noConsent?'GPS_ERROR':result.reason,mode,qrFallback);
@@ -126,9 +129,11 @@ function AttendanceFeedback({action,result,locationIssue,qrToken,mode,onRetry,on
       {result.ok&&result.status==='pending'&&<p className="mt-1 font-medium">{gig?'사장님이':'관리자가'} 승인하면 퇴근 시간과 근무시간이 확정돼요.</p>}
       {result.ok&&<p className="mt-1 font-medium">{new Date(result.checkOutAt??result.checkInAt??Date.now()).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Seoul'})} · {METHOD[result.method??'']??result.method}{typeof result.distanceM==='number'?` · ${gig?'근무지':'사업장'}에서 ${result.distanceM}m`:''}{typeof result.accuracyM==='number'?` · 위치 오차 ±${Math.round(result.accuracyM)}m`:''}</p>}
       {!result.ok&&locationIssue&&<p className="mt-1 font-medium leading-5">{locationIssue}</p>}
-      {!result.ok&&noConsent&&<p className="mt-1 font-medium leading-5">{gig?'⚙ 앱 설정':'내 정보'} › 개인정보·동의에서 위치정보 이용을 켜고 돌아와 다시 눌러 주세요.</p>}
+      {!result.ok&&noConsent&&<p className="mt-1 font-medium leading-5">{demo?`시연 계정은 위치 동의를 바꿀 수 없어요. ${gig?'사장님':'관리자'} 화면(관리자 앱 시연 › 출퇴근 인증)의 QR을 휴대폰 카메라로 찍으면 기록돼요.`:`${gig?'⚙ 앱 설정':'내 정보'} › 개인정보·동의에서 위치정보 이용을 켜고 돌아와 다시 눌러 주세요.`}</p>}
       {!result.ok&&<>
-        <div className="mt-2.5">{noConsent
+        <div className="mt-2.5">{noConsent&&demo
+          ?<button type="button" onClick={()=>setQrHelp(true)} className={mainAction}>QR로 찍는 방법 보기</button>
+          :noConsent
           ?<Link href={`${gig?'/gig/settings':'/settings'}#privacy-title`} className={mainAction}>위치 동의 켜기</Link>
           :askFirst?<Link href={helpLink} className={mainAction}>{who} 확인 요청</Link>
           :<button type="button" onClick={onRetry} className={mainAction}>다시 확인</button>}</div>
