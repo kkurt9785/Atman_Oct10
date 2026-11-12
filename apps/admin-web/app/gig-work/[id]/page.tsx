@@ -27,7 +27,7 @@ export default async function GigProjectPage({ params }: { params: Promise<{ id:
         <div><p className="text-[0.6875rem] font-extrabold text-primary-light">{cancelled ? '취소된 근무' : project.status === 'completed' ? '끝난 근무' : '근무 건'}</p><h1 className="mt-1 text-[1.5rem] font-extrabold">{project.title}</h1><p className="mt-1 text-[0.8125rem] text-white/70">{projectScheduleText(project)}</p></div>
         <span className={`shrink-0 rounded-full px-3 py-1.5 text-[0.75rem] font-extrabold ${filled >= project.headcount ? 'bg-emerald-400/20 text-emerald-200' : 'bg-white/15 text-white'}`}>{filled}/{project.headcount}명</span>
       </div>
-      <p className="mt-3 text-[0.75rem] text-white/60">{project.payRate ? `시급 ${won(project.payRate)}` : '시급 미정'} · 휴게 {project.breakMinutes}분{project.note ? ` · ${project.note}` : ''}</p>
+      <p className="mt-3 text-[0.75rem] text-white/60">{project.payRate ? `${project.payBasis === 'daily' ? '일급' : '시급'} ${won(project.payRate)}` : '시급 미정'} · 휴게 {project.breakMinutes}분{project.note ? ` · ${project.note}` : ''}</p>
     </section>
 
     {!cancelled && <GigParticipantsPanel project={project} candidates={candidates} workerOrigin={workerOrigin} />}
