@@ -21,7 +21,7 @@ export default async function GigProjectPage({ params }: { params: Promise<{ id:
   const cancelled = project.status === 'cancelled';
 
   return <main className="px-4 pb-28">
-    <ManageBackLink href={shop.mode === 'gig' ? '/' : '/staff?view=contract'} label={shop.mode === 'gig' ? '운영' : '직원 관리'} />
+    <ManageBackLink href={shop.mode === 'gig' ? '/gig-work' : '/staff?view=contract'} label={shop.mode === 'gig' ? '근무' : '직원 관리'} />
     <section className="mt-3 rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
       <div className="flex items-start justify-between gap-3">
         <div><p className="text-[0.6875rem] font-extrabold text-primary-light">{cancelled ? '취소된 근무' : project.status === 'completed' ? '끝난 근무' : '근무 건'}</p><h1 className="mt-1 text-[1.5rem] font-extrabold">{project.title}</h1><p className="mt-1 text-[0.8125rem] text-white/70">{projectScheduleText(project)}</p></div>

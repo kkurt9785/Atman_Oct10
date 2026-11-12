@@ -56,7 +56,7 @@ export default async function GigPayPage({ searchParams }: { searchParams: Promi
   const resetHref = until === today ? '/gig-pay' : `/gig-pay?${new URLSearchParams(untilParam).toString()}`;
 
   return <main className="px-4 pb-28">
-    <ManageBackLink href={shop.mode === 'gig' ? '/' : '/staff?view=contract'} label={shop.mode === 'gig' ? '홈' : '직원 관리'} />
+    <ManageBackLink href={shop.mode === 'gig' ? '/' : '/staff?view=contract'} label={shop.mode === 'gig' ? '오늘' : '직원 관리'} />
     <div className="mt-3 mb-4 px-1"><p className="text-label font-bold text-primary">근무 끝나면 바로, 또는 날짜를 정해서</p><h1 className="text-display font-extrabold text-ink">지급 관리</h1><p className="mt-1 text-label leading-5 text-sub">완료된 출퇴근 기록으로 금액을 계산해요. 송금은 사장님이 직접 하고, 여기서 기록하면 근무자 앱에서 지급 내역을 확인할 수 있어요.</p></div>
 
     <form action="/gig-pay" className="mb-4 flex flex-wrap gap-2">

@@ -6,11 +6,11 @@ export type ManageItem = {
 };
 
 export type ManageSection = {
-  slug: 'operations' | 'payroll' | 'settings';
+  slug: 'operations' | 'recruit' | 'payroll' | 'settings';
   eyebrow: string;
   title: string;
   description: string;
-  icon: 'operations' | 'billing' | 'account';
+  icon: 'operations' | 'recruit' | 'billing' | 'account';
   href?: string;
   payrollOnly?: boolean;
   items: ManageItem[];
@@ -29,6 +29,19 @@ export const MANAGE_SECTIONS: ManageSection[] = [
       { label: '출퇴근 인증 설정', description: '위치·동적 QR 인증 방식과 현장 QR', href: '/attendance-qr' },
       { label: '필요 인원·운영 알림', description: '직군·시간대별 기준 인원과 미충원·노쇼 대응', href: '/operations' },
       { label: '함께한 근무자 재요청', description: '검증된 근무 이력이 있는 근무자에게 다시 요청', href: '/workforce' },
+    ],
+  },
+  {
+    // 하단 탭에서 '모집'을 뺐다(2026-11-12 탭 개편). 새 공고는 홈의 [+ 근무자 모집], 목록·지원자는 여기.
+    slug: 'recruit',
+    eyebrow: '단기 인력',
+    title: '공고 모집',
+    description: '빈 자리를 공고로 올리고 지원자를 확인해요.',
+    icon: 'recruit',
+    items: [
+      { label: '새 공고 올리기', description: '날짜·시간·시급을 정해 공고를 올려요', href: '/shifts/new' },
+      { label: '올린 공고', description: '공고별 지원 현황과 확정 인원', href: '/shifts' },
+      { label: '지원자', description: '지원자를 확인하고 근무를 확정해요', href: '/applications' },
     ],
   },
   {

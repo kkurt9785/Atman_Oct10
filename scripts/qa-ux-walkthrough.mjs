@@ -188,7 +188,7 @@ async function main() {
     let switched = false;
     for (let attempt = 0; attempt < 3 && !switched; attempt += 1) {
       await evalJson(`const sel = document.querySelector('header select'); const opt = sel && Array.from(sel.options).find((o) => o.textContent.includes('팝업')); if (!opt) return false; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, opt.value); sel.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
-      for (let i = 0; i < 20 && !switched; i += 1) { await sleep(700); switched = await evalJson(`const nav = document.querySelector('nav[aria-label="주요 메뉴"]'); return Boolean(nav && nav.textContent.includes('운영'));`); }
+      for (let i = 0; i < 20 && !switched; i += 1) { await sleep(700); switched = await evalJson(`const nav = document.querySelector('nav[aria-label="주요 메뉴"]'); return Boolean(nav && nav.textContent.includes('오늘'));`); }
       if (!switched) await go(`${adminOrigin}/`);
     }
     report.push({ step: '관리자 사업장 전환 → 팝업 근무지(긱 탭)', ok: switched });
@@ -238,7 +238,7 @@ async function main() {
       let switchedGig = false;
       for (let attempt = 0; attempt < 3 && !switchedGig; attempt += 1) {
         await evalJson(`const sel = document.querySelector('header select'); const opt = sel && Array.from(sel.options).find((o) => o.textContent.includes('팝업')); if (!opt) return false; Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(sel, opt.value); sel.dispatchEvent(new Event('change', { bubbles: true })); return true;`);
-        for (let i = 0; i < 20 && !switchedGig; i += 1) { await sleep(700); switchedGig = await evalJson(`const nav = document.querySelector('nav[aria-label="주요 메뉴"]'); return Boolean(nav && nav.textContent.includes('운영'));`); }
+        for (let i = 0; i < 20 && !switchedGig; i += 1) { await sleep(700); switchedGig = await evalJson(`const nav = document.querySelector('nav[aria-label="주요 메뉴"]'); return Boolean(nav && nav.textContent.includes('오늘'));`); }
         if (!switchedGig) await go(`${adminOrigin}/`);
       }
       report.push({ step: '관리자 사업장 전환 → 팝업 근무지(긱 탭)', ok: switchedGig });

@@ -46,7 +46,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
     <html lang="ko">
       <head><script dangerouslySetInnerHTML={{ __html: noFlash }} /></head>
       <body>
-        <Shell facilityMode={shop?.mode ?? null} gigBetaLocked={gigBetaLocked} initialFacility={shop&&context?{id:context.facilityId,name:shop.name,facility_type:shop.facilityType,registration_source:shop.registrationSource,address_text:'',access_role:context.accessRole}:null}>{children}</Shell>
+        <Shell facilityMode={shop?.mode ?? null} gigBetaLocked={gigBetaLocked} canPay={Boolean(context?.canViewPayroll && ['owner','operator','super'].includes(context.accessRole))} initialFacility={shop&&context?{id:context.facilityId,name:shop.name,facility_type:shop.facilityType,registration_source:shop.registrationSource,address_text:'',access_role:context.accessRole}:null}>{children}</Shell>
       </body>
     </html>
   );

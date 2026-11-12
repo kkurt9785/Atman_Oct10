@@ -7,6 +7,7 @@ import { getShop } from '@/lib/db/shop';
 
 const SECTION_ICONS = {
   operations: <><path d="M4 7h10M17 7h3M4 12h3M10 12h10M4 17h8M15 17h5"/><circle cx="15.5" cy="7" r="1.5"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="13.5" cy="17" r="1.5"/></>,
+  recruit: <><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 6V4h8v2M8 12h8M12 9v6"/></>,
   billing: <><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/></>,
   account: <><path d="M4 20V8l8-4 8 4v12"/><path d="M8 20v-7h8v7M9 9h.01M12 9h.01M15 9h.01"/></>,
 };

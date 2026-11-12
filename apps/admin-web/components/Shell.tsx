@@ -17,7 +17,7 @@ const FULLSCREEN_PREFIX = ['/checkin', '/chats/'];
 
 // facilityMode: 현재 사업장이 병원·약국(medical)인지 긱워커 근무지(gig)인지. 서버 레이아웃이 계산한다.
 // 사업장 전환기가 router.refresh() 를 부르면 레이아웃이 다시 렌더되어 탭·가드가 함께 바뀐다.
-export function Shell({ children, facilityMode, gigBetaLocked = false, initialFacility }: { children: React.ReactNode; facilityMode: FacilityMode | null; gigBetaLocked?: boolean; initialFacility?:SwitcherFacility|null }) {
+export function Shell({ children, facilityMode, gigBetaLocked = false, initialFacility, canPay = true }: { children: React.ReactNode; facilityMode: FacilityMode | null; gigBetaLocked?: boolean; initialFacility?:SwitcherFacility|null; canPay?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const isPublic = pathname === '/privacy' || pathname === '/demo' || PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
@@ -73,7 +73,7 @@ export function Shell({ children, facilityMode, gigBetaLocked = false, initialFa
         </header>
         {children}
         <AdminDemoBar />
-        <BottomNav mode={facilityMode} />
+        <BottomNav mode={facilityMode} canPay={canPay} />
       </div>
     </AuthGuard>
   );

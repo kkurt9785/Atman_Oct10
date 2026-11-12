@@ -18,7 +18,7 @@ function dueLabel(value: unknown) {
 }
 
 // 사업장 워크룸(관리자). 공지·대화·출퇴근 기록에 더해 '출석 확인'을 올리고 누가 답했는지 본다 — 단체톡 출석체크의 앱 버전.
-export function WorkroomClient({ facilityId, facilityName, members, initialStaffId }: { facilityId: string; facilityName: string; members: Member[]; initialStaffId: string }) {
+export function WorkroomClient({ facilityId, facilityName, members, initialStaffId, applicantChats = false }: { facilityId: string; facilityName: string; members: Member[]; initialStaffId: string; applicantChats?: boolean }) {
   const [selectedStaffId, setSelectedStaffId] = useState(initialStaffId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -146,12 +146,13 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
 
   return <main className="mx-auto flex min-h-[calc(100dvh-8.5rem)] w-full max-w-3xl flex-col px-4 pb-4">
     <header className="mb-3 rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[0.6875rem] font-extrabold">워크룸</span><span className="text-[0.75rem] font-bold text-white/65">연결 {linkedCount}명</span></div>
+      <div className="flex items-center justify-between gap-3"><span className="rounded-full bg-white/15 px-2.5 py-1 text-[0.6875rem] font-extrabold">대화</span><span className="text-[0.75rem] font-bold text-white/65">연결 {linkedCount}명</span></div>
       <h1 className="mt-4 text-[1.5625rem] font-extrabold">{facilityName}</h1>
       <p className="mt-1 text-[0.75rem] leading-5 text-white/65">전체 공지와 근무자별 비공개 대화를 나눠 관리해요.</p>
     </header>
 
-    <Link href="/safety" className="mb-2 inline-flex min-h-11 items-center self-end text-[14px] font-bold text-sub underline">대화 안전·차단 관리</Link>
+    {/* 병원·약국은 하단 '대화' 탭 하나에서 공고 지원자 대화까지 연다(2026-11-12 탭 개편) */}
+    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">{applicantChats?<Link href="/chats" className="inline-flex min-h-11 items-center rounded-xl bg-white px-4 text-[0.8125rem] font-extrabold text-primary shadow-sm active:bg-bg">공고 지원자 대화 →</Link>:<span />}<Link href="/safety" className="inline-flex min-h-11 items-center text-[14px] font-bold text-sub underline">대화 안전·차단 관리</Link></div>
     {notice && <p role="status" className="mb-3 rounded-xl bg-primary/5 p-3 text-[14px] text-primary">{notice}</p>}
     <div className="-mx-4 mb-3 overflow-x-auto px-4 pt-3 [scrollbar-width:none]">
       <div className="flex w-max gap-2">

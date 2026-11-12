@@ -4,6 +4,7 @@ import { Card, SectionTitle } from '@/components/ui';
 import { adminClient } from '@/lib/supabase';
 import { getCurrentFacilityId } from '@/lib/facility';
 import { formatDate } from '@/lib/format';
+import { ManageBackLink } from '@/components/ManageBackLink';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +71,8 @@ export default async function ChatsPage() {
 
   return (
     <main className="px-4">
-      <h1 className="text-display font-extrabold text-ink mt-3 mb-1 px-1">근무자 채팅</h1>
+      <ManageBackLink href="/workroom" label="대화" />
+      <h1 className="text-display font-extrabold text-ink mt-3 mb-1 px-1">공고 지원자 대화</h1>
       <p className="text-label text-sub mb-4 px-1">채용 확정된 근무자와 근무에 필요한 내용만 대화해요 · 근무 종료 24시간 후 잠김</p>
 
       <SectionTitle>대화 목록</SectionTitle>

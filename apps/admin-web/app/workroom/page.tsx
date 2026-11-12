@@ -16,5 +16,5 @@ export default async function WorkroomPage({ searchParams }: { searchParams: Pro
   const members=(data??[]).map((row)=>({id:row.id as string,name:row.name as string,workerLinked:Boolean(row.worker_id)}));
   const requested=(await searchParams).staff;
   const initialStaffId=members.some((member)=>member.id===requested&&member.workerLinked)?requested??'':'';
-  return <WorkroomClient facilityId={context.facilityId} facilityName={shop.name} members={members} initialStaffId={initialStaffId}/>;
+  return <WorkroomClient facilityId={context.facilityId} facilityName={shop.name} members={members} initialStaffId={initialStaffId} applicantChats={shop.mode!=='gig'}/>;
 }

@@ -19,6 +19,7 @@ import { StaffEditForm, StaffRetireForm } from './StaffEditForm';
 import { STAFF_ROLE_LABEL as ROLE } from '@/lib/constants';
 import { todayKST } from '@/lib/date';
 import { BetaGuide } from '@/components/BetaGuide';
+import { GigWorkTabs } from '@/components/gig/GigWorkTabs';
 import { isGuidePeriod } from '@/lib/db/guide';
 import { WEEKDAY_LABELS } from '@/lib/staff-schedule';
 
@@ -59,6 +60,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
         <div><p className="text-label font-bold text-primary">{gigworkerMode?'직접 초대한 단기 근무자':'우리 직원 · 계약 인력'}</p><h1 className="text-display font-extrabold text-ink">{gigworkerMode?'근무자 관리':'직원 관리'}</h1></div>
       </div>
       {gigworkerMode&&<p className="text-label text-sub mt-1">근무 일정만 등록하고 링크나 QR로 초대해요. 서로 전화번호를 몰라도 돼요.</p>}
+      {gigworkerMode&&<GigWorkTabs active="people" />}
     </div>
 
     {!gigworkerMode&&!isGigworkerEntry&&await isGuidePeriod()&&<BetaGuide id="admin-staff" title="직원 등록은 이렇게 해요" steps={[
