@@ -7,7 +7,7 @@ const TABS = [
   { key: 'today', label: '오늘', href: '/timesheet' },
   { key: 'week', label: '주간', href: '/timesheet/week' },
   { key: 'month', label: '월별', href: '/attendance-summary' },
-  { key: 'leave', label: '휴가', href: '/leave' },
+  { key: 'leave', label: '연차', href: '/leave' },
   { key: 'auth', label: '인증·QR', href: '/attendance-qr' },
 ] as const;
 

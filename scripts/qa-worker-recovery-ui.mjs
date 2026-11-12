@@ -56,7 +56,7 @@ try {for(const width of [360,390]){
  await page.getByRole('alert').waitFor();await page.evaluate(()=>window.fail=false);await page.getByRole('button',{name:'다시 불러오기',exact:true}).click();
  await page.getByRole('button',{name:'길게 눌러 퇴근 기록'}).waitFor();
  await page.getByText('공고 현장',{exact:true}).waitFor();
- assert.equal(await page.getByRole('button',{name:'휴가 신청',exact:true}).count(),0);
+ assert.equal(await page.getByRole('button',{name:'연차 신청',exact:true}).count(),0);
  console.log('PASS shift attendance and gig staff exclusion',width);
  await mount('workplace','?staffId=staff-a&facility=b&attendanceToken=test');
  await page.getByRole('alert').waitFor();await page.evaluate(()=>window.fail=false);await page.getByRole('button',{name:'다시 불러오기',exact:true}).click();

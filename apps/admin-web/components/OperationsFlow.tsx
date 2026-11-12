@@ -8,7 +8,7 @@ const STEPS:[Stage,string,string][]=[
 // 우리 직원을 관리하는 사업장(의원·약국)의 흐름 — 모집이 아니라 등록에서 시작한다
 const STAFF_STEPS:[Stage,string,string][]=[
   ['staff','직원 등록','/staff'],['attendance','출퇴근','/timesheet'],
-  ['leave','휴가','/leave'],['payroll','급여','/payroll'],
+  ['leave','연차','/leave'],['payroll','급여','/payroll'],
 ];
 
 export function OperationsFlow({active,compact=false,variant='recruit'}:{active?:Stage;compact?:boolean;variant?:'recruit'|'staff'}){

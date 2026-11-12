@@ -82,7 +82,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
       {gigworkerMode
         ?<Link href="/timesheet" className="min-h-tap rounded-xl bg-primary text-white flex items-center justify-center text-body font-bold">오늘 근태 보기</Link>
         :<a href="#staff-register" className="min-h-tap rounded-xl bg-primary text-white flex items-center justify-center text-body font-bold">＋ 직원 등록</a>}
-      {!gigworkerMode&&<Link href="/leave" className="min-h-tap rounded-xl bg-white border border-line flex items-center justify-center text-body font-bold">휴가 관리</Link>}
+      {!gigworkerMode&&<Link href="/leave" className="min-h-tap rounded-xl bg-white border border-line flex items-center justify-center text-body font-bold">연차 관리</Link>}
       {!gigworkerMode&&clinicStaff.some((s)=>s.workerKind==='gig')&&<Link href="/gig-pay" className="col-span-2 min-h-tap rounded-xl bg-ink flex items-center justify-center text-body font-bold text-white">단기·긱 근무자 지급 관리 →</Link>}
     </div>
 

@@ -40,7 +40,7 @@ export default async function TimesheetPage({searchParams}:{searchParams:Promise
     {isGigworker&&<div className="mt-4 grid grid-cols-3 gap-2">
       <Link href={isGigworker?'/staff?view=contract&entry=gigworker':'/staff'} className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">{isGigworker?'근무자 관리':'직원 관리'}</Link>
       <Link href="/attendance-qr" className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">출퇴근 인증</Link>
-      <Link href={isGigworker?'/attendance-history':'/leave'} className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">{isGigworker?'전체 내역':'휴가 관리'}</Link>
+      <Link href={isGigworker?'/attendance-history':'/leave'} className="flex h-11 items-center justify-center rounded-xl border border-line bg-white text-label font-bold">{isGigworker?'전체 내역':'연차 관리'}</Link>
     </div>}
     {!isGigworker&&hasShortTerm&&<div className="mt-3"><OperationsFlow active="attendance"/></div>}
     {selectedStaffId&&<p role="status" className="mt-3 rounded-xl bg-white p-3 text-sm">선택한 근무자: {staff.find(person=>person.id===selectedStaffId)?.name??'현재 현장에서 찾을 수 없어요'} · <Link href="/timesheet" className="font-bold text-primary">전체 근태 보기</Link></p>}

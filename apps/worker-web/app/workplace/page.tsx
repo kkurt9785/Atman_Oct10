@@ -175,7 +175,7 @@ function WorkplaceContent() {
     let {error}=await supabase.rpc('submit_staff_leave_request_v3',{...args,p_half_day_period:period});
     // 새 함수가 아직 DB 에 없으면(PGRST202) 예전 함수로 신청한다 — 오전·오후 표시만 빠진다
     if(error?.code==='PGRST202')({error}=await supabase.rpc('submit_staff_leave_request_v2',args));
-    setMessage(error?error.message.replace(/^.*?: /,''):'휴가 신청을 보냈어요. 관리자 승인 후 차감돼요.');
+    setMessage(error?error.message.replace(/^.*?: /,''):'연차 신청을 보냈어요. 관리자가 승인하면 반영돼요.');
     if(error)return;
     // 신청이 들어가면 DB 트리거가 관리자 알림을 쌓는다. 발송 cron 은 하루 한 번이라 바로 나가도록 깨운다 — 실패해도 신청은 이미 끝났다
     void nudgeAdminDispatch().catch(()=>undefined);
@@ -188,7 +188,7 @@ function WorkplaceContent() {
     const {error}=await supabase.rpc('cancel_staff_leave_request',{p_request_id:id});
     if(error){setMessage(error.message.replace(/^.*?: /,''));return;}
     setLeaves(current=>current.map(item=>item.id===id?{...item,status:'cancelled'}:item));
-    setMessage('휴가 신청을 취소했어요. 기록은 내역에 남아 있어요.');
+    setMessage('연차 신청을 취소했어요. 기록은 내역에 남아 있어요.');
   }
 
   useEffect(()=>{void (async()=>{
@@ -244,14 +244,14 @@ function WorkplaceContent() {
         {quickLinks}
         <nav aria-label="직장 업무" className="mt-5 grid grid-cols-2 rounded-2xl bg-white p-1.5 shadow-sm">
           <button type="button" onClick={()=>setTab('history')} aria-pressed={tab==='history'} className={`h-11 rounded-xl text-[13px] font-extrabold ${tab==='history'?'bg-primary text-white':'text-sub'}`}>근태 내역</button>
-          <button type="button" onClick={()=>setTab('leave')} aria-pressed={tab==='leave'} className={`h-11 rounded-xl text-[13px] font-extrabold ${tab==='leave'?'bg-primary text-white':'text-sub'}`}>휴가 신청</button>
+          <button type="button" onClick={()=>setTab('leave')} aria-pressed={tab==='leave'} className={`h-11 rounded-xl text-[13px] font-extrabold ${tab==='leave'?'bg-primary text-white':'text-sub'}`}>연차 신청</button>
         </nav>
         {tab==='history'&&<section className="mt-3 rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="text-[18px] font-extrabold">내 근태 내역</h2>
           <div className="mt-3"><MyAttendanceCalendar staffId={staff.id} refreshKey={refreshKey}/></div>
           <p className="mt-3 text-[11px] leading-5 text-sub">수정이 필요한 기록은 사업장 관리자에게 요청하세요. 월 마감 후에는 급여 자료에 반영돼요.</p>
         </section>}
-        {tab==='leave'&&<section className="mt-3 bg-white rounded-2xl p-5 shadow-sm"><div className="flex justify-between items-start"><div><h2 className="font-extrabold text-[18px]">휴가 신청</h2><p className="text-[12px] text-sub mt-1">승인된 경우에만 잔여 휴가가 차감돼요.</p></div><div className="text-right"><p className="text-[11px] text-sub">잔여</p><b className="text-primary">{formatLeaveAmount(leaveMinutes)}</b></div></div>
+        {tab==='leave'&&<section className="mt-3 bg-white rounded-2xl p-5 shadow-sm"><div className="flex justify-between items-start"><div><h2 className="font-extrabold text-[18px]">연차 신청</h2><p className="text-[12px] text-sub mt-1">승인된 연차·반차만 남은 연차에서 빠져요.</p></div><div className="text-right"><p className="text-[11px] text-sub">잔여</p><b className="text-primary">{formatLeaveAmount(leaveMinutes)}</b></div></div>
           <form action={requestLeave} className="grid grid-cols-2 gap-3 mt-4">
             <label className="col-span-2 text-[12px] text-sub">유형<select name="leave_type" value={leaveType} onChange={e=>setLeaveType(e.target.value)} className="mt-1 w-full h-12 border border-line rounded-xl px-3 bg-white">{TYPES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
             {leaveType==='hourly'&&<label className="col-span-2 text-[12px] text-sub">사용 시간<select name="hourly_minutes" className="mt-1 w-full h-12 border border-line rounded-xl px-3 bg-white">{[1,2,3,4,5,6,7].map(h=><option key={h} value={h*60}>{h}시간</option>)}</select></label>}
@@ -261,7 +261,7 @@ function WorkplaceContent() {
             <button className="col-span-2 h-12 rounded-xl bg-primary text-white font-bold">관리자에게 신청</button>
           </form>
           {leaves.length>0&&<div className="mt-5 border-t border-line pt-4"><p className="text-[13px] font-bold">최근 신청</p><div className="mt-2 divide-y divide-line">{leaves.map(l=><div key={l.id} className="py-2.5 text-[12px]"><div className="flex items-center justify-between gap-2"><span className="min-w-0 break-words">{leaveRequestLine(l)}</span><span className="flex shrink-0 items-center gap-2"><b className={l.status==='approved'?'text-success':l.status==='rejected'?'text-red-600':l.status==='cancelled'?'text-sub':'text-amber-600'}>{l.status==='approved'?'승인':l.status==='rejected'?'반려':l.status==='cancelled'?'취소됨':'대기'}</b>{l.status==='pending'&&cancelTarget!==l.id&&<button type="button" onClick={()=>setCancelTarget(l.id)} className="min-h-11 min-w-11 rounded-xl border border-line px-3 text-[12px] font-bold text-sub">취소</button>}</span></div>
-            {l.status==='pending'&&cancelTarget===l.id&&<div role="group" aria-label="휴가 신청 취소 확인" className="mt-2 rounded-xl bg-bg p-3"><p className="font-bold text-ink">이 휴가 신청을 취소할까요?</p><p className="mt-1 text-sub">취소하면 관리자 승인 대기에서 빠져요. 필요하면 다시 신청할 수 있어요.</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={()=>setCancelTarget('')} className="min-h-11 rounded-xl border border-line bg-white text-[13px] font-bold text-sub">그대로 두기</button><button type="button" onClick={()=>void cancelLeave(l.id)} className="min-h-11 rounded-xl bg-ink text-[13px] font-bold text-white">신청 취소</button></div></div>}</div>)}</div></div>}
+            {l.status==='pending'&&cancelTarget===l.id&&<div role="group" aria-label="연차 신청 취소 확인" className="mt-2 rounded-xl bg-bg p-3"><p className="font-bold text-ink">이 휴가 신청을 취소할까요?</p><p className="mt-1 text-sub">취소하면 관리자 승인 대기에서 빠져요. 필요하면 다시 신청할 수 있어요.</p><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={()=>setCancelTarget('')} className="min-h-11 rounded-xl border border-line bg-white text-[13px] font-bold text-sub">그대로 두기</button><button type="button" onClick={()=>void cancelLeave(l.id)} className="min-h-11 rounded-xl bg-ink text-[13px] font-bold text-white">신청 취소</button></div></div>}</div>)}</div></div>}
         </section>}
       </>}
       {!staff&&quickLinks}

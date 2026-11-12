@@ -21,10 +21,10 @@ export const MANAGE_SECTIONS: ManageSection[] = [
     slug: 'operations',
     eyebrow: '사업장 운영',
     title: '인력 운영',
-    description: '출퇴근·휴가를 관리하고, 필요 인원 기준으로 부족 인원·결원에 대응해요.',
+    description: '출퇴근·연차를 관리하고, 필요 인원 기준으로 부족 인원·결원에 대응해요.',
     icon: 'operations',
     items: [
-      { label: '휴가 관리', description: '직원 신청 승인과 사용 내역', href: '/leave' },
+      { label: '연차 관리', description: '직원 신청 승인과 남은 연차', href: '/leave' },
       { label: '월 근태 내역', description: '직원별 근무시간과 예외 기록', href: '/attendance-history' },
       { label: '출퇴근 인증 설정', description: '위치·동적 QR 인증 방식과 현장 QR', href: '/attendance-qr' },
       { label: '필요 인원·운영 알림', description: '직군·시간대별 기준 인원과 미충원·노쇼 대응', href: '/operations' },

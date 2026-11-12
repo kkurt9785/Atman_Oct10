@@ -319,7 +319,7 @@ export async function decideStaffLeaveAction(form: FormData) {
     .select('*').eq('id', requestId).eq('facility_id', context.facilityId).maybeSingle() : { data: null };
   const { error } = await sb.rpc('decide_staff_leave_request', { p_request_id: requestId, p_decision: decision });
   // DB 가 일부러 낸 안내(P0001: 잔여 부족·이미 처리됨 등)는 그대로 보여 준다 — 뭉뚱그리면 관리자가 무엇을 고쳐야 할지 모른다
-  if (error) throw new Error(error.code === 'P0001' && error.message ? `${error.message}${error.message.includes('잔여') ? ' 휴가 관리의 [휴가 일수 정하기]에서 일수를 먼저 넣어 주세요.' : ''}` : '휴가 신청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
+  if (error) throw new Error(error.code === 'P0001' && error.message ? `${error.message}${error.message.includes('잔여') ? ' 연차 관리의 [연차 일수 정하기]에서 일수를 먼저 넣어 주세요.' : ''}` : '휴가 신청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
   if (request) {
     const period = `${shortDate(request.start_date)}${request.end_date !== request.start_date ? `~${shortDate(request.end_date)}` : ''} ${leaveTypeLabel(request.leave_type, request.half_day_period, '기타 휴가')}`;
     await notifyStaffLeave(request.staff_id, `leave.decided:${request.id}:${decision}`,

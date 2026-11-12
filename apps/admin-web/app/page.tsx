@@ -79,7 +79,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
         <section role="status" className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
           <p className="text-[0.875rem] font-bold text-amber-800">사업장 확인 중이에요</p>
           <p className="mt-1 text-[0.75rem] leading-5 text-amber-700">
-            직원 등록·출퇴근·휴가 관리는 지금 바로 쓸 수 있어요. 단기 인력 공고 등록만 잇닿이 사업장 정보를 확인한 뒤 열려요. 보통 1영업일 안에 끝나요.
+            직원 등록·출퇴근·연차 관리는 지금 바로 쓸 수 있어요. 단기 인력 공고 등록만 잇닿이 사업장 정보를 확인한 뒤 열려요. 보통 1영업일 안에 끝나요.
           </p>
           {brnFailed && <p role="alert" className="mt-2 text-[0.75rem] font-bold text-red-600">방금 올린 사업자 서류 전송이 실패했어요. 설정에서 다시 올려 주세요.</p>}
           {!shop.brnSubmitted && !shop.brnDocumentPath && (
@@ -149,7 +149,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
             // 대타 승인은 근무 직전에 생기는 일이라 가장 급하다 — 있을 때만 맨 위에
             ...(coverToApprove>0?[{label:'대타 승인',description:'못 나오게 된 근무를 동료가 맡겠다고 했어요',count:coverToApprove,href:'/applications#cover'}]:[]),
             {label:'출퇴근 확인',description:'조기 퇴근·미출근·인증 실패를 확인해요',count:attendanceReviewCount,href:'/timesheet'},
-            {label:'휴가 신청',description:'직원이 신청한 휴가를 승인하거나 반려해요',count:pendingLeaveCount,href:'/leave'},
+            {label:'연차 신청',description:'직원이 신청한 연차·휴가를 승인하거나 반려해요',count:pendingLeaveCount,href:'/leave'},
             {label:'새 지원자',description:'지원자를 확인하고 근무를 확정해요',count:pendingCount,href:'/applications'},
             {label:'지급 대기',description:canViewPayroll?(ops.pendingWageMonth?`${Number(ops.pendingWageMonth.slice(5,7))}월 급여 · 근무시간을 확인하고 지급을 완료해요`:'근무시간을 확인하고 지급을 완료해요'):'급여 담당자에게 확인을 요청해요',count:canViewPayroll?ops.pendingWageCount:0,href:canViewPayroll?(ops.pendingWageMonth?`/payroll?month=${ops.pendingWageMonth}${ops.pendingWageTab?`&tab=${ops.pendingWageTab}`:''}`:'/payroll'):'/timesheet'},
           ].map((item)=><Link key={item.label} href={item.href} className="flex min-h-[72px] items-center justify-between gap-3 px-5 py-3 active:bg-bg">
