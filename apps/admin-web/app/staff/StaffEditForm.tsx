@@ -57,7 +57,7 @@ export function StaffEditForm({staff,facilityType,today}:{staff:EditableStaff;fa
 export function StaffRetireForm({staffId,name,today}:{staffId:string;name:string;today:string}){
   const [typed,setTyped]=useState('');
   return <WorkforceActionForm kind="retire_staff" values={{staff_id:staffId}} className="grid gap-3 px-3 pb-3" successMessage="퇴사 처리했어요. 직원 목록과 출퇴근에서 빠졌어요.">
-    <p className="text-[0.6875rem] leading-5 text-sub">퇴사 처리하면 직원 목록·출퇴근·워크룸에서 빠지고, 지금까지의 근태·급여·휴가 기록은 그대로 남아요. 답을 기다리는 휴가 신청은 반려로 닫혀요. 다시 일하게 되면 새로 등록해 주세요.</p>
+    <p className="text-[0.6875rem] leading-5 text-sub">퇴사 처리하면 직원 목록·출퇴근·대화방에서 빠지고, 지금까지의 근태·급여·휴가 기록은 그대로 남아요. 답을 기다리는 휴가 신청은 반려로 닫혀요. 다시 일하게 되면 새로 등록해 주세요.</p>
     <label className="text-[0.75rem] font-medium text-sub">마지막 근무일<input name="last_day" type="date" max={today} defaultValue={today} required className={inputClass}/></label>
     <label className="text-[0.75rem] font-medium text-sub">확인을 위해 직원 이름 <b className="text-ink">{name}</b> 을(를) 적어 주세요<input name="confirm_name" value={typed} onChange={(event)=>setTyped(event.target.value)} autoComplete="off" className={inputClass} placeholder={name}/></label>
     <button disabled={typed.trim()!==name} className="h-11 rounded-xl border border-red-200 bg-white text-[0.8125rem] font-extrabold text-red-600 disabled:opacity-40">퇴사 처리하기</button>

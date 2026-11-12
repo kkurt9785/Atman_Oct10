@@ -85,7 +85,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
       supabase.rpc('get_my_workrooms_v2'),
       supabase.from('workers').select('id').eq('auth_user_id', user.id).is('deleted_at', null).maybeSingle(),
     ]);
-    if (roomError || workerError || !Array.isArray(data)) throw new Error('워크룸을 불러오지 못했어요. 다시 시도해 주세요.');
+    if (roomError || workerError || !Array.isArray(data)) throw new Error('대화방을 불러오지 못했어요. 다시 시도해 주세요.');
     if (!active) return;
     if (worker?.id) setWorkerId(worker.id);
     const all = (data ?? []) as Room[];
@@ -102,7 +102,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     const prefill = isGig ? params.get('draft')?.trim().slice(0, 2000) : '';
     if (prefill && next && !drafts.current.has(next)) drafts.current.set(next, prefill);
     setSelectedId(next);
-    } catch (caught) { if (active) { setRoomLoadFailed(true); setError(caught instanceof Error ? caught.message : '워크룸을 불러오지 못했어요.'); } }
+    } catch (caught) { if (active) { setRoomLoadFailed(true); setError(caught instanceof Error ? caught.message : '대화방을 불러오지 못했어요.'); } }
     finally { if (active) setLoading(false); }
   })(); return () => { active = false; }; }, [isGig, requestedFacility]);
 
@@ -194,7 +194,7 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
   return <main className="flex min-h-[calc(100dvh-5rem)] flex-col bg-bg px-4 pb-4 pt-4">
     {!isGig && <div className="mb-2"><BackButton href="/workplace" label="내 직장" anyPrevious /></div>}
     <header className="rounded-3xl bg-ink px-5 py-5 text-white shadow-btn">
-      <div className="flex items-start justify-between gap-3"><h1 className="text-[25px] font-extrabold">{isGig ? '사장님과 근무 대화' : '사업장 워크룸'}</h1>{selected&&<span className="mt-2 shrink-0 text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
+      <div className="flex items-start justify-between gap-3"><h1 className="text-[25px] font-extrabold">{isGig ? '사장님과 근무 대화' : '사업장 대화방'}</h1>{selected&&<span className="mt-2 shrink-0 text-[11px] font-bold text-white/60">함께 {selected.member_count}명</span>}</div>
       <p className="mt-1 text-[12px] leading-5 text-white/65">{isGig ? '전화번호나 카톡 친구 추가 없이 공지, 출석 확인, 근무 대화를 한곳에 남겨요.' : '카톡 단체방 대신 공지, 출석 확인, 근무 대화, 출퇴근 기록을 한곳에 남겨요.'}</p>
       {rooms.length > 1 && <select value={selectedId} onChange={(event)=>setSelectedId(event.target.value)} className="mt-4 h-11 w-full rounded-xl border border-white/10 bg-white/10 px-3 text-[13px] font-bold text-white outline-none">{rooms.map((room)=><option key={room.facility_id} value={room.facility_id} className="text-ink">{room.facility_name}{room.unread_count?` · 새 소식 ${room.unread_count}`:''}</option>)}</select>}
     </header>
@@ -202,9 +202,9 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
     <Link href="/safety" className="mt-2 inline-flex min-h-11 items-center self-end text-[13px] font-bold text-sub underline">대화 안전·차단 관리</Link>
     {notice && <p role="status" className="mt-2 rounded-xl bg-primary/5 px-3 py-3 text-[14px] font-bold text-primary">{notice}</p>}
     {error && <p role="alert" className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-[14px] font-bold text-red-600">{error}</p>}
-    {loading ? <div className="mt-4 flex-1 rounded-2xl bg-white py-20 text-center text-[13px] text-sub">워크룸을 불러오고 있어요...</div>
+    {loading ? <div className="mt-4 flex-1 rounded-2xl bg-white py-20 text-center text-[13px] text-sub">대화방을 불러오고 있어요...</div>
       : roomLoadFailed ? <section className="mt-4 rounded-2xl bg-white p-6 text-center"><button type="button" onClick={() => window.location.reload()} className="min-h-12 rounded-xl bg-primary px-5 text-[15px] font-bold text-white">다시 불러오기</button><Link href="/" className="mt-2 flex min-h-11 items-center justify-center text-[14px] font-bold text-sub">로그인 화면</Link></section>
-      : !selected ? <section className="mt-4 flex-1 rounded-2xl bg-white px-6 py-16 text-center"><p className="text-[16px] font-extrabold text-ink">{isGig ? '아직 연결된 대화방이 없어요' : '아직 참여한 워크룸이 없어요'}</p><p className="mt-2 text-[13px] leading-5 text-sub">{isGig ? '사장님이 보낸 초대 링크나 현장 QR을 열면 전화번호 없이 연결돼요.' : '관리자의 일회용 가입 링크나 현장 QR을 열면 전화번호 없이 사업장과 연결돼요.'}</p>{isGig && <GigInviteAction />}</section>
+      : !selected ? <section className="mt-4 flex-1 rounded-2xl bg-white px-6 py-16 text-center"><p className="text-[16px] font-extrabold text-ink">{isGig ? '아직 연결된 대화방이 없어요' : '아직 참여한 대화방이 없어요'}</p><p className="mt-2 text-[13px] leading-5 text-sub">{isGig ? '사장님이 보낸 초대 링크나 현장 QR을 열면 전화번호 없이 연결돼요.' : '관리자의 일회용 가입 링크나 현장 QR을 열면 전화번호 없이 사업장과 연결돼요.'}</p>{isGig && <GigInviteAction />}</section>
       : <section className="mt-3 min-h-[360px] flex-1 overflow-y-auto rounded-2xl bg-white px-4 py-4 shadow-sm">
         <div className="mb-4 border-b border-line pb-3"><p className="text-[15px] font-extrabold text-ink">{selected.facility_name}</p>{selected.address_text&&<p className="mt-0.5 text-[11px] text-sub">{selected.address_text}</p>}</div>
         {messageLoading && <p role="status" className="py-10 text-center text-[14px] text-sub">대화를 불러오고 있어요…</p>}
@@ -236,6 +236,6 @@ export function WorkerWorkroom({ variant }: { variant: 'gig' | 'medical' }) {
         </div><div ref={bottomRef}/>
       </section>}
 
-    {selected&&<section className="sticky bottom-[calc(64px+var(--demo-bar,0px)+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea aria-label="워크룸 메시지" value={input} disabled={messageLoading || !!messageError} onChange={(event)=>{ setInput(event.target.value); drafts.current.set(selectedId,event.target.value); }} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={isGig ? '사장님께 근무 메시지 보내기' : directOnly ? '관리자에게만 보내는 메시지' : '관리자와 함께 일하는 분들에게 메시지 보내기'} className="min-h-[48px] min-w-0 flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[16px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending||messageLoading||!!messageError} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div>{!isGig&&<label className="mt-2 flex items-center gap-2 px-1 text-[11px] font-bold text-sub"><input type="checkbox" checked={directOnly} onChange={(event)=>setDirectOnly(event.target.checked)} className="h-4 w-4 accent-primary"/>관리자에게만 보내기 (비공개)</label>}<p className="mt-2 px-1 text-[10px] text-tertiary">{isGig?'개인 전화번호는 표시되지 않고, 이 대화는 나와 사장님(근무지 담당자)만 볼 수 있어요.':directOnly?'이 메시지는 관리자만 볼 수 있어요. 개인 전화번호는 표시되지 않아요.':'개인 전화번호는 표시되지 않아요. 같은 근무지 사람들이 이 대화를 함께 봐요.'}</p></section>}
+    {selected&&<section className="sticky bottom-[calc(64px+var(--demo-bar,0px)+env(safe-area-inset-bottom))] mt-3 rounded-2xl border border-line bg-white p-3 shadow-card"><div className="flex items-end gap-2"><textarea aria-label="대화 메시지" value={input} disabled={messageLoading || !!messageError} onChange={(event)=>{ setInput(event.target.value); drafts.current.set(selectedId,event.target.value); }} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={isGig ? '사장님께 근무 메시지 보내기' : directOnly ? '관리자에게만 보내는 메시지' : '관리자와 함께 일하는 분들에게 메시지 보내기'} className="min-h-[48px] min-w-0 flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[16px] text-ink outline-none"/><button type="button" onClick={()=>void send()} disabled={!input.trim()||sending||messageLoading||!!messageError} className="h-12 rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-40">전송</button></div>{!isGig&&<label className="mt-2 flex items-center gap-2 px-1 text-[11px] font-bold text-sub"><input type="checkbox" checked={directOnly} onChange={(event)=>setDirectOnly(event.target.checked)} className="h-4 w-4 accent-primary"/>관리자에게만 보내기 (비공개)</label>}<p className="mt-2 px-1 text-[10px] text-tertiary">{isGig?'개인 전화번호는 표시되지 않고, 이 대화는 나와 사장님(근무지 담당자)만 볼 수 있어요.':directOnly?'이 메시지는 관리자만 볼 수 있어요. 개인 전화번호는 표시되지 않아요.':'개인 전화번호는 표시되지 않아요. 같은 근무지 사람들이 이 대화를 함께 봐요.'}</p></section>}
   </main>;
 }

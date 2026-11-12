@@ -50,7 +50,7 @@ export default async function SafetyReviewPage({searchParams}:{searchParams:Prom
       <p className="my-3 text-sm text-sub">{closed?'최근':'오래된 순으로'} 최대 100건 표시 · {result.data.length}건</p>
       {!result.data.length&&<p className="rounded-xl bg-white p-6">해당 신고가 없어요.</p>}
       {result.data.map(report=><article key={report.id} className="mb-4 rounded-2xl border border-line bg-white p-4">
-        <p className="text-sm font-bold">{reasons[report.reason]} · {report.source==='match'?'근무 대화':'워크룸'} · {report.status}</p>
+        <p className="text-sm font-bold">{reasons[report.reason]} · {report.source==='match'?'공고 지원자 대화':'대화방'} · {report.status}</p>
         <p className="mt-1 text-xs text-sub">{new Date(report.created_at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} · {report.sender_label}</p>
         <blockquote className="mt-3 whitespace-pre-wrap break-words rounded-xl bg-bg p-3 [overflow-wrap:anywhere]">{report.message_snapshot}</blockquote>
         {report.note&&<p className="mt-3 whitespace-pre-wrap break-words text-sm">신고 설명: {report.note}</p>}

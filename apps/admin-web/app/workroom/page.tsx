@@ -9,7 +9,7 @@ export default async function WorkroomPage({ searchParams }: { searchParams: Pro
   if (!context) redirect('/login');
   if (!shop) redirect('/setup/claim-facility');
   const sb = adminClient();
-  if (!sb) throw new Error('워크룸 연결을 확인해 주세요.');
+  if (!sb) throw new Error('대화방 연결을 확인해 주세요.');
   const { data, error } = await sb.from('facility_staff').select('id,name,worker_id')
     .eq('facility_id', context.facilityId).neq('status', 'ended').order('name');
   if (error) throw new Error('구성원 목록을 불러오지 못했어요. 다시 시도해 주세요.');

@@ -67,9 +67,9 @@ try{
     await page.evaluate(()=>{window.historyFailure=false;});await page.getByRole('button',{name:'다시 불러오기',exact:true}).click();await input.fill('복구됨');
     if(admin){
       await page.setViewportSize({width,height:844});await page.evaluate(()=>window.mount('workroom'));
-      const roomInput=page.getByRole('textbox',{name:'워크룸 메시지'});await roomInput.fill('전체방 작성 중');
+      const roomInput=page.getByRole('textbox',{name:'대화 메시지'});await roomInput.fill('전체방 작성 중');
       await page.getByRole('button',{name:'근무자',exact:true}).click();await roomInput.fill('개인방 작성 중');
-      await page.getByRole('button',{name:'전체 공지',exact:true}).click();await page.waitForFunction(()=>document.querySelector('textarea[aria-label="워크룸 메시지"]')?.value==='전체방 작성 중');
+      await page.getByRole('button',{name:'전체 공지',exact:true}).click();await page.waitForFunction(()=>document.querySelector('textarea[aria-label="대화 메시지"]')?.value==='전체방 작성 중');
       await page.getByRole('button',{name:'전송',exact:true}).evaluate(b=>{b.click();b.click();});
       assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.name==='send_facility_workroom_message').length),1);
       await page.evaluate(()=>window.calls.at(-1).reject(new Error('전송 실패')));await page.getByRole('alert').waitFor();

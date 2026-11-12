@@ -162,7 +162,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
     </div>
 
     <section className="min-h-[360px] flex-1 overflow-y-auto rounded-2xl bg-white px-4 py-4 shadow-sm">
-      {loading && <p className="py-16 text-center text-[0.8125rem] text-sub">워크룸 기록을 불러오고 있어요...</p>}
+      {loading && <p className="py-16 text-center text-[0.8125rem] text-sub">대화를 불러오고 있어요...</p>}
       {loadError && <div role="alert" className="py-4 text-[14px] text-red-600"><p>{loadError}</p><button type="button" onClick={() => void load()} className="mt-2 min-h-11 rounded-xl bg-bg px-4 font-bold">다시 불러오기</button></div>}
       {statusError && <div role="alert" className="py-2 text-[14px] text-red-600">{statusError}<button type="button" onClick={() => void loadStatus()} className="ml-2 min-h-11 underline">응답 현황 재시도</button></div>}
       {hasMore && !loading && <button type="button" disabled={loadingOlder} onClick={() => void load(true)} className="mb-3 min-h-11 w-full rounded-xl bg-bg text-[14px] font-bold text-primary">{loadingOlder ? '불러오는 중…' : '이전 대화 더 보기'}</button>}
@@ -217,7 +217,7 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
         </div>
       )}
       <div className="flex items-end gap-2">
-        <textarea aria-label="워크룸 메시지" disabled={loading||!!loadError} value={input} onChange={(event)=>{setInput(event.target.value);drafts.current.set(selectedStaffId,event.target.value);}} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={selectedMember?`${selectedMember.name}님에게 메시지`:'전체 공지나 전달사항'} className="min-h-[48px] min-w-0 flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[0.875rem] text-ink outline-none"/>
+        <textarea aria-label="대화 메시지" disabled={loading||!!loadError} value={input} onChange={(event)=>{setInput(event.target.value);drafts.current.set(selectedStaffId,event.target.value);}} onKeyDown={(event)=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();void send();}}} maxLength={2000} rows={2} placeholder={selectedMember?`${selectedMember.name}님에게 메시지`:'전체 공지나 전달사항'} className="min-h-[48px] min-w-0 flex-1 resize-none rounded-xl bg-bg px-3 py-3 text-[0.875rem] text-ink outline-none"/>
         <button type="button" onClick={()=>void send()} disabled={!input.trim()||sending||loading||!!loadError} className="h-12 rounded-xl bg-primary px-4 text-[0.8125rem] font-extrabold text-white disabled:opacity-40">전송</button>
       </div>
     </section>

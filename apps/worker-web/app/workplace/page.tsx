@@ -214,7 +214,7 @@ function WorkplaceContent() {
   // 워크룸·급여 바로가기는 출퇴근 버튼 아래에 둔다 — 들어오자마자 버튼이 보여야 한다(2026-11-10 근태 화면 정리).
   // 직원에게 급여는 여기서 한 번에 닿아야 한다 — 예전엔 내 정보 > 급여로만 갔고 그마저 단기 근무 지급만 보였다(11/10 치과 QA P1-11)
   const quickLinks=staffList.length>0?<div className="mt-3 grid grid-cols-2 gap-3">
-    <Link href="/workroom" className="flex min-h-[64px] flex-col justify-center rounded-2xl bg-white px-4 py-3 shadow-sm active:bg-bg"><b className="text-[14px] text-ink">사업장 워크룸 <span className="text-primary">→</span></b><span className="mt-0.5 text-[11px] text-sub">공지·근무 대화</span></Link>
+    <Link href="/workroom" className="flex min-h-[64px] flex-col justify-center rounded-2xl bg-white px-4 py-3 shadow-sm active:bg-bg"><b className="text-[14px] text-ink">사업장 대화방 <span className="text-primary">→</span></b><span className="mt-0.5 text-[11px] text-sub">공지·근무 대화</span></Link>
     <Link href="/earnings" className="flex min-h-[64px] flex-col justify-center rounded-2xl bg-white px-4 py-3 shadow-sm active:bg-bg"><b className="text-[14px] text-ink">이번 달 예상 급여 <span className="text-primary">→</span></b><span className="mt-0.5 text-[11px] text-sub">확정 근태 기준 · 세전</span></Link>
   </div>:null;
   return <main className="min-h-screen bg-bg px-4 pt-4 pb-28">

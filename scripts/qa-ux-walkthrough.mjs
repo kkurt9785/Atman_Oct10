@@ -195,15 +195,15 @@ async function main() {
     if (!touched) {
       // 시간창 밖: 앱 안내대로 관리자가 타임시트에서 수동 출근 처리
       await go(`${adminOrigin}/timesheet`);
-      const clickedIn = await evalJson(`const cards = Array.from(document.querySelectorAll('div,article')).filter((el) => el.textContent?.includes('긱워커 데모') && Array.from(el.querySelectorAll('button')).some((b) => b.textContent?.trim() === '출근' && !b.disabled)); const card = cards.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!card) return false; Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === '출근' && !b.disabled).click(); return true;`);
+      const clickedIn = await evalJson(`const cards = Array.from(document.querySelectorAll('div,article')).filter((el) => el.textContent?.includes('한지우') && Array.from(el.querySelectorAll('button')).some((b) => b.textContent?.trim() === '출근' && !b.disabled)); const card = cards.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!card) return false; Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === '출근' && !b.disabled).click(); return true;`);
       report.push({ step: '관리자 타임시트 수동 출근 처리 클릭', ok: clickedIn });
       await sleep(3000); await settle();
       await rest(`staff_attendances?staff_id=eq.${staffId}&work_date=eq.${kstToday}`, { method: 'PATCH', body: JSON.stringify({ check_in_at: new Date(Date.now() - 3 * 3600e3).toISOString() }) });
     }
     await go(`${adminOrigin}/staff?view=contract&entry=gigworker`); await shot('admin-staff-linked', '연결된 근무자 카드: 계정 이름 · 연결 해제·재초대');
-    await go(`${adminOrigin}/`); await shot('admin-home-working', '보드에 긱워커 데모 근무 중');
+    await go(`${adminOrigin}/`); await shot('admin-home-working', '보드에 한지우(단기 시연 근무자) 근무 중');
     await go(`${adminOrigin}/timesheet`); await shot('admin-timesheet-before');
-    const clickedOut = await evalJson(`const cards = Array.from(document.querySelectorAll('div,article')).filter((el) => el.textContent?.includes('긱워커 데모') && Array.from(el.querySelectorAll('button')).some((b) => b.textContent?.trim() === '퇴근' && !b.disabled)); const card = cards.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!card) return false; Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === '퇴근' && !b.disabled).click(); return true;`);
+    const clickedOut = await evalJson(`const cards = Array.from(document.querySelectorAll('div,article')).filter((el) => el.textContent?.includes('한지우') && Array.from(el.querySelectorAll('button')).some((b) => b.textContent?.trim() === '퇴근' && !b.disabled)); const card = cards.sort((a, b) => a.textContent.length - b.textContent.length)[0]; if (!card) return false; Array.from(card.querySelectorAll('button')).find((b) => b.textContent?.trim() === '퇴근' && !b.disabled).click(); return true;`);
     report.push({ step: '관리자 타임시트 퇴근 처리 클릭', ok: clickedOut });
     await sleep(3000); await settle(); await shot('admin-timesheet-after', '퇴근 완료 표시');
     await go(`${adminOrigin}/gig-pay`); await shot('admin-gig-pay-before', '지급할 금액 > 0 기대');

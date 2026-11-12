@@ -192,7 +192,7 @@ async function main() {
     // 수락 직후 첫 /gig 에는 '연결됐어요' 안내가 한 번 뜬다(위에서 4초 기다리는 동안 소비됨) — 다시 열어 오늘 근무·출근하기를 찍는다
     await go(`${workerOrigin}/gig`); await waitFor(`${hasText('출근하기')} || ${hasText('근무 중')} || ${hasText('근무 완료')}`); await sleep(800); await shot('01-gig-home');
     // 워크룸: 입력칸 아래 개인정보 줄('나와 사장님만 볼 수 있어요')이 시연 띠에 가려서 조금(36px) 내려 찍는다 — 맨 아래까지 내리면 제목이 잘린다
-    await go(`${workerOrigin}/gig/workroom`); await waitFor(`document.querySelector('textarea[aria-label="워크룸 메시지"]') && !document.querySelector('textarea[aria-label="워크룸 메시지"]').disabled`);
+    await go(`${workerOrigin}/gig/workroom`); await waitFor(`document.querySelector('textarea[aria-label="대화 메시지"]') && !document.querySelector('textarea[aria-label="대화 메시지"]').disabled`);
     await cdp.send('Runtime.evaluate', { expression: 'window.scrollTo(0, 36); true' }); await sleep(900); await shot('02-gig-workroom');
     await go(`${workerOrigin}/gig/settlement`); await waitFor(`${hasText('지급')} && ${lacksText('불러오고 있어요')} && ${lacksText('확인하고 있어요')}`); await sleep(1200); await shot('03-gig-settlement');
     await go(`${workerOrigin}/gig/notifications`); await sleep(1500); await shot('04-gig-notifications');

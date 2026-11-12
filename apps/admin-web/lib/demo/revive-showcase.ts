@@ -27,7 +27,7 @@ export type ReviveSummary = {
   matched: { shifts: number; applications: number; attendances_status: number };
   open: { shifts: number; applications: number };
   covers: number;
-  workforce: { clinic: unknown; pharmacy: unknown; demo1_application: unknown };
+  workforce: { clinic: unknown; pharmacy: unknown; demo1_application: unknown; workrooms: unknown };
   totals: { matched_today: number; open_today: number };
 };
 
@@ -434,6 +434,11 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     covers += 1;
   }
 
+  // ── 9-1. 대화 시연 (2026-11-12) — 직원을 다시 만들면 1:1 대화가 CASCADE 로 지워지므로 맨 끝에서 다시 넣는다.
+  // 실패해도 나머지 시연은 살린다(공지·대화가 비어 보일 뿐).
+  const workrooms = await req('POST', '/rest/v1/rpc/seed_demo_workrooms', {});
+  if (workrooms.status !== 200) console.error('[revive] demo workroom seed failed', workrooms.status, JSON.stringify(workrooms.data));
+
   // ── 10. 오늘 데이터 집계 ────────────────────────────────────────────────────
   const matchedCount = await req<Array<{ id: string }>>(
     'GET',
@@ -457,6 +462,7 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
       clinic: clinicWorkforce.data,
       pharmacy: pharmacyWorkforce.data,
       demo1_application: demo1Application.data,
+      workrooms: workrooms.status === 200 ? workrooms.data : { error: workrooms.status },
     },
     totals: {
       matched_today: (matchedCount.data ?? []).length,
