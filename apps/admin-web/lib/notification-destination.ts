@@ -4,7 +4,8 @@ import { safeNotificationPath } from './shared/notifications/navigation';
 export function adminNotificationDestination(data: Record<string, unknown> | null): string {
   const next = safeFacilityDestination(data?.url);
   const facility = data?.facilityId ?? data?.facility_id;
-  if (typeof facility !== 'string' || !facility) return next;
+  // 등록 반려 알림(/setup/…)은 이미 지워진 사업장을 가리킨다 — 사업장 전환을 거치면 권한 오류 화면이 뜬다
+  if (typeof facility !== 'string' || !facility || /^\/(setup|ops)(\/|\?|#|$)/.test(next)) return next;
   return `/notifications/open?${new URLSearchParams({ facility, next })}`;
 }
 
@@ -17,6 +18,6 @@ export function noticeInFacility(data: Record<string, unknown> | null, facilityI
 export function safeFacilityDestination(value: unknown): string {
   const path = safeNotificationPath(value);
   // Do not allow side-effect endpoints or recursive handoffs as destinations.
-  return path && (path==='/' || /^\/(timesheet|gig-pay|operations|staff|workroom|applications|chats|shifts|payroll|sites|attendance-history|attendance-summary|membership|notifications)(\/|\?|#|$)/.test(path))
+  return path && (path==='/' || /^\/(timesheet|leave|gig-pay|gig-work|operations|staff|workroom|applications|chats|shifts|payroll|sites|attendance-history|attendance-summary|membership|notifications|more|setup|ops)(\/|\?|#|$)/.test(path))
     && !/^\/notifications\/open(\/|\?|#|$)/.test(path) ? path : '/';
 }

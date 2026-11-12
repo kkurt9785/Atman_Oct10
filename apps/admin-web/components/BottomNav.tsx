@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { badgeText } from '@/lib/nav-badges';
+import { badgeText, NAV_BADGES_EVENT } from '@/lib/nav-badges';
 import type { FacilityMode } from '@/lib/facility-mode';
 
 // 하단 탭은 사업장 모드별로, 쓰는 순서대로 짠다(2026-11-12 탭 개편 — 당근처럼 대화를 탭으로, 만들기는 홈 버튼으로).
@@ -50,7 +50,9 @@ export function BottomNav({ mode, canPay = true }: { mode: FacilityMode | null; 
     load();
     const onFocus = () => { if (document.visibilityState === 'visible') load(); };
     document.addEventListener('visibilitychange', onFocus);
-    return () => { alive = false; document.removeEventListener('visibilitychange', onFocus); };
+    // 대화를 읽으면 화면을 옮기지 않아도 숫자가 줄어야 한다(대화 화면이 신호를 보낸다)
+    window.addEventListener(NAV_BADGES_EVENT, load);
+    return () => { alive = false; document.removeEventListener('visibilitychange', onFocus); window.removeEventListener(NAV_BADGES_EVENT, load); };
   }, [path]);
   return (
     <nav aria-label="주요 메뉴" className={`fixed bottom-0 inset-x-0 z-30 mx-auto bg-white border-t border-line flex pb-[env(safe-area-inset-bottom)] ${mode==='gig'?'max-w-5xl':'max-w-app'}`}>

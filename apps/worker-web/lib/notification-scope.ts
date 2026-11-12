@@ -53,6 +53,13 @@ export function noticeBelongsTo(scope: NoticeScope, shell: WorkerShell) {
 }
 
 // DB 함수는 알림 URL 을 의료 셸 기준(/workplace, /workroom)으로 적는다. 긱 셸에서는 같은 화면의 /gig 경로로 연다.
+/** 의료 셸 경로를 단기 셸의 같은 화면으로 바꾼다(셸 가드가 단기 전용 근무자를 옮길 때). 대응 화면이 없으면 /gig(오늘). */
+export function gigPathFor(pathname: string): string {
+  if (/^\/workroom(\/|$)/.test(pathname)) return '/gig/workroom';
+  if (/^\/notifications(\/|$)/.test(pathname)) return '/gig/notifications';
+  return '/gig';
+}
+
 export function noticeHref(url: unknown, shell: WorkerShell) {
   const path = safeNotificationPath(url);
   if (!path || shell === 'medical') return path;

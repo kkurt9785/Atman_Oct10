@@ -281,7 +281,7 @@ export async function addStaffLeaveAction(form: FormData) {
   // 새 함수가 아직 DB 에 없으면(PGRST202) 예전 함수로 등록한다 — 오전·오후 표시만 빠진다
   if (error?.code === 'PGRST202') ({ data: requestId, error } = await sb.rpc('create_approved_staff_leave', args));
   if (error || !requestId) throw new Error(error?.message || '휴가를 등록하지 못했어요.');
-  await notifyStaffLeave(staffId, `leave.decided:${requestId}:registered`, '휴가가 등록됐어요',
+  await notifyStaffLeave(staffId, `leave.decided:${requestId}:registered`, `${leaveTypeLabel(leaveType, halfDayPeriod, '기타 휴가')}가 등록됐어요`,
     `${shortDate(startDate)}${endDate !== startDate ? `~${shortDate(endDate)}` : ''} ${leaveTypeLabel(leaveType, halfDayPeriod, '기타 휴가')}를 관리자가 등록했어요.`, 'approved');
   if (['annual','sick','other'].includes(leaveType)) {
     await enqueueStaffingReviewAlert(context.facilityId, staffId, `leave:${requestId}`, startDate, 'leave');
@@ -323,7 +323,7 @@ export async function decideStaffLeaveAction(form: FormData) {
   if (request) {
     const period = `${shortDate(request.start_date)}${request.end_date !== request.start_date ? `~${shortDate(request.end_date)}` : ''} ${leaveTypeLabel(request.leave_type, request.half_day_period, '기타 휴가')}`;
     await notifyStaffLeave(request.staff_id, `leave.decided:${request.id}:${decision}`,
-      decision === 'approved' ? '휴가가 승인됐어요' : '휴가 신청이 반려됐어요',
+      decision === 'approved' ? `${leaveTypeLabel(request.leave_type, request.half_day_period, '기타 휴가')} 신청이 승인됐어요` : `${leaveTypeLabel(request.leave_type, request.half_day_period, '기타 휴가')} 신청이 반려됐어요`,
       decision === 'approved' ? `${period} 신청이 승인됐어요.` : `${period} 신청이 반려됐어요. 관리자에게 사유를 확인해 주세요.`, decision);
   }
   if (decision === 'approved' && request && ['annual','sick','other'].includes(request.leave_type)) await enqueueStaffingReviewAlert(context.facilityId, request.staff_id, `leave:${request.id}`, request.start_date, 'leave');

@@ -7,6 +7,7 @@ import type { AreaPref } from '@/components/onboarding/ActivityArea';
 import {
   enableShiftPush,
   disableShiftPush,
+  forgetThisDevicePush,
   isShiftPushEnabled,
 } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
@@ -113,6 +114,7 @@ export default function SettingsPage() {
   }
 
   async function handleLogout() {
+    await forgetThisDevicePush();
     await supabase.auth.signOut();
     setGigworkerModePreference(false);
     router.replace('/');

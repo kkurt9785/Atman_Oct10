@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MessageSafetyActions } from '@/components/safety/MessageSafetyActions';
 import { loadWorkroomPage, type WorkroomMessage as Message } from '@/lib/workroom-messages';
 import { supabase } from '@/lib/supabase-browser';
+import { badgeText, NAV_BADGES_EVENT } from '@/lib/nav-badges';
 
 type CheckStatusRow = { check_id: string; staff_id: string; staff_name: string; replied_at: string | null };
 type Member = { id: string; name: string; workerLinked: boolean };
@@ -18,7 +19,7 @@ function dueLabel(value: unknown) {
 }
 
 // 사업장 워크룸(관리자). 공지·대화·출퇴근 기록에 더해 '출석 확인'을 올리고 누가 답했는지 본다 — 단체톡 출석체크의 앱 버전.
-export function WorkroomClient({ facilityId, facilityName, members, initialStaffId, applicantChats = false }: { facilityId: string; facilityName: string; members: Member[]; initialStaffId: string; applicantChats?: boolean }) {
+export function WorkroomClient({ facilityId, facilityName, members, initialStaffId, applicantChats = false, initialUnread }: { facilityId: string; facilityName: string; members: Member[]; initialStaffId: string; applicantChats?: boolean; initialUnread?: { room: number; staff: Record<string, number> } }) {
   const [selectedStaffId, setSelectedStaffId] = useState(initialStaffId);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -34,6 +35,14 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
   const [loadError, setLoadError] = useState('');
   const [statusError, setStatusError] = useState('');
   const [notice, setNotice] = useState('');
+  // 사람 칩의 안 읽은 수. 키 '' = 전체 공지방. 대화를 열면 그 방은 0, 다른 방에 새 메시지가 오면 +1
+  const [unread, setUnread] = useState<Record<string, number>>(() => ({ ...(initialUnread?.staff ?? {}), '': initialUnread?.room ?? 0 }));
+  const markRead = useCallback(async (staffId: string) => {
+    setUnread(current => current[staffId] ? { ...current, [staffId]: 0 } : current);
+    const { error: failure } = staffId ? await supabase.rpc('mark_staff_workroom_read',{p_staff_id:staffId}) : await supabase.rpc('mark_facility_workroom_read',{p_facility_id:facilityId});
+    // 읽음이 저장된 뒤에 하단 탭 숫자를 다시 받는다(먼저 받으면 옛 숫자가 남는다)
+    if (!failure) window.dispatchEvent(new Event(NAV_BADGES_EVENT));
+  }, [facilityId]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const sendLock = useRef(false), olderLock = useRef(false), sequence = useRef(0);
@@ -74,17 +83,14 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
       setMessages(current => [...new Map([...current, ...page.messages].map(row => [row.id,row])).values()]
         .sort((a,b) => Date.parse(a.created_at)-Date.parse(b.created_at) || a.id.localeCompare(b.id)));
       setHasMore(page.hasMore);
-      void Promise.all([
-        selectedStaffId ? supabase.rpc('mark_staff_workroom_read',{p_staff_id:selectedStaffId}) : supabase.rpc('mark_facility_workroom_read',{p_facility_id:facilityId}),
-        loadStatus(),
-      ]).catch(() => undefined);
+      void Promise.all([markRead(selectedStaffId), loadStatus()]).catch(() => undefined);
     } catch (caught) {
       if (request === sequence.current) setLoadError(caught instanceof Error ? caught.message : '대화를 불러오지 못했어요. 다시 시도해 주세요.');
     } finally {
       if (request === sequence.current) setLoading(false);
       if (older) { olderLock.current = false; setLoadingOlder(false); }
     }
-  }, [facilityId, loadStatus, selectedStaffId]);
+  }, [facilityId, loadStatus, markRead, selectedStaffId]);
 
   useEffect(() => {
     let active = true;
@@ -93,7 +99,14 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
       .on('postgres_changes', {event:'INSERT',schema:'public',table:'facility_workroom_messages',filter:`facility_id=eq.${facilityId}`}, payload => {
         if (!active) return;
         const row = payload.new as Message;
-        if (selectedStaffId ? row.staff_id !== selectedStaffId : row.staff_id !== null) return;
+        const fromWorker = row.sender_type === 'worker';
+        if (selectedStaffId ? row.staff_id !== selectedStaffId : row.staff_id !== null) {
+          // 다른 대화방에 온 근무자 메시지 — 그 사람 칩에 숫자를 올린다
+          if (fromWorker) { const key = row.staff_id ?? ''; setUnread(current => ({ ...current, [key]: (current[key] ?? 0) + 1 })); window.dispatchEvent(new Event(NAV_BADGES_EVENT)); }
+          return;
+        }
+        // 열어 둔 대화에 온 메시지는 바로 읽음 처리(안 하면 나중에 숫자로 다시 잡힌다)
+        if (fromWorker) void markRead(selectedStaffId).catch(() => undefined);
         setMessages(current => current.some(item => item.id===row.id) ? current : [...current,row]);
       })
       .on('postgres_changes', {event:'INSERT',schema:'public',table:'facility_workroom_check_replies'}, () => { if (active) void loadStatus(); })
@@ -156,8 +169,8 @@ export function WorkroomClient({ facilityId, facilityName, members, initialStaff
     {notice && <p role="status" className="mb-3 rounded-xl bg-primary/5 p-3 text-[14px] text-primary">{notice}</p>}
     <div className="-mx-4 mb-3 overflow-x-auto px-4 pt-3 [scrollbar-width:none]">
       <div className="flex w-max gap-2">
-        <button type="button" onClick={()=>setSelectedStaffId('')} className={`h-10 rounded-full px-4 text-[0.75rem] font-extrabold ${!selectedStaffId?'bg-primary text-white':'border border-line bg-white text-sub'}`}>전체 공지</button>
-        {members.map((member)=><button key={member.id} type="button" disabled={!member.workerLinked} onClick={()=>setSelectedStaffId(member.id)} className={`h-10 rounded-full px-4 text-[0.75rem] font-extrabold ${selectedStaffId===member.id?'bg-ink text-white':member.workerLinked?'border border-line bg-white text-sub':'border border-line bg-bg text-tertiary opacity-50'}`}>{member.name}{!member.workerLinked?' · 수락 전':''}</button>)}
+        <button type="button" onClick={()=>setSelectedStaffId('')} className={`h-10 rounded-full px-4 text-[0.75rem] font-extrabold ${!selectedStaffId?'bg-primary text-white':'border border-line bg-white text-sub'}`}>전체 공지{unread['']>0&&<span className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[0.625rem] font-extrabold text-white">{badgeText(unread[''])}</span>}</button>
+        {members.map((member)=><button key={member.id} type="button" disabled={!member.workerLinked} onClick={()=>setSelectedStaffId(member.id)} className={`h-10 rounded-full px-4 text-[0.75rem] font-extrabold ${selectedStaffId===member.id?'bg-ink text-white':member.workerLinked?'border border-line bg-white text-sub':'border border-line bg-bg text-tertiary opacity-50'}`}>{member.name}{!member.workerLinked?' · 수락 전':''}{member.workerLinked&&(unread[member.id]??0)>0&&<span aria-label={`안 읽은 메시지 ${unread[member.id]}개`} className="ml-1.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[0.625rem] font-extrabold text-white">{badgeText(unread[member.id])}</span>}</button>)}
       </div>
     </div>
 

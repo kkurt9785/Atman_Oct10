@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase-browser';
+import { forgetThisDevicePush } from '@/lib/push-subscribe';
 
 // 시연 중에는 어느 화면에서든 바로 가입하거나 처음 화면(로그인)으로 — 하단 탭 위에 띄운다.
 // 시연 계정(@demo.atman.co.kr)은 영업 시연과 방문자가 같이 쓴다. 나갈 때는 서버 세션까지 지운다.
@@ -33,6 +34,7 @@ export function AdminDemoBar() {
 
   async function leave(next: 'signup' | 'start') {
     setLeaving(next);
+    await forgetThisDevicePush();
     await fetch('/api/admin-session', { method: 'DELETE' }).catch(() => undefined);
     await supabase.auth.signOut({scope:'local'}).catch(() => undefined);
     // 가입은 로그인 화면이 ?start=1 을 받아 바로 카카오 로그인으로 잇는다(카카오톡 안이면 바깥 브라우저로)

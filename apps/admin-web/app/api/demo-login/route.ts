@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { adminClient } from '@/lib/supabase';
 
 const ALLOWED = new Set([
   'sales-demo-1@demo.atman.co.kr',
@@ -44,6 +45,12 @@ export async function POST(request: NextRequest) {
   if (error || !data.session) {
     return NextResponse.json({ error: '데모 로그인에 실패했어요.' }, { status: 401 });
   }
+  // 시연 대화·알림을 지금 시각 기준으로 다시 만든다 — 앞사람이 대화를 읽어 '대화' 숫자가 사라진 채로 다음 사람이 보지 않게.
+  // 2.5초 안에 안 끝나거나 실패해도 로그인은 그대로 진행한다.
+  try {
+    const service = adminClient();
+    if (service && data.user) await Promise.race([service.rpc('seed_demo_workrooms_for', { p_user: data.user.id }), new Promise((resolve) => setTimeout(resolve, 2500))]);
+  } catch { /* 시연 대화가 어제 것으로 보일 뿐 */ }
   return NextResponse.json({
     accessToken: data.session.access_token,
     refreshToken: data.session.refresh_token,

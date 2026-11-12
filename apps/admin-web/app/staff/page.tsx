@@ -70,7 +70,7 @@ export default async function StaffPage({searchParams}:{searchParams:Promise<{vi
     ]} />}
 
     {gigworkerMode&&<div className="grid grid-cols-3 gap-2">
-      {(gigworkerMode?[['오늘 근무',`${clinicStaff.filter(s=>s.scheduledToday).length}명`],['초대 대기',`${clinicStaff.filter(s=>!s.workerId&&s.inviteToken).length}명`],['계정 연결',`${clinicStaff.filter(s=>s.workerId).length}명`]]:[['관리 직원',`${clinicStaff.length}명`],['계약·단기',`${contractCount}명`],['오늘 확정 인력',`${shiftStaff.length}명`]]).map(([label,value])=>
+      {(gigworkerMode?[['오늘 근무',`${clinicStaff.filter(s=>s.scheduledToday&&s.workerId).length}명`],['초대 대기',`${clinicStaff.filter(s=>!s.workerId&&s.inviteToken).length}명`],['계정 연결',`${clinicStaff.filter(s=>s.workerId).length}명`]]:[['관리 직원',`${clinicStaff.length}명`],['계약·단기',`${contractCount}명`],['오늘 확정 인력',`${shiftStaff.length}명`]]).map(([label,value])=>
         <Card key={label} className="p-3 shadow-sm"><p className="text-[0.6875rem] text-sub">{label}</p><p className="text-title font-extrabold mt-1">{value}</p></Card>
       )}
     </div>}

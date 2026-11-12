@@ -22,6 +22,11 @@ export default async function TimesheetPage({searchParams}:{searchParams:Promise
   ]);
   const facilityWord=facilityTypeLabel(shop?.facilityType);
   const isGigworker=shop?.mode==='gig';
+  // 단기: 초대를 아직 수락하지 않은 사람은 출근할 수 없다 — 미출근·확인 필요로 세면 홈(오늘 근무 N명·확인 필요)과 숫자가 어긋난다(11/12 운영 QA).
+  // 홈 보드처럼 초대 대기로만 다루고, 여기서는 한 줄로 알려 준다.
+  const visibleStaff=isGigworker?staff.filter(person=>person.workerId):staff;
+  const visibleIds=new Set(visibleStaff.map(person=>person.id));
+  const awaitingInvite=isGigworker?staff.filter(person=>!person.workerId&&person.scheduledToday).length:0;
   const currentMonth=new Date(Date.now()+9*3600000).toISOString().slice(0,7);
   const recentComplete=new Date(`${currentMonth}-01T00:00:00Z`);recentComplete.setUTCMonth(recentComplete.getUTCMonth()-1);
   const summaryHref=shop?.isDemo?`/attendance-summary?month=${recentComplete.toISOString().slice(0,7)}`:'/attendance-summary';
@@ -44,7 +49,8 @@ export default async function TimesheetPage({searchParams}:{searchParams:Promise
     </div>}
     {!isGigworker&&hasShortTerm&&<div className="mt-3"><OperationsFlow active="attendance"/></div>}
     {selectedStaffId&&<p role="status" className="mt-3 rounded-xl bg-white p-3 text-sm">선택한 근무자: {staff.find(person=>person.id===selectedStaffId)?.name??'현재 현장에서 찾을 수 없어요'} · <Link href="/timesheet" className="font-bold text-primary">전체 근태 보기</Link></p>}
-    <AttendanceDashboard key={selectedStaffId??'all'} staff={selectedStaffId?staff.filter(person=>person.id===selectedStaffId):staff} matched={isGigworker||selectedStaffId?[]:matched} upcoming={isGigworker||selectedStaffId?[]:upcoming} failures={selectedStaffId?[]:failures} arrivalAlerts={arrivalAlerts.filter((alert) => alert.kind === 'no_show'&&(!selectedStaffId||alert.staffId===selectedStaffId))} facilityId={facilityId} summaryHref={summaryHref} isGigworker={isGigworker}/>
+    <AttendanceDashboard key={selectedStaffId??'all'} staff={selectedStaffId?visibleStaff.filter(person=>person.id===selectedStaffId):visibleStaff} matched={isGigworker||selectedStaffId?[]:matched} upcoming={isGigworker||selectedStaffId?[]:upcoming} failures={selectedStaffId?[]:failures} arrivalAlerts={arrivalAlerts.filter((alert) => alert.kind === 'no_show'&&(!selectedStaffId||alert.staffId===selectedStaffId)&&(!isGigworker||!alert.staffId||visibleIds.has(alert.staffId)))} facilityId={facilityId} summaryHref={summaryHref} isGigworker={isGigworker}/>
+    {awaitingInvite>0&&<Link href="/staff?view=contract&entry=gigworker" className="mt-3 flex min-h-11 items-center justify-between rounded-xl bg-white px-4 text-[0.75rem] font-bold text-sub shadow-card"><span>오늘 일정이 있는데 초대를 아직 수락하지 않은 근무자 {awaitingInvite}명</span><span className="text-primary">근무자 관리 →</span></Link>}
     <p className="mt-4 px-1 text-[0.6875rem] leading-5 text-sub">{isGigworker?'근무자가 남기고 사장님이 확인한':`${facilityWord} 관리자가 입력·승인한`} 출퇴근 기록이에요. 수정 이력은 감사 기록에 남아요.</p>
   </main>;
 }

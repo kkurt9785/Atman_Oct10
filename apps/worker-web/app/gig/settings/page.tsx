@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { BackButton } from '@/components/BackButton';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { enableShiftPush, disableShiftPush, isShiftPushEnabled } from '@/lib/push-subscribe';
+import { enableShiftPush, disableShiftPush, forgetThisDevicePush, isShiftPushEnabled } from '@/lib/push-subscribe';
 import { PwaInstallSheet } from '@/components/PwaInstallSheet';
 import { PrivacySection } from '@/components/settings/PrivacySection';
 import { DemoSignupCard } from '@/components/DemoSignup';
@@ -81,6 +81,7 @@ export default function GigSettingsPage() {
     router.push('/onboarding?step=terms');
   }
   async function handleLogout() {
+    await forgetThisDevicePush();
     await supabase.auth.signOut();
     setGigworkerModePreference(false);
     router.replace('/');

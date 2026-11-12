@@ -45,3 +45,15 @@ export async function isAdminPushEnabled(): Promise<boolean> {
   if (error) throw error;
   return Boolean(data);
 }
+
+// 로그아웃·시연 종료 직전에 부른다: 이 기기의 구독 행만 지워, 나간 계정(특히 공개 시연 계정)의 알림이 이 폰에 계속 오지 않게 한다.
+// (11/12 알림 QA P0 — 발송기는 계정에 묶인 구독 전부로 보낸다.) 실패해도 로그아웃은 막지 않는다.
+export async function forgetThisDevicePush(): Promise<void> {
+  try {
+    const sub = await getAdminPushSubscription();
+    if (!sub) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('push_subscriptions').delete().eq('worker_id', user.id).eq('endpoint', sub.endpoint);
+  } catch { /* 로그아웃이 먼저다 */ }
+}

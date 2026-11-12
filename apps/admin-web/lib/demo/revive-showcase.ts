@@ -91,6 +91,11 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
     throw new Error('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured');
   }
 
+  // ── 0. 시연 계정 알림 비우기 (2026-11-12) — 시연 직원을 매일 다시 만들어 지난 알림의 링크가 깨진다.
+  // 오늘 것만 다시 쌓이게 맨 앞에서 비운다. 실패해도 되살리기는 계속한다.
+  const pruned = await req('POST', '/rest/v1/rpc/prune_demo_notifications', {}).catch(() => null);
+  if (!pruned || pruned.status !== 200) console.error('[revive] demo notification prune failed', pruned?.status);
+
   const now = Date.now();
   const TODAY = todayKST(); // KST 기준 오늘 (shift_date)
   const iso = (offsetMs: number) => new Date(now - offsetMs).toISOString();

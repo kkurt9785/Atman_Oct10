@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/supabase', () => ({ supabase: {} }));
 
-import { classifyNotice, noticeBelongsTo, noticeHref, type Notice } from '@/lib/notification-scope';
+import { classifyNotice, gigPathFor, noticeBelongsTo, noticeHref, type Notice } from '@/lib/notification-scope';
 
 const ctx = (over: Partial<{ gigStaffIds: string[]; gigFacilityIds: string[]; hasGig: boolean; hasMedical: boolean }> = {}) => ({
   gigStaffIds: ['gig-staff'], gigFacilityIds: ['gig-fac'], hasGig: true, hasMedical: true, ...over,
@@ -55,5 +55,14 @@ describe('noticeHref — DB 는 의료 경로만 적고 긱 셸이 바꿔 연다
     expect(noticeHref('https://evil.example', 'gig')).toBeNull();
     expect(noticeHref('//evil.example', 'medical')).toBeNull();
     expect(noticeHref(null, 'gig')).toBeNull();
+  });
+});
+
+describe('gigPathFor — 단기 전용 근무자를 의료 화면에서 옮길 때 같은 화면으로', () => {
+  it('대화방·알림함은 단기 셸의 같은 화면, 나머지는 오늘 화면', () => {
+    expect(gigPathFor('/workroom')).toBe('/gig/workroom');
+    expect(gigPathFor('/notifications')).toBe('/gig/notifications');
+    expect(gigPathFor('/workplace')).toBe('/gig');
+    expect(gigPathFor('/workroomx')).toBe('/gig');
   });
 });

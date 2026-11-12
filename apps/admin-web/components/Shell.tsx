@@ -10,6 +10,7 @@ import { FacilityModeGuard } from './FacilityModeGuard';
 import { Wordmark } from './BrandMark';
 import { AdminDemoBar } from './AdminDemoBar';
 import { supabase } from '@/lib/supabase-browser';
+import { forgetThisDevicePush } from '@/lib/push-subscribe';
 import type { FacilityMode } from '@/lib/facility-mode';
 
 const PUBLIC_PREFIX = ['/login', '/auth/', '/setup/'];
@@ -31,6 +32,7 @@ export function Shell({ children, facilityMode, gigBetaLocked = false, initialFa
   }, []);
 
   async function handleLogout() {
+    await forgetThisDevicePush();
     await fetch('/api/admin-session', { method: 'DELETE' }).catch(() => undefined);
     const {data}=await supabase.auth.getSession();
     await supabase.auth.signOut(data.session?.user.email?.endsWith('@demo.atman.co.kr')?{scope:'local'}:undefined);

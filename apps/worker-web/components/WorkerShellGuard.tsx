@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { loadWorkerShellContext, rememberWorkerShell, type WorkerShell } from '@/lib/worker-mode';
+import { gigPathFor } from '@/lib/notification-scope';
 
 // 셸 경계 가드. 의료 워커 셸에 긱워커만 쓰는 사람이 오면 /gig 로, 긱 셸에 긱 근무지가 없는 의료 워커가 오면 /home 으로 보낸다.
 // 로그인 전이면 아무것도 하지 않는다 — 로그인 유도는 각 화면이 한다.
@@ -16,8 +17,9 @@ export function WorkerShellGuard({ shell }: { shell: WorkerShell }) {
       const context = await loadWorkerShellContext().catch(() => null);
       if (!active || !context) return;
       if (shell === 'medical' && context.hasGig && !context.hasMedical) {
-        // QR 스캔(/workplace?attendanceToken=)·알림 링크의 쿼리는 그대로 넘긴다
-        window.location.replace(`/gig${window.location.search}`);
+        // QR 스캔(/workplace?attendanceToken=)·알림 링크의 쿼리는 그대로 넘긴다.
+        // 대화방·알림함은 단기 셸의 같은 화면으로 — 예전엔 전부 /gig(오늘)로 보내 출석 확인 푸시를 눌러도 확인 버튼이 없는 화면이 열렸다(11/12 알림 QA P1-3)
+        window.location.replace(`${gigPathFor(window.location.pathname)}${window.location.search}`);
         return;
       }
       if (shell === 'gig' && !context.hasGig && context.hasMedical) {
