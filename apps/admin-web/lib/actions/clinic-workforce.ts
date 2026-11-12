@@ -437,16 +437,16 @@ export async function setStaffPayAction(form:FormData){
     const wageError = hourlyWageError(payRate, period.start, period.end);
     if (wageError) throw new Error(wageError);
   }
-  let bankName=text(form,'bank_name')||staff.bank_name||null;
-  let accountLast4=text(form,'account_last4')||staff.account_last4||null;
-  if(staff.worker_id){
-    const {data:workerBank}=await sb.from('worker_bank_accounts').select('bank_name,account_number_last4')
-      .eq('worker_id',staff.worker_id).eq('is_primary',true).is('deleted_at',null)
-      .order('created_at',{ascending:false}).limit(1).maybeSingle();
-    bankName=workerBank?.bank_name??bankName;
-    accountLast4=workerBank?.account_number_last4??accountLast4;
+  // 지급 계좌(11/12 계좌 검토): 연결 직원은 근무자 앱 계좌를 화면·급여에서 바로 읽으므로 여기서 복사하지 않는다(사본이 옛 계좌로 남았다).
+  // 연결 안 된 직원만 사업장이 고른 은행·확인용 끝 4자리를 저장한다. 비우면 지운다(둘 다 선택).
+  let bankName=staff.bank_name??null;
+  let accountLast4=staff.account_last4??null;
+  if(!staff.worker_id&&(form.has('bank_name')||form.has('account_last4'))){
+    bankName=text(form,'bank_name').slice(0,40)||null;
+    accountLast4=text(form,'account_last4')||null;
   }
-  if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리를 확인해 주세요.');
+  if(accountLast4&&!/^\d{4}$/.test(accountLast4))throw new Error('계좌 끝 4자리는 숫자 4개로 넣어 주세요.');
+  if(Boolean(bankName)!==Boolean(accountLast4)&&!staff.worker_id)throw new Error(bankName?'계좌 끝 4자리도 같이 넣어 주세요. 확인용이라 끝 4자리면 돼요.':'지급 은행도 같이 골라 주세요.');
   const {error}=await sb.from('facility_staff').update({pay_basis:payBasis,pay_rate:payRate,bank_name:bankName,account_last4:accountLast4,updated_at:new Date().toISOString()})
     .eq('id',staffId).eq('facility_id',context.facilityId).neq('status','ended');
   if(error)throw new Error(error.code==='P0001'?error.message:'급여 기준을 저장하지 못했어요.');

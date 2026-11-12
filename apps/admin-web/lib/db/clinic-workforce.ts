@@ -3,6 +3,7 @@ import { adminClient } from '../supabase';
 import { getCurrentFacilityId } from '../facility';
 import { todayKST, yesterdayKST } from '../date';
 import { normalizeWeekdayHours, staffHoursOn, type WeekdayHours } from '../staff-schedule';
+import { loadWorkerBanks, resolveStaffBank, type StaffBankSource } from '../staff-bank';
 
 export type ClinicStaff = {
   id: string;
@@ -43,6 +44,10 @@ export type ClinicStaff = {
   payRate: number|null;
   bankName:string|null;
   accountLast4:string|null;
+  /** worker = 근무자가 앱에 등록한 계좌, facility = 사업장이 넣은 확인용 값, none = 없음 (lib/staff-bank.ts) */
+  bankSource:StaffBankSource;
+  /** 앱 연결 직원인데 근무자 앱에 아직 지급 계좌가 없는지 */
+  workerBankMissing:boolean;
   checkInMethod:string|null;
   checkOutMethod:string|null;
   checkInDistanceM:number|null;
@@ -74,6 +79,8 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
   // 등록 기본값(월~금)이 대부분이라 주말 근무를 막는 근거가 못 된다 — DB record_unified_attendance 와 같은 기준(worker_kind).
   const facilityIsGig = isGigworkerFacility(facilityResult.data);
   if (loadError) throw new Error(`직원·근태 정보를 불러오지 못했어요: ${loadError.message}`);
+  // 연결 직원의 지급 계좌는 근무자 앱 계좌가 기준 — 예전 사본(facility_staff.bank_name)은 근무자가 바꿔도 따라가지 않았다
+  const workerBanks = await loadWorkerBanks(sb, ((staffResult.data ?? []) as any[]).map((row) => row.worker_id));
   const staff = staffResult.data;
   const attendance = attendanceResult.data;
   const balances = balanceResult.data;
@@ -135,7 +142,8 @@ export async function getClinicStaff(): Promise<ClinicStaff[]> {
       accountName: (Array.isArray(row.workers) ? row.workers[0]?.name : row.workers?.name) ?? null,
       inviteToken: invite?.token ?? null, inviteExpiresAt: invite?.expires_at ?? null,
       payBasis: assignment?.pay_basis??row.pay_basis??null, payRate: (assignment?.pay_rate??row.pay_rate) == null ? null : Number(assignment?.pay_rate??row.pay_rate),
-      bankName:row.bank_name??null,accountLast4:row.account_last4??null,
+      ...(()=>{const bank=resolveStaffBank({workerId:row.worker_id??null,bankName:row.bank_name??null,accountLast4:row.account_last4??null},row.worker_id?workerBanks.get(row.worker_id):null);
+        return {bankName:bank.bankName,accountLast4:bank.accountLast4,bankSource:bank.source,workerBankMissing:Boolean(row.worker_id)&&!bank.workerHasAccount};})(),
       checkInMethod:att?.check_in_method??null,checkOutMethod:att?.check_out_method??null,
       checkInDistanceM:att?.check_in_distance_m??null,checkOutDistanceM:att?.check_out_distance_m??null,
       lateMinutes:Number(att?.late_minutes??0),earlyLeaveMinutes:Number(att?.early_leave_minutes??0),

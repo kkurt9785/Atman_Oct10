@@ -132,7 +132,7 @@ export function StaffRegistrationForm({facilityType='clinic',initialEngagementTy
         <label className="text-label font-medium text-sub">계산 방식<select name="pay_basis" value={payBasis} onChange={event=>setPayBasis(event.target.value)} className={inputClass}><option value="monthly">월급</option><option value="hourly">시급</option><option value="daily">일급</option></select></label>
         <label className="text-label font-medium text-sub">{payBasis==='monthly'?'세전 월급':payBasis==='hourly'?'시급':'일급'}<input name="pay_rate" type="number" min="1" step={payBasis==='monthly'?'10000':'100'} required className={inputClass} placeholder={payBasis==='monthly'?'예: 3000000':payBasis==='hourly'?'예: 15000':'예: 150000'}/></label>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-3"><label className="text-label font-medium text-sub">지급 은행<input name="bank_name" maxLength={40} className={inputClass} placeholder="예: 국민은행"/></label><label className="text-label font-medium text-sub">계좌 끝 4자리<input name="account_last4" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} className={inputClass} placeholder="1234"/></label></div>
+      <p className="mt-3 text-[0.6875rem] leading-5 text-sub">지급 계좌는 직원이 앱에서 직접 등록해요. 앱을 쓰지 않는 직원은 등록한 뒤 직원 카드 › 급여 기준에서 확인용 계좌 끝 4자리를 넣을 수 있어요.</p>
       <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[0.6875rem] leading-5 text-amber-700">세금·4대보험·수당은 자동으로 공제하지 않아요. 최종 지급액은 사업장이 노무·세무 기준에 따라 확인해 주세요.</p>
     </section>
     {/* 병원·약국의 '외부 단기근로자 초대'(entry=gigworker)는 직원이 아니라 긱 근무자로 저장한다 — 지급·계좌·비공개 대화가 열린다 */}

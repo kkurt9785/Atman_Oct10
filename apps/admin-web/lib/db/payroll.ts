@@ -3,6 +3,7 @@ import { getCurrentFacilityId } from '../facility';
 import { summarizeAttendancePeriod, type RecordedAttendance } from '../shared/gig-pay/calculation';
 import { roundPay } from '../shared/gig-pay/shift-pay';
 import { readAllRows } from './read-all-rows';
+import { loadWorkerBanks, resolveStaffBank, type StaffBankSource } from '../staff-bank';
 
 export type WagePaymentRow = {
   id: string; workerName: string; shiftDate: string; grossAmount: number; netAmount: number;
@@ -18,6 +19,8 @@ export type StaffWagePaymentRow = {
   payBasis:string|null; payRate:number|null; workedMinutes:number; workedDays:number;
   grossAmount:number; netAmount:number; status:string;
   bankName:string|null;accountLast4:string|null;
+  /** 계좌 출처 — worker(근무자 앱) · facility(사업장 확인용 입력) · none. 계좌가 없어도 승인은 막지 않는다(11/12 계좌 검토) */
+  bankSource:StaffBankSource; workerLinked:boolean;
   needsProration:boolean; prorationReason:string|null; accountReady:boolean;
   /** 저장된 지급 행(검토·승인·이체·완료)이 있는지 — 없으면 화면에서 계산한 '검토 전' 예상치 */
   saved:boolean;
@@ -46,7 +49,7 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
   let staff:any[], attendance:any[], payments:any[], excluded:any[];
   try {
     [{data:staff},{data:attendance},{data:payments},{data:excluded}]=await Promise.all([
-      readAllRows(()=>sb.from('facility_staff').select('id,name,engagement_type,status,contract_start,contract_end,pay_basis,pay_rate,default_break_minutes,bank_name,account_last4').eq('facility_id',facilityId)),
+      readAllRows(()=>sb.from('facility_staff').select('id,name,engagement_type,status,contract_start,contract_end,pay_basis,pay_rate,default_break_minutes,bank_name,account_last4,worker_id').eq('facility_id',facilityId)),
       readAllRows(()=>sb.from('staff_attendances').select('id,staff_id,work_date,check_in_at,check_out_at,break_minutes,status').eq('facility_id',facilityId).gte('work_date',periodMonth).lte('work_date',endDate).eq('status','completed')),
       readAllRows(()=>sb.from('staff_wage_payments').select('id,staff_id,pay_basis,pay_rate,worked_minutes,worked_days,gross_amount,net_amount,status').eq('facility_id',facilityId).eq('period_month',periodMonth)),
       // 퇴근까지 찍혔는데 완료가 아닌 기록(지각·승인 대기) — 급여엔 안 들어가므로 건수만 세어 안내한다
@@ -56,6 +59,7 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
     throw new Error('급여 자료 전체를 확인하지 못했어요. 일부 금액으로 처리하지 않도록 계산을 중단했어요.');
   }
   // 커서가 id 순이라 이름순은 여기서 맞춘다(기존 화면 순서 유지)
+  const workerBanks=await loadWorkerBanks(sb,staff.map((row:any)=>row.worker_id));
   staff.sort((a,b)=>String(a.name??'').localeCompare(String(b.name??''),'ko'));
   const attendanceMap=new Map<string,RecordedAttendance[]>();
   for(const row of (attendance??[]) as Array<RecordedAttendance & {staff_id:string}>) {
@@ -77,6 +81,7 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
   }).map(row=>{
     const work=summarizeAttendancePeriod(attendanceMap.get(row.id)??[],periodMonth,endDate);
     const saved:any=paymentMap.get(row.id);
+    const bank=resolveStaffBank({workerId:row.worker_id??null,bankName:row.bank_name??null,accountLast4:row.account_last4??null},row.worker_id?workerBanks.get(row.worker_id):null);
     const rate=Number(row.pay_rate)||null;
     const calculated=!rate?0:row.pay_basis==='monthly'?rate:row.pay_basis==='daily'?work.days*rate:roundPay(work.minutes,rate);
     const frozen=saved&&['approved','exported','paid'].includes(saved.status);
@@ -89,8 +94,8 @@ export async function getStaffWagePayments(requestedMonth?:string):Promise<Staff
       payBasis:frozen?saved.pay_basis:row.pay_basis,payRate:frozen?saved.pay_rate:rate,workedMinutes:frozen?saved.worked_minutes:work.minutes,
       workedDays:frozen?saved.worked_days:work.days,grossAmount:frozen?saved.gross_amount:calculated,
       netAmount:frozen?saved.net_amount:calculated,status:frozen?saved.status:!rate?'config_required':saved?.status??(selectedMonth===now.toISOString().slice(0,7)?'collecting':'draft'),
-      bankName:row.bank_name??null,accountLast4:row.account_last4??null,
-      needsProration,prorationReason,accountReady:Boolean(row.bank_name&&/^\d{4}$/.test(row.account_last4??'')),
+      bankName:bank.bankName,accountLast4:bank.accountLast4,bankSource:bank.source,workerLinked:Boolean(row.worker_id),
+      needsProration,prorationReason,accountReady:bank.source!=='none',
       saved:Boolean(saved),excludedRecords:excludedMap.get(row.id)??0,needsAttendanceCheck};
   });
 }
