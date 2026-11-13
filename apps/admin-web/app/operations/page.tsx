@@ -16,6 +16,7 @@ import { OpenOnHash } from '@/components/OpenOnHash';
 import { ROLE_FULL_LABEL } from '@/lib/constants';
 import { getClinicStaff, getTodayAttendanceFailures } from '@/lib/db/clinic-workforce';
 import { attendanceReviewCount } from '@/lib/today-headcount';
+import { getMissingCheckouts } from '@/lib/db/missing-checkouts';
 import { isPublicDemoAccount, PUBLIC_DEMO_DAILY_REFRESH } from '@/lib/public-demo';
 
 const ROLE_LABEL: Record<string, string> = { rn: '간호사', na: '간호조무사', dental_hygienist: '치과위생사', pharmacist: '약사', pharmacy_staff: '약국 전산·사무직', any: '자격 무관' };
@@ -73,7 +74,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   // 운영 자동화는 Pro·Pharmacy Plus 기능 — 미충족 플랜에는 실행 시점 에러 대신 먼저 안내한다.
   // 플랜 조회도 같은 Promise.all 에 넣어 순차 왕복을 없앤다.
   const gateSb = adminClient();
-  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations, covers, pendingApplicants, clinicStaff, attendanceFailures] = await Promise.all([
+  const [summary, templates, requirements, operationAlerts, coverage, recommendations, shop, hasOperations, covers, pendingApplicants, clinicStaff, attendanceFailures, missingCheckouts] = await Promise.all([
     getOperationsSummary(), getShiftTemplates(), getStaffingRequirements(), getOperationsAlerts(),
     getWorkforceCoverage(), getWorkforceRecommendations(), getShop(),
     gateSb ? hasPlanFeature(gateSb, context.facilityId, 'operations') : Promise.resolve(false),
@@ -83,6 +84,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
     // 홈 '출퇴근 확인'과 같은 소스 — 조기 퇴근 승인 대기·인증 실패(읽기만, 실패하면 0으로 두고 화면은 띄운다)
     getClinicStaff().catch(() => []),
     getTodayAttendanceFailures().catch(() => []),
+    getMissingCheckouts(),
   ]);
   // 대타 승인은 요금제와 무관한 기본 흐름이다 — 노쇼 직전의 출구라 막지 않는다
   const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
@@ -98,7 +100,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
   const todoAlerts = [...noShowAlerts, ...unfilledAlerts];
   const hiddenAlerts = todoAlerts.slice(ALERT_LIMIT);
   // 출퇴근 확인 = 홈과 같은 함수. 미출근은 위 todoAlerts 에 이미 있어 0으로 넘기고 승인 대기·인증 실패만 더한다(홈 5 vs 운영 4, 2026-11-05 QA)
-  const attendanceToReview = attendanceReviewCount(clinicStaff, 0, attendanceFailures.length);
+  const attendanceToReview = attendanceReviewCount(clinicStaff, 0, attendanceFailures.length, missingCheckouts.total);
   const todoCount = todoAlerts.length + coverToApprove + pendingApplicants + attendanceToReview + summary.expiringCredentialCount + summary.pendingWageCount;
   const scheduleGapCount = coverage.reduce((sum, day) => sum + day.scheduleGap, 0);
   const recruitingCount = coverage.reduce((sum, day) => sum + day.recruiting, 0);
@@ -176,7 +178,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
             <Card className={`${todoAlerts.length > 0 ? 'mt-2' : ''} divide-y divide-line py-1`}>
               {coverToApprove > 0 && <Link href="/applications#cover" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">대타 승인 대기</span><b className="text-primary">{coverToApprove}건 →</b></Link>}
               {pendingApplicants > 0 && <Link href="/applications" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">새 지원자 확인</span><b className="text-primary">{pendingApplicants}건 →</b></Link>}
-              {attendanceToReview > 0 && <Link href="/timesheet#approvals" className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">조기 퇴근 승인·인증 실패 확인</span><b className="text-primary">{attendanceToReview}건 →</b></Link>}
+              {attendanceToReview > 0 && <Link href={missingCheckouts.total>0?"/timesheet#missing-checkout":"/timesheet#approvals"} className="flex items-center justify-between py-3 text-label"><span className="text-ink font-bold">조기 퇴근 승인·퇴근 누락·인증 실패 확인</span><b className="text-primary">{attendanceToReview}건 →</b></Link>}
               {summary.expiringCredentialCount > 0 && <Link href="/workforce" className="flex items-center justify-between py-3 text-label"><span className="text-ink">30일 안에 만료되는 자격</span><b className="text-warn">{summary.expiringCredentialCount}건 →</b></Link>}
               {summary.pendingWageCount > 0 && <Link href={summary.pendingWageMonth ? `/payroll?month=${summary.pendingWageMonth}${summary.pendingWageTab ? `&tab=${summary.pendingWageTab}` : ''}` : '/payroll'} className="flex items-center justify-between py-3 text-label"><span className="text-ink">급여 승인·지급 대기{summary.pendingWageMonth ? ` (${Number(summary.pendingWageMonth.slice(5, 7))}월)` : ''}</span><b className="text-warn">{summary.pendingWageCount}건 →</b></Link>}
             </Card>

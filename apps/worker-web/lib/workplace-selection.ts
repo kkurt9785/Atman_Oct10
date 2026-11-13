@@ -11,9 +11,15 @@ export function selectWorkplaceShift<T extends Shift>(rows: T[], today: string, 
     ?? list.find(row => row.status === 'accepted' && !row.checked_out_at && shiftOf(row).shift_date === today)
     ?? list.find(row => row.status === 'completed' && shiftOf(row).shift_date === today) ?? null;
 }
-export function currentStaffAttendance<T extends { staff_id: string; check_in_at: string | null; check_out_at: string | null; work_date: string }>(monthly: T[], open: T[], today: string) {
+// 출근했고 아직 퇴근할 수 있는 기록. 퇴근 가능 시간이 지나 시스템이 미퇴근으로 표시한 기록(missing_checkout_at)은
+// 관리자가 퇴근시간을 넣어야 하는 일이라 '지금 근무 중'으로 잡지 않는다 — 잡으면 다음 날 출근 버튼 대신
+// 퇴근 버튼이 떠서 TIME_NOT_ALLOWED 만 나고 출근을 못 했다(2026-11-13 출퇴근 점검 P1, docs/attendance/DECISIONS.md D5).
+export function isOpenAttendance(row: { check_in_at: string | null; check_out_at: string | null; missing_checkout_at?: string | null }) {
+  return Boolean(row.check_in_at && !row.check_out_at && !row.missing_checkout_at);
+}
+export function currentStaffAttendance<T extends { staff_id: string; check_in_at: string | null; check_out_at: string | null; work_date: string; missing_checkout_at?: string | null }>(monthly: T[], open: T[], today: string) {
   const result: Record<string,T> = {};
-  for (const row of open) if (row.check_in_at && !row.check_out_at && !result[row.staff_id]) result[row.staff_id] = row;
+  for (const row of open) if (isOpenAttendance(row) && !result[row.staff_id]) result[row.staff_id] = row;
   for (const row of monthly) if (row.work_date === today && !result[row.staff_id]) result[row.staff_id] = row;
   return result;
 }

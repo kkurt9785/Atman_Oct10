@@ -27,14 +27,15 @@ export function attendanceFailureText(message: string | undefined, gig: boolean)
 
 export type GigAttendanceRecord = {
   staff_id: string; work_date: string; check_in_at: string | null; check_out_at: string | null;
-  status?: string; break_minutes?: number;
+  status?: string; break_minutes?: number; missing_checkout_at?: string | null;
 };
 
 export function currentGigAttendances(rows: GigAttendanceRecord[], today: string) {
   const result: Record<string, GigAttendanceRecord> = {};
   const ordered = [...rows].sort((a, b) => b.work_date.localeCompare(a.work_date));
   // 전날 시작한 야간 근무를 오늘 예정 행으로 가리지 않는다.
-  for (const row of ordered) if (!result[row.staff_id] && row.check_in_at && !row.check_out_at) result[row.staff_id] = row;
+  // 미퇴근으로 표시된 지난 기록은 오늘 출근을 가리지 않는다(D5)
+  for (const row of ordered) if (!result[row.staff_id] && row.check_in_at && !row.check_out_at && !row.missing_checkout_at) result[row.staff_id] = row;
   for (const row of ordered) if (!result[row.staff_id] && row.work_date === today) result[row.staff_id] = row;
   return result;
 }

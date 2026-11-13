@@ -173,7 +173,7 @@ function GigTodayContent() {
       const [{ data: settings, error: settingsError }, { data: records, error: recordsError }] = await Promise.all([
         // 출퇴근 가능 시간(분)도 같은 행에서 읽는다 — 서버 판정과 같은 값으로 버튼 위에 미리 보여 준다
         supabase.from('facility_attendance_settings').select('facility_id,authentication_mode,check_in_before_minutes,check_in_after_minutes,check_out_before_minutes,check_out_after_minutes').in('facility_id', facilityIds),
-        supabase.from('staff_attendances').select('staff_id,check_in_at,check_out_at,work_date,status,break_minutes')
+        supabase.from('staff_attendances').select('staff_id,check_in_at,check_out_at,work_date,status,break_minutes,missing_checkout_at')
           .in('staff_id', linked.map((item) => item.id)).gte('work_date', new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString().slice(0, 10)).order('work_date', { ascending: false }),
       ]);
       if(settingsError||recordsError)throw settingsError??recordsError;

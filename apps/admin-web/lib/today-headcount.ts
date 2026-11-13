@@ -24,7 +24,8 @@ export function todayHeadcount(staff: HeadcountStaff[], shifts: HeadcountShift[]
   return { working: working.size, onLeave: onLeave.size };
 }
 
-// 홈 '출퇴근 확인'과 운영 '확인할 일'의 출퇴근 몫. 미출근(no_show 알림)·조기 퇴근 승인 대기·인증 실패를 더한다.
-export function attendanceReviewCount(staff: Array<Pick<HeadcountStaff, 'attendanceStatus'>>, noShowCount: number, failureCount: number): number {
-  return staff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + failureCount;
+// 홈 '출퇴근 확인'과 운영 '확인할 일'의 출퇴근 몫. 미출근(no_show 알림)·조기 퇴근 승인 대기·인증 실패·퇴근 누락을 더한다.
+// 퇴근 누락은 날짜와 상관없이 아직 정리 안 된 전체 건수다(오늘 화면 밖의 지난 기록도 포함, D2).
+export function attendanceReviewCount(staff: Array<Pick<HeadcountStaff, 'attendanceStatus'>>, noShowCount: number, failureCount: number, missingCheckoutCount = 0): number {
+  return staff.filter((row) => row.attendanceStatus === 'checkout_pending').length + noShowCount + failureCount + missingCheckoutCount;
 }

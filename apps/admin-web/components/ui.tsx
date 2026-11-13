@@ -5,10 +5,10 @@ import type { ReactNode } from 'react';
 // (같이 넣으면 Tailwind CSS 순서상 bg-white·p-5가 이겨서 bg-primary·bg-amber-50·p-0 등이 무시됐다)
 const HAS_BG = /(^|\s)bg-/;
 const HAS_PADDING = /(^|\s)p-\d/;
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = '', id }: { children: ReactNode; className?: string; id?: string }) {
   const bg = HAS_BG.test(className) ? '' : 'bg-white ';
   const pad = HAS_PADDING.test(className) ? '' : 'p-5 ';
-  return <div className={`${bg}${pad}rounded-2xl ${className}`}>{children}</div>;
+  return <div id={id} className={`${bg}${pad}rounded-2xl ${className}`}>{children}</div>;
 }
 
 export function SectionTitle({ children }: { children: ReactNode }) {

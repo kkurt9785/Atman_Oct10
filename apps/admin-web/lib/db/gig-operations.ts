@@ -76,7 +76,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   const [assignmentResult,attendanceResult,inviteResult,bankResult,payoutResult,messageResult,readResult,graceResult] = await Promise.all([
     readAllRows(() => sb.from('gig_assignments').select('id,staff_id,title,starts_on,ends_on,work_weekdays,start_time,end_time,status,source')
       .eq('facility_id', facilityId).lte('starts_on', until).gte('ends_on', addDays(today, -1)).in('status', ['planned','active'])),
-    readAllRows(() => sb.from('staff_attendances').select('id,staff_id,work_date,status,check_in_at,check_out_at')
+    readAllRows(() => sb.from('staff_attendances').select('id,staff_id,work_date,status,check_in_at,check_out_at,missing_checkout_at')
       .eq('facility_id', facilityId).lte('work_date', today).or(`work_date.eq.${today},status.in.(working,late,checkout_pending)`)),
     sb.from('facility_staff_invites').select('staff_id').eq('facility_id', facilityId).eq('status', 'pending').gt('expires_at', new Date().toISOString()).in('staff_id', staffIds),
     sb.from('gig_bank_account_shares').select('staff_id').eq('facility_id', facilityId).in('staff_id', staffIds),
@@ -92,7 +92,7 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
   const assignments = ((assignmentResult.data ?? []) as AssignmentRow[]).sort((a,b) => a.starts_on.localeCompare(b.starts_on));
   const assignmentsByStaff = new Map<string, AssignmentRow[]>();
   for (const row of assignments) (assignmentsByStaff.get(row.staff_id) ?? assignmentsByStaff.set(row.staff_id, []).get(row.staff_id)!).push(row);
-  const attendances = (attendanceResult.data ?? []) as Array<{ staff_id:string;work_date:string;status:string;check_in_at:string|null;check_out_at:string|null }>;
+  const attendances = (attendanceResult.data ?? []) as Array<{ staff_id:string;work_date:string;status:string;check_in_at:string|null;check_out_at:string|null;missing_checkout_at?:string|null }>;
   // Keep yesterday's overnight work and unresolved checkout visible after midnight.
   const todayAttendance = new Map<string, typeof attendances[number]>();
   const attendancePriority = (row: typeof attendances[number]) => row.status === 'checkout_pending' ? 0 : ['working','late'].includes(row.status) && !row.check_out_at ? 1 : 2;
@@ -137,6 +137,8 @@ export async function getGigOperationsBoard(adminUserId?: string): Promise<GigOp
     let status: GigOperationStatus = 'off'; let statusLabel = next ? `${next.date.slice(5).replace('-','/')} 예정` : '일정 없음';
     if (!linked) { status='invite';statusLabel=inviteSet.has(staff.id)?'초대 대기':'초대 링크 필요'; }
     else if (attendance?.status === 'checkout_pending' || attendance?.status === 'absent') { status='review';statusLabel=attendance.status==='absent'?'결근 확인':'조기 퇴근 승인'; }
+    // 퇴근 가능 시간이 지나 시스템이 미퇴근으로 표시한 기록 — '근무 중'이 아니라 사장님이 퇴근시간을 넣어야 하는 일이다(D2)
+    else if (attendance && attendance.missing_checkout_at && !attendance.check_out_at) { status='review';statusLabel='퇴근 누락'; }
     else if (attendance?.status === 'working' || attendance?.status === 'late') { status='working';statusLabel=attendance.status==='late'?'지각 · 근무 중':'근무 중'; }
     else if (attendance?.status === 'completed') {
       if (scheduledPayout.has(staff.id)) { status='paid';statusLabel='지급 예정'; }

@@ -24,7 +24,7 @@ type FacilityRef={id:string;name:string};
 type Staff = { id:string; name:string; default_start_time:string; default_end_time:string; weekday_hours?:WeekdayHours|null; facilities:FacilityRef|FacilityRef[] };
 const STAFF_FIELDS='id,name,worker_kind,default_start_time,default_end_time,facilities!facility_id(id,name)';
 type Leave = { id:string; leave_type:string; start_date:string; end_date:string; requested_minutes:number; status:string; half_day_period?:string|null };
-type AttendanceState={staff_id:string;check_in_at:string|null;check_out_at:string|null;work_date:string;status?:string;break_minutes?:number};
+type AttendanceState={staff_id:string;check_in_at:string|null;check_out_at:string|null;work_date:string;status?:string;break_minutes?:number;missing_checkout_at?:string|null};
 type ShiftAttendanceRef={checkout_requested_at:string|null};
 type ShiftTarget={id:string;checked_in_at:string|null;checked_out_at:string|null;shift_attendances?:ShiftAttendanceRef|ShiftAttendanceRef[];shifts:{shift_date:string;start_time:string;end_time:string;facilities:FacilityRef|FacilityRef[]}|Array<{shift_date:string;start_time:string;end_time:string;facilities:FacilityRef|FacilityRef[]}>};
 // 근무 시작·종료까지 남은 분(지났으면 음수). 종료가 시작보다 이르면 익일(야간) 근무라 종료를 다음 날로 본다.
@@ -107,7 +107,7 @@ function WorkplaceContent() {
       const kstNow=new Date(Date.now()+9*60*60*1000);
       const since=new Date(Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),1)).toISOString().slice(0,10);
       const todayStr=kstNow.toISOString().slice(0,10);
-      const fields='staff_id,check_in_at,check_out_at,work_date,status,break_minutes';
+      const fields='staff_id,check_in_at,check_out_at,work_date,status,break_minutes,missing_checkout_at';
       const [monthly,open]=await Promise.all([
         supabase.from('staff_attendances').select(fields).in('staff_id',linked.map(item=>item.id)).gte('work_date',since).order('work_date',{ascending:false}),
         supabase.from('staff_attendances').select(fields).in('staff_id',linked.map(item=>item.id)).not('check_in_at','is',null).is('check_out_at',null).order('work_date',{ascending:false}),

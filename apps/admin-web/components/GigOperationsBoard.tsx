@@ -28,6 +28,8 @@ function belongs(row:GigOperationWorker,filter:Filter) {
 }
 function actionFor(row:GigOperationWorker) {
   if(row.status==='invite') return {href:'/staff?view=contract&entry=gigworker',label:'초대 확인'};
+  // 퇴근 누락은 퇴근시간을 넣는 일이라 직원 한 명 화면이 아니라 조치 목록(오래된 순)으로 보낸다
+  if(row.status==='review'&&row.statusLabel==='퇴근 누락') return {href:'/timesheet#missing-checkout',label:'퇴근시간 입력'};
   if(row.status==='review'||row.status==='late') return {href:`/timesheet?staff=${encodeURIComponent(row.staffId)}`,label:'근태 처리'};
   if(row.status==='pay'||row.status==='bank'||row.status==='paid') return {href:`/gig-pay?staff=${encodeURIComponent(row.staffId)}`,label:'지급 확인'};
   return {href:`/workroom?staff=${row.staffId}`,label:'대화'};

@@ -19,10 +19,11 @@ import { getGigBetaStatus } from '@/lib/billing-gates';
 import { BetaGuide } from '@/components/BetaGuide';
 import { isGuidePeriod } from '@/lib/db/guide';
 import { attendanceReviewCount as countAttendanceReview, todayHeadcount } from '@/lib/today-headcount';
+import { getMissingCheckouts } from '@/lib/db/missing-checkouts';
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ brn?: string }> }) {
   const brnFailed = (await searchParams).brn === 'failed';
-  const [shop, staff, clinicStaff, attendanceFailures, pendingCount, ops, alerts, context, covers, pendingLeaveCount] = await Promise.all([
+  const [shop, staff, clinicStaff, attendanceFailures, pendingCount, ops, alerts, context, covers, pendingLeaveCount, missingCheckouts] = await Promise.all([
     getShop(),
     getStaff(),
     getClinicStaff(),
@@ -34,6 +35,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
     // 홈은 대타 조회가 실패해도 떠야 한다 — 실패하면 이 줄만 0건으로 둔다
     getActiveCoverRequests().catch(() => []),
     getPendingLeaveCount().catch(() => 0),
+    // 퇴근 누락(오래된 것 포함) — 조회 실패 시 0건
+    getMissingCheckouts(),
   ]);
   if (!context) redirect('/login');
   const canViewPayroll = context?.canViewPayroll ?? false;
@@ -44,7 +47,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
   const isGigworker = shop.mode === 'gig';
   const noShowCount = alerts.filter((a) => a.kind === 'no_show').length;
   const coverToApprove = covers.filter((cover) => cover.status === 'claimed').length;
-  const attendanceReviewCount = countAttendanceReview(clinicStaff, noShowCount, attendanceFailures.length);
+  const attendanceReviewCount = countAttendanceReview(clinicStaff, noShowCount, attendanceFailures.length, missingCheckouts.total);
   const shiftStaff=staff.filter(shift=>!clinicStaff.some(managed=>managed.workerId===shift.id));
   // 근태 '오늘 근무자' 탭과 같은 함수로 센다 — 휴가 제외·확인 필요 포함·같은 사람은 1명
   const todayCount=todayHeadcount(clinicStaff,staff).working;
@@ -148,7 +151,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ b
           {[
             // 대타 승인은 근무 직전에 생기는 일이라 가장 급하다 — 있을 때만 맨 위에
             ...(coverToApprove>0?[{label:'대타 승인',description:'못 나오게 된 근무를 동료가 맡겠다고 했어요',count:coverToApprove,href:'/applications#cover'}]:[]),
-            {label:'출퇴근 확인',description:'조기 퇴근·미출근·인증 실패를 확인해요',count:attendanceReviewCount,href:'/timesheet'},
+            {label:'출퇴근 확인',description:missingCheckouts.total>0?`퇴근 기록 없는 근무 ${missingCheckouts.total}건 · 조기 퇴근·미출근·인증 실패`:'조기 퇴근·미출근·퇴근 누락·인증 실패를 확인해요',count:attendanceReviewCount,href:missingCheckouts.total>0?'/timesheet#missing-checkout':'/timesheet'},
             {label:'연차 신청',description:'직원이 신청한 연차·휴가를 승인하거나 반려해요',count:pendingLeaveCount,href:'/leave'},
             {label:'새 지원자',description:'지원자를 확인하고 근무를 확정해요',count:pendingCount,href:'/applications'},
             {label:'지급 대기',description:canViewPayroll?(ops.pendingWageMonth?`${Number(ops.pendingWageMonth.slice(5,7))}월 급여 · 근무시간을 확인하고 지급을 완료해요`:'근무시간을 확인하고 지급을 완료해요'):'급여 담당자에게 확인을 요청해요',count:canViewPayroll?ops.pendingWageCount:0,href:canViewPayroll?(ops.pendingWageMonth?`/payroll?month=${ops.pendingWageMonth}${ops.pendingWageTab?`&tab=${ops.pendingWageTab}`:''}`:'/payroll'):'/timesheet'},

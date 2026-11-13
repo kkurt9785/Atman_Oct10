@@ -9,6 +9,8 @@ export type AttendanceHistoryRow={
   scheduledStart:string|null;scheduledEnd:string|null;checkInAt:string|null;checkOutAt:string|null;
   breakMinutes:number;workedMinutes:number;status:string;method:string|null;
   lateMinutes:number;earlyLeaveMinutes:number;correctionReason:string|null;
+  // 퇴근 가능 시간이 지나 시스템이 미퇴근으로 표시한 기록(퇴근시간을 넣으면 false)
+  missingCheckout?:boolean;
   workerId?:string|null;recognitionPending?:boolean;
 };
 
@@ -17,9 +19,9 @@ export async function getAttendanceHistory(month:string){
   if(!facilityId||!sb)return {rows:[] as AttendanceHistoryRow[],closed:false};
   const start=`${month}-01`,end=monthEnd(month);
   const [staffResult,shiftResult,closureResult]=await Promise.all([
-    readAllRows(() => sb.from('staff_attendances').select('id,staff_id,work_date,scheduled_start,scheduled_end,check_in_at,check_out_at,break_minutes,status,check_in_method,check_out_method,late_minutes,early_leave_minutes,correction_reason,facility_staff(name,role,engagement_type)')
+    readAllRows(() => sb.from('staff_attendances').select('id,staff_id,work_date,scheduled_start,scheduled_end,check_in_at,check_out_at,break_minutes,status,check_in_method,check_out_method,late_minutes,early_leave_minutes,correction_reason,missing_checkout_at,facility_staff(name,role,engagement_type)')
       .eq('facility_id',facilityId).gte('work_date',start).lte('work_date',end)),
-    readAllRows(() => sb.from('shift_attendances').select('id,worker_id,check_in_at,check_out_at,checkout_requested_at,check_in_method,check_out_method,late_minutes,early_leave_minutes,workers(name,role),shifts!inner(facility_id,shift_date,start_time,end_time),wage_calculations(worked_minutes,break_minutes)')
+    readAllRows(() => sb.from('shift_attendances').select('id,worker_id,check_in_at,check_out_at,checkout_requested_at,missing_checkout_at,check_in_method,check_out_method,late_minutes,early_leave_minutes,workers(name,role),shifts!inner(facility_id,shift_date,start_time,end_time),wage_calculations(worked_minutes,break_minutes)')
       .eq('shifts.facility_id',facilityId).gte('shifts.shift_date',start).lte('shifts.shift_date',end)),
     sb.from('attendance_period_closures').select('status').eq('facility_id',facilityId).eq('period_month',start).maybeSingle(),
   ]);
@@ -29,8 +31,8 @@ export async function getAttendanceHistory(month:string){
   const shifts=shiftResult.data;
   const closure=closureResult.data;
   const rows:AttendanceHistoryRow[]=[];
-  for(const raw of (staff??[]) as any[]){const person=Array.isArray(raw.facility_staff)?raw.facility_staff[0]:raw.facility_staff;const worked=raw.check_in_at&&raw.check_out_at?Math.max(0,Math.round((new Date(raw.check_out_at).getTime()-new Date(raw.check_in_at).getTime())/60000)-Number(raw.break_minutes??0)):0;rows.push({id:raw.id,kind:'staff',staffId:raw.staff_id??null,name:person?.name??'직원',employment:person?.engagement_type??'regular',role:person?.role??'',workDate:raw.work_date,scheduledStart:raw.scheduled_start,scheduledEnd:raw.scheduled_end,checkInAt:raw.check_in_at,checkOutAt:raw.check_out_at,breakMinutes:Number(raw.break_minutes??0),workedMinutes:worked,status:raw.status,method:raw.check_out_method??raw.check_in_method,lateMinutes:Number(raw.late_minutes??0),earlyLeaveMinutes:Number(raw.early_leave_minutes??0),correctionReason:raw.correction_reason});}
-  for(const raw of (shifts??[]) as any[]){const person=Array.isArray(raw.workers)?raw.workers[0]:raw.workers;const shift=Array.isArray(raw.shifts)?raw.shifts[0]:raw.shifts;rows.push({id:raw.id,kind:'shift',staffId:null,workerId:raw.worker_id,name:person?.name??'단기 근무자',employment:'shift',role:person?.role??'',workDate:shift?.shift_date,scheduledStart:shift?.start_time,scheduledEnd:shift?.end_time,checkInAt:raw.check_in_at,checkOutAt:raw.check_out_at,...shiftRecognition(raw.wage_calculations),status:raw.check_out_at?'completed':raw.checkout_requested_at?'checkout_pending':raw.check_in_at?'working':'scheduled',method:raw.check_out_method??raw.check_in_method,lateMinutes:Number(raw.late_minutes??0),earlyLeaveMinutes:Number(raw.early_leave_minutes??0),correctionReason:null});}
+  for(const raw of (staff??[]) as any[]){const person=Array.isArray(raw.facility_staff)?raw.facility_staff[0]:raw.facility_staff;const worked=raw.check_in_at&&raw.check_out_at?Math.max(0,Math.round((new Date(raw.check_out_at).getTime()-new Date(raw.check_in_at).getTime())/60000)-Number(raw.break_minutes??0)):0;rows.push({id:raw.id,kind:'staff',staffId:raw.staff_id??null,name:person?.name??'직원',employment:person?.engagement_type??'regular',role:person?.role??'',workDate:raw.work_date,scheduledStart:raw.scheduled_start,scheduledEnd:raw.scheduled_end,checkInAt:raw.check_in_at,checkOutAt:raw.check_out_at,breakMinutes:Number(raw.break_minutes??0),workedMinutes:worked,status:raw.status,method:raw.check_out_method??raw.check_in_method,lateMinutes:Number(raw.late_minutes??0),earlyLeaveMinutes:Number(raw.early_leave_minutes??0),correctionReason:raw.correction_reason,missingCheckout:!!raw.missing_checkout_at&&!raw.check_out_at});}
+  for(const raw of (shifts??[]) as any[]){const person=Array.isArray(raw.workers)?raw.workers[0]:raw.workers;const shift=Array.isArray(raw.shifts)?raw.shifts[0]:raw.shifts;rows.push({id:raw.id,kind:'shift',staffId:null,workerId:raw.worker_id,name:person?.name??'단기 근무자',employment:'shift',role:person?.role??'',workDate:shift?.shift_date,scheduledStart:shift?.start_time,scheduledEnd:shift?.end_time,checkInAt:raw.check_in_at,checkOutAt:raw.check_out_at,...shiftRecognition(raw.wage_calculations),status:raw.check_out_at?'completed':raw.checkout_requested_at?'checkout_pending':raw.check_in_at?'working':'scheduled',method:raw.check_out_method??raw.check_in_method,lateMinutes:Number(raw.late_minutes??0),earlyLeaveMinutes:Number(raw.early_leave_minutes??0),correctionReason:null,missingCheckout:!!raw.missing_checkout_at&&!raw.check_out_at});}
   return {rows:rows.sort((a,b)=>b.workDate.localeCompare(a.workDate)||a.name.localeCompare(b.name)),closed:closure?.status==='closed'};
 }
 
