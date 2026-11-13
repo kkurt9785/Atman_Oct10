@@ -1,13 +1,13 @@
 'use client';
 import { useRef, useState } from 'react';
-import { correctStaffAttendanceAction, setAttendancePeriodAction } from './actions';
+import { correctShiftAttendanceAction, correctStaffAttendanceAction, setAttendancePeriodAction } from './actions';
 
-export function HistoryActionForm({kind,children,className=''}:{kind:'correct'|'period';children:React.ReactNode;className?:string}){
+export function HistoryActionForm({kind,children,className=''}:{kind:'correct'|'correct-shift'|'period';children:React.ReactNode;className?:string}){
   const [pending,setPending]=useState(false);const [message,setMessage]=useState('');const busy=useRef(false);
   async function submit(form:FormData){
     if(busy.current)return;
     busy.current=true;setPending(true);setMessage('');
-    try{if(kind==='correct')await correctStaffAttendanceAction(form);else await setAttendancePeriodAction(form);setMessage('저장했어요.');}
+    try{if(kind==='correct')await correctStaffAttendanceAction(form);else if(kind==='correct-shift')await correctShiftAttendanceAction(form);else await setAttendancePeriodAction(form);setMessage('저장했어요.');}
     catch(error){setMessage(error instanceof Error?error.message:'저장하지 못했어요.');}
     finally{busy.current=false;setPending(false);}
   }

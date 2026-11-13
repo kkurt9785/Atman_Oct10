@@ -12,10 +12,14 @@
 | D3 | 2026-11-13 | GPS 판정을 `거리 − min(정확도, 반경, 100m) ≤ 반경` 으로 바꾼다. 정확도 상한(`max_gps_accuracy_meters`) 검사는 그대로 | 실내에서 정확도가 40~80m 로 나오는 휴대폰이 건물 안인데도 '범위 밖'으로 떨어졌다. 정확도 값은 휴대폰이 보내는 값이라 빼는 양을 반경 이하로 묶는다 — 어떤 경우에도 통과 거리는 **반경의 2배**를 넘지 않는다(30m 사업장 60m, 병원 100m 200m). 처음 안은 `min(정확도, 100m)` 였으나 점검에서 '휴대폰이 오차를 크게 보내면 반경 30m 가 110m 가 된다'는 지적으로 바꿨다. 더 엄격해야 하는 사업장은 인증 방식을 '위치 + 동적 QR' 로 둔다 | `record_unified_attendance` 런타임 패치 |
 | D4 | 2026-11-13 | 출퇴근 요청 제한은 **계정당 1분 10회**. 막힌 시도는 인증 기록에 남기지 않는다. IP 기준 제한은 두지 않는다 | 병원 Wi-Fi·통신사 NAT 로 여러 직원이 IP 하나를 쓴다. 근무자 앱은 기기당 계정 하나라 계정 = 기기다. 실패 기록마다 관리자 푸시가 가므로, 버튼을 연타하면 원장님 휴대폰이 울리던 것도 막힌다 | `record_unified_attendance` 런타임 패치, 인덱스 `idx_attendance_auth_logs_user_created` |
 | D5 | 2026-11-13 | 근무자 앱은 미퇴근으로 표시된 기록을 '지금 근무 중'으로 잡지 않는다(`isOpenAttendance`) | 어제 퇴근을 안 찍으면 오늘 출근 버튼 대신 퇴근 버튼이 떠서 TIME_NOT_ALLOWED 만 나고 출근을 못 했다. 서버의 미퇴근 표시와 같은 기준이라 화면과 서버 판정이 어긋나지 않는다(표시는 매시간이라 최대 1시간 늦을 수 있음) | `apps/worker-web/lib/workplace-selection.ts`, `lib/attendance-feedback.ts`, `/workplace`·`/gig` 조회에 `missing_checkout_at` |
+| D6 | 2026-11-13 | 사업장 네트워크 인증의 IP 는 `cf-connecting-ip`, 없으면 `X-Forwarded-For` 의 **맨 뒤** 값(`attendance_client_ip()`) | 앞단은 실제 주소를 X-Forwarded-For 뒤에 덧붙이고 맨 앞에는 클라이언트가 보낸 값이 남는다(Supabase 에서 `spoofed,실제IP` 로 들어오는 사례). 맨 앞을 믿으면 집에서 병원 IP 를 꾸며 Wi-Fi 인증과 GPS 모드의 네트워크 보조 경로가 통과됐다. 관리자 쪽 IP 등록(Vercel)은 Vercel 이 헤더를 덮어써 문제없음 | `supabase/migrations/20261113110000_…`, `record_unified_attendance` 런타임 패치 |
+| D7 | 2026-11-13 | 공고 근무 근태는 `correct_shift_attendance`(출퇴근 시각 + 사유 5자 이상)로 고친다. 지각·조퇴 분과 임금·지급 지시를 다시 계산하고, 감사 기록엔 시각·금액만(위치 없음). 승인·지급된 건·마감된 달·24시간 초과·근무일 밖 출근은 거부 | 관리자 간편 퇴근은 '지금' 시각을 찍어 지난 근무에 쓰면 그만큼 과지급, 36시간 뒤엔 임금 계산이 막혀 닫을 수 없었다. 근태 기록 화면도 직원만 고칠 수 있었다. 퇴근 입력칸은 그날 예정 퇴근(야간은 다음 날)을 미리 채운다 | 같은 마이그레이션, `app/attendance-history`(공고 근무 '퇴근시간 입력·확정'), `lib/missing-checkouts.ts` `suggestedCheckOut` |
+| D7-1 | 2026-11-13 | 정정으로 금액이 바뀌면 사업장이 확인했던 공제(세금)를 되돌려 다시 확인하게 한다 | 옛 금액 기준 공제가 새 금액에 그대로 붙으면 실수령액이 틀린다 | `recompute_shift_wage` |
+| D8 | 2026-11-13 | 공고 근무 지급 지시는 **계좌가 없어도** 만든다. 근무자가 주 계좌를 등록·변경하면 승인 전(draft·disputed) 지시에 채운다. 최근 90일 누락분은 마이그레이션에서 채움(시연 사업장 제외) | 퇴근 순간 계좌가 없으면 지시를 안 만들고 나중에도 안 만들어 급여 화면에 영영 안 나왔다(출근 전용 가입으로 계좌가 선택이 됨). 승인 단계가 이미 '은행·계좌 끝 4자리 먼저 확인' 으로 막으므로 계좌 없는 지시가 잘못 나가지 않는다 | `recompute_shift_wage`, 트리거 `trg_fill_wage_instruction_bank`, 급여 화면 '지급 계좌 대기' |
 
 ## 시험
 
-- DB 규칙: `node scripts/qa-attendance-rules-pglite.mjs` — Docker 없이 메모리 Postgres(PGlite)에 최소 스키마를 만들고, 0916 본문 + 20261113 패치로 GPS·요청 제한·미퇴근 표시를 32가지 경우로 확인한다. 처음 한 번 `npm i --no-save @electric-sql/pglite@0.2.17` 이 필요하다.
+- DB 규칙: `node scripts/qa-attendance-rules-pglite.mjs` — Docker 없이 메모리 Postgres(PGlite)에 최소 스키마를 만들고, 0916 본문 + 20261113 패치+ 20261113110000 으로 GPS·요청 제한·미퇴근 표시·네트워크 IP·공고 근무 정정·지급 지시를 59가지 경우로 확인한다. 처음 한 번 `npm i --no-save @electric-sql/pglite@0.2.17` 이 필요하다.
 - 화면 계산: `cd apps/worker-web && npx vitest run lib/__tests__/admin-missing-checkouts.test.ts`
 - 정적 검사: `node scripts/qa-attendance-operational.mjs`
 

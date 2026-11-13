@@ -62,3 +62,16 @@ describe('미퇴근 표시된 기록과 오늘 출근', () => {
     expect(currentStaffAttendance([], [flagged], '2026-11-13').s).toBeUndefined();
   });
 });
+
+import { suggestedCheckOut } from '../../../admin-web/lib/missing-checkouts';
+describe('퇴근시간 입력 기본값', () => {
+  it('주간은 그날 예정 퇴근', () => {
+    expect(suggestedCheckOut({ workDate: '2026-11-09', scheduledStart: '09:00:00', scheduledEnd: '18:00:00' })).toBe('2026-11-09T18:00');
+  });
+  it('야간은 다음 날 예정 퇴근(월말 넘김 포함)', () => {
+    expect(suggestedCheckOut({ workDate: '2026-11-30', scheduledStart: '22:00:00', scheduledEnd: '06:00:00' })).toBe('2026-12-01T06:00');
+  });
+  it('예정 시간이 없으면 빈칸', () => {
+    expect(suggestedCheckOut({ workDate: '2026-11-09', scheduledStart: null, scheduledEnd: null })).toBe('');
+  });
+});

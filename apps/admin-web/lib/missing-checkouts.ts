@@ -28,3 +28,14 @@ export function takeOldest(rows: MissingCheckout[], limit = MISSING_CHECKOUT_LIS
 export function missingCheckoutHref(row: Pick<MissingCheckout, 'id' | 'kind' | 'workDate'>): string {
   return `/attendance-history?month=${row.workDate.slice(0, 7)}#att-${row.kind}-${row.id}`;
 }
+
+// 퇴근 기록이 없는 근무의 퇴근 입력칸 기본값 = 그날 예정 퇴근(야간이면 다음 날), datetime-local 형식(KST).
+// 관리자는 실제와 다를 때만 고친다. 예정 시간이 없으면 빈칸.
+export function suggestedCheckOut(row: { workDate: string; scheduledStart: string | null; scheduledEnd: string | null }): string {
+  if (!row.scheduledEnd) return '';
+  const end = row.scheduledEnd.slice(0, 5);
+  const overnight = !!row.scheduledStart && end <= row.scheduledStart.slice(0, 5);
+  const date = new Date(`${row.workDate}T00:00:00Z`);
+  if (overnight) date.setUTCDate(date.getUTCDate() + 1);
+  return `${date.toISOString().slice(0, 10)}T${end}`;
+}

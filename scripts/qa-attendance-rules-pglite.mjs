@@ -1,4 +1,4 @@
-// 출퇴근 규칙(docs/attendance/DECISIONS.md D1·D3·D4) DB 시험 — Docker 없이 PGlite(메모리 Postgres)로 돈다. 운영·연결 DB 를 쓰지 않는다.
+// 출퇴근 규칙(docs/attendance/DECISIONS.md D1·D3·D4·D6·D7·D8) DB 시험 — Docker 없이 PGlite(메모리 Postgres)로 돈다. 운영·연결 DB 를 쓰지 않는다.
 // 실행: npm i --no-save @electric-sql/pglite@0.2.17 && node scripts/qa-attendance-rules-pglite.mjs
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
@@ -184,6 +184,130 @@ await mark('2026-11-03 07:59');
 ok(!(await saFlag()), '공고 야간 22~06: 다음 날 07:59 (06:00+2h 전) 표시 안 함');
 await mark('2026-11-03 08:01');
 ok(!!(await saFlag()), '공고 야간: 다음 날 08:01 에 표시');
+
+
+// ---------------------------------------------------------------------------
+// 20261113110000 — 네트워크 IP(D6) · 공고 근무 정정(D7) · 계좌 없을 때 지급 지시(D8)
+// ---------------------------------------------------------------------------
+const wageFn = readFileSync(`${MIG}/20260710231000_p0_shift_attendance_settlement.sql`, 'utf8')
+  .match(/CREATE OR REPLACE FUNCTION public\.calculate_shift_wage_secure\([\s\S]*?\n\$\$;/);
+if (!wageFn) throw new Error('calculate_shift_wage_secure not found');
+await db.exec(`
+ALTER TABLE public.facilities ADD COLUMN is_5plus boolean DEFAULT true;
+ALTER TABLE public.shifts ADD COLUMN hourly_wage int DEFAULT 12000, ADD COLUMN is_holiday boolean DEFAULT false;
+ALTER TABLE public.shift_attendances ADD COLUMN manual_override_by uuid, ADD COLUMN manual_override_reason text, ADD COLUMN approved_at timestamptz;
+CREATE TABLE public.attendance_period_closures(facility_id uuid, period_month date, status text);
+CREATE TABLE public.audit_logs(id bigserial, actor_type text, actor_id uuid, action text, entity_type text, entity_id uuid, before_data jsonb, after_data jsonb);
+CREATE TABLE public.worker_bank_accounts(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), worker_id uuid, bank_name text, account_number_last4 text,
+  is_primary boolean DEFAULT true, deleted_at timestamptz, created_at timestamptz DEFAULT now());
+CREATE TABLE public.wage_calculations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), attendance_id uuid UNIQUE, org_id uuid, worker_id uuid, shift_id uuid,
+  rule_version text, worked_minutes int, night_minutes int, overtime_minutes int, break_minutes int, base int, overtime_premium int,
+  night_premium int, holiday_premium int, gross int, breakdown jsonb, calculated_at timestamptz);
+CREATE TABLE public.wage_payment_instructions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), facility_id uuid, worker_id uuid, shift_id uuid,
+  attendance_id uuid UNIQUE, wage_calculation_id uuid, bank_account_id uuid, gross_amount int, deduction_status text DEFAULT 'unconfirmed',
+  income_tax_amount int DEFAULT 0, local_tax_amount int DEFAULT 0, other_deduction_amount int DEFAULT 0, net_amount int, due_date date,
+  status text DEFAULT 'draft', bank_name_snapshot text, account_last4_snapshot text, updated_at timestamptz);
+CREATE FUNCTION public.can_manage_facility(f uuid, roles text[]) RETURNS boolean LANGUAGE sql STABLE AS $$ SELECT current_setting('test.admin', true) = 'on' $$;
+-- 0724 의 옛 퇴근 트리거(계좌 있을 때만 지급 지시)를 먼저 걸어 두고, 마이그레이션이 바꾸는지 본다
+CREATE FUNCTION public.sync_shift_checkout_to_payroll() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END $$;
+CREATE TRIGGER trg_sync_shift_checkout_to_payroll AFTER UPDATE OF check_out_at ON public.shift_attendances
+  FOR EACH ROW EXECUTE FUNCTION public.sync_shift_checkout_to_payroll();
+`);
+await db.exec(wageFn[0]);
+const migration2 = readFileSync(`${MIG}/20261113110000_attendance_ip_shift_correction_payroll.sql`, 'utf8');
+await db.exec(migration2);
+await db.exec(migration2);
+const def2 = (await one(`SELECT pg_get_functiondef('public.record_unified_attendance(text,uuid,text,double precision,double precision,double precision,text)'::regprocedure) d`)).d;
+console.log('[③ 네트워크 IP (D6)]');
+ok((def2.match(/public\.attendance_client_ip\(\)/g) || []).length === 1 && !def2.includes('x-forwarded-for'), 'IP 판정을 공용 함수로 바꿈(재실행 안전, 맨 앞 값 판정 없음)');
+const ipWith = async (headers) => (await one(`SELECT set_config('request.headers', $1, true), public.attendance_client_ip() ip`, [JSON.stringify(headers)])).ip;
+ok(await ipWith({ 'x-forwarded-for': '1.2.3.4, 9.9.9.9', 'cf-connecting-ip': '9.9.9.9' }) === '9.9.9.9', '꾸민 X-Forwarded-For 맨 앞 값 대신 cf-connecting-ip');
+ok(await ipWith({ 'x-forwarded-for': '1.2.3.4,9.9.9.9' }) === '9.9.9.9', 'cf 헤더가 없으면 X-Forwarded-For 맨 뒤 값');
+ok(await ipWith({}) === null, '헤더가 없으면 IP 없음');
+await db.query(`UPDATE public.facility_attendance_settings SET authentication_mode='network', allowed_ips=ARRAY['1.2.3.4'] WHERE facility_id=$1`, [fac]);
+await db.exec(`DELETE FROM public.attendance_auth_logs`);
+const netCheckIn = async (headers) => {
+  const st = (await one(`INSERT INTO public.facility_staff(facility_id,worker_id,default_start_time,default_end_time) VALUES($1,$2,'00:00','23:59') RETURNING id`, [fac, worker])).id;
+  await db.exec('BEGIN');
+  await db.query(`SELECT set_config('request.headers', $1, true)`, [JSON.stringify(headers)]);
+  const res = (await one(`SELECT public.record_unified_attendance('staff',$1,'check_in') r`, [st])).r;
+  await db.exec('COMMIT');
+  await db.exec(`DELETE FROM public.attendance_auth_logs`);
+  return res;
+};
+r = await netCheckIn({ 'x-forwarded-for': '1.2.3.4, 9.9.9.9', 'cf-connecting-ip': '9.9.9.9' });
+ok(r.reason === 'NETWORK_NOT_ALLOWED', '집(9.9.9.9)에서 병원 IP를 X-Forwarded-For 맨 앞에 꾸며도 거부', JSON.stringify(r));
+r = await netCheckIn({ 'x-forwarded-for': '1.2.3.4', 'cf-connecting-ip': '1.2.3.4' });
+ok(r.ok === true, '병원 Wi-Fi(1.2.3.4)에서는 통과', JSON.stringify(r));
+await db.query(`UPDATE public.facility_attendance_settings SET authentication_mode='gps', allowed_ips=NULL WHERE facility_id=$1`, [fac]);
+
+console.log('[② 계좌 없을 때 지급 지시 (D8)]');
+const mkShift = async (date, start, end, wage = 12000) =>
+  (await one(`INSERT INTO public.shifts(facility_id,shift_date,start_time,end_time,hourly_wage) VALUES($1,$2,$3,$4,$5) RETURNING id`, [fac, date, start, end, wage])).id;
+const w2 = (await one(`INSERT INTO public.workers(auth_user_id) VALUES(gen_random_uuid()) RETURNING id`)).id;
+const sh2 = await mkShift('2026-11-10', '09:00', '18:00');
+const app2 = (await one(`INSERT INTO public.shift_applications(shift_id,worker_id,status) VALUES($1,$2,'accepted') RETURNING id`, [sh2, w2])).id;
+const att2 = (await one(`INSERT INTO public.shift_attendances(shift_id,worker_id,application_id,check_in_at) VALUES($1,$2,$3,$4) RETURNING id`, [sh2, w2, app2, kst('2026-11-10 09:00')])).id;
+await db.query(`UPDATE public.shift_attendances SET check_out_at=$2 WHERE id=$1`, [att2, kst('2026-11-10 18:00')]);
+let wpi = await one(`SELECT * FROM public.wage_payment_instructions WHERE attendance_id=$1`, [att2]);
+ok(!!wpi && wpi.bank_account_id === null && wpi.gross_amount > 0, '계좌 없이 퇴근해도 지급 지시가 생김(계좌 칸은 빈 채)', JSON.stringify(wpi));
+ok(wpi.gross_amount === 96000, '09~18 시급 12,000 → 휴게 60분 빼고 8시간 96,000원', String(wpi?.gross_amount));
+await db.query(`INSERT INTO public.worker_bank_accounts(worker_id,bank_name,account_number_last4) VALUES($1,'카카오뱅크','7766')`, [w2]);
+wpi = await one(`SELECT * FROM public.wage_payment_instructions WHERE attendance_id=$1`, [att2]);
+ok(wpi.bank_name_snapshot === '카카오뱅크' && wpi.account_last4_snapshot === '7766' && !!wpi.bank_account_id, '나중에 주 계좌를 등록하면 승인 전 지급 지시에 채워짐');
+
+console.log('[① 공고 근무 정정 (D7)]');
+const w3 = (await one(`INSERT INTO public.workers(auth_user_id) VALUES(gen_random_uuid()) RETURNING id`)).id;
+const sh3 = await mkShift('2026-11-09', '09:00', '18:00');
+const app3 = (await one(`INSERT INTO public.shift_applications(shift_id,worker_id,status) VALUES($1,$2,'accepted') RETURNING id`, [sh3, w3])).id;
+const att3 = (await one(`INSERT INTO public.shift_attendances(shift_id,worker_id,application_id,check_in_at,late_minutes) VALUES($1,$2,$3,$4,40) RETURNING id`, [sh3, w3, app3, kst('2026-11-09 10:00')])).id;
+const correct = async (id, inAt, outAt, reason = '근무자 요청으로 퇴근 누락 보완') => {
+  try { return (await one(`SELECT public.correct_shift_attendance($1,$2::timestamptz,$3::timestamptz,$4) r`, [id, kst(inAt), kst(outAt), reason])).r; }
+  catch (e) { return { error: e.message }; }
+};
+await db.exec(`SET test.admin = 'off'`);
+r = await correct(att3, '2026-11-09 09:00', '2026-11-09 18:00');
+ok(/권한/.test(r.error ?? ''), '사업장 관리자가 아니면 거부', JSON.stringify(r));
+await db.exec(`SET test.admin = 'on'`);
+r = await correct(att3, '2026-11-09 09:00', '2026-11-09 18:00', '짧음');
+ok(/사유/.test(r.error ?? ''), '사유 5자 미만 거부');
+r = await correct(att3, '2026-11-09 09:00', '2026-11-10 10:00');
+ok(/24시간/.test(r.error ?? ''), '24시간 넘는 근무 거부');
+r = await correct(att3, '2026-11-07 09:00', '2026-11-07 18:00');
+ok(/근무일/.test(r.error ?? ''), '다른 날 출근 시각 거부');
+r = await correct(att3, '2026-11-09 09:00', '2099-01-01 18:00');
+ok(/지금보다/.test(r.error ?? ''), '미래 퇴근 시각 거부');
+r = await correct(att3, '2026-11-09 09:00', '2026-11-09 18:00');
+ok(r.ok === true && r.gross === 96000, '퇴근 누락을 18:00 으로 정정 → 96,000원 (지금 시각이 아님)', JSON.stringify(r));
+let a3 = await one(`SELECT * FROM public.shift_attendances WHERE id=$1`, [att3]);
+ok(a3.late_minutes === 0 && a3.check_out_method === 'ADMIN' && a3.manual_override_reason.includes('보완'), '지각 40분 → 0분으로 다시 계산, 처리 방식·사유 남김');
+ok((await one(`SELECT status FROM public.shift_applications WHERE id=$1`, [app3])).status === 'completed', '지원 상태 완료');
+wpi = await one(`SELECT * FROM public.wage_payment_instructions WHERE attendance_id=$1`, [att3]);
+ok(wpi?.gross_amount === 96000 && wpi.net_amount === 96000, '지급 지시 금액 96,000원');
+await db.query(`UPDATE public.wage_payment_instructions SET deduction_status='hospital_confirmed', income_tax_amount=1000, net_amount=95000 WHERE attendance_id=$1`, [att3]);
+r = await correct(att3, '2026-11-09 09:00', '2026-11-09 14:00', '실제 퇴근 14시로 정정합니다');
+ok(r.ok === true && r.gross === 54000, '이미 퇴근한 기록도 다시 정정 → 5시간−휴게30분 54,000원', JSON.stringify(r));
+wpi = await one(`SELECT * FROM public.wage_payment_instructions WHERE attendance_id=$1`, [att3]);
+ok(wpi.gross_amount === 54000 && wpi.net_amount === 54000 && wpi.deduction_status === 'unconfirmed' && wpi.income_tax_amount === 0, '금액이 바뀌면 확인했던 공제를 되돌려 다시 확인하게 함');
+a3 = await one(`SELECT early_leave_minutes FROM public.shift_attendances WHERE id=$1`, [att3]);
+ok(a3.early_leave_minutes === 230, '조퇴 분 다시 계산(18:00−14:00=240분 − 유예 10분)', String(a3.early_leave_minutes));
+const logs = (await db.query(`SELECT before_data, after_data FROM public.audit_logs WHERE entity_id=$1 AND action='attendance.shift_correct'`, [att3])).rows;
+ok(logs.length === 2 && !JSON.stringify(logs).includes('location'), '정정마다 감사 기록 1줄, 위치 좌표는 남기지 않음');
+await db.query(`UPDATE public.wage_payment_instructions SET status='approved' WHERE attendance_id=$1`, [att3]);
+r = await correct(att3, '2026-11-09 09:00', '2026-11-09 18:00');
+ok(/승인·지급/.test(r.error ?? ''), '승인된 지급 지시가 있으면 정정 거부');
+ok((await one(`SELECT gross_amount FROM public.wage_payment_instructions WHERE attendance_id=$1`, [att3])).gross_amount === 54000, '승인된 금액은 그대로');
+await db.query(`UPDATE public.wage_payment_instructions SET status='draft' WHERE attendance_id=$1`, [att3]);
+await db.query(`INSERT INTO public.attendance_period_closures VALUES($1,'2026-11-01','closed')`, [fac]);
+r = await correct(att3, '2026-11-09 09:00', '2026-11-09 18:00');
+ok(/마감/.test(r.error ?? ''), '마감된 달은 정정 거부');
+await db.exec(`DELETE FROM public.attendance_period_closures`);
+// 야간 근무: 전날 밤 출근 허용
+const sh4 = await mkShift('2026-11-11', '22:00', '06:00');
+const app4 = (await one(`INSERT INTO public.shift_applications(shift_id,worker_id,status) VALUES($1,$2,'accepted') RETURNING id`, [sh4, w3])).id;
+const att4 = (await one(`INSERT INTO public.shift_attendances(shift_id,worker_id,application_id,check_in_at) VALUES($1,$2,$3,$4) RETURNING id`, [sh4, w3, app4, kst('2026-11-11 21:55')])).id;
+r = await correct(att4, '2026-11-11 22:00', '2026-11-12 06:00', '야간 근무 퇴근 누락 보완');
+ok(r.ok === true && r.gross > 0, '야간 22~06 정정 통과(자정 넘김)', JSON.stringify(r));
 
 console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
