@@ -14,7 +14,7 @@ import { InstallGallery, InstallSteps, SafariToolbarPointer, installStepsFor } f
 //  · PC: 휴대폰으로 이어서 열 QR
 // 영상은 근무자 사이트(itdot.co.kr/demo/)의 파일을 그대로 쓴다 — 두 곳에 두면 다시 찍을 때 한쪽이 옛 영상으로 남는다.
 
-export type DemoKind = 'hospital' | 'gigworker';
+export type DemoKind = 'hospital' | 'gigworker' | 'dental';
 
 const CONTENT = {
   hospital: {
@@ -37,12 +37,24 @@ const CONTENT = {
     videoAria: '잇닿 단기·행사 근무자 화면 시연 영상',
     intro: 'https://itdot.co.kr/intro?role=admin&kind=gigworker',
   },
+  // 영업용 비공개 치과 시연(/demo/dental?key=…) — 링크 키가 맞을 때만 이 화면이 열린다. 설치한 앱을 열면 바로 이 치과 시연으로.
+  dental: {
+    title: '광교본치과의원 시연',
+    subtitle: '잇닿 관리자 · 치과 직원 출퇴근·연차·급여',
+    video: 'https://itdot.co.kr/demo/itdot-admin-demo.mp4',
+    poster: '/demo/admin-poster.jpg',
+    videoLabel: '관리자 화면 · 약 1분 35초',
+    videoAria: '잇닿 관리자 화면 시연 영상',
+    intro: 'https://itdot.co.kr/intro',
+  },
 } as const;
 
 const primaryButton = 'flex min-h-14 w-full items-center justify-center rounded-xl bg-primary px-4 text-[1rem] font-extrabold text-white shadow-btn active:opacity-80 disabled:opacity-60';
 
-export function DemoLanding({ kind }: { kind: DemoKind }) {
+export function DemoLanding({ kind, demoKey }: { kind: DemoKind; demoKey?: string }) {
   const content = CONTENT[kind];
+  const dental = kind === 'dental' && !!demoKey;
+  const tryHref = dental ? `/login?demo=dental&key=${encodeURIComponent(demoKey!)}` : `/login?demo=${kind}`;
   const install = usePwaInstall();
   const [info, setInfo] = useState<BrowserInfo | null>(null);
   const [standalone, setStandalone] = useState(false);
@@ -53,7 +65,10 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
   useEffect(() => {
     const url = window.location.href;
     setPageUrl(url);
-    setStandalone(isStandaloneApp());
+    const inApp = isStandaloneApp();
+    setStandalone(inApp);
+    // 설치한 치과 시연 앱 아이콘으로 열면 안내 없이 바로 시연으로
+    if (dental && inApp) { window.location.replace(tryHref); return; }
     const detected = detectBrowser(navigator.userAgent, navigator.maxTouchPoints);
     setInfo(detected);
     if (detected.kakao) openKakaoExternallyOnce(url);
@@ -76,7 +91,9 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
     {copied && <p role="status" className="mt-2 text-center text-[0.75rem] leading-5 text-sub">{copied}</p>}
   </div>;
 
-  const afterInstall = <p className="mt-3 rounded-2xl bg-primary/10 px-3 py-2.5 text-[0.8125rem] leading-5 text-ink">추가한 <b>잇닿 관리자</b> 아이콘을 누르면 로그인 화면이 열려요. 가입 전에는 그 화면의 <b>시연</b> 버튼으로 바로 둘러볼 수 있어요.</p>;
+  const afterInstall = dental
+    ? <p className="mt-3 rounded-2xl bg-primary/10 px-3 py-2.5 text-[0.8125rem] leading-5 text-ink">추가한 <b>잇닿 관리자</b> 아이콘을 누르면 <b>{content.title}</b>이 바로 열려요.</p>
+    : <p className="mt-3 rounded-2xl bg-primary/10 px-3 py-2.5 text-[0.8125rem] leading-5 text-ink">추가한 <b>잇닿 관리자</b> 아이콘을 누르면 로그인 화면이 열려요. 가입 전에는 그 화면의 <b>시연</b> 버튼으로 바로 둘러볼 수 있어요.</p>;
 
   function panel() {
     if (!info) return <div className="h-40 animate-pulse rounded-2xl bg-bg" aria-label="설치 방법을 확인하고 있어요" />;
@@ -98,7 +115,7 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
       {copyBlock}
     </>;
 
-    if (install.installed) return <Done title="✓ 설치했어요" text="홈 화면의 잇닿 관리자 아이콘을 눌러 열어 주세요." />;
+    if (install.installed) return <Done title="✓ 설치했어요" text={dental ? '홈 화면의 잇닿 관리자 아이콘을 누르면 시연이 바로 열려요.' : '홈 화면의 잇닿 관리자 아이콘을 눌러 열어 주세요.'} />;
     if (install.pending) return <Done title="설치하고 있어요" text="홈 화면에 잇닿 관리자 아이콘이 생기면 눌러 열어 주세요." />;
 
     const steps = installStepsFor(info);
@@ -172,8 +189,8 @@ export function DemoLanding({ kind }: { kind: DemoKind }) {
           <div className="mt-3">{panel()}</div>
         </section>
 
-        <a href={`/login?demo=${kind}`} className="mt-6 flex min-h-12 w-full items-center justify-center rounded-xl border border-line text-[0.875rem] font-bold text-primary active:bg-bg">{info && (standalone || install.installed) ? '바로 눌러 보기 →' : '설치 없이 바로 눌러 보기 →'}</a>
-        <p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">공용 시연 계정이에요. 실제 개인정보는 입력하지 마세요.</p>
+        <a href={tryHref} className="mt-6 flex min-h-12 w-full items-center justify-center rounded-xl border border-line text-[0.875rem] font-bold text-primary active:bg-bg">{info && (standalone || install.installed) ? '바로 눌러 보기 →' : '설치 없이 바로 눌러 보기 →'}</a>
+        <p className="mt-2 text-center text-[0.6875rem] leading-4 text-sub">{dental ? '이 치과 전용 시연이에요. 직원·근태·대화는 모두 예시 데이터예요.' : '공용 시연 계정이에요. 실제 개인정보는 입력하지 마세요.'}</p>
         <a href={content.intro} className="mb-10 mt-3 flex min-h-11 items-center justify-center text-[0.8125rem] font-bold text-sub">자세한 소개 보기</a>
       </div>
       {info && !info.kakao && !standalone && !install.installed && <SafariToolbarPointer info={info} />}

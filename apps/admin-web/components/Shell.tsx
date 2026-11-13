@@ -21,7 +21,7 @@ const FULLSCREEN_PREFIX = ['/checkin', '/chats/'];
 export function Shell({ children, facilityMode, gigBetaLocked = false, initialFacility, canPay = true }: { children: React.ReactNode; facilityMode: FacilityMode | null; gigBetaLocked?: boolean; initialFacility?:SwitcherFacility|null; canPay?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isPublic = pathname === '/privacy' || pathname === '/demo' || PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
+  const isPublic = pathname === '/privacy' || pathname === '/demo' || pathname === '/demo/dental' || PUBLIC_PREFIX.some((p) => pathname.startsWith(p));
   const isFullscreen = FULLSCREEN_PREFIX.some((p) => pathname.startsWith(p));
 
   // PWA: 설치 가능 조건 충족을 위해 앱 로드 시 SW 등록
