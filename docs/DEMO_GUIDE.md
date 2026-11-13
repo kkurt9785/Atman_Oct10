@@ -127,4 +127,5 @@ cd ~/atman/apps/worker-web && npm run dev   # localhost:3003
 - 계정 `sales-dental@demo.atman.co.kr`(비밀번호는 공개 시연과 같은 `DEMO_ACCOUNT_PASSWORD`) — 첫 링크 로그인 때 자동으로 만들어진다. 사업장 검색에는 안 나온다(BRN `DEMO-PRIVATE-*`).
 - 구성: 원장 = 시연 관리자, 실장 김은정·치과위생사 정유나/오세린/문가을·코디 한소율(5명 모두 근무자 앱 연결, 총원 5명, 요금제는 실제 치과가 쓸 Clinic 69,000원). 토요일 09:30~14:00, 오세린 수요일 야간 진료(~21:00), 지난달 1일~어제 근태, 오세린 오후 반차 신청 대기, 대화방(원장 말투). 모두 가상 데이터 — **실제 치과의 직원·근태가 아니다.**
 - 링크를 열 때마다 오늘 근태를 지금 시각 기준으로 다시 맞추고(`refresh_demo_dental_today`), 매일 08:30 되살리기에서 직원·지난달 근태를 새로 만든다(`refresh_demo_dental_workforce`). 시연 중 바꾼 것은 다음 날 아침 사라진다.
+- 영상(59초, 원장님 화면 8장 + 음성): `node scripts/capture_demo_screens.mjs admin-dental-live` → `node scripts/render_demo_videos.mjs dental` → `~/Downloads/itdot_dental_demo_20261113_latest.mp4` → `apps/admin-web/public/demo/dental-demo-<임의>.mp4`(+ `-poster.jpg`, `DemoLanding.tsx` CONTENT.dental). 캡처는 보기만 한다(승인·전송 없음), 급여는 지난달 화면.
 - 시험: `node scripts/qa-dental-demo-pglite.mjs`

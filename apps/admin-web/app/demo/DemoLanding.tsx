@@ -41,10 +41,11 @@ const CONTENT = {
   dental: {
     title: '광교본치과의원 시연',
     subtitle: '잇닿 관리자 · 치과 직원 출퇴근·연차·급여',
-    video: 'https://itdot.co.kr/demo/itdot-admin-demo.mp4',
-    poster: '/demo/admin-poster.jpg',
-    videoLabel: '관리자 화면 · 약 1분 35초',
-    videoAria: '잇닿 관리자 화면 시연 영상',
+    // 이 치과 시연 화면으로 찍은 영상(scripts/render_demo_videos.mjs dental). 파일 이름은 추측하기 어렵게.
+    video: '/demo/dental-demo-f6db20f1.mp4',
+    poster: '/demo/dental-demo-f6db20f1-poster.jpg',
+    videoLabel: '원장님 화면 · 약 1분',
+    videoAria: '광교본치과의원 시연 영상',
     intro: 'https://itdot.co.kr/intro',
   },
 } as const;

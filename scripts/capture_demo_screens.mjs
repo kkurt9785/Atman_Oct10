@@ -256,6 +256,51 @@ async function main() {
     // 알림 목록은 영상에 쓰지 않는다(2026-11-05: 같은 날 병원 QA 가 남긴 'QA-1105 … 테스트' 알림이 맨 위에 보였다). 확인용으로만 찍는다
     await go(`${workerOrigin}/notifications`); await shot('10-notifications');
     await go(`${workerOrigin}/home`); await shot('11-next-shifts');
+  } else if (target === 'admin-dental-live') {
+    // 영업용 비공개 치과 시연(광교본치과의원) — 링크 키로 로그인(키 값은 ~/atman/.env.dental-demo-link, 출력하지 않음).
+    // 보기만 한다: 연차 승인·반려, 대화 전송, 근태 수정은 누르지 않는다. 화면 아래 시연 안내 띠는 영상에서 가린다.
+    const linkEnv = await fs.readFile('.env.dental-demo-link', 'utf8');
+    const linkKey = linkEnv.match(/^DEMO_DENTAL_LINK_KEY=(.+)$/m)?.[1]?.trim();
+    if (!linkKey) throw new Error('.env.dental-demo-link 에 DEMO_DENTAL_LINK_KEY 가 없어요.');
+    const loginResponse = await fetch(`${adminOrigin}/api/demo-login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ demoKind: 'dental', key: linkKey }) });
+    const login = await loginResponse.json().catch(() => ({}));
+    if (!loginResponse.ok || !login.accessToken || !login.refreshToken) throw new Error(`치과 시연 로그인 실패(${loginResponse.status})`);
+    await go(`${adminOrigin}/login`);
+    const payload = JSON.parse(Buffer.from(login.accessToken.split('.')[1], 'base64url').toString());
+    const session = { access_token: login.accessToken, refresh_token: login.refreshToken, token_type: 'bearer', expires_in: 3600, expires_at: payload.exp, user: { id: payload.sub, email: 'sales-dental@demo.atman.co.kr', aud: 'authenticated', role: 'authenticated' } };
+    const key = await authStorageKey();
+    await cdp.send('Runtime.evaluate', { expression: `localStorage.setItem(${JSON.stringify(key)}, ${JSON.stringify(JSON.stringify(session))}); true` });
+    await cdp.send('Runtime.evaluate', { awaitPromise: true, expression: `(async () => {
+      const headers = { Authorization: 'Bearer ' + ${JSON.stringify(login.accessToken)}, 'content-type': 'application/json' };
+      if (!(await fetch('/api/admin-session', { method: 'POST', headers })).ok) throw new Error('관리자 세션 설정 실패');
+      if (!(await fetch('/api/set-facility', { method: 'POST', headers, body: JSON.stringify({ demoKind: 'dental' }) })).ok) throw new Error('시연 사업장 설정 실패');
+      return true; })()` });
+    const clean = async () => {
+      await cdp.send('Runtime.evaluate', { expression: `(() => { const bar = document.querySelector('[role="region"][aria-label="시연 안내"]'); if (bar) bar.style.display = 'none'; document.documentElement.style.setProperty('--demo-bar', '0px'); return true; })()` });
+      await sleep(200);
+    };
+    const scrollTo = async (expression, offset = 84) => {
+      await cdp.send('Runtime.evaluate', { expression: `(() => { const el = ${expression}; if (!el) return false; el.scrollIntoView({ block: 'start' }); window.scrollBy(0, -${offset}); return true; })()` });
+      await sleep(700);
+    };
+    await go(`${adminOrigin}/`); await waitFor(hasText('오늘 근무'));
+    // 홈 맨 위 체험 안내 카드는 닫고 찍는다(미팅 때도 닫힌 상태가 낫다)
+    await cdp.send('Runtime.evaluate', { expression: `Array.from(document.querySelectorAll('button')).find((b) => b.textContent?.trim() === '닫기')?.click(); true` });
+    await sleep(900); await clean(); await shot('01-home');
+    await go(`${adminOrigin}/timesheet`); await waitFor(hasText('오늘 근무자')); await sleep(1000); await clean(); await shot('02-timesheet');
+    await go(`${adminOrigin}/attendance-qr`); await waitFor(hasText('인증 방법'));
+    await scrollTo(`Array.from(document.querySelectorAll('h2,h3')).find((node) => node.textContent?.trim() === '인증 방법')`, 40); await clean(); await shot('03-attendance-methods');
+    await go(`${adminOrigin}/timesheet/week`); await waitFor(hasText('주간 근무표')); await sleep(800); await clean(); await shot('04-week');
+    await go(`${adminOrigin}/leave`); await waitFor(hasText('최근 휴가'));
+    await scrollTo(`Array.from(document.querySelectorAll('h2,h3')).find((node) => node.textContent?.trim() === '직원별 남은 연차')`, 84); await clean(); await shot('05-leave-balance');
+    await scrollTo(`Array.from(document.querySelectorAll('h2,h3')).find((node) => node.textContent?.trim() === '최근 휴가')`, 300); await clean(); await shot('05-leave-request');
+    await go(`${adminOrigin}/workroom`); await waitFor(hasText('비공개 대화')); await sleep(1000); await clean(); await shot('06-workroom');
+    await go(`${adminOrigin}/attendance-history`); await waitFor(hasText('근태 기록')); await sleep(800); await clean(); await shot('07-history');
+    // 이번 달은 '집계 중'(0원)이라 지난달 급여(직원별 금액)를 찍는다
+    const kstNow = new Date(Date.now() + 9 * 3600000); kstNow.setUTCDate(1); kstNow.setUTCMonth(kstNow.getUTCMonth() - 1);
+    const prevMonth = kstNow.toISOString().slice(0, 7);
+    await go(`${adminOrigin}/payroll?month=${prevMonth}`); await waitFor(hasText(`${Number(prevMonth.slice(5))}월 급여`)); await sleep(1200);
+    await scrollTo(`Array.from(document.querySelectorAll('h1,h2,h3,p,b')).find((node) => node.textContent?.trim() === ${JSON.stringify(`${prevMonth.slice(0, 4)}년 ${Number(prevMonth.slice(5))}월 급여`)})`, 110); await clean(); await shot('08-payroll-staff');
   } else {
     await go('https://itdot.co.kr/intro'); await shot('01-service-intro');
     await go(`${adminOrigin}/login`); await shot('01-login');

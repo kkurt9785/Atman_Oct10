@@ -41,6 +41,22 @@ const stories = {
       ['11-next-shifts', '오늘도, 잇닿과 함께', '다음 내 근무와 출퇴근 버튼, 근무 찾기까지 홈에서', '앱을 열면 다음 내 근무와 출퇴근 버튼이 맨 위에 보이고, 설정한 지역의 근무도 바로 찾아볼 수 있어요. 일한 시간과 지급 상태까지, 잇닿에서 직접 확인해요.'],
     ],
   },
+  // 영업용 비공개 치과 시연(광교본치과의원, 2026-11-13) — node scripts/capture_demo_screens.mjs admin-dental-live 로 찍은 프레임.
+  // 직원·근태는 모두 예시 데이터. 결과물은 admin-web public/demo 의 치과 시연 영상으로 쓴다(docs/DEMO_GUIDE.md).
+  dental: {
+    source: '/private/tmp/atman-video-admin-dental-live',
+    output: path.join(downloads, 'itdot_dental_demo_20261113_latest.mp4'),
+    scenes: [
+      ['01-home', '원장님 홈', '오늘 근무·확인할 일', '광교본치과의원 원장님 화면이에요. 앱을 열면 오늘 근무할 직원 수와 연차 신청처럼 확인할 일이 홈에 바로 모여 있어요.'],
+      ['02-timesheet', '오늘 근태', '출근하기 한 번이면 실시간 기록', '직원이 근무자 앱에서 출근하기를 누르면 오늘 근태에 바로 기록돼요. 누가 근무 중인지, 몇 시에 출근했는지 실시간으로 보여요.'],
+      ['03-attendance-methods', '출근 인증', '위치 → 큐알·와이파이로 보완', '출근은 치과 위치로 확인해요. 건물 안이라 위치가 불안정하면 화면에 띄운 큐알이나 치과 와이파이로 보완할 수 있어요.'],
+      ['04-week', '주간 근무표', '토요일 오전·수요일 야간 진료', '주간 근무표에서는 토요일 오전 진료나 수요일 야간 진료처럼 요일마다 다른 근무 시간과 반차까지 한눈에 봐요.'],
+      ['05-leave-request', '연차·반차', '신청 알림 → 승인 한 번', '직원이 앱으로 반차를 신청하면 알림이 와요. 직원별 남은 연차를 보면서 승인이나 반려를 바로 눌러요.'],
+      ['06-workroom', '직원 대화', '개인 번호 없이 공지·1:1·출석 확인', '직원과의 대화도 개인 번호 없이 앱 안에서 해요. 전체 공지와 직원별 비공개 대화를 나눠 쓰고, 교육 같은 일정은 출석 확인으로 받아요.'],
+      ['07-history', '근태 기록', '확인 필요만 따로, 수정은 이력과 함께', '근태 기록은 날마다 쌓이고, 지각이나 조퇴처럼 확인이 필요한 기록만 따로 모여요. 고칠 때는 사유와 함께 이력이 남아요.'],
+      ['08-payroll-staff', '급여', '근태로 직원별 세전 급여', '월말에는 근태를 바탕으로 직원별 세전 급여를 미리 계산해 줘요. 출퇴근부터 연차, 급여까지, 잇닿 하나로 정리해요.'],
+    ],
+  },
   gig: {
     source: '/private/tmp/atman-video-worker-gig-live',
     output: path.join(downloads, `itdot_gig_demo_${date}_latest.mp4`),
@@ -133,5 +149,5 @@ async function render(kind) {
 }
 
 const kind = process.argv[2];
-if (!stories[kind]) throw new Error('Usage: node scripts/render_demo_videos.mjs admin|worker|gig');
+if (!stories[kind]) throw new Error('Usage: node scripts/render_demo_videos.mjs admin|worker|gig|dental');
 await render(kind);
