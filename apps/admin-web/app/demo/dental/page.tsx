@@ -16,6 +16,15 @@ export async function generateMetadata({ searchParams }: { searchParams: Params 
     description: '치과 직원 출퇴근·연차·급여를 잇닿 관리자 앱으로 미리 보세요.',
     // 설치 정보도 이 링크 전용 — 설치한 앱의 시작 주소가 이 치과 시연이 된다
     ...(valid ? { manifest: `/demo/dental/manifest?key=${encodeURIComponent(key)}` } : {}),
+    // 카카오톡 미리보기(썸네일·제목). og:url 은 넣지 않는다 — 미리보기가 키 없는 주소로 열리면 '링크 만료' 화면이 된다
+    ...(valid ? {
+      openGraph: {
+        title: `${DENTAL_DEMO_NAME} 시연 — 잇닿 관리자`,
+        description: '원장님 화면 1분 영상 보고 관리자 앱을 바로 설치하세요.',
+        type: 'website',
+        images: [{ url: 'https://admin.itdot.co.kr/og/demo.png', width: 1200, height: 630, alt: '잇닿 관리자 앱 — 영상 보고 바로 설치' }],
+      },
+    } : {}),
     robots: { index: false, follow: false },
     referrer: 'no-referrer',
   };
