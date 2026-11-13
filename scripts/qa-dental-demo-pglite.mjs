@@ -1,4 +1,4 @@
-// 비공개 치과 시연(20261113120000) DB 시험 — Docker 없이 PGlite(메모리 Postgres). 운영·연결 DB 를 쓰지 않는다.
+// 비공개 치과 시연(20261113120000·130000) DB 시험 — Docker 없이 PGlite(메모리 Postgres). 운영·연결 DB 를 쓰지 않는다.
 // 실행: npm i --no-save @electric-sql/pglite@0.2.17 && node scripts/qa-dental-demo-pglite.mjs
 import { PGlite } from '@electric-sql/pglite';
 import { readFileSync } from 'node:fs';
@@ -14,7 +14,6 @@ const all = async (s, p) => (await db.query(s, p)).rows;
 await db.exec(`
 CREATE SCHEMA auth; CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
 CREATE TABLE auth.users(id uuid PRIMARY KEY, email text);
-CREATE FUNCTION public.ensure_demo_subscriptions() RETURNS void LANGUAGE sql AS $$ SELECT $$;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('test.uid', true),'')::uuid $$;
 CREATE DOMAIN public.geography AS text;
 CREATE FUNCTION public.ST_MakePoint(x float8, y float8) RETURNS text LANGUAGE sql AS $$ SELECT x||','||y $$;
@@ -22,7 +21,9 @@ CREATE FUNCTION public.ST_SetSRID(g text, s int) RETURNS text LANGUAGE sql AS $$
 CREATE TABLE public.facilities(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text, facility_type text, business_registration_number text UNIQUE,
   representative_name text, address_text text, location public.geography, contact_name text, contact_phone text, contact_email text,
   is_active boolean DEFAULT true, approved_at timestamptz, is_demo boolean DEFAULT false, deleted_at timestamptz, admin_user_id uuid,
-  invite_code_hash text, invite_code_expires_at timestamptz);
+  invite_code_hash text, invite_code_expires_at timestamptz, registration_source text, employee_count int);
+CREATE TABLE public.facility_subscriptions(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), facility_id uuid, plan_code text, status text, billing_cycle text,
+  trial_started_at timestamptz, trial_ends_at timestamptz, current_period_start date, current_period_end date, cancel_at_period_end boolean, updated_at timestamptz DEFAULT now());
 CREATE TABLE public.profiles(id uuid PRIMARY KEY, role text);
 CREATE TABLE public.workers(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), kakao_id text UNIQUE NOT NULL, name text NOT NULL, phone text, birth_date date NOT NULL,
   role text NOT NULL, verification_status text, verified_at timestamptz, experience_years text, last_workplace text, department_tags text[],
@@ -42,6 +43,7 @@ CREATE TABLE public.staff_leave_requests(id uuid PRIMARY KEY DEFAULT gen_random_
   leave_type text, half_day_period text, start_date date, end_date date, requested_minutes int, reason text, status text);
 `);
 await db.exec(grab(read('20261110100000_dental_beta_roles_weekday_hours_leave_notify.sql'), /CREATE OR REPLACE FUNCTION public\.staff_start_time_on[\s\S]*?\$\$;\s*CREATE OR REPLACE FUNCTION public\.staff_end_time_on[\s\S]*?\$\$;/));
+await db.exec(grab(read('20261002120000_demo_plan_and_trial_on_claim.sql'), /CREATE OR REPLACE FUNCTION public\.ensure_demo_subscriptions\(\)[\s\S]*?\n\$\$;/));
 const inbox = read('20261112150000_notification_qa_and_demo_inbox.sql');
 await db.exec(grab(inbox, /CREATE OR REPLACE FUNCTION public\.seed_demo_workroom\(p_facility_id uuid\)[\s\S]*?\n\$\$;/));
 await db.exec(grab(inbox, /CREATE OR REPLACE FUNCTION public\.seed_demo_workrooms_for\(p_user uuid\)[\s\S]*?\n\$\$;/));
@@ -94,5 +96,14 @@ await db.exec(`SET test.uid='${uid}'`);
 await db.query(`INSERT INTO public.facilities(name,facility_type,business_registration_number,is_demo) VALUES('본치과 공개시연','small_hospital','DEMO-TARGET-9999',true)`);
 const found = await all(`SELECT name FROM public.search_claimable_facilities('본치과')`);
 ok(found.length === 1 && found[0].name === '본치과 공개시연', '사업장 검색에 광교본치과의원은 안 나옴(공개 시연은 그대로)', JSON.stringify(found));
+console.log('[다듬기 20261113130000]');
+await db.query(`INSERT INTO public.facility_subscriptions(facility_id,plan_code,status,billing_cycle) VALUES($1,'pro','active','monthly')`, [f.id]).catch(()=>{});
+const pol = read('20261113130000_dental_demo_polish.sql');
+await db.exec(pol); await db.exec(pol);
+ok((await one(`SELECT count(worker_id)::int c FROM public.facility_staff WHERE facility_id=$1`, [f.id])).c === 5, '직원 5명 모두 앱 연결');
+ok((await one(`SELECT employee_count c FROM public.facilities WHERE id=$1`, [f.id])).c === 5, '총원 5명');
+const plans = await all(`SELECT f.name, s.plan_code FROM public.facility_subscriptions s JOIN public.facilities f ON f.id=s.facility_id WHERE s.status='active' ORDER BY f.name`);
+ok(plans.find((x) => x.name === '광교본치과의원')?.plan_code === 'clinic' && plans.find((x) => x.name === '본치과 공개시연')?.plan_code === 'pro', '치과 시연만 Clinic, 다른 시연은 Pro 그대로', JSON.stringify(plans));
+ok((await one(`SELECT count(*)::int c FROM public.staff_attendances WHERE facility_id=$1`, [f.id])).c > 100, '근태 기록 다시 채워짐');
 console.log(`\n결과: ${pass} 통과 / ${fail} 실패`);
 process.exit(fail ? 1 : 0);
