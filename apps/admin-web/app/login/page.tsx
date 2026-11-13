@@ -54,6 +54,13 @@ function LoginInner() {
   }, [entryMode]);
   useEffect(() => {
     if (!showDemoLogin || !demoParam) return;
+    // 영업용 비공개 치과 시연: /login?demo=dental&key=… — 키는 서버가 확인하고, 주소창에서는 바로 지운다
+    if (demoParam === 'dental') {
+      const linkKey = searchParams.get('key') ?? '';
+      try { window.history.replaceState(null, '', '/login'); } catch {}
+      void handleDemoLogin('', 'dental', linkKey);
+      return;
+    }
     const target = DEMO_ACCOUNTS.find((account) => account.key === demoParam) ?? null;
     if (target) void handleDemoLogin(target.email, target.demoKind);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,7 +90,7 @@ function LoginInner() {
   }
 
   // 데모 로그인 — 클라이언트 로그인 후 HttpOnly 서버 세션·시설 컨텍스트를 순서대로 수립
-  async function handleDemoLogin(email: string, demoKind?: string) {
+  async function handleDemoLogin(email: string, demoKind?: string, linkKey?: string) {
     if(demoStarting.current||loading)return;
     demoStarting.current=true;
     let switched=false;
@@ -91,11 +98,11 @@ function LoginInner() {
     setDemoError('');
     try {
       const {data:existing}=await supabase.auth.getSession();
-      if(existing.session&&!existing.session.user.email?.toLowerCase().endsWith('@demo.atman.co.kr')&&!window.confirm('현재 로그인된 계정 대신 공개 시연 계정으로 전환할까요? 실제 계정으로 돌아오려면 다시 로그인해야 해요.')) {setDemoLoadingKey(null);return;}
+      if(existing.session&&!existing.session.user.email?.toLowerCase().endsWith('@demo.atman.co.kr')&&!window.confirm(`현재 로그인된 계정 대신 ${demoKind==='dental'?'':'공개 '}시연 계정으로 전환할까요? 실제 계정으로 돌아오려면 다시 로그인해야 해요.`)) {setDemoLoadingKey(null);return;}
       const loginRes = await fetch('/api/demo-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(demoKind === 'dental' ? { demoKind, key: linkKey } : { email }),
       });
       const loginData = await loginRes.json().catch(() => ({}));
       if (!loginRes.ok || !loginData.accessToken || !loginData.refreshToken) {

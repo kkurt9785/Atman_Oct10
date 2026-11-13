@@ -368,6 +368,9 @@ export async function reviveDemoShowcase(): Promise<ReviveSummary> {
   if (careMonth.status !== 200) {
     throw new Error(`care month history refresh failed: ${careMonth.status} ${JSON.stringify(careMonth.data)}`);
   }
+  // 영업용 비공개 치과 시연(광교본치과의원) — 직원·지난달·오늘 근태를 다시 만든다. 공개 시연과 따로라 실패해도 되살리기는 계속한다.
+  const dentalWorkforce = await req('POST', '/rest/v1/rpc/refresh_demo_dental_workforce', {}).catch(() => null);
+  if (!dentalWorkforce || dentalWorkforce.status !== 200) console.warn('[revive] private dental demo refresh skipped', dentalWorkforce?.status);
   // 쇼케이스 open 공고 생성이 끝난 뒤 실행해야 demo-1 지원이 항상 살아난다.
   const demo1Application = await req('POST', '/rest/v1/rpc/ensure_demo1_wf_application', {});
   if (demo1Application.status !== 200) {

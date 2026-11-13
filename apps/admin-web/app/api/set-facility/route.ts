@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSession, setAdminSessionCookie, setFacilityContextCookie } from '@/lib/admin-auth';
 import { adminClient, bearerToken } from '@/lib/supabase';
 import { listAccessibleFacilities } from '@/lib/facility';
+import { DENTAL_DEMO_EMAIL, DENTAL_DEMO_NAME, ensureDentalDemoAccess } from '@/lib/demo/private-dental';
 
 const GIGWORKER_DEMO_ADMIN = 'sales-demo-1@demo.atman.co.kr';
 const GIGWORKER_DEMO_BRN = 'DEMO-GIGWORKER-2026';
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({})) as { facilityId?: string; demoKind?: string };
   const wantsGigworkerDemo = body.demoKind === 'gigworker' && session.user.email === GIGWORKER_DEMO_ADMIN;
   if (wantsGigworkerDemo) await ensureGigworkerDemoAccess(session.user.id);
+  // 비공개 치과 시연 계정은 언제 들어와도 그 치과로(접근 권한이 빠졌으면 다시 넣는다)
+  const isDentalDemo = session.user.email?.toLowerCase() === DENTAL_DEMO_EMAIL;
+  if (isDentalDemo) await ensureDentalDemoAccess(session.user.id);
   const facilities = await listAccessibleFacilities();
   const gigworkerDemoTarget = wantsGigworkerDemo
     ? facilities.find((facility) => isGigworkerFacility(facility) && facility.is_demo === true)
@@ -42,7 +46,9 @@ export async function POST(req: NextRequest) {
   if(wantsGigworkerDemo&&!gigworkerDemoTarget) {
     return NextResponse.json({error:'단기근무 시연 현장을 준비하지 못했어요. 잠시 후 다시 시도해 주세요.'},{status:503});
   }
-  const demoTarget = gigworkerDemoTarget ?? (session.user.email==='sales-demo-1@demo.atman.co.kr'
+  const demoTarget = gigworkerDemoTarget ?? (isDentalDemo
+    ? facilities.find((facility)=>facility.name===DENTAL_DEMO_NAME&&facility.is_demo===true)
+    : session.user.email==='sales-demo-1@demo.atman.co.kr'
     ? facilities.find((facility)=>facility.name==='W여성병원'&&facility.is_demo===true)
     : session.user.email==='sales-demo-2@demo.atman.co.kr'
       ? facilities.find((facility)=>facility.facility_type==='pharmacy'&&facility.is_demo===true)
